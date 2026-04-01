@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
@@ -57,6 +58,19 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     _VisitorPriceFilter.free,
     _VisitorPriceFilter.paid,
   };
+
+  @override
+  void initState() {
+    super.initState();
+    testFirestore();
+  }
+
+  void testFirestore() async {
+    final snapshot =
+        await FirebaseFirestore.instance.collection('events').get();
+
+    print("Documents found: ${snapshot.docs.length}");
+  }
 
   @override
   void dispose() {
@@ -961,112 +975,25 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   }
 
   Widget _buildDiscoverBody() {
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _discoverItemsStream(),
+    return StreamBuilder(
+      stream: FirebaseFirestore.instance.collection('events').snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData) {
+          return const CircularProgressIndicator();
         }
 
-        if (snapshot.hasError) {
-          final message = AppErrorMessages.fromException(
-            snapshot.error,
-            fallback: 'Unable to load events right now. Please try again.',
-          );
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: InlineStatusMessage(
-                message: message,
-                type: InlineStatusType.error,
-                actionLabel: 'Retry',
-                onAction: () => setState(() {}),
-              ),
-            ),
-          );
-        }
+        final docs = snapshot.data!.docs;
 
-        final allItems = snapshot.data ?? [];
-        final filteredItems = <Map<String, dynamic>>[
-          ..._filterItems(allItems, section: _VisitorFilterSection.events),
-          ..._filterItems(allItems, section: _VisitorFilterSection.historical),
-          ..._filterItems(allItems, section: _VisitorFilterSection.food),
-          ..._filterItems(allItems, section: _VisitorFilterSection.stadiums),
-        ];
+        return ListView.builder(
+          itemCount: docs.length,
+          itemBuilder: (context, index) {
+            final data = docs[index];
 
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Welcome, ${VisitorAuth.currentVisitor?.name ?? 'Visitor'}',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: AppPalette.charcoal,
-                    ),
-                  ),
-                ),
-                IconButton.filledTonal(
-                  tooltip: 'Notifications',
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const VisitorNotificationsScreen(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.notifications_none_rounded),
-                  color: AppPalette.deepBlue,
-                ),
-                const SizedBox(width: 8),
-                IconButton.filledTonal(
-                  tooltip: 'Interested events',
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const VisitorInterestedEventsScreen(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.favorite_rounded),
-                  color: AppPalette.ochre,
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Discover Brisbane events, heritage, and food experiences',
-              style: TextStyle(
-                color: AppPalette.mutedText,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 14),
-            _buildSearchBar(),
-            _buildActiveFilterChips(),
-            const SizedBox(height: 14),
-            _buildMapBanner(),
-            const SizedBox(height: 18),
-            if (filteredItems.isEmpty)
-              const _EmptyState(
-                title: 'No discovery items available',
-                subtitle:
-                    'Try changing your search or filters to see more results.',
-              )
-            else ...[
-              const _SectionHeader(
-                title: 'Discovery Feed',
-                subtitle:
-                    'Cultural events, food, historical places and stadiums',
-              ),
-              ...filteredItems.map(_buildEventCard),
-            ],
-          ],
+            return ListTile(
+              title: Text(data['title'] ?? 'No title'),
+              subtitle: Text(data['location'] ?? 'No location'),
+            );
+          },
         );
       },
     );

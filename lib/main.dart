@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
 import 'package:brisconnect/auth/app_user_role.dart';
 import 'package:brisconnect/screens/admin_dashboard_screen.dart';
 import 'package:brisconnect/screens/local_portal_screen.dart';
@@ -16,13 +15,7 @@ import 'package:brisconnect/widgets/role_guard.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (kIsWeb) {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-  } else if (Firebase.apps.isEmpty) {
-    await Firebase.initializeApp();
-  }
+  await Firebase.initializeApp();
 
   // Enable offline persistence with unlimited cache so Firestore
   // survives transient network drops on the emulator and real devices.
