@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/models/event_item.dart';
 import 'package:brisconnect/theme/app_palette.dart';
+import 'package:brisconnect/widgets/audio_guide_widget.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 
 class EventDetailScreen extends StatelessWidget {
@@ -8,8 +9,25 @@ class EventDetailScreen extends StatelessWidget {
 
   const EventDetailScreen({super.key, required this.event});
 
+  String _buildNarrationText() {
+    final parts = <String>[
+      'Welcome to ${event.title}',
+      if (event.date.trim().isNotEmpty || event.time.trim().isNotEmpty)
+        'Here\'s when to be there: ${[
+          event.date,
+          event.time
+        ].where((value) => value.trim().isNotEmpty).join(' at ')}',
+      if (event.location.trim().isNotEmpty)
+        'The event is happening at ${event.location}',
+      if (event.description.trim().isNotEmpty)
+        'Here\'s the experience in a nutshell. ${event.description}',
+    ];
+    return '${parts.where((part) => part.trim().isNotEmpty).join('. ')}.';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final narrationText = _buildNarrationText();
     return Scaffold(
       backgroundColor: AppPalette.background,
       appBar: AppBar(
@@ -78,6 +96,23 @@ class EventDetailScreen extends StatelessWidget {
                     color: AppPalette.charcoal,
                   ),
                 ),
+                if (narrationText.isNotEmpty) ...[
+                  const SizedBox(height: 18),
+                  const Text(
+                    'Audio Guide',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppPalette.charcoal,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  AudioGuideWidget(
+                    narrationText: narrationText,
+                    helperText:
+                        'Listen to a short guided intro to the event, timing, and location.',
+                  ),
+                ],
               ],
             ),
           ),

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/models/event_item.dart';
+import 'package:brisconnect/models/simple_event.dart';
 import 'package:brisconnect/screens/event_detail_screen.dart';
-import 'package:brisconnect/screens/event_list_screen.dart';
 import 'package:brisconnect/screens/event_map_screen.dart';
 import 'package:brisconnect/screens/visitor_interested_events_screen.dart';
 import 'package:brisconnect/screens/visitor_notifications_screen.dart';
-import 'package:brisconnect/services/event_repository.dart';
+import 'package:brisconnect/services/firestore_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 
@@ -19,6 +19,8 @@ class EventsListScreen extends StatefulWidget {
 
 class _EventsListScreenState extends State<EventsListScreen> {
   DateTime? _selectedDate;
+  final FirestoreService _firestoreService = FirestoreService();
+  List<EventItem> _latestApprovedEvents = const <EventItem>[];
 
   void _toggleInterested(EventItem event) {
     if (!VisitorAuth.isVisitorLoggedIn) {
@@ -120,8 +122,7 @@ class _EventsListScreenState extends State<EventsListScreen> {
     return '$day/$month/$year';
   }
 
-  List<EventItem> _getFilteredEvents() {
-    final approved = EventRepository.getApprovedEvents();
+  List<EventItem> _getFilteredEvents(List<EventItem> approved) {
     if (_selectedDate == null) {
       return approved;
     }
@@ -132,10 +133,58 @@ class _EventsListScreenState extends State<EventsListScreen> {
     }).toList();
   }
 
+  EventItem _eventFromMap(Map<String, dynamic> map) {
+    final status = (map['reviewStatus'] as String? ?? '').trim().toLowerCase();
+    final reviewStatus = status == 'pending'
+        ? EventReviewStatus.pending
+        : status == 'rejected'
+            ? EventReviewStatus.rejected
+            : EventReviewStatus.approved;
+
+    return EventItem(
+      id: (map['id'] as String?)?.trim().isNotEmpty == true
+          ? (map['id'] as String).trim()
+          : '${((map['title'] as String?) ?? 'event').trim()}-${((map['date'] as String?) ?? 'unknown').trim()}',
+      title: ((map['title'] as String?) ?? 'Untitled Event').trim(),
+      date: ((map['date'] as String?) ?? 'Date TBA').trim(),
+      time: ((map['time'] as String?) ?? 'Time TBA').trim(),
+      location: ((map['location'] as String?) ?? 'Location TBA').trim(),
+      description: ((map['description'] as String?) ?? '').trim(),
+      reviewStatus: reviewStatus,
+      createdByLocalEmail: (map['createdByLocalEmail'] as String?)?.trim(),
+      latitude: _toDouble(map['latitude']),
+      longitude: _toDouble(map['longitude']),
+    );
+  }
+
+  double? _toDouble(Object? value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      return double.tryParse(value);
+    }
+    return null;
+  }
+
+  List<SimpleEvent> _toSimpleEvents(List<EventItem> events) {
+    return events
+        .map(
+          (event) => SimpleEvent(
+            title: event.title,
+            date: event.date,
+            location: event.location,
+            description: event.description,
+            isApproved: event.isApproved,
+            lat: event.latitude ?? -27.4698,
+            lng: event.longitude ?? 153.0251,
+          ),
+        )
+        .toList(growable: false);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final events = _getFilteredEvents();
-
     return Scaffold(
       backgroundColor: AppPalette.background,
       appBar: AppBar(
@@ -183,109 +232,131 @@ class _EventsListScreenState extends State<EventsListScreen> {
           IconButton(
             icon: const Icon(Icons.map),
             tooltip: 'View on map',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => EventMapScreen(
-                    events: EventListScreen.allEvents
-                        .where((e) => e.isApproved)
-                        .toList(),
-                  ),
-                ),
-              );
-            },
+            onPressed: _latestApprovedEvents.isEmpty
+                ? null
+                : () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EventMapScreen(
+                          events: _toSimpleEvents(_latestApprovedEvents),
+                        ),
+                      ),
+                    );
+                  },
           ),
         ],
       ),
-      body: Column(
-        children: [
-          if (_selectedDate != null)
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppPalette.surfaceAlt,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppPalette.border),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.event, size: 18, color: AppPalette.ochre),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Selected date: ${_formatSelectedDate(_selectedDate!)}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w500,
-                      color: AppPalette.charcoal,
-                    ),
+      body: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: _firestoreService.getEvents(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return const Center(child: Text('Unable to load events right now.'));
+          }
+
+          final approvedEvents = (snapshot.data ?? const <Map<String, dynamic>>[])
+              .map(_eventFromMap)
+              .where((event) => event.isApproved)
+              .toList(growable: false);
+
+            _latestApprovedEvents = approvedEvents;
+
+          final events = _getFilteredEvents(approvedEvents);
+
+          return Column(
+            children: [
+              if (_selectedDate != null)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppPalette.surfaceAlt,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppPalette.border),
                   ),
-                ],
-              ),
-            ),
-          Expanded(
-            child: events.isEmpty
-                ? const Center(child: Text('No events available'))
-                : ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: events.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final event = events[index];
-                      return Card(
-                        color: AppPalette.surface,
-                        child: ListTile(
-                          leading: const Icon(Icons.event, color: AppPalette.ochre),
-                          title: Text(
-                            event.title,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppPalette.charcoal,
-                            ),
-                          ),
-                          subtitle: Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Date: ${event.date}'),
-                                Text('Location: ${event.location}'),
-                              ],
-                            ),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                tooltip: 'Mark interested',
-                                onPressed: () => _toggleInterested(event),
-                                icon: Icon(
-                                  VisitorAuth.isInterestedInEvent(event.id)
-                                      ? Icons.favorite_rounded
-                                      : Icons.favorite_border_rounded,
-                                  color: VisitorAuth.isInterestedInEvent(event.id)
-                                      ? AppPalette.ochre
-                                      : AppPalette.deepBlue,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.event, size: 18, color: AppPalette.ochre),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Selected date: ${_formatSelectedDate(_selectedDate!)}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: AppPalette.charcoal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              Expanded(
+                child: events.isEmpty
+                    ? const Center(child: Text('No events available'))
+                    : ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: events.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final event = events[index];
+                          return Card(
+                            color: AppPalette.surface,
+                            child: ListTile(
+                              leading: const Icon(Icons.event, color: AppPalette.ochre),
+                              title: Text(
+                                event.title,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: AppPalette.charcoal,
                                 ),
                               ),
-                              const Icon(Icons.arrow_forward_ios, size: 14),
-                            ],
-                          ),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => EventDetailScreen(event: event),
+                              subtitle: Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Date: ${event.date}'),
+                                    Text('Location: ${event.location}'),
+                                  ],
+                                ),
                               ),
-                            );
-                          },
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    tooltip: 'Mark interested',
+                                    onPressed: () => _toggleInterested(event),
+                                    icon: Icon(
+                                      VisitorAuth.isInterestedInEvent(event.id)
+                                          ? Icons.favorite_rounded
+                                          : Icons.favorite_border_rounded,
+                                      color: VisitorAuth.isInterestedInEvent(event.id)
+                                          ? AppPalette.ochre
+                                          : AppPalette.deepBlue,
+                                    ),
+                                  ),
+                                  const Icon(Icons.arrow_forward_ios, size: 14),
+                                ],
+                              ),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => EventDetailScreen(event: event),
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

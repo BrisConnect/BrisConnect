@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/models/event_item.dart';
-import 'package:brisconnect/services/event_repository.dart';
+import 'package:brisconnect/services/local_event_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 
@@ -19,6 +19,7 @@ class LocalEditEventScreen extends StatefulWidget {
 
 class _LocalEditEventScreenState extends State<LocalEditEventScreen> {
   final _formKey = GlobalKey<FormState>();
+  final LocalEventService _localEventService = LocalEventService();
   late final TextEditingController _titleController;
   late final TextEditingController _locationController;
   late final TextEditingController _descriptionController;
@@ -111,7 +112,7 @@ class _LocalEditEventScreenState extends State<LocalEditEventScreen> {
     }
   }
 
-  void _saveChanges() {
+  Future<void> _saveChanges() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -133,15 +134,32 @@ class _LocalEditEventScreenState extends State<LocalEditEventScreen> {
 
     setState(() => _isSaving = true);
 
-    final didUpdate = EventRepository.updateEventForLocal(
-      originalEvent: widget.event,
-      localEmail: localEmail,
-      title: _titleController.text.trim(),
-      date: _formatDate(_selectedDate!),
-      location: _locationController.text.trim(),
-      description: _descriptionController.text.trim(),
-    );
+    bool didUpdate = false;
+    try {
+      didUpdate = await _localEventService.updateSubmittedEvent(
+        eventId: widget.event.id,
+        localEmail: localEmail,
+        title: _titleController.text.trim(),
+        date: _formatDate(_selectedDate!),
+        location: _locationController.text.trim(),
+        description: _descriptionController.text.trim(),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not save your event changes. Please try again.'),
+        ),
+      );
+      return;
+    }
 
+    if (!mounted) {
+      return;
+    }
     setState(() => _isSaving = false);
 
     if (!didUpdate) {
@@ -153,9 +171,6 @@ class _LocalEditEventScreenState extends State<LocalEditEventScreen> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Event updated successfully.')),
-    );
     Navigator.pop(context, true);
   }
 

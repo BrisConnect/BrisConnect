@@ -1,168 +1,658 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:brisconnect/models/discover_event.dart';
 import 'package:brisconnect/models/food_place.dart';
 import 'package:brisconnect/models/historical_sight.dart';
+import 'package:brisconnect/models/stadium_venue.dart';
+
+enum DiscoverSeedResult { seeded, alreadySeeded, permissionDenied, failed }
 
 class DiscoverDataService {
-  // Brisbane City Council events/open data integration placeholder.
-  // Example source for future integration:
-  // https://www.data.brisbane.qld.gov.au/
+  DiscoverDataService({
+    FirebaseFirestore? firestore,
+    bool enableSeedDefaults = true,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _enableSeedDefaults = enableSeedDefaults;
+
+  final FirebaseFirestore _firestore;
+  final bool _enableSeedDefaults;
+
+  Future<DiscoverSeedResult> ensureSeeded() async {
+    if (!_enableSeedDefaults) {
+      return DiscoverSeedResult.alreadySeeded;
+    }
+    try {
+      final seedDoc =
+          _firestore.collection('seed_metadata').doc('discover_catalog_v5');
+      final seedSnapshot = await seedDoc.get();
+      if (seedSnapshot.exists) {
+        return DiscoverSeedResult.alreadySeeded;
+      }
+
+      final batch = _firestore.batch();
+
+      for (final item in _discoverSeedItems) {
+        batch.set(
+          _firestore.collection('discover_items').doc(item['id'] as String),
+          item,
+          SetOptions(merge: true),
+        );
+      }
+
+      for (final item in _approvedAttractionSeedItems) {
+        batch.set(
+          _firestore.collection('attractions').doc(item['id'] as String),
+          item,
+          SetOptions(merge: true),
+        );
+      }
+
+      for (final item in _eventSeedItems) {
+        batch.set(
+          _firestore.collection('events').doc(item['id'] as String),
+          item,
+          SetOptions(merge: true),
+        );
+      }
+
+      batch.set(
+        seedDoc,
+        {
+          'version': 1,
+          'seededAt': FieldValue.serverTimestamp(),
+          'discoverItemCount': _discoverSeedItems.length,
+          'attractionCount': _approvedAttractionSeedItems.length,
+          'eventCount': _eventSeedItems.length,
+        },
+        SetOptions(merge: true),
+      );
+
+      await batch.commit();
+      debugPrint(
+          '[DiscoverDataService] Seeded discovery catalog into Firestore.');
+      return DiscoverSeedResult.seeded;
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') {
+        debugPrint('[DiscoverDataService] Seed denied by Firestore rules.');
+        return DiscoverSeedResult.permissionDenied;
+      }
+      debugPrint('[DiscoverDataService] Seed skipped: $error');
+      return DiscoverSeedResult.failed;
+    } catch (error) {
+      debugPrint('[DiscoverDataService] Seed skipped: $error');
+      return DiscoverSeedResult.failed;
+    }
+  }
+
+  Stream<List<Map<String, dynamic>>> watchApprovedDiscoverItems() {
+    return _firestore
+        .collection('discover_items')
+        .where('approvalStatus', isEqualTo: 'approved')
+        .snapshots()
+        .map((snapshot) {
+      final items = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          ...data,
+          'id': (data['id'] as String?)?.trim().isNotEmpty == true
+              ? data['id']
+              : doc.id,
+        };
+      }).toList(growable: false);
+
+      items.sort((a, b) {
+        final aSection = (_sectionSortKey(a['section'] as String? ?? ''));
+        final bSection = (_sectionSortKey(b['section'] as String? ?? ''));
+        if (aSection != bSection) {
+          return aSection.compareTo(bSection);
+        }
+
+        final aTitle = (a['title'] as String? ?? '').toLowerCase();
+        final bTitle = (b['title'] as String? ?? '').toLowerCase();
+        return aTitle.compareTo(bTitle);
+      });
+
+      return items;
+    });
+  }
+
   Future<List<Event>> fetchCouncilEvents() async {
-    return _mockCouncilEvents
-        .map((item) => Event.fromJson(item))
+    final items = await _fetchSection('events');
+    return items
+        .map(
+          (item) => Event.fromJson({
+            'id': item['id'],
+            'title': item['title'],
+            'date': item['date'],
+            'time': item['time'],
+            'venue': item['venue'],
+            'suburb': item['suburb'],
+            'imageUrl': item['imageUrl'],
+            'description': item['description'],
+            'categories': item['categories'],
+            'aiAudio': item['aiAudio'] ?? '',
+          }),
+        )
         .toList(growable: false);
   }
 
-  // Historical sights can be seeded from Brisbane heritage trails.
   Future<List<HistoricalSight>> fetchHistoricalSights() async {
-    return _mockHistoricalSights
-        .map((item) => HistoricalSight.fromJson(item))
+    final items = await _fetchSection('historical');
+    return items
+        .map(
+          (item) => HistoricalSight.fromJson({
+            'id': item['id'],
+            'name': item['title'],
+            'location': item['location'],
+            'imageUrl': item['imageUrl'],
+            'description': item['description'],
+            'categories': item['categories'],
+          }),
+        )
         .toList(growable: false);
   }
 
-  // Google Places API integration placeholder for future live food data.
-  // Example endpoint style:
-  // https://maps.googleapis.com/maps/api/place/nearbysearch/json
-  // TODO: Inject API key securely via build config/env vars.
   Future<List<FoodPlace>> fetchFoodPlaces() async {
-    return _mockFoodPlaces
-        .map((item) => FoodPlace.fromJson(item))
+    final items = await _fetchSection('food');
+    return items
+        .map(
+          (item) => FoodPlace.fromJson({
+            'id': item['id'],
+            'name': item['title'],
+            'cuisine': item['cuisine'],
+            'rating': item['rating'],
+            'suburb': item['suburb'],
+            'imageUrl': item['imageUrl'],
+            'snippet': item['description'],
+            'mapQuery': item['mapQuery'],
+            'categories': item['categories'],
+            'aiAudio': item['aiAudio'] ?? '',
+          }),
+        )
         .toList(growable: false);
+  }
+
+  Future<List<StadiumVenue>> fetchStadiumVenues() async {
+    final items = await _fetchSection('stadiums');
+    return items
+        .map(
+          (item) => StadiumVenue.fromJson({
+            'id': item['id'],
+            'name': item['title'],
+            'badge': item['badge'],
+            'dateTime': item['dateTime'],
+            'price': item['price'],
+            'location': item['location'],
+            'imageUrl': item['imageUrl'],
+            'description': item['description'],
+            'mapQuery': item['mapQuery'],
+            'webLink': item['webLink'],
+            'categories': item['categories'],
+            'aiAudio': item['aiAudio'] ?? '',
+          }),
+        )
+        .toList(growable: false);
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchSection(String section) async {
+    final snapshot = await _firestore
+        .collection('discover_items')
+        .where('approvalStatus', isEqualTo: 'approved')
+        .get();
+
+    final items = snapshot.docs
+        .map((doc) => {...doc.data(), 'id': doc.id})
+        .where((item) => (item['section'] as String?) == section)
+        .toList(growable: false);
+
+    items.sort((a, b) {
+      final aTitle = (a['title'] as String? ?? '').toLowerCase();
+      final bTitle = (b['title'] as String? ?? '').toLowerCase();
+      return aTitle.compareTo(bTitle);
+    });
+
+    return items;
+  }
+
+  static int _sectionSortKey(String section) {
+    switch (section) {
+      case 'events':
+        return 0;
+      case 'historical':
+        return 1;
+      case 'food':
+        return 2;
+      case 'stadiums':
+        return 3;
+      default:
+        return 99;
+    }
   }
 }
 
-const List<Map<String, dynamic>> _mockCouncilEvents = [
+const List<Map<String, dynamic>> _discoverSeedItems = [
   {
-    'id': 'bcc_1',
-    'title': 'Brisbane Twilight Music in the Park',
-    'date': 'Fri, 21 Mar 2026',
-    'time': '6:30pm',
-    'venue': 'Roma Street Parkland Stage',
-    'suburb': 'Brisbane City',
+    'id': 'discover_event_bands_in_parks',
+    'section': 'events',
+    'title': 'Bands in Parks',
+    'badge': 'Cultural Event',
+    'date': 'Check schedule',
+    'time': 'Weekend sessions',
+    'dateTime': 'Check official schedule',
+    'venue': 'New Farm Park Rotunda',
+    'suburb': 'New Farm',
+    'location': 'New Farm Park Rotunda, New Farm',
+    'price': 'Free',
     'imageUrl':
-        'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=1400&q=80',
     'description':
-        'Free live performances featuring local artists and community ensembles in a family-friendly setting.',
+        'A recurring Brisbane City Council community music program featuring local bands in park settings across Brisbane.',
+    'culturalBackground':
+        "Brisbane's Bands in Parks program has a rich history dating back to the early 20th century, reflecting the city's tradition of community gathering in public green spaces. Queensland's subtropical climate has long shaped a culture of outdoor performance, where live music in parkland settings strengthens local community ties and celebrates the city's diverse musical traditions.",
+    'audioUrl': 'https://samplelib.com/lib/preview/mp3/sample-3s.mp3',
+    'aiAudio':
+        'Welcome to Bands in Parks — one of Brisbane\'s most cherished free weekend traditions. '
+        'Head to New Farm Park Rotunda on the weekend and you will find local musicians filling the air with live performance under the trees. '
+        'This program has been part of Brisbane\'s community spirit for over a century, connecting residents and visitors in one of the city\'s most beautiful green spaces. '
+        'No ticket needed — just find a spot on the grass and enjoy the sounds of Brisbane.',
     'categories': ['Events', 'Culture', 'Family', 'Free', 'Outdoor'],
+    'webLink':
+        'https://www.brisbane.qld.gov.au/things-to-see-and-do/council-venues-and-precincts/parks/bands-in-parks',
+    'mapQuery': 'New Farm Park Rotunda Brisbane',
+    'approvalStatus': 'approved',
+    'source': 'Brisbane City Council',
   },
   {
-    'id': 'bcc_2',
-    'title': 'South Bank Cultural Night Market',
-    'date': 'Sat, 29 Mar 2026',
-    'time': '5:00pm',
-    'venue': 'Little Stanley Street',
-    'suburb': 'South Brisbane',
+    'id': 'discover_event_clock_tower_tours',
+    'section': 'events',
+    'title': 'Clock Tower Tours at Brisbane City Hall',
+    'badge': 'Cultural Event',
+    'date': 'Check schedule',
+    'time': 'Daily tours',
+    'dateTime': 'Check official schedule',
+    'venue': 'Brisbane City Hall',
+    'suburb': 'Brisbane City',
+    'location': 'Brisbane City Hall, King George Square',
+    'price': 'Free',
     'imageUrl':
-        'https://images.unsplash.com/photo-1472653431158-6364773b2a56?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1605281317010-fe5ffe798166?auto=format&fit=crop&w=1400&q=80',
     'description':
-        'Explore artisan stalls, multicultural performances, and food experiences celebrating Brisbane communities.',
-    'categories': ['Events', 'Culture', 'Food', 'Outdoor'],
+        'A central-city heritage experience with guided access to the historic clock tower and city views when tours are available.',
+    'culturalBackground':
+        "Brisbane City Hall, completed in 1930, embodies the civic aspirations of early Queensland. Designed in Italian Renaissance style, the building served as a symbol of local governance and community pride. The clock tower's clockface was one of the largest in Australia at the time, and guided tours continue to connect Brisbanites and visitors with their shared civic heritage.",
+    'audioUrl': 'https://samplelib.com/lib/preview/mp3/sample-6s.mp3',
+    'aiAudio':
+        'Welcome to Brisbane City Hall — a grand sandstone landmark at the heart of King George Square. '
+        'Completed in 1930 in Italian Renaissance style, this civic building has watched the city transform across nearly a century of history. '
+        'Free guided tours take you up into the historic clock tower, offering sweeping views across the CBD. '
+        'At the time of its opening, the clock face was one of the largest in Australia. '
+        'It is a piece of Brisbane history well worth your time.',
+    'categories': ['Events', 'Culture', 'Heritage', 'Free'],
+    'webLink': 'https://www.museumofbrisbane.com.au/',
+    'mapQuery': 'Brisbane City Hall King George Square',
+    'approvalStatus': 'approved',
+    'source': 'Brisbane City Council / Museum of Brisbane',
   },
   {
-    'id': 'bcc_3',
-    'title': 'Brisbane Family River Festival',
-    'date': 'Sun, 6 Apr 2026',
-    'time': '10:00am',
-    'venue': 'River Quay Green',
-    'suburb': 'South Brisbane',
+    'id': 'discover_event_riverstage_program',
+    'section': 'events',
+    'title': 'Riverstage Live Program',
+    'badge': 'Cultural Event',
+    'date': 'Seasonal program',
+    'time': 'Evening sessions',
+    'dateTime': 'Seasonal program',
+    'venue': 'Riverstage',
+    'suburb': 'Brisbane City',
+    'location': 'Riverstage, City Botanic Gardens',
+    'price': 'Paid / Free mix',
     'imageUrl':
-        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?auto=format&fit=crop&w=1400&q=80',
     'description':
-        'A day of performances, workshops, and riverfront activities inspired by Brisbane\'s upcoming Olympic spirit.',
-    'categories': ['Events', 'Family', 'Outdoor'],
+        'A major outdoor performance venue used for concerts and civic cultural programming in the City Botanic Gardens precinct.',
+    'culturalBackground':
+        "The City Botanic Gardens, where Riverstage is situated, hold deep cultural significance for both the Indigenous Yuggera and Turrbal peoples and for Brisbane's settler history. Theatrical and musical performances in this riverside precinct celebrate Brisbane's transition from colonial outpost to cosmopolitan host city, with the Brisbane River itself serving as a central thread of the region's cultural identity.",
+    'audioUrl': 'https://samplelib.com/lib/preview/mp3/sample-9s.mp3',
+    'aiAudio':
+        'Welcome to Riverstage — Brisbane\'s most beloved outdoor performance venue, nestled inside the City Botanic Gardens along the river. '
+        'This is where the city gathers for concerts, live events, and cultural celebrations with the Brisbane River as a backdrop. '
+        'The gardens here carry deep significance for the Yuggera and Turrbal peoples, and this venue marks Brisbane\'s evolution from a quiet river settlement into a cultural capital. '
+        'Check the event program to catch what\'s on during your visit.',
+    'categories': ['Events', 'Culture', 'Outdoor'],
+    'webLink':
+        'https://www.brisbane.qld.gov.au/things-to-see-and-do/council-venues-and-precincts/venues/riverstage',
+    'mapQuery': 'Riverstage Brisbane',
+    'approvalStatus': 'approved',
+    'source': 'Brisbane City Council',
   },
-];
-
-const List<Map<String, dynamic>> _mockHistoricalSights = [
   {
-    'id': 'heritage_1',
-    'name': 'Brisbane City Hall',
+    'id': 'discover_historical_city_hall',
+    'section': 'historical',
+    'title': 'Brisbane City Hall',
+    'badge': 'Historical',
+    'dateTime': 'Open daily',
+    'price': 'Free',
     'location': 'King George Square, Brisbane City',
-    'imageUrl':
-        'https://images.unsplash.com/photo-1477512076069-d5746aa5b6f8?auto=format&fit=crop&w=1200&q=80',
+    'imageUrl': '',
     'description':
-        'An iconic heritage landmark known for its sandstone facade, grand auditorium, and civic history.',
+        'A landmark civic building known for its sandstone exterior, heritage interiors, and role in Brisbane public life.',
     'categories': ['Historical Sights', 'Heritage', 'Culture'],
+    'webLink':
+        'https://www.brisbane.qld.gov.au/things-to-see-and-do/council-venues-and-precincts/venues/brisbane-city-hall',
+    'mapQuery': 'Brisbane City Hall King George Square',
+    'approvalStatus': 'approved',
+    'source': 'Brisbane City Council',
+    'aiAudio':
+        'Welcome to Brisbane City Hall — the sandstone centrepiece of King George Square. '
+        'Completed in 1930, this Italian Renaissance building reflects the civic pride and ambition of early Queensland. '
+        'It is free to enter and open daily, with the Museum of Brisbane and the famous clock tower tours available inside. '
+        'Standing here, you are at the symbolic and geographic heart of Brisbane\'s public life.',
   },
   {
-    'id': 'heritage_2',
-    'name': 'Old Windmill Tower',
+    'id': 'discover_historical_old_windmill',
+    'section': 'historical',
+    'title': 'Old Windmill Tower',
+    'badge': 'Historical',
+    'dateTime': 'Open grounds',
+    'price': 'Free',
     'location': 'Wickham Park, Spring Hill',
-    'imageUrl':
-        'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80',
+    'imageUrl': '',
     'description':
-        'One of Queensland\'s oldest convict-era structures, reflecting early colonial Brisbane history.',
+        'A convict-era tower in Spring Hill that remains one of the oldest surviving built structures in Queensland.',
     'categories': ['Historical Sights', 'Heritage'],
+    'webLink':
+        'https://www.brisbane.qld.gov.au/things-to-see-and-do/outdoor-activities/parks/old-windmill-observatory-and-wickham-park',
+    'mapQuery': 'Old Windmill Tower Spring Hill',
+    'approvalStatus': 'approved',
+    'source': 'Brisbane City Council',
+    'aiAudio':
+        'Welcome to the Old Windmill Tower in Spring Hill — one of the oldest surviving structures in Queensland. '
+        'Built using convict labour in the 1820s, the tower was originally designed to grind grain, though the windmill mechanism never worked reliably. '
+        'Over the decades it became a signal tower, then a fire lookout, and eventually a television broadcast point. '
+        'Today it stands as a quiet heritage marker in Wickham Park, free to visit and easy to reach from the city.',
   },
   {
-    'id': 'heritage_3',
-    'name': 'Commissariat Store',
-    'location': 'William Street, Brisbane City',
-    'imageUrl':
-        'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80',
-    'description':
-        'A significant convict-built building now preserving stories from early European settlement.',
-    'categories': ['Historical Sights', 'Heritage', 'Culture'],
-  },
-  {
-    'id': 'heritage_4',
-    'name': 'Story Bridge',
+    'id': 'discover_historical_story_bridge',
+    'section': 'historical',
+    'title': 'Story Bridge',
+    'badge': 'Historical',
+    'dateTime': 'Always accessible',
+    'price': 'Free',
     'location': 'Kangaroo Point / Fortitude Valley',
-    'imageUrl':
-        'https://images.unsplash.com/photo-1517090504586-fde19ea6066f?auto=format&fit=crop&w=1200&q=80',
+    'imageUrl': '',
     'description':
-        'A historic steel cantilever bridge and one of Brisbane\'s most recognisable architectural landmarks.',
+        'A heritage-listed steel cantilever bridge that has become one of Brisbane’s most recognisable city structures.',
     'categories': ['Historical Sights', 'Heritage', 'Outdoor'],
+    'webLink':
+        'https://www.brisbane.qld.gov.au/traffic-and-transport/bridges-tunnels-and-ferries/bridges/story-bridge',
+    'mapQuery': 'Story Bridge Brisbane',
+    'approvalStatus': 'approved',
+    'source': 'Brisbane City Council',
+    'aiAudio':
+        'Welcome to the Story Bridge — Brisbane\'s most iconic steel landmark, spanning the river between Kangaroo Point and Fortitude Valley. '
+        'Completed in 1940, it was among the last major infrastructure projects funded through Depression-era public works investment in Australia. '
+        'Now heritage-listed and home to bridge climbing experiences, it forms the centrepiece of one of the most photographed views in Queensland. '
+        'Whether you see it from the riverside or walk across it, this bridge is as central to Brisbane\'s identity as the river it crosses.',
   },
   {
-    'id': 'heritage_5',
-    'name': 'Spring Hill Heritage Precinct',
-    'location': 'Spring Hill',
-    'imageUrl':
-        'https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&w=1200&q=80',
+    'id': 'discover_food_howard_smith_wharves',
+    'section': 'food',
+    'title': 'Howard Smith Wharves Dining Precinct',
+    'badge': 'Food',
+    'cuisine': 'Dining precinct',
+    'rating': 0.0,
+    'suburb': 'Brisbane City',
+    'dateTime': 'Open daily',
+    'price': 'Paid',
+    'location': 'Howard Smith Wharves, Brisbane River',
+    'imageUrl': '',
     'description':
-        'A precinct of historic homes, churches, and streetscapes that reflect Brisbane\'s urban heritage.',
-    'categories': ['Historical Sights', 'Heritage'],
+        'A riverfront hospitality precinct with varied dining options, bridge views, and easy pedestrian access from the CBD.',
+    'categories': ['Food', 'Culture', 'Outdoor'],
+    'webLink': 'https://maps.google.com/?q=Howard+Smith+Wharves+Brisbane',
+    'mapQuery': 'Howard Smith Wharves Brisbane',
+    'approvalStatus': 'approved',
+    'source': 'Google Maps',
+    'aiAudio':
+        'Welcome to Howard Smith Wharves — a riverside dining precinct sitting directly beneath the Story Bridge along the Brisbane River. '
+        'Once the city\'s industrial freight wharf, this heritage stretch has been transformed into one of Brisbane\'s most visited destinations for food, drink, and waterfront atmosphere. '
+        'From rooftop bars with bridge views to riverfront restaurants and casual outdoor terraces, the combination of heritage architecture and the river setting makes this one of the most memorable dining experiences the city has to offer.',
+  },
+  {
+    'id': 'discover_food_eat_street',
+    'section': 'food',
+    'title': 'Eat Street Northshore',
+    'badge': 'Food',
+    'cuisine': 'Street food market',
+    'rating': 0.0,
+    'suburb': 'Hamilton',
+    'dateTime': 'Evening trading',
+    'price': 'Paid',
+    'location': 'Northshore, Hamilton',
+    'imageUrl': '',
+    'description':
+        'A destination food market known for international street food, night-time atmosphere, and riverfront views.',
+    'categories': ['Food', 'Family', 'Culture'],
+    'webLink': 'https://maps.google.com/?q=Eat+Street+Northshore+Hamilton',
+    'mapQuery': 'Eat Street Northshore Hamilton',
+    'approvalStatus': 'approved',
+    'source': 'Google Maps',
+    'aiAudio':
+        'Welcome to Eat Street Northshore in Hamilton — Brisbane\'s famous shipping container food market. '
+        'More than 180 vendors are packed into converted containers along the riverfront, serving food from around the world, from wood-fired pizza to Asian street food to Belgian waffles. '
+        'The Friday and Saturday night atmosphere is electric, with fairy lights, live music, and river breezes making this one of Brisbane\'s most unique food experiences. '
+        'Check the trading schedule before you go, as it operates on select nights.',
+  },
+  {
+    'id': 'discover_food_sunnybank_market_square',
+    'section': 'food',
+    'title': 'Sunnybank Market Square Dining',
+    'badge': 'Food',
+    'cuisine': 'Asian dining precinct',
+    'rating': 0.0,
+    'suburb': 'Sunnybank',
+    'dateTime': 'Open daily',
+    'price': 'Paid',
+    'location': 'Market Square, Sunnybank',
+    'imageUrl': '',
+    'description':
+        'A well-known southside food precinct with dense restaurant choices and late-night dining activity.',
+    'categories': ['Food', 'Culture'],
+    'webLink': 'https://maps.google.com/?q=Market+Square+Sunnybank',
+    'mapQuery': 'Market Square Sunnybank',
+    'approvalStatus': 'approved',
+    'source': 'Google Maps',
+    'aiAudio':
+        'Welcome to Sunnybank Market Square — the beating heart of Brisbane\'s Asian food scene. '
+        'Sunnybank has long been home to one of the most vibrant Chinese, Vietnamese, and pan-Asian communities in Queensland. '
+        'The Market Square precinct and surrounding streets are packed with dozens of restaurants, hot pot spots, bubble tea shops, and night market stalls. '
+        'If you want an authentic taste of Brisbane\'s multicultural food culture, this is the place to be, especially on weekend evenings.',
+  },
+  {
+    'id': 'discover_stadium_suncorp',
+    'section': 'stadiums',
+    'title': 'Suncorp Stadium',
+    'badge': 'Stadium',
+    'dateTime': 'Match and event schedule',
+    'price': 'Paid',
+    'location': 'Milton',
+    'imageUrl': '',
+    'description':
+        'A major rectangular stadium in Milton used for football, rugby league, rugby union, and large-scale live events.',
+    'categories': ['Stadiums', 'Events'],
+    'webLink': 'https://maps.google.com/?q=Suncorp+Stadium+Milton',
+    'mapQuery': 'Suncorp Stadium Milton',
+    'approvalStatus': 'approved',
+    'source': 'Google Maps',
+    'aiAudio':
+        'Welcome to Suncorp Stadium in Milton — one of Australia\'s most celebrated major venues. '
+        'With a capacity of over 52,000, this is where you come for State of Origin, Brisbane Broncos NRL matches, Queensland Reds rugby, and some of the biggest concerts to visit Brisbane. '
+        'The atmosphere on a full-house night here is genuinely electric. '
+        'Train connections from Roma Street make it easy to reach without a car. '
+        'Check the event calendar and book early — the popular events here sell out fast.',
+  },
+  {
+    'id': 'discover_stadium_gabba',
+    'section': 'stadiums',
+    'title': 'The Gabba',
+    'badge': 'Stadium',
+    'dateTime': 'Match and event schedule',
+    'price': 'Paid',
+    'location': 'Woolloongabba',
+    'imageUrl': '',
+    'description':
+        'Brisbane’s long-established cricket and AFL venue, anchored in the Woolloongabba sporting precinct.',
+    'categories': ['Stadiums', 'Events'],
+    'webLink': 'https://maps.google.com/?q=The+Gabba+Woolloongabba',
+    'mapQuery': 'The Gabba Woolloongabba',
+    'approvalStatus': 'approved',
+    'source': 'Google Maps',
+    'aiAudio':
+        'Welcome to The Gabba in Woolloongabba — Brisbane\'s legendary cricket and AFL ground. '
+        'The venue has hosted Test cricket since 1931, and with the 2032 Brisbane Olympics approaching, the entire precinct is being redeveloped into a world-class athletics and stadium complex. '
+        'It is the home ground of the AFL\'s Brisbane Lions, and a venue with a proud reputation for intense sporting occasions. '
+        'A short bus or train ride from the city centre, The Gabba sits at the heart of Brisbane\'s south side sporting identity.',
+  },
+  {
+    'id': 'discover_stadium_ballymore',
+    'section': 'stadiums',
+    'title': 'Ballymore Stadium',
+    'badge': 'Stadium',
+    'dateTime': 'Event schedule',
+    'price': 'Paid / Free mix',
+    'location': 'Herston',
+    'imageUrl': '',
+    'description':
+        'A well-known rugby venue in Herston that remains part of Brisbane’s broader major-events and training network.',
+    'categories': ['Stadiums', 'Events'],
+    'webLink': 'https://maps.google.com/?q=Ballymore+Stadium+Herston',
+    'mapQuery': 'Ballymore Stadium Herston',
+    'approvalStatus': 'approved',
+    'source': 'Google Maps',
+    'aiAudio':
+        'Welcome to Ballymore Stadium in Herston — the traditional home of Queensland rugby union. '
+        'While Suncorp Stadium hosts the big test matches, Ballymore carries the history. '
+        'The Queensland Reds built their identity here, Australian Wallabies have trained on these grounds for decades, and the close-up atmosphere of the smaller stands gives this venue a distinctive community rugby feel. '
+        'Keep an eye on the Super Rugby and club fixture schedules for upcoming matches.',
   },
 ];
 
-const List<Map<String, dynamic>> _mockFoodPlaces = [
+const List<Map<String, dynamic>> _approvedAttractionSeedItems = [
   {
-    'id': 'food_1',
-    'name': 'Riverfront Kitchen',
-    'cuisine': 'Modern Australian',
-    'rating': 4.6,
-    'suburb': 'South Brisbane',
-    'imageUrl':
-        'https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=1200&q=80',
-    'snippet':
-        'Popular for local produce, seasonal menus, and relaxed views across the Brisbane River.',
-    'mapQuery': 'Riverfront Kitchen South Brisbane',
-    'categories': ['Food', 'Culture', 'Outdoor'],
+    'id': 'attraction_city_hall',
+    'name': 'Brisbane City Hall',
+    'description':
+        'A landmark civic building known for its sandstone exterior, heritage interiors, and role in Brisbane public life.',
+    'location': 'King George Square, Brisbane City',
+    'latitude': -27.4689,
+    'longitude': 153.0235,
+    'category': 'Historical',
+    'approvalStatus': 'approved',
+    'webLink':
+        'https://www.brisbane.qld.gov.au/things-to-see-and-do/council-venues-and-precincts/venues/brisbane-city-hall',
   },
   {
-    'id': 'food_2',
-    'name': 'Laneway Espresso Bar',
-    'cuisine': 'Cafe / Specialty Coffee',
-    'rating': 4.5,
-    'suburb': 'Fortitude Valley',
-    'imageUrl':
-        'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=1200&q=80',
-    'snippet':
-        'A local favourite for brunch, specialty brews, and a distinctly Brisbane laneway vibe.',
-    'mapQuery': 'Laneway Espresso Bar Fortitude Valley',
-    'categories': ['Food', 'Family'],
+    'id': 'attraction_story_bridge',
+    'name': 'Story Bridge',
+    'description':
+        'A heritage-listed steel cantilever bridge that has become one of Brisbane’s most recognisable city structures.',
+    'location': 'Story Bridge, Brisbane',
+    'latitude': -27.4632,
+    'longitude': 153.0351,
+    'category': 'Historical',
+    'approvalStatus': 'approved',
+    'webLink':
+        'https://www.brisbane.qld.gov.au/traffic-and-transport/bridges-tunnels-and-ferries/bridges/story-bridge',
   },
   {
-    'id': 'food_3',
-    'name': 'Market Street Dumpling House',
-    'cuisine': 'Asian Fusion',
-    'rating': 4.4,
-    'suburb': 'Sunnybank',
-    'imageUrl':
-        'https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&w=1200&q=80',
-    'snippet':
-        'Known for authentic flavours, handmade dumplings, and a lively community dining atmosphere.',
-    'mapQuery': 'Market Street Dumpling House Sunnybank',
-    'categories': ['Food', 'Culture'],
+    'id': 'attraction_hsw_food',
+    'name': 'Howard Smith Wharves Dining Precinct',
+    'description':
+        'A riverfront hospitality precinct with varied dining options, bridge views, and easy pedestrian access from the CBD.',
+    'location': 'Howard Smith Wharves, Brisbane City',
+    'latitude': -27.4614,
+    'longitude': 153.0348,
+    'category': 'Food',
+    'approvalStatus': 'approved',
+    'webLink': 'https://maps.google.com/?q=Howard+Smith+Wharves+Brisbane',
+  },
+  {
+    'id': 'attraction_eat_street',
+    'name': 'Eat Street Northshore',
+    'description':
+        'A destination food market known for international street food, night-time atmosphere, and riverfront views.',
+    'location': 'Northshore, Hamilton',
+    'latitude': -27.4385,
+    'longitude': 153.0691,
+    'category': 'Food',
+    'approvalStatus': 'approved',
+    'webLink': 'https://maps.google.com/?q=Eat+Street+Northshore+Hamilton',
+  },
+  {
+    'id': 'attraction_suncorp',
+    'name': 'Suncorp Stadium',
+    'description':
+        'A major rectangular stadium in Milton used for football, rugby league, rugby union, and large-scale live events.',
+    'location': 'Milton',
+    'latitude': -27.4648,
+    'longitude': 152.9975,
+    'category': 'Stadium',
+    'approvalStatus': 'approved',
+    'webLink': 'https://maps.google.com/?q=Suncorp+Stadium+Milton',
+  },
+  {
+    'id': 'attraction_gabba',
+    'name': 'The Gabba',
+    'description':
+        'Brisbane’s long-established cricket and AFL venue, anchored in the Woolloongabba sporting precinct.',
+    'location': 'Woolloongabba',
+    'latitude': -27.4858,
+    'longitude': 153.0381,
+    'category': 'Stadium',
+    'approvalStatus': 'approved',
+    'webLink': 'https://maps.google.com/?q=The+Gabba+Woolloongabba',
+  },
+];
+
+const List<Map<String, dynamic>> _eventSeedItems = [
+  {
+    'id': 'seed_event_bands_in_parks',
+    'title': 'Bands in Parks',
+    'description':
+        'A recurring Brisbane City Council community music program featuring local bands in park settings across Brisbane.',
+    'dateTime': 'Check official schedule',
+    'location': 'New Farm Park Rotunda, New Farm',
+    'price': 'Free',
+    'imageUrl': '',
+    'badge': 'Cultural Event',
+    'webLink':
+        'https://www.brisbane.qld.gov.au/things-to-see-and-do/council-venues-and-precincts/parks/bands-in-parks',
+    'reviewStatus': 'approved',
+  },
+  {
+    'id': 'seed_event_clock_tower_tours',
+    'title': 'Clock Tower Tours at Brisbane City Hall',
+    'description':
+        'A central-city heritage experience with guided access to the historic clock tower and city views when tours are available.',
+    'dateTime': 'Check official schedule',
+    'location': 'Brisbane City Hall, King George Square',
+    'price': 'Free',
+    'imageUrl': '',
+    'badge': 'Cultural Event',
+    'webLink': 'https://www.museumofbrisbane.com.au/',
+    'reviewStatus': 'approved',
+  },
+  {
+    'id': 'seed_event_riverstage_program',
+    'title': 'Riverstage Live Program',
+    'description':
+        'A major outdoor performance venue used for concerts and civic cultural programming in the City Botanic Gardens precinct.',
+    'dateTime': 'Seasonal program',
+    'location': 'Riverstage, City Botanic Gardens',
+    'price': 'Paid / Free mix',
+    'imageUrl': '',
+    'badge': 'Cultural Event',
+    'webLink':
+        'https://www.brisbane.qld.gov.au/things-to-see-and-do/council-venues-and-precincts/venues/riverstage',
+    'reviewStatus': 'approved',
   },
 ];

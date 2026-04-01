@@ -2,6 +2,11 @@
 cmake_minimum_required(VERSION 3.14)
 project(brisconnect LANGUAGES CXX)
 
+# Some third-party plugin CMake scripts (e.g. extracted Firebase C++ SDK)
+# still declare very old policy versions. CMake 4+ rejects <3.5 unless this
+# minimum policy compatibility is explicitly provided.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
 set(BINARY_NAME "brisconnect")
@@ -65,9 +70,9 @@ include(flutter/generated_plugins.cmake)
 set(BUILD_BUNDLE_DIR "$<TARGET_FILE_DIR:${BINARY_NAME}>")
 # Make the "install" step default, as it's required to run.
 set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD 1)
-if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  set(CMAKE_INSTALL_PREFIX "${BUILD_BUNDLE_DIR}" CACHE PATH "..." FORCE)
-endif()
+# Force local install output next to the built executable to avoid permission
+# failures when Visual Studio/CMake pre-seeds CMAKE_INSTALL_PREFIX to Program Files.
+set(CMAKE_INSTALL_PREFIX "${BUILD_BUNDLE_DIR}" CACHE PATH "..." FORCE)
 
 set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")

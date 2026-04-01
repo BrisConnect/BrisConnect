@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/admin_auth.dart';
 import 'package:brisconnect/theme/app_palette.dart';
+import 'package:brisconnect/utils/auth_validation.dart';
+import 'package:brisconnect/widgets/inline_status_message.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 
 class AdminLoginScreen extends StatefulWidget {
@@ -16,6 +18,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isSubmitting = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -24,24 +27,32 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    setState(() => _isSubmitting = true);
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
 
-    final success = AdminAuth.login(
+    final success = await AdminAuth.login(
       usernameOrEmail: _usernameController.text,
       password: _passwordController.text,
     );
 
+    if (!mounted) {
+      return;
+    }
+
     setState(() => _isSubmitting = false);
 
     if (!success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid admin credentials')),
-      );
+      setState(() {
+        _errorMessage =
+            AdminAuth.lastErrorMessage ?? 'Invalid admin credentials.';
+      });
       return;
     }
 
@@ -67,6 +78,13 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      if (_errorMessage != null)
+                        InlineStatusMessage(
+                          message: _errorMessage!,
+                          type: InlineStatusType.error,
+                          actionLabel: 'Retry',
+                          onAction: _isSubmitting ? null : _submit,
+                        ),
                       Image.asset(
                         'assets/logo.png',
                         height: 84,
@@ -88,7 +106,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                       TextFormField(
                         controller: _usernameController,
                         decoration: InputDecoration(
-                          labelText: 'Username or Email',
+                          labelText: 'Admin Email or Username',
+                          hintText: 'Enter admin email or username',
                           filled: true,
                           fillColor: Colors.white,
                           border: const OutlineInputBorder(),
@@ -102,12 +121,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                             borderSide: const BorderSide(color: AppPalette.deepBlue),
                           ),
                         ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Enter username or email';
-                          }
-                          return null;
-                        },
+                        validator: AuthValidation.emailOrUsername,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -136,12 +150,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                             ),
                           ),
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Enter password';
-                          }
-                          return null;
-                        },
+                        validator: (value) => AuthValidation.requiredField(value, 'Password'),
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton(
@@ -164,7 +173,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                       ),
                       const SizedBox(height: 10),
                       const Text(
-                        'Demo admin: admin@brisconnect.com / Admin@123',
+                        'Firebase admin login (must exist in Firestore admins collection)',
                         style: TextStyle(fontSize: 12, color: AppPalette.mutedText),
                         textAlign: TextAlign.center,
                       ),

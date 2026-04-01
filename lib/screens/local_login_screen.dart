@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/local_auth.dart';
-import 'package:brisconnect/screens/local_portal_screen.dart';
 import 'package:brisconnect/screens/local_signup_screen.dart';
 import 'package:brisconnect/theme/app_palette.dart';
+import 'package:brisconnect/utils/auth_validation.dart';
+import 'package:brisconnect/widgets/inline_status_message.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 
 class LocalLoginScreen extends StatefulWidget {
@@ -16,52 +17,67 @@ class LocalLoginScreen extends StatefulWidget {
 
 class _LocalLoginScreenState extends State<LocalLoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _emailController;
+  late final TextEditingController _identifierController;
   final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isSubmitting = false;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _emailController = TextEditingController(text: widget.initialEmail ?? '');
+    _identifierController = TextEditingController(text: widget.initialEmail ?? '');
   }
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  void _login() {
+  Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final success = LocalAuth.login(
-      email: _emailController.text,
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    final success = await LocalAuth.login(
+      email: _identifierController.text,
       password: _passwordController.text,
     );
 
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = false;
+    });
+
     if (!success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid email or password.')),
-      );
+      setState(() {
+        _errorMessage = LocalAuth.lastErrorMessage ?? 'Login failed. Please try again.';
+      });
       return;
     }
 
     // Check if the logged-in user is rejected
     final currentUser = LocalAuth.currentLocal;
     if (currentUser != null && currentUser.approvalStatus == AccountApprovalStatus.rejected) {
-      LocalAuth.logout();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Your account has been rejected. Please contact support.')),
-      );
+      await LocalAuth.logout();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _errorMessage = 'Your account has been rejected. Please contact support.';
+      });
       return;
     }
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const LocalPortalScreen()),
-    );
+    Navigator.pushReplacementNamed(context, '/local/portal');
   }
 
   @override
@@ -93,47 +109,19 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
                 child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Demo credentials hint
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 20),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppPalette.surfaceAlt,
-                  border: Border.all(color: AppPalette.border),
-                  borderRadius: BorderRadius.circular(12),
+              if (_errorMessage != null)
+                InlineStatusMessage(
+                  message: _errorMessage!,
+                  type: InlineStatusType.error,
+                  actionLabel: 'Retry',
+                  onAction: _isSubmitting ? null : _login,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.info_outline,
-                            size: 16, color: AppPalette.deepBlue),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'Demo Local Account',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppPalette.deepBlue,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    const Text('Email: local@brisconnect.com',
-                        style: TextStyle(color: AppPalette.charcoal)),
-                    const Text('Password: Local@123',
-                        style: TextStyle(color: AppPalette.charcoal)),
-                  ],
-                ),
-              ),
-
               TextFormField(
-                controller: _emailController,
+                controller: _identifierController,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
-                  labelText: 'Email',
+                  labelText: 'Email or Username',
+                  hintText: 'Enter your email or username',
                   filled: true,
                   fillColor: Colors.white,
                   border: const OutlineInputBorder(),
@@ -147,8 +135,7 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
                     borderSide: const BorderSide(color: AppPalette.deepBlue),
                   ),
                 ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Email is required' : null,
+                validator: AuthValidation.emailOrUsername,
               ),
               const SizedBox(height: 12),
 
@@ -177,14 +164,19 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
                         : Icons.visibility_off),
                   ),
                 ),
-                validator: (v) =>
-                    (v == null || v.isEmpty) ? 'Password is required' : null,
+                validator: (v) => AuthValidation.requiredField(v, 'Password'),
               ),
               const SizedBox(height: 20),
 
               ElevatedButton.icon(
-                onPressed: _login,
-                icon: const Icon(Icons.login),
+                onPressed: _isSubmitting ? null : _login,
+                icon: _isSubmitting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.login),
                 label: const Text('Login'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppPalette.ochre,

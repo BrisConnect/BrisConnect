@@ -96,6 +96,7 @@ class EventRepository {
   }
 
   static void addPendingEvent({
+    String? id,
     required String title,
     required String date,
     required String location,
@@ -104,7 +105,7 @@ class EventRepository {
   }) {
     _events.add(
       EventItem(
-        id: 'local-${DateTime.now().millisecondsSinceEpoch}',
+        id: id ?? 'local-${DateTime.now().millisecondsSinceEpoch}',
         title: title,
         date: date,
         time: 'Time TBA',
@@ -141,6 +142,7 @@ class EventRepository {
       date: date,
       location: location,
       description: description,
+      reviewStatus: EventReviewStatus.pending,
     );
 
     return true;

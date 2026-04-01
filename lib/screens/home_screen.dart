@@ -4,15 +4,18 @@ import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/models/discover_event.dart';
 import 'package:brisconnect/models/food_place.dart';
 import 'package:brisconnect/models/historical_sight.dart';
+import 'package:brisconnect/models/stadium_venue.dart';
 import 'package:brisconnect/screens/visitor_login_screen.dart';
-import 'package:brisconnect/screens/visitor_portal_screen.dart';
 import 'package:brisconnect/screens/visitor_signup_screen.dart';
 import 'package:brisconnect/screens/welcome_screen.dart';
 import 'package:brisconnect/screens/attractions_screen.dart';
+import 'package:brisconnect/screens/food_detail_screen.dart';
+import 'package:brisconnect/screens/stadium_detail_screen.dart';
+import 'package:brisconnect/screens/visitor_event_detail_screen.dart';
 import 'package:brisconnect/services/discover_data_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 
-enum _DiscoverSection { events, sights, food }
+enum _DiscoverSection { events, sights, food, stadiums }
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -32,12 +35,14 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Event> _councilEvents = const [];
   List<HistoricalSight> _historicalSights = const [];
   List<FoodPlace> _foodPlaces = const [];
+  List<StadiumVenue> _stadiums = const [];
 
   final Set<String> _savedIds = <String>{};
   final Set<_DiscoverSection> _enabledSections = <_DiscoverSection>{
     _DiscoverSection.events,
     _DiscoverSection.sights,
     _DiscoverSection.food,
+    _DiscoverSection.stadiums,
   };
   final Set<String> _selectedCategoryChips = <String>{};
 
@@ -48,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
     'Heritage',
     'Food',
     'Outdoor',
+    'Stadiums',
   ];
 
   @override
@@ -76,6 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _discoverDataService.fetchCouncilEvents(),
         _discoverDataService.fetchHistoricalSights(),
         _discoverDataService.fetchFoodPlaces(),
+        _discoverDataService.fetchStadiumVenues(),
       ]);
 
       if (!mounted) return;
@@ -83,6 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _councilEvents = results[0] as List<Event>;
         _historicalSights = results[1] as List<HistoricalSight>;
         _foodPlaces = results[2] as List<FoodPlace>;
+        _stadiums = results[3] as List<StadiumVenue>;
         _isLoading = false;
       });
     } catch (_) {
@@ -187,6 +195,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final result = await showModalBottomSheet<Set<_DiscoverSection>>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppPalette.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -194,76 +203,97 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Filter Discover',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: AppPalette.charcoal,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Events'),
-                    value: sections.contains(_DiscoverSection.events),
-                    onChanged: (value) {
-                      setModalState(() {
-                        if (value == true) {
-                          sections.add(_DiscoverSection.events);
-                        } else {
-                          sections.remove(_DiscoverSection.events);
-                        }
-                      });
-                    },
-                  ),
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Historical Sights'),
-                    value: sections.contains(_DiscoverSection.sights),
-                    onChanged: (value) {
-                      setModalState(() {
-                        if (value == true) {
-                          sections.add(_DiscoverSection.sights);
-                        } else {
-                          sections.remove(_DiscoverSection.sights);
-                        }
-                      });
-                    },
-                  ),
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Food'),
-                    value: sections.contains(_DiscoverSection.food),
-                    onChanged: (value) {
-                      setModalState(() {
-                        if (value == true) {
-                          sections.add(_DiscoverSection.food);
-                        } else {
-                          sections.remove(_DiscoverSection.food);
-                        }
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context, sections),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppPalette.deepBlue,
-                        foregroundColor: Colors.white,
+            return SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  20,
+                  20,
+                  24 + MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Filter Discover',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: AppPalette.charcoal,
                       ),
-                      child: const Text('Apply'),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 14),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Events'),
+                      value: sections.contains(_DiscoverSection.events),
+                      onChanged: (value) {
+                        setModalState(() {
+                          if (value == true) {
+                            sections.add(_DiscoverSection.events);
+                          } else {
+                            sections.remove(_DiscoverSection.events);
+                          }
+                        });
+                      },
+                    ),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Historical Sights'),
+                      value: sections.contains(_DiscoverSection.sights),
+                      onChanged: (value) {
+                        setModalState(() {
+                          if (value == true) {
+                            sections.add(_DiscoverSection.sights);
+                          } else {
+                            sections.remove(_DiscoverSection.sights);
+                          }
+                        });
+                      },
+                    ),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Food'),
+                      value: sections.contains(_DiscoverSection.food),
+                      onChanged: (value) {
+                        setModalState(() {
+                          if (value == true) {
+                            sections.add(_DiscoverSection.food);
+                          } else {
+                            sections.remove(_DiscoverSection.food);
+                          }
+                        });
+                      },
+                    ),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Stadiums'),
+                      value: sections.contains(_DiscoverSection.stadiums),
+                      onChanged: (value) {
+                        setModalState(() {
+                          if (value == true) {
+                            sections.add(_DiscoverSection.stadiums);
+                          } else {
+                            sections.remove(_DiscoverSection.stadiums);
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context, sections),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppPalette.deepBlue,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Apply'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -281,14 +311,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showInfo(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _openVisitorPortal() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const VisitorPortalScreen()),
-    );
+    Navigator.pushNamed(context, '/visitor/portal');
   }
 
   void _openVisitorLogin() {
@@ -312,8 +340,81 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _logoutVisitor() {
-    VisitorAuth.logout();
+  void _openCouncilEventDetails(Event event) {
+    final dateTime = [event.date, event.time]
+        .where((value) => value.trim().isNotEmpty)
+        .join(' • ');
+    final location = [event.venue, event.suburb]
+        .where((value) => value.trim().isNotEmpty)
+        .join(', ');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VisitorEventDetailScreen(
+          event: {
+            'id': event.id,
+            'section': 'events',
+            'title': event.title,
+            'badge':
+                event.categories.isNotEmpty ? event.categories.first : 'Event',
+            'imageUrl': event.imageUrl,
+            'dateTime': dateTime,
+            'location': location,
+            'price': '',
+            'description': event.description,
+            'culturalBackground': '',
+            'aiAudio': event.aiAudio,
+            'mapQuery': location,
+            'webLink': '',
+          },
+        ),
+      ),
+    );
+  }
+
+  void _openFoodDetails(FoodPlace place) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FoodDetailScreen(
+          title: place.name,
+          description: place.snippet,
+          location: place.suburb,
+          cuisine: place.cuisine,
+          imageUrl: place.imageUrl,
+          categories: place.categories,
+          rating: place.rating,
+          badge: 'Food',
+          mapQuery: place.mapQuery,
+          aiAudio: place.aiAudio,
+        ),
+      ),
+    );
+  }
+
+  void _openStadiumDetails(StadiumVenue stadium) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StadiumDetailScreen(
+          title: stadium.name,
+          description: stadium.description,
+          location: stadium.location,
+          imageUrl: stadium.imageUrl,
+          categories: stadium.categories,
+          badge: stadium.badge,
+          dateTime: stadium.dateTime,
+          price: stadium.price,
+          mapQuery: stadium.mapQuery,
+          webLink: stadium.webLink,
+          aiAudio: stadium.aiAudio,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _logoutVisitor() async {
+    await VisitorAuth.logout();
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
@@ -327,7 +428,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final filteredEvents = _councilEvents.where((item) {
       return _enabledSections.contains(_DiscoverSection.events) &&
           _matchesCategory(item.categories) &&
-          _matchesSearch([item.title, item.venue, item.suburb, item.description]);
+          _matchesSearch(
+              [item.title, item.venue, item.suburb, item.description]);
     }).toList();
 
     final filteredSights = _historicalSights.where((item) {
@@ -342,6 +444,12 @@ class _HomeScreenState extends State<HomeScreen> {
           _matchesSearch([item.name, item.cuisine, item.suburb, item.snippet]);
     }).toList();
 
+    final filteredStadiums = _stadiums.where((item) {
+      return _enabledSections.contains(_DiscoverSection.stadiums) &&
+          _matchesCategory(item.categories) &&
+          _matchesSearch([item.name, item.location, item.description]);
+    }).toList();
+
     return Scaffold(
       backgroundColor: AppPalette.background,
       body: SafeArea(
@@ -349,6 +457,7 @@ class _HomeScreenState extends State<HomeScreen> {
           filteredEvents: filteredEvents,
           filteredSights: filteredSights,
           filteredFood: filteredFood,
+          filteredStadiums: filteredStadiums,
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -382,6 +491,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required List<Event> filteredEvents,
     required List<HistoricalSight> filteredSights,
     required List<FoodPlace> filteredFood,
+    required List<StadiumVenue> filteredStadiums,
   }) {
     if (_selectedTabIndex == 1) return _buildSavedTab();
     if (_selectedTabIndex == 2) return _buildProfileTab();
@@ -472,7 +582,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     event: event,
                     isSaved: _savedIds.contains(event.id),
                     onSaveTap: () => _toggleSaved(event.id),
-                    onShareTap: () => _showInfo('More details: ${event.title}'),
+                    onShareTap: () => _openCouncilEventDetails(event),
                   );
                 },
               ),
@@ -523,7 +633,34 @@ class _HomeScreenState extends State<HomeScreen> {
                     isSaved: _savedIds.contains(food.id),
                     onSaveTap: () => _toggleSaved(food.id),
                     onMapTap: () => _showInfo('View on map: ${food.mapQuery}'),
-                    onDetailsTap: () => _showInfo('More details: ${food.name}'),
+                    onDetailsTap: () => _openFoodDetails(food),
+                  );
+                },
+              ),
+            ),
+          const SizedBox(height: 20),
+        ],
+        if (_enabledSections.contains(_DiscoverSection.stadiums)) ...[
+          const _SectionTitle('Brisbane Stadiums & Event Venues'),
+          const SizedBox(height: 10),
+          if (filteredStadiums.isEmpty)
+            const _EmptySection('No matching stadiums found.')
+          else
+            SizedBox(
+              height: 330,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: filteredStadiums.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final stadium = filteredStadiums[index];
+                  return _StadiumVenueCard(
+                    stadium: stadium,
+                    isSaved: _savedIds.contains(stadium.id),
+                    onSaveTap: () => _toggleSaved(stadium.id),
+                    onMapTap: () =>
+                        _showInfo('View on map: ${stadium.mapQuery}'),
+                    onDetailsTap: () => _openStadiumDetails(stadium),
                   );
                 },
               ),
@@ -534,10 +671,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSavedTab() {
-    final events = _councilEvents.where((e) => _savedIds.contains(e.id)).toList();
+    final events =
+        _councilEvents.where((e) => _savedIds.contains(e.id)).toList();
     final sights =
         _historicalSights.where((e) => _savedIds.contains(e.id)).toList();
     final foods = _foodPlaces.where((e) => _savedIds.contains(e.id)).toList();
+    final stadiums = _stadiums.where((e) => _savedIds.contains(e.id)).toList();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -556,7 +695,10 @@ class _HomeScreenState extends State<HomeScreen> {
           style: TextStyle(color: AppPalette.mutedText),
         ),
         const SizedBox(height: 16),
-        if (events.isEmpty && sights.isEmpty && foods.isEmpty)
+        if (events.isEmpty &&
+            sights.isEmpty &&
+            foods.isEmpty &&
+            stadiums.isEmpty)
           const _EmptySection('No saved items yet. Tap a heart icon to save.'),
         ...events.map(
           (item) => _SavedCompactCard(
@@ -579,6 +721,14 @@ class _HomeScreenState extends State<HomeScreen> {
             title: item.name,
             subtitle: '${item.cuisine} • ${item.suburb}',
             icon: Icons.restaurant_rounded,
+            onRemoveTap: () => _toggleSaved(item.id),
+          ),
+        ),
+        ...stadiums.map(
+          (item) => _SavedCompactCard(
+            title: item.name,
+            subtitle: item.location,
+            icon: Icons.stadium_rounded,
             onRemoveTap: () => _toggleSaved(item.id),
           ),
         ),
@@ -611,7 +761,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             title: Text(isLoggedIn ? visitor.name : 'Visitor Account'),
             subtitle: Text(
-              isLoggedIn ? visitor.email : 'Sign in to personalize your experience',
+              isLoggedIn
+                  ? visitor.email
+                  : 'Sign in to personalize your experience',
             ),
           ),
         ),
@@ -798,12 +950,15 @@ class _CouncilEventCard extends StatelessWidget {
             const SizedBox(height: 10),
             Row(
               children: [
-                TextButton(onPressed: onShareTap, child: const Text('More Details')),
+                TextButton(
+                    onPressed: onShareTap, child: const Text('More Details')),
                 const Spacer(),
                 IconButton(
                   onPressed: onSaveTap,
                   icon: Icon(
-                    isSaved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                    isSaved
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
                     color: isSaved ? AppPalette.ochre : AppPalette.deepBlue,
                   ),
                 ),
@@ -873,7 +1028,9 @@ class _HistoricalSightCard extends StatelessWidget {
                 IconButton(
                   onPressed: onSaveTap,
                   icon: Icon(
-                    isSaved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                    isSaved
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
                     color: isSaved ? AppPalette.ochre : AppPalette.deepBlue,
                   ),
                 ),
@@ -920,16 +1077,20 @@ class _FoodPlaceCard extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 12.5, color: AppPalette.deepBlue)),
             const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(Icons.star_rounded, size: 16, color: AppPalette.gold),
-                const SizedBox(width: 4),
-                Text(place.rating.toStringAsFixed(1),
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, color: AppPalette.charcoal)),
-              ],
-            ),
-            const SizedBox(height: 8),
+            if (place.rating > 0) ...[
+              Row(
+                children: [
+                  const Icon(Icons.star_rounded,
+                      size: 16, color: AppPalette.gold),
+                  const SizedBox(width: 4),
+                  Text(place.rating.toStringAsFixed(1),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppPalette.charcoal)),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
             Text(
               place.snippet,
               maxLines: 3,
@@ -945,7 +1106,8 @@ class _FoodPlaceCard extends StatelessWidget {
               spacing: 8,
               runSpacing: 6,
               children: [
-                OutlinedButton(onPressed: onMapTap, child: const Text('View on Map')),
+                OutlinedButton(
+                    onPressed: onMapTap, child: const Text('View on Map')),
                 ElevatedButton(
                   onPressed: onDetailsTap,
                   style: ElevatedButton.styleFrom(
@@ -961,10 +1123,89 @@ class _FoodPlaceCard extends StatelessWidget {
               child: IconButton(
                 onPressed: onSaveTap,
                 icon: Icon(
-                  isSaved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                  isSaved
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
                   color: isSaved ? AppPalette.ochre : AppPalette.deepBlue,
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StadiumVenueCard extends StatelessWidget {
+  final StadiumVenue stadium;
+  final bool isSaved;
+  final VoidCallback onSaveTap;
+  final VoidCallback onMapTap;
+  final VoidCallback onDetailsTap;
+
+  const _StadiumVenueCard({
+    required this.stadium,
+    required this.isSaved,
+    required this.onSaveTap,
+    required this.onMapTap,
+    required this.onDetailsTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 300,
+      child: _BaseCard(
+        imageUrl: stadium.imageUrl,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(stadium.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, color: AppPalette.charcoal)),
+            const SizedBox(height: 6),
+            Text(stadium.location,
+                style: const TextStyle(
+                    fontSize: 12.5, color: AppPalette.deepBlue)),
+            const SizedBox(height: 8),
+            Text(
+              stadium.description,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: AppPalette.charcoal,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                OutlinedButton(
+                    onPressed: onMapTap, child: const Text('View on Map')),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: onDetailsTap,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppPalette.deepBlue,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('More Details'),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: onSaveTap,
+                  icon: Icon(
+                    isSaved
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
+                    color: isSaved ? AppPalette.ochre : AppPalette.deepBlue,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

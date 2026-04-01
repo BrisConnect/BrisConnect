@@ -1,3 +1,10 @@
+import 'dart:convert';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
+import 'package:flutter/foundation.dart';
+import 'package:crypto/crypto.dart';
+
 enum AccountApprovalStatus { pending, approved, rejected }
 
 class LocalUser {
@@ -6,6 +13,9 @@ class LocalUser {
   final String password;
   final String phone;
   final String suburb;
+  final List<String> interestedEventIds;
+  final bool notificationsEnabled;
+  final String? profileImageBase64;
   final String accountType = 'local';
   final AccountApprovalStatus approvalStatus;
 
@@ -15,6 +25,9 @@ class LocalUser {
     required this.password,
     required this.phone,
     required this.suburb,
+    this.interestedEventIds = const [],
+    this.notificationsEnabled = true,
+    this.profileImageBase64,
     this.approvalStatus = AccountApprovalStatus.pending,
   });
 
@@ -24,6 +37,9 @@ class LocalUser {
     String? password,
     String? phone,
     String? suburb,
+    List<String>? interestedEventIds,
+    bool? notificationsEnabled,
+    String? profileImageBase64,
     AccountApprovalStatus? approvalStatus,
   }) {
     return LocalUser(
@@ -32,70 +48,530 @@ class LocalUser {
       password: password ?? this.password,
       phone: phone ?? this.phone,
       suburb: suburb ?? this.suburb,
+      interestedEventIds: interestedEventIds ?? this.interestedEventIds,
+      notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+      profileImageBase64: profileImageBase64 ?? this.profileImageBase64,
       approvalStatus: approvalStatus ?? this.approvalStatus,
     );
   }
 }
 
 class LocalAuth {
-  static final List<LocalUser> _users = [
-    // Demo / dummy account for testing - set as approved for testing
-    LocalUser(
-      name: 'Demo Local',
-      email: 'local@brisconnect.com',
-      password: 'Local@123',
-      phone: '0400000000',
-      suburb: 'South Brisbane',
-      approvalStatus: AccountApprovalStatus.approved,
-    ),
-  ];
+  static final List<LocalUser> _users = [];
 
   static LocalUser? _currentLocal;
+  static String? _lastErrorMessage;
+  static bool _useFirestoreAuthFallback = false;
+  static final ValueNotifier<int> _profileVersion = ValueNotifier<int>(0);
 
   static LocalUser? get currentLocal => _currentLocal;
   static bool get isLocalLoggedIn => _currentLocal != null;
+  static String? get lastErrorMessage => _lastErrorMessage;
+  static ValueListenable<int> get profileVersion => _profileVersion;
+
+  static String _passwordHash(String password) {
+    return sha256.convert(utf8.encode(password)).toString();
+  }
+
+  static String _deriveUsername(String email) {
+    return email.trim().toLowerCase().split('@').first;
+  }
+
+  static Future<String?> _resolveLoginEmail(String identifier) async {
+    final normalized = identifier.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return null;
+    }
+
+    if (normalized.contains('@')) {
+      return normalized;
+    }
+
+    try {
+      final snapshot =
+          await FirebaseFirestore.instance.collection('local_users').get();
+
+      String? matchedEmail;
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final email =
+            ((data['email'] as String?) ?? doc.id).trim().toLowerCase();
+        final username = ((data['username'] as String?) ?? _deriveUsername(email))
+            .trim()
+            .toLowerCase();
+
+        if (username != normalized) {
+          continue;
+        }
+
+        if (matchedEmail != null && matchedEmail != email) {
+          _lastErrorMessage =
+              'This username matches multiple accounts. Please log in with your email address.';
+          return null;
+        }
+        matchedEmail = email;
+      }
+
+      return matchedEmail;
+    } catch (_) {
+      return normalized;
+    }
+  }
 
   static bool emailExists(String email) {
     final normalized = email.trim().toLowerCase();
     return _users.any((u) => u.email.toLowerCase() == normalized);
   }
 
-  static bool register({
+  static AccountApprovalStatus _approvalFromString(String value) {
+    switch (value.toLowerCase()) {
+      case 'approved':
+        return AccountApprovalStatus.approved;
+      case 'rejected':
+        return AccountApprovalStatus.rejected;
+      default:
+        return AccountApprovalStatus.pending;
+    }
+  }
+
+  static Map<String, Object?> _buildLocalProfile({
+    required String name,
+    required String email,
+    required String phone,
+    required String suburb,
+    required String passwordHash,
+    required bool authFallback,
+  }) {
+    return {
+      'name': name.trim(),
+      'email': email,
+      'username': _deriveUsername(email),
+      'role': 'local',
+      'phone': phone.trim(),
+      'suburb': suburb.trim(),
+      'accountType': 'local',
+      'approvalStatus': 'pending',
+      'notificationsEnabled': true,
+      'profileImageBase64': null,
+      'interestedEventIds': const <String>[],
+      'passwordHash': passwordHash,
+      'passwordUpdatedAt': FieldValue.serverTimestamp(),
+      'authFallback': authFallback,
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+  }
+
+  static Future<bool> register({
     required String name,
     required String email,
     required String password,
     required String phone,
     required String suburb,
-  }) {
+  }) async {
+    _lastErrorMessage = 'Unable to create account. Please try again.';
     final normalizedEmail = email.trim().toLowerCase();
-    if (emailExists(normalizedEmail)) return false;
 
-    _users.add(LocalUser(
+    if (emailExists(normalizedEmail)) {
+      _lastErrorMessage = 'This email is already registered as a Local account.';
+      return false;
+    }
+
+    try {
+      await fb_auth.FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: normalizedEmail,
+        password: password,
+      );
+
+      await FirebaseFirestore.instance
+          .collection('local_users')
+          .doc(normalizedEmail)
+          .set(
+            _buildLocalProfile(
+              name: name,
+              email: normalizedEmail,
+              phone: phone,
+              suburb: suburb,
+              passwordHash: _passwordHash(password),
+              authFallback: false,
+            ),
+            SetOptions(merge: true),
+          );
+      await fb_auth.FirebaseAuth.instance.signOut();
+    } on fb_auth.FirebaseAuthException catch (error) {
+      debugPrint('[LocalAuth] Firebase Auth register failed: code=${error.code}, message=${error.message}');
+      switch (error.code) {
+        case 'email-already-in-use':
+          try {
+            // Recovery path: account may already exist in Auth while Firestore profile is missing.
+            await fb_auth.FirebaseAuth.instance.signInWithEmailAndPassword(
+              email: normalizedEmail,
+              password: password,
+            );
+
+            await FirebaseFirestore.instance
+                .collection('local_users')
+                .doc(normalizedEmail)
+                .set(
+                  _buildLocalProfile(
+                    name: name,
+                    email: normalizedEmail,
+                    phone: phone,
+                    suburb: suburb,
+                    passwordHash: _passwordHash(password),
+                    authFallback: false,
+                  ),
+                  SetOptions(merge: true),
+                );
+
+            await fb_auth.FirebaseAuth.instance.signOut();
+            _lastErrorMessage = null;
+            break;
+          } on fb_auth.FirebaseAuthException catch (_) {
+            _lastErrorMessage =
+                'This email is already used by another account. Try logging in or use a different email.';
+            return false;
+          } on FirebaseException catch (firestoreError) {
+            if (firestoreError.code == 'permission-denied') {
+              _lastErrorMessage =
+                  'Account exists, but Firestore blocked saving Local profile (permission denied).';
+            } else {
+              _lastErrorMessage =
+                  'Account exists, but profile update failed (${firestoreError.code}).';
+            }
+            return false;
+          }
+        case 'invalid-email':
+          _lastErrorMessage = 'Please enter a valid email address.';
+          return false;
+        case 'weak-password':
+          _lastErrorMessage = 'Password is too weak. Use at least 6 characters.';
+          return false;
+        case 'network-request-failed':
+          _lastErrorMessage = 'Network error. Check your connection and try again.';
+          return false;
+        case 'operation-not-allowed':
+          _lastErrorMessage =
+              'Local registration is unavailable because Firebase email/password sign-up is disabled.';
+          return false;
+        default:
+          final rawMessage = (error.message ?? '').trim();
+          if (error.code == 'unknown') {
+            _lastErrorMessage =
+                'Local registration could not verify the new account with Firebase Auth.';
+            return false;
+          } else {
+            if (rawMessage.isNotEmpty) {
+              _lastErrorMessage = 'Unable to create account (${error.code}): $rawMessage';
+            } else {
+              _lastErrorMessage = 'Unable to create account (${error.code}).';
+            }
+            return false;
+          }
+      }
+    } on FirebaseException catch (error) {
+      debugPrint('[LocalAuth] Firestore write failed: code=${error.code}, message=${error.message}');
+      if (error.code == 'permission-denied') {
+        _lastErrorMessage =
+            'Account created in Firebase Auth, but Firestore blocked saving profile (permission denied).';
+      } else {
+        final rawMessage = (error.message ?? '').trim();
+        if (rawMessage.isNotEmpty) {
+          _lastErrorMessage = 'Could not save account profile (${error.code}): $rawMessage';
+        } else {
+          _lastErrorMessage = 'Could not save account profile (${error.code}).';
+        }
+      }
+      return false;
+    } catch (error) {
+      debugPrint('[LocalAuth] Failed to write local account: $error');
+      _lastErrorMessage = 'Could not save account. Please try again.';
+      return false;
+    }
+
+    _useFirestoreAuthFallback = false;
+
+    final localUser = LocalUser(
       name: name.trim(),
       email: normalizedEmail,
       password: password,
       phone: phone.trim(),
       suburb: suburb.trim(),
+      notificationsEnabled: true,
       approvalStatus: AccountApprovalStatus.pending,
-    ));
+    );
+    final existingIndex = _users.indexWhere(
+      (u) => u.email.toLowerCase() == normalizedEmail,
+    );
+    if (existingIndex >= 0) {
+      _users[existingIndex] = localUser;
+    } else {
+      _users.add(localUser);
+    }
+
     return true;
   }
 
-  static bool login({required String email, required String password}) {
-    final normalizedEmail = email.trim().toLowerCase();
+  static Future<bool> login({required String email, required String password}) async {
+    _lastErrorMessage = null;
+    final normalizedEmail = await _resolveLoginEmail(email);
+    if (normalizedEmail == null || normalizedEmail.isEmpty) {
+      _lastErrorMessage ??= 'Invalid email or username.';
+      return false;
+    }
+
     try {
-      final user = _users.firstWhere(
-        (u) => u.email.toLowerCase() == normalizedEmail && u.password == password,
-      );
-      _currentLocal = user;
-      return true;
+      if (!_useFirestoreAuthFallback) {
+        await fb_auth.FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: normalizedEmail,
+          password: password,
+        );
+      }
+    } on fb_auth.FirebaseAuthException catch (error) {
+      debugPrint('[LocalAuth] Firebase Auth login failed: ${error.code}');
+      switch (error.code) {
+        case 'user-not-found':
+        case 'wrong-password':
+        case 'invalid-credential':
+          _lastErrorMessage = 'Invalid email or password.';
+          break;
+        case 'invalid-email':
+          _lastErrorMessage = 'Please enter a valid email address.';
+          break;
+        case 'network-request-failed':
+          _lastErrorMessage = 'No internet connection. Please try again.';
+          break;
+        default:
+          _lastErrorMessage = 'Login failed (${error.code}).';
+      }
+      _useFirestoreAuthFallback = error.code == 'operation-not-allowed';
+      if (!_useFirestoreAuthFallback) {
+        return false;
+      }
     } catch (_) {
+      _lastErrorMessage = 'Login failed due to an unexpected error.';
+      return false;
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('local_users')
+          .doc(normalizedEmail)
+          .get();
+
+      final data = doc.data();
+      if (data == null) {
+        _lastErrorMessage = 'No Local profile found for this account.';
+        return false;
+      }
+
+      final role = (data['role'] as String?)?.toLowerCase();
+      final accountType = (data['accountType'] as String?)?.toLowerCase();
+      if ((role != null && role.isNotEmpty && role != 'local') ||
+          (accountType != null && accountType.isNotEmpty && accountType != 'local')) {
+        await fb_auth.FirebaseAuth.instance.signOut();
+        _lastErrorMessage = 'Access denied: this account is not a Local account.';
+        return false;
+      }
+
+      final isActive = (data['active'] as bool?) ?? true;
+      if (!isActive) {
+        await fb_auth.FirebaseAuth.instance.signOut();
+        _lastErrorMessage = 'This account has been deactivated. Contact support for assistance.';
+        return false;
+      }
+
+      final storedPasswordHash = (data['passwordHash'] as String?) ?? '';
+      final storedLegacyPassword = (data['password'] as String?) ?? '';
+      final matchesHashedPassword =
+          storedPasswordHash.isNotEmpty && storedPasswordHash == _passwordHash(password);
+      final matchesLegacyPassword =
+          storedLegacyPassword.isNotEmpty && storedLegacyPassword == password;
+      if (_useFirestoreAuthFallback && !matchesHashedPassword && !matchesLegacyPassword) {
+        _lastErrorMessage = 'Invalid email or password.';
+        return false;
+      }
+
+      try {
+        await FirebaseFirestore.instance
+            .collection('local_users')
+            .doc(normalizedEmail)
+            .set({
+          'role': 'local',
+          'accountType': 'local',
+          'email': normalizedEmail,
+          'username': _deriveUsername(normalizedEmail),
+          'passwordHash': _passwordHash(password),
+          'passwordUpdatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } catch (_) {
+        // Non-critical: login can continue if role metadata update fails.
+      }
+
+      final user = LocalUser(
+        name: (data['name'] as String?)?.trim().isNotEmpty == true
+            ? data['name'] as String
+            : normalizedEmail.split('@').first,
+        email: normalizedEmail,
+        password: password,
+        phone: (data['phone'] as String?) ?? '',
+        suburb: (data['suburb'] as String?) ?? '',
+        interestedEventIds: ((data['interestedEventIds'] as List?) ?? const [])
+            .whereType<String>()
+            .toList(growable: false),
+        notificationsEnabled: (data['notificationsEnabled'] as bool?) ?? true,
+        profileImageBase64: (data['profileImageBase64'] as String?)?.trim().isNotEmpty == true
+            ? (data['profileImageBase64'] as String)
+            : null,
+        approvalStatus: _approvalFromString(
+          (data['approvalStatus'] as String?) ?? 'pending',
+        ),
+      );
+
+      final userIndex = _users.indexWhere(
+        (u) => u.email.toLowerCase() == normalizedEmail,
+      );
+      if (userIndex >= 0) {
+        _users[userIndex] = user;
+      } else {
+        _users.add(user);
+      }
+
+      _currentLocal = user;
+      _lastErrorMessage = null;
+      _profileVersion.value++;
+      return true;
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') {
+        _lastErrorMessage = 'Firestore denied access to your Local profile.';
+      } else if (error.code == 'unavailable') {
+        _lastErrorMessage = 'No internet connection. Please try again.';
+      } else {
+        _lastErrorMessage = 'Could not load Local profile (${error.code}).';
+      }
+      return false;
+    } catch (_) {
+      _lastErrorMessage = 'Could not load Local profile. Please try again.';
       return false;
     }
   }
 
-  static void logout() {
+  static Future<void> logout() async {
+    await fb_auth.FirebaseAuth.instance.signOut();
     _currentLocal = null;
+    _profileVersion.value++;
+  }
+
+  @visibleForTesting
+  static void debugSetCurrentLocalForTesting(LocalUser? user) {
+    _currentLocal = user;
+    if (user != null) {
+      final idx = _users.indexWhere(
+        (u) => u.email.toLowerCase() == user.email.toLowerCase(),
+      );
+      if (idx >= 0) {
+        _users[idx] = user;
+      } else {
+        _users.add(user);
+      }
+    }
+    _profileVersion.value++;
+  }
+
+  /// Updates name, phone and suburb for the currently logged-in Local user.
+  static Future<bool> updateProfile({
+    required String name,
+    String? phone,
+    String? suburb,
+  }) async {
+    final current = _currentLocal;
+    if (current == null) return false;
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty) return false;
+    try {
+      final updates = <String, dynamic>{
+        'name': trimmedName,
+        if (phone != null) 'phone': phone.trim(),
+        if (suburb != null) 'suburb': suburb.trim(),
+      };
+      await FirebaseFirestore.instance
+          .collection('local_users')
+          .doc(current.email)
+          .update(updates);
+      final updated = current.copyWith(
+        name: trimmedName,
+        phone: phone?.trim() ?? current.phone,
+        suburb: suburb?.trim() ?? current.suburb,
+      );
+      _currentLocal = updated;
+      final idx = _users.indexWhere(
+        (u) => u.email.toLowerCase() == current.email.toLowerCase(),
+      );
+      if (idx != -1) _users[idx] = updated;
+      _profileVersion.value++;
+      return true;
+    } on FirebaseException catch (e) {
+      debugPrint('[LocalAuth] updateProfile failed: ${e.code}');
+      _lastErrorMessage = 'Could not update profile (${e.code}).';
+      return false;
+    } catch (_) {
+      _lastErrorMessage = 'Could not update profile.';
+      return false;
+    }
+  }
+
+  static LocalUser _localUserFromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data() ?? const <String, dynamic>{};
+    final docEmail = doc.id.trim().toLowerCase();
+    final storedEmail = (data['email'] as String?)?.trim().toLowerCase();
+    final email = storedEmail?.isNotEmpty == true ? storedEmail! : docEmail;
+
+    return LocalUser(
+      name: (data['name'] as String?)?.trim().isNotEmpty == true
+          ? data['name'] as String
+          : email.split('@').first,
+      email: email,
+      password: (data['password'] as String?) ?? '',
+      phone: (data['phone'] as String?) ?? '',
+      suburb: (data['suburb'] as String?) ?? '',
+      interestedEventIds: ((data['interestedEventIds'] as List?) ?? const [])
+          .whereType<String>()
+          .toList(growable: false),
+      notificationsEnabled: (data['notificationsEnabled'] as bool?) ?? true,
+      profileImageBase64: (data['profileImageBase64'] as String?)?.trim().isNotEmpty == true
+          ? (data['profileImageBase64'] as String)
+          : null,
+      approvalStatus: _approvalFromString(
+        (data['approvalStatus'] as String?) ?? 'pending',
+      ),
+    );
+  }
+
+  static Stream<List<LocalUser>> pendingAccountsStream() {
+    return FirebaseFirestore.instance
+        .collection('local_users')
+        .where('approvalStatus', isEqualTo: 'pending')
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(_localUserFromFirestore)
+              .toList()
+            ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase())),
+        );
+  }
+
+  static Stream<List<LocalUser>> reviewedAccountsStream() {
+    return FirebaseFirestore.instance
+        .collection('local_users')
+        .where('approvalStatus', whereIn: const ['approved', 'rejected'])
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(_localUserFromFirestore)
+              .toList()
+            ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase())),
+        );
   }
 
   // Account approval methods
@@ -113,25 +589,215 @@ class LocalAuth {
         .toList();
   }
 
-  static void approveAccount(LocalUser user) {
-    final index = _users.indexWhere((u) => u.email == user.email);
-    if (index >= 0) {
-      _users[index] = _users[index].copyWith(approvalStatus: AccountApprovalStatus.approved);
-      // If this is the currently logged-in user, update the reference
-      if (_currentLocal?.email == user.email) {
-        _currentLocal = _users[index];
+  static Future<bool> approveAccount(LocalUser user) async {
+    _lastErrorMessage = null;
+    final normalizedEmail = user.email.trim().toLowerCase();
+
+    try {
+      await FirebaseFirestore.instance.collection('local_users').doc(normalizedEmail).set({
+        'approvalStatus': 'approved',
+        'reviewedAt': FieldValue.serverTimestamp(),
+        'reviewedBy': fb_auth.FirebaseAuth.instance.currentUser?.email?.toLowerCase(),
+      }, SetOptions(merge: true));
+
+      final index = _users.indexWhere((u) => u.email.toLowerCase() == normalizedEmail);
+      if (index >= 0) {
+        _users[index] = _users[index].copyWith(approvalStatus: AccountApprovalStatus.approved);
+        if (_currentLocal?.email.toLowerCase() == normalizedEmail) {
+          _currentLocal = _users[index];
+        }
       }
+      return true;
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') {
+        _lastErrorMessage = 'Approval denied by Firestore rules. Sign in as an active admin.';
+      } else {
+        _lastErrorMessage = 'Could not approve account (${error.code}).';
+      }
+      return false;
+    } catch (_) {
+      _lastErrorMessage = 'Could not approve account due to an unexpected error.';
+      return false;
     }
   }
 
-  static void rejectAccount(LocalUser user) {
-    final index = _users.indexWhere((u) => u.email == user.email);
-    if (index >= 0) {
-      _users[index] = _users[index].copyWith(approvalStatus: AccountApprovalStatus.rejected);
-      // If this is the currently logged-in user, logout
-      if (_currentLocal?.email == user.email) {
-        _currentLocal = null;
+  static Future<bool> rejectAccount(LocalUser user) async {
+    _lastErrorMessage = null;
+    final normalizedEmail = user.email.trim().toLowerCase();
+
+    try {
+      await FirebaseFirestore.instance.collection('local_users').doc(normalizedEmail).set({
+        'approvalStatus': 'rejected',
+        'reviewedAt': FieldValue.serverTimestamp(),
+        'reviewedBy': fb_auth.FirebaseAuth.instance.currentUser?.email?.toLowerCase(),
+      }, SetOptions(merge: true));
+
+      final index = _users.indexWhere((u) => u.email.toLowerCase() == normalizedEmail);
+      if (index >= 0) {
+        _users[index] = _users[index].copyWith(approvalStatus: AccountApprovalStatus.rejected);
+        if (_currentLocal?.email.toLowerCase() == normalizedEmail) {
+          _currentLocal = null;
+        }
       }
+      return true;
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') {
+        _lastErrorMessage = 'Rejection denied by Firestore rules. Sign in as an active admin.';
+      } else {
+        _lastErrorMessage = 'Could not reject account (${error.code}).';
+      }
+      return false;
+    } catch (_) {
+      _lastErrorMessage = 'Could not reject account due to an unexpected error.';
+      return false;
+    }
+  }
+
+  /// Restores a local user session from Firestore after an app restart.
+  /// Called during startup when Firebase Auth still has a cached user.
+  static Future<bool> restoreSession(String email) async {
+    try {
+      final normalizedEmail = email.trim().toLowerCase();
+      final doc = await FirebaseFirestore.instance
+          .collection('local_users')
+          .doc(normalizedEmail)
+          .get();
+      if (!doc.exists) return false;
+      final data = doc.data() ?? const <String, dynamic>{};
+      final role = (data['role'] as String?)?.toLowerCase();
+      final accountType = (data['accountType'] as String?)?.toLowerCase();
+      if ((role != null && role.isNotEmpty && role != 'local') ||
+          (accountType != null && accountType.isNotEmpty && accountType != 'local')) {
+        return false;
+      }
+      final user = LocalUser(
+        name: (data['name'] as String?)?.trim().isNotEmpty == true
+            ? data['name'] as String
+            : normalizedEmail.split('@').first,
+        email: normalizedEmail,
+        password: (data['password'] as String?) ?? '',
+        phone: (data['phone'] as String?) ?? '',
+        suburb: (data['suburb'] as String?) ?? '',
+        interestedEventIds: ((data['interestedEventIds'] as List?) ?? const [])
+            .whereType<String>()
+            .toList(growable: false),
+        notificationsEnabled: (data['notificationsEnabled'] as bool?) ?? true,
+        profileImageBase64: (data['profileImageBase64'] as String?)?.trim().isNotEmpty == true
+            ? (data['profileImageBase64'] as String)
+            : null,
+        approvalStatus: _approvalFromString(
+          (data['approvalStatus'] as String?) ?? 'pending',
+        ),
+      );
+      final idx = _users.indexWhere((u) => u.email.toLowerCase() == normalizedEmail);
+      if (idx >= 0) {
+        _users[idx] = user;
+      } else {
+        _users.add(user);
+      }
+      _currentLocal = user;
+      _profileVersion.value++;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Set<String> getInterestedEventIds() {
+    return Set<String>.from(_currentLocal?.interestedEventIds ?? const []);
+  }
+
+  static bool isInterestedInEvent(String eventId) {
+    return _currentLocal?.interestedEventIds.contains(eventId) ?? false;
+  }
+
+  static bool toggleInterestedEvent(String eventId) {
+    final current = _currentLocal;
+    if (current == null) {
+      return false;
+    }
+
+    final updatedIds = List<String>.from(current.interestedEventIds);
+    if (updatedIds.contains(eventId)) {
+      updatedIds.remove(eventId);
+    } else {
+      updatedIds.add(eventId);
+    }
+
+    final updatedUser = current.copyWith(interestedEventIds: updatedIds);
+    final userIndex = _users.indexWhere(
+      (user) => user.email.toLowerCase() == current.email.toLowerCase(),
+    );
+    if (userIndex != -1) {
+      _users[userIndex] = updatedUser;
+    }
+    _currentLocal = updatedUser;
+    _profileVersion.value++;
+
+    FirebaseFirestore.instance
+        .collection('local_users')
+        .doc(current.email)
+        .set(
+      {'interestedEventIds': updatedIds},
+      SetOptions(merge: true),
+    ).catchError((e) {
+      debugPrint('[LocalAuth] Failed to persist interested events: $e');
+    });
+
+    return true;
+  }
+
+  static bool areNotificationsEnabled() {
+    return _currentLocal?.notificationsEnabled ?? true;
+  }
+
+  static Future<bool> setNotificationsEnabled(bool enabled) async {
+    final current = _currentLocal;
+    if (current == null) return false;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('local_users')
+          .doc(current.email)
+          .update({'notificationsEnabled': enabled});
+
+      final updated = current.copyWith(notificationsEnabled: enabled);
+      _currentLocal = updated;
+      final idx = _users.indexWhere((u) => u.email == current.email);
+      if (idx != -1) _users[idx] = updated;
+      _profileVersion.value++;
+      return true;
+    } on FirebaseException catch (e) {
+      debugPrint('[LocalAuth] setNotificationsEnabled failed: ${e.code}');
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> updateProfileImage(String base64Image) async {
+    final current = _currentLocal;
+    if (current == null) return false;
+    final trimmed = base64Image.trim();
+    if (trimmed.isEmpty) return false;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('local_users')
+          .doc(current.email)
+          .update({'profileImageBase64': trimmed});
+
+      final updated = current.copyWith(profileImageBase64: trimmed);
+      _currentLocal = updated;
+      final idx = _users.indexWhere((u) => u.email == current.email);
+      if (idx != -1) _users[idx] = updated;
+      _profileVersion.value++;
+      return true;
+    } on FirebaseException catch (e) {
+      debugPrint('[LocalAuth] updateProfileImage failed: ${e.code}');
+      return false;
+    } catch (_) {
+      return false;
     }
   }
 }

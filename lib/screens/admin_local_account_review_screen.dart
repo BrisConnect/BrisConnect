@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:brisconnect/auth/app_user_role.dart';
 import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
+import 'package:brisconnect/widgets/role_guard.dart';
 
 class AdminLocalAccountReviewScreen extends StatefulWidget {
   const AdminLocalAccountReviewScreen({super.key});
@@ -11,33 +13,69 @@ class AdminLocalAccountReviewScreen extends StatefulWidget {
 }
 
 class _AdminLocalAccountReviewScreenState extends State<AdminLocalAccountReviewScreen> {
-  void _approveAccount(LocalUser account) {
-    LocalAuth.approveAccount(account);
-    setState(() {});
+  bool _isUpdating = false;
+
+  Future<void> _approveAccount(LocalUser account) async {
+    if (_isUpdating) return;
+    setState(() {
+      _isUpdating = true;
+    });
+
+    final success = await LocalAuth.approveAccount(account);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isUpdating = false;
+    });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${account.name} approved.')),
+      SnackBar(
+        content: Text(
+          success
+              ? '${account.name} approved.'
+              : (LocalAuth.lastErrorMessage ?? 'Could not approve account.'),
+        ),
+      ),
     );
   }
 
-  void _rejectAccount(LocalUser account) {
-    LocalAuth.rejectAccount(account);
-    setState(() {});
+  Future<void> _rejectAccount(LocalUser account) async {
+    if (_isUpdating) return;
+    setState(() {
+      _isUpdating = true;
+    });
+
+    final success = await LocalAuth.rejectAccount(account);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isUpdating = false;
+    });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${account.name} rejected.')),
+      SnackBar(
+        content: Text(
+          success
+              ? '${account.name} rejected.'
+              : (LocalAuth.lastErrorMessage ?? 'Could not reject account.'),
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final pendingAccounts = LocalAuth.getPendingAccounts();
-    final reviewedAccounts = LocalAuth.getReviewedAccounts();
-
-    return Scaffold(
+    return RoleGuard(
+      allowedRoles: const {AppUserRole.admin},
+      deniedMessage: 'Access denied. Admin privileges are required.',
+      child: Scaffold(
       backgroundColor: AppPalette.background,
       appBar: AppBar(
-        title: const LogoAppBarTitle('Local Account Reviews'),
+        title: const LogoAppBarTitle('Local Account Request'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -51,25 +89,50 @@ class _AdminLocalAccountReviewScreenState extends State<AdminLocalAccountReviewS
             ),
           ),
           const SizedBox(height: 12),
-          if (pendingAccounts.isEmpty)
-            const Card(
-              color: AppPalette.surface,
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('No pending accounts to review.'),
-              ),
-            )
-          else
-            ...pendingAccounts.map(
-              (account) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _PendingAccountCard(
-                  account: account,
-                  onApprove: () => _approveAccount(account),
-                  onReject: () => _rejectAccount(account),
-                ),
-              ),
-            ),
+          StreamBuilder<List<LocalUser>>(
+            stream: LocalAuth.pendingAccountsStream(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (snapshot.hasError) {
+                return const Card(
+                  color: AppPalette.surface,
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('Unable to load pending accounts from Firestore.'),
+                  ),
+                );
+              }
+
+              final pendingAccounts = snapshot.data ?? const <LocalUser>[];
+              if (pendingAccounts.isEmpty) {
+                return const Card(
+                  color: AppPalette.surface,
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('No pending accounts to review.'),
+                  ),
+                );
+              }
+
+              return Column(
+                children: pendingAccounts
+                    .map(
+                      (account) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _PendingAccountCard(
+                          account: account,
+                          onApprove: _isUpdating ? null : () => _approveAccount(account),
+                          onReject: _isUpdating ? null : () => _rejectAccount(account),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              );
+            },
+          ),
           const SizedBox(height: 20),
           const Text(
             'Review History',
@@ -80,31 +143,56 @@ class _AdminLocalAccountReviewScreenState extends State<AdminLocalAccountReviewS
             ),
           ),
           const SizedBox(height: 12),
-          if (reviewedAccounts.isEmpty)
-            const Card(
-              color: AppPalette.surface,
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('No reviewed accounts yet.'),
-              ),
-            )
-          else
-            ...reviewedAccounts.map(
-              (account) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _ReviewedAccountCard(account: account),
-              ),
-            ),
+          StreamBuilder<List<LocalUser>>(
+            stream: LocalAuth.reviewedAccountsStream(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (snapshot.hasError) {
+                return const Card(
+                  color: AppPalette.surface,
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('Unable to load review history from Firestore.'),
+                  ),
+                );
+              }
+
+              final reviewedAccounts = snapshot.data ?? const <LocalUser>[];
+              if (reviewedAccounts.isEmpty) {
+                return const Card(
+                  color: AppPalette.surface,
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('No reviewed accounts yet.'),
+                  ),
+                );
+              }
+
+              return Column(
+                children: reviewedAccounts
+                    .map(
+                      (account) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _ReviewedAccountCard(account: account),
+                      ),
+                    )
+                    .toList(),
+              );
+            },
+          ),
         ],
       ),
-    );
+    ));
   }
 }
 
 class _PendingAccountCard extends StatelessWidget {
   final LocalUser account;
-  final VoidCallback onApprove;
-  final VoidCallback onReject;
+  final VoidCallback? onApprove;
+  final VoidCallback? onReject;
 
   const _PendingAccountCard({
     required this.account,

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:brisconnect/auth/app_user_role.dart';
 import 'package:brisconnect/auth/local_auth.dart';
+import 'package:brisconnect/services/event_document_id_service.dart';
 import 'package:brisconnect/services/event_repository.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
+import 'package:brisconnect/widgets/role_guard.dart';
 
 class AddEventScreen extends StatefulWidget {
   const AddEventScreen({super.key});
@@ -49,7 +53,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
     return '$day/$month/$year';
   }
 
-  void _saveEvent() {
+  Future<void> _saveEvent() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -71,14 +75,66 @@ class _AddEventScreenState extends State<AddEventScreen> {
 
     setState(() => _isSaving = true);
 
-    EventRepository.addPendingEvent(
-      title: _titleController.text.trim(),
-      date: _formatDate(_selectedDate!),
-      location: _locationController.text.trim(),
-      description: _descriptionController.text.trim(),
-      createdByLocalEmail: currentUser.email,
+    final title = _titleController.text.trim();
+    final date = _formatDate(_selectedDate!);
+    final location = _locationController.text.trim();
+    final description = _descriptionController.text.trim();
+    final eventId = EventDocumentIdService.buildLocalSubmissionId(
+      title: title,
+      date: date,
+      email: currentUser.email,
     );
 
+    try {
+      final eventsRef = FirebaseFirestore.instance.collection('events').doc(eventId);
+      await eventsRef.set({
+        'id': eventId,
+        'title': title,
+        'date': date,
+        'time': 'Time TBA',
+        'dateTime': '$date • Time TBA',
+        'location': location,
+        'description': description,
+        'reviewStatus': 'pending',
+        'createdByLocalEmail': currentUser.email.toLowerCase(),
+        'createdAt': FieldValue.serverTimestamp(),
+        'source': 'local_submission',
+      });
+
+      // Keep local in-memory view in sync for existing local dashboard tabs.
+      EventRepository.addPendingEvent(
+        id: eventId,
+        title: title,
+        date: date,
+        location: location,
+        description: description,
+        createdByLocalEmail: currentUser.email,
+      );
+    } on FirebaseException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e.code == 'permission-denied'
+                  ? 'Submission blocked by Firestore rules. Please ensure your Local account is approved.'
+                  : 'Could not submit event (${e.code}).',
+            ),
+          ),
+        );
+      }
+      setState(() => _isSaving = false);
+      return;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not submit event. Please try again.')),
+        );
+      }
+      setState(() => _isSaving = false);
+      return;
+    }
+
+    if (!mounted) return;
     setState(() => _isSaving = false);
 
     showDialog(
@@ -101,242 +157,160 @@ class _AddEventScreenState extends State<AddEventScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final currentUser = LocalAuth.currentLocal;
-    
-    // Check if user account is approved
-    if (currentUser == null) {
-      return Scaffold(
-        backgroundColor: AppPalette.background,
-        appBar: AppBar(
-          title: const LogoAppBarTitle('Add Event (Local)'),
-        ),
-        body: Center(
-          child: Card(
-            color: AppPalette.surface,
-            margin: const EdgeInsets.all(16),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.error, size: 48, color: AppPalette.ochre),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Not Logged In',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Please log in to your Local account to add events.',
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Go Back'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-    
-    if (currentUser.approvalStatus == AccountApprovalStatus.pending) {
-      return Scaffold(
-        backgroundColor: AppPalette.background,
-        appBar: AppBar(
-          title: const LogoAppBarTitle('Add Event (Local)'),
-        ),
-        body: Center(
-          child: Card(
-            color: AppPalette.surface,
-            margin: const EdgeInsets.all(16),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.schedule, size: 48, color: AppPalette.gold),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Account Pending Approval',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Your account is awaiting admin approval. You will be able to submit events once your account is approved. Please check back later.',
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Go Back'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-    
-    if (currentUser.approvalStatus == AccountApprovalStatus.rejected) {
-      return Scaffold(
-        backgroundColor: AppPalette.background,
-        appBar: AppBar(
-          title: const LogoAppBarTitle('Add Event (Local)'),
-        ),
-        body: Center(
-          child: Card(
-            color: AppPalette.surface,
-            margin: const EdgeInsets.all(16),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.block, size: 48, color: AppPalette.ochre),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Account Rejected',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Your account has been rejected and you cannot submit events. Please contact support for more information.',
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Go Back'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-    
-    // Account is approved, show the form
+  Widget _buildStatusCard({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String message,
+  }) {
     return Scaffold(
       backgroundColor: AppPalette.background,
       appBar: AppBar(
         title: const LogoAppBarTitle('Add Event (Local)'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: AppPalette.surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppPalette.border),
-          ),
-          child: Form(
-            key: _formKey,
+      body: Center(
+        child: Card(
+          color: AppPalette.surface,
+          margin: const EdgeInsets.all(16),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
             child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                controller: _titleController,
-                decoration: InputDecoration(
-                  labelText: 'Event Title',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: const OutlineInputBorder(),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 48, color: iconColor),
+                const SizedBox(height: 16),
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter event title';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              InkWell(
-                onTap: _pickDate,
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Event Date',
-                    border: OutlineInputBorder(),
-                    filled: true,
-                    fillColor: Colors.white,
-                    suffixIcon: Icon(Icons.calendar_today, color: AppPalette.deepBlue),
-                  ),
-                  child: Text(
-                    _selectedDate == null
-                        ? 'Select date'
-                        : _formatDate(_selectedDate!),
-                    style: TextStyle(
-                      color:
-                          _selectedDate == null ? AppPalette.mutedText : AppPalette.charcoal,
-                    ),
-                  ),
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _locationController,
-                decoration: InputDecoration(
-                  labelText: 'Location',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: const OutlineInputBorder(),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Go Back'),
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter location';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _descriptionController,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  labelText: 'Description',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: const OutlineInputBorder(),
-                  alignLabelWithHint: true,
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter description';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _isSaving ? null : _saveEvent,
-                  icon: const Icon(Icons.send),
-                  label: const Text('Submit Event'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppPalette.ochre,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Saved events are marked as Pending Approval and hidden from visitors.',
-                style: TextStyle(fontSize: 12, color: AppPalette.mutedText),
-              ),
-            ],
-          ),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentUser = LocalAuth.currentLocal;
+
+    Widget child;
+    if (currentUser == null) {
+      child = _buildStatusCard(
+        icon: Icons.error,
+        iconColor: AppPalette.ochre,
+        title: 'Not Logged In',
+        message: 'Please log in to your Local account to add events.',
+      );
+    } else if (currentUser.approvalStatus == AccountApprovalStatus.pending) {
+      child = _buildStatusCard(
+        icon: Icons.schedule,
+        iconColor: AppPalette.gold,
+        title: 'Account Pending Approval',
+        message:
+            'Your account is awaiting admin approval. You will be able to submit events once your account is approved. Please check back later.',
+      );
+    } else if (currentUser.approvalStatus == AccountApprovalStatus.rejected) {
+      child = _buildStatusCard(
+        icon: Icons.block,
+        iconColor: AppPalette.ochre,
+        title: 'Account Rejected',
+        message:
+            'Your account has been rejected and you cannot submit events. Please contact support for more information.',
+      );
+    } else {
+      child = Scaffold(
+        backgroundColor: AppPalette.background,
+        appBar: AppBar(
+          title: const LogoAppBarTitle('Add Event (Local)'),
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: AppPalette.surface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppPalette.border),
+            ),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(labelText: 'Event Title'),
+                    validator: (value) =>
+                        (value == null || value.trim().isEmpty) ? 'Title is required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _locationController,
+                    decoration: const InputDecoration(labelText: 'Location'),
+                    validator: (value) =>
+                        (value == null || value.trim().isEmpty) ? 'Location is required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _descriptionController,
+                    maxLines: 4,
+                    decoration: const InputDecoration(labelText: 'Description'),
+                    validator: (value) =>
+                        (value == null || value.trim().isEmpty) ? 'Description is required' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: _pickDate,
+                    icon: const Icon(Icons.calendar_month),
+                    label: Text(
+                      _selectedDate == null
+                          ? 'Select Date'
+                          : 'Date: ${_formatDate(_selectedDate!)}',
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isSaving ? null : _saveEvent,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppPalette.ochre,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Submit Event'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return RoleGuard(
+      allowedRoles: const {AppUserRole.local},
+      deniedMessage: 'Access denied. Local account access is required.',
+      child: child,
     );
   }
 }

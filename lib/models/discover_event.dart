@@ -8,6 +8,7 @@ class Event {
   final String imageUrl;
   final String description;
   final List<String> categories;
+  final String aiAudio;
 
   const Event({
     required this.id,
@@ -19,6 +20,7 @@ class Event {
     required this.imageUrl,
     required this.description,
     required this.categories,
+    this.aiAudio = '',
   });
 
   factory Event.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,7 @@ class Event {
       imageUrl: json['imageUrl'] as String,
       description: json['description'] as String,
       categories: List<String>.from(json['categories'] as List),
+      aiAudio: (json['aiAudio'] as String?) ?? '',
     );
   }
 }

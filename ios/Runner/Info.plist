@@ -47,6 +47,10 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>BrisConnect needs camera access to take your profile photo.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>BrisConnect needs photo library access to choose your profile photo.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

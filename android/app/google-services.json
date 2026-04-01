@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "2073694703",
+    "project_id": "brisconnect-68b78",
+    "storage_bucket": "brisconnect-68b78.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:2073694703:android:78082838113cac65fa261a",
+        "android_client_info": {
+          "package_name": "com.example.brisconnect"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAEVyIedbCHom8SImaasL4e7ahFeldBBBY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
