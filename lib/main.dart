@@ -20,18 +20,7 @@ import 'package:brisconnect/widgets/role_guard.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final shouldUseFlutterFireOptions = kIsWeb ||
-      defaultTargetPlatform == TargetPlatform.android ||
-      defaultTargetPlatform == TargetPlatform.iOS ||
-      defaultTargetPlatform == TargetPlatform.macOS;
-
-  if (shouldUseFlutterFireOptions) {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-  } else {
-    await Firebase.initializeApp();
-  }
+  await _initializeFirebaseSafely();
   debugPrint('[StorageDebug] bucket = ${FirebaseStorage.instance.bucket}');
   await FirebaseAppCheck.instance.activate(
     androidProvider: AndroidProvider.debug,
@@ -55,6 +44,26 @@ void main() async {
 
   // Pre-load attraction detail catalog from Firestore (seeds on first run).
   AttractionDetailService.init();
+}
+
+Future<void> _initializeFirebaseSafely() async {
+  if (Firebase.apps.isNotEmpty) {
+    return;
+  }
+
+  final shouldUseFlutterFireOptions = kIsWeb ||
+      defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS ||
+      defaultTargetPlatform == TargetPlatform.macOS;
+
+  if (shouldUseFlutterFireOptions) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    return;
+  }
+
+  await Firebase.initializeApp();
 }
 
 void _configureFirestoreTransport() {
