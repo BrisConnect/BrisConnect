@@ -57,13 +57,25 @@ Future<void> _initializeFirebaseSafely() async {
       defaultTargetPlatform == TargetPlatform.macOS;
 
   if (shouldUseFlutterFireOptions) {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } on FirebaseException catch (e) {
+      if (e.code != 'duplicate-app') {
+        rethrow;
+      }
+    }
     return;
   }
 
-  await Firebase.initializeApp();
+  try {
+    await Firebase.initializeApp();
+  } on FirebaseException catch (e) {
+    if (e.code != 'duplicate-app') {
+      rethrow;
+    }
+  }
 }
 
 void _configureFirestoreTransport() {
