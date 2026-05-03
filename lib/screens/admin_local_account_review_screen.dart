@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/app_user_role.dart';
 import 'package:brisconnect/auth/local_auth.dart';
+import 'package:brisconnect/services/local_email_notification_service.dart';
+import 'package:brisconnect/services/sms_notification_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
 
 class AdminLocalAccountReviewScreen extends StatefulWidget {
-  const AdminLocalAccountReviewScreen({super.key});
+  AdminLocalAccountReviewScreen({
+    super.key,
+    LocalEmailNotificationService? localEmailNotificationService,
+  }) : localEmailNotificationService =
+            localEmailNotificationService ?? LocalEmailNotificationService();
+
+  final LocalEmailNotificationService localEmailNotificationService;
 
   @override
   State<AdminLocalAccountReviewScreen> createState() => _AdminLocalAccountReviewScreenState();
@@ -29,6 +37,32 @@ class _AdminLocalAccountReviewScreenState extends State<AdminLocalAccountReviewS
     setState(() {
       _isUpdating = false;
     });
+
+    if (success) {
+      try {
+        await widget.localEmailNotificationService.queueAccountReviewEmail(
+          recipientEmail: account.email,
+          businessName: account.name,
+          approved: true,
+        );
+      } catch (_) {
+        // Keep the admin action successful even if email queueing fails.
+      }
+
+      try {
+        await SmsNotificationService().queueLocalAccountReviewSms(
+          recipientPhone: account.phone,
+          businessName: account.name,
+          approved: true,
+        );
+      } catch (_) {
+        // Keep the admin action successful even if SMS queueing fails.
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -55,6 +89,32 @@ class _AdminLocalAccountReviewScreenState extends State<AdminLocalAccountReviewS
     setState(() {
       _isUpdating = false;
     });
+
+    if (success) {
+      try {
+        await widget.localEmailNotificationService.queueAccountReviewEmail(
+          recipientEmail: account.email,
+          businessName: account.name,
+          approved: false,
+        );
+      } catch (_) {
+        // Keep the admin action successful even if email queueing fails.
+      }
+
+      try {
+        await SmsNotificationService().queueLocalAccountReviewSms(
+          recipientPhone: account.phone,
+          businessName: account.name,
+          approved: false,
+        );
+      } catch (_) {
+        // Keep the admin action successful even if SMS queueing fails.
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

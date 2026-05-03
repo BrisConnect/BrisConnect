@@ -23,7 +23,7 @@ class StadiumDetailScreen extends StatelessWidget {
   });
 
   static const String _fallbackImage =
-      'https://images.unsplash.com/photo-1517466787929-bc90951d0974?auto=format&fit=crop&w=1400&q=80';
+      'https://images.unsplash.com/photo-1577223625816-7546f13df25d?auto=format&fit=crop&w=1400&q=80';
 
   final String title;
   final String description;
@@ -42,20 +42,18 @@ class StadiumDetailScreen extends StatelessWidget {
     final parts = <String>[
       'Welcome to $title',
       if ((badge ?? '').trim().isNotEmpty)
-        'This is one of Brisbane\'s notable ${badge!.trim().toLowerCase()} venues',
+        'This venue is known as a ${badge!.trim().toLowerCase()} destination in Brisbane',
       if (location.trim().isNotEmpty)
-        'You\'ll find it in $location, right in the middle of Brisbane\'s live event energy',
+        'Located at $location',
       if ((dateTime ?? '').trim().isNotEmpty)
-        'Schedules change through the year, with activity listed as ${dateTime!.trim()}',
+        'Events are typically held ${dateTime!.trim()}',
       if (description.trim().isNotEmpty)
-        'Here\'s the feel of the place. ${description.trim()}',
+        'Here is what you can expect. ${description.trim()}',
       if ((price ?? '').trim().isNotEmpty)
-        (price!.toLowerCase().contains('free') ||
-                price!.toLowerCase().contains('mix'))
-            ? 'Access and event pricing can vary depending on what\'s on'
-            : 'Entry usually requires a paid ticket',
-      if (categories.isNotEmpty)
-        'It is especially relevant for ${categories.join(', ')}',
+        price!.toLowerCase().contains('free')
+            ? 'Entry to this venue is free'
+            : 'Pricing is listed as ${price!.trim()}',
+      if (categories.isNotEmpty) 'Categories include ${categories.join(', ')}',
     ];
     return '${parts.where((part) => part.trim().isNotEmpty).join('. ')}.';
   }
@@ -85,7 +83,7 @@ class StadiumDetailScreen extends StatelessWidget {
     final lines = [
       title,
       if (location.trim().isNotEmpty) location,
-      if ((dateTime ?? '').trim().isNotEmpty) dateTime!.trim(),
+      if (description.trim().isNotEmpty) description,
       if ((webLink ?? '').trim().isNotEmpty) webLink!.trim(),
     ];
     await SharePlus.instance.share(ShareParams(text: lines.join('\n')));
@@ -100,9 +98,7 @@ class StadiumDetailScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppPalette.background,
       appBar: AppBar(
-        title: const LogoAppBarTitle('Stadium Details'),
-        backgroundColor: AppPalette.surface,
-        foregroundColor: AppPalette.charcoal,
+        title: const LogoAppBarTitle('Venue Details'),
         actions: [
           IconButton(
             tooltip: 'Share',
@@ -150,7 +146,7 @@ class StadiumDetailScreen extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: AppPalette.deepBlue,
+                      color: AppPalette.ochre,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -173,16 +169,14 @@ class StadiumDetailScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 14),
-                if (location.trim().isNotEmpty) ...[
-                  _StadiumInfoRow(
-                    icon: Icons.place_rounded,
-                    iconColor: AppPalette.ochre,
-                    text: location,
-                  ),
-                  const SizedBox(height: 8),
-                ],
+                _VenueInfoRow(
+                  icon: Icons.place_rounded,
+                  iconColor: AppPalette.deepBlue,
+                  text: location.trim().isNotEmpty ? location : 'Location TBA',
+                ),
+                const SizedBox(height: 8),
                 if ((dateTime ?? '').trim().isNotEmpty) ...[
-                  _StadiumInfoRow(
+                  _VenueInfoRow(
                     icon: Icons.schedule_rounded,
                     iconColor: AppPalette.deepBlue,
                     text: dateTime!.trim(),
@@ -190,17 +184,17 @@ class StadiumDetailScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                 ],
                 if ((price ?? '').trim().isNotEmpty) ...[
-                  _StadiumInfoRow(
+                  _VenueInfoRow(
                     icon: Icons.sell_rounded,
                     iconColor: AppPalette.ochre,
                     text: price!.trim(),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                 ],
                 const Divider(color: AppPalette.border),
                 const SizedBox(height: 18),
                 if (description.trim().isNotEmpty) ...[
-                  const _StadiumSectionHeader(title: 'About this Venue'),
+                  const _VenueSectionHeader(title: 'About this Venue'),
                   const SizedBox(height: 8),
                   Text(
                     description.trim(),
@@ -213,7 +207,7 @@ class StadiumDetailScreen extends StatelessWidget {
                   const SizedBox(height: 22),
                 ],
                 if (categories.isNotEmpty) ...[
-                  const _StadiumSectionHeader(title: 'Venue Highlights'),
+                  const _VenueSectionHeader(title: 'Categories'),
                   const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
@@ -244,12 +238,12 @@ class StadiumDetailScreen extends StatelessWidget {
                   const SizedBox(height: 22),
                 ],
                 if (narrationText.isNotEmpty) ...[
-                  const _StadiumSectionHeader(title: 'Audio Guide'),
+                  const _VenueSectionHeader(title: 'AI Tour Guide'),
                   const SizedBox(height: 10),
-                  AudioGuideWidget(
+                  AiNarrationWidget(
                     narrationText: narrationText,
                     helperText:
-                        'Listen to a quick guided intro to the venue, schedule, and atmosphere.',
+                        'Tap play to hear your AI tour guide share the story of this venue.',
                   ),
                   const SizedBox(height: 22),
                 ],
@@ -291,8 +285,8 @@ class StadiumDetailScreen extends StatelessWidget {
   }
 }
 
-class _StadiumInfoRow extends StatelessWidget {
-  const _StadiumInfoRow({
+class _VenueInfoRow extends StatelessWidget {
+  const _VenueInfoRow({
     required this.icon,
     required this.iconColor,
     required this.text,
@@ -324,8 +318,8 @@ class _StadiumInfoRow extends StatelessWidget {
   }
 }
 
-class _StadiumSectionHeader extends StatelessWidget {
-  const _StadiumSectionHeader({required this.title});
+class _VenueSectionHeader extends StatelessWidget {
+  const _VenueSectionHeader({required this.title});
 
   final String title;
 
@@ -342,3 +336,4 @@ class _StadiumSectionHeader extends StatelessWidget {
     );
   }
 }
+

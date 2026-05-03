@@ -1,6 +1,8 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/app_user_role.dart';
 import 'package:brisconnect/services/admin_attraction_service.dart';
+import 'package:brisconnect/services/firebase_media_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/inline_status_message.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
@@ -46,6 +48,9 @@ class _AdminAttractionManagementScreenState
         category: payload.category,
         webLink: payload.webLink,
         imageUrl: payload.imageUrl,
+        imageStoragePath: payload.imageStoragePath,
+        audioUrl: payload.audioUrl,
+        audioStoragePath: payload.audioStoragePath,
       );
 
       if (!mounted) {
@@ -90,6 +95,9 @@ class _AdminAttractionManagementScreenState
         category: payload.category,
         webLink: payload.webLink,
         imageUrl: payload.imageUrl,
+        imageStoragePath: payload.imageStoragePath,
+        audioUrl: payload.audioUrl,
+        audioStoragePath: payload.audioStoragePath,
       );
 
       if (!mounted) {
@@ -121,7 +129,8 @@ class _AdminAttractionManagementScreenState
               child: const Text('Cancel'),
             ),
             FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+              style:
+                  FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
               onPressed: () => Navigator.pop(dialogContext, true),
               child: const Text('Delete'),
             ),
@@ -177,7 +186,8 @@ class _AdminAttractionManagementScreenState
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: InlineStatusMessage(
-                    message: 'Unable to load attractions right now. Please try again.',
+                    message:
+                        'Unable to load attractions right now. Please try again.',
                     type: InlineStatusType.error,
                     actionLabel: 'Retry',
                     onAction: () => setState(() {}),
@@ -188,7 +198,8 @@ class _AdminAttractionManagementScreenState
 
             final items = snapshot.data ?? const <AdminAttractionItem>[];
             if (items.isEmpty) {
-              return const Center(child: Text('No attractions found in Firebase.'));
+              return const Center(
+                  child: Text('No attractions found in Firebase.'));
             }
 
             return ListView.separated(
@@ -238,7 +249,8 @@ class _AdminAttractionManagementScreenState
                         ),
                         const SizedBox(height: 8),
                         Text('Location: ${item.location}'),
-                        Text('Coordinates: ${item.latitude}, ${item.longitude}'),
+                        Text(
+                            'Coordinates: ${item.latitude}, ${item.longitude}'),
                         if ((item.category ?? '').trim().isNotEmpty)
                           Text('Category: ${item.category}'),
                         const SizedBox(height: 8),
@@ -256,7 +268,8 @@ class _AdminAttractionManagementScreenState
                                 label: const Text('Edit'),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: AppPalette.deepBlue,
-                                  side: const BorderSide(color: AppPalette.deepBlue),
+                                  side: const BorderSide(
+                                      color: AppPalette.deepBlue),
                                 ),
                               ),
                             ),
@@ -297,6 +310,9 @@ class _AttractionFormPayload {
     this.category,
     this.webLink,
     this.imageUrl,
+    this.imageStoragePath,
+    this.audioUrl,
+    this.audioStoragePath,
   });
 
   final String name;
@@ -307,6 +323,9 @@ class _AttractionFormPayload {
   final String? category;
   final String? webLink;
   final String? imageUrl;
+  final String? imageStoragePath;
+  final String? audioUrl;
+  final String? audioStoragePath;
 }
 
 class _AttractionEditorSheet extends StatefulWidget {
@@ -328,13 +347,19 @@ class _AttractionEditorSheetState extends State<_AttractionEditorSheet> {
   late final TextEditingController _categoryController;
   late final TextEditingController _webLinkController;
   late final TextEditingController _imageUrlController;
+  late final TextEditingController _audioUrlController;
+  final FirebaseMediaService _mediaService = FirebaseMediaService();
+  String? _imageStoragePath;
+  String? _audioStoragePath;
+  bool _uploadingAudio = false;
 
   @override
   void initState() {
     super.initState();
     final item = widget.item;
     _nameController = TextEditingController(text: item?.name ?? '');
-    _descriptionController = TextEditingController(text: item?.description ?? '');
+    _descriptionController =
+        TextEditingController(text: item?.description ?? '');
     _locationController = TextEditingController(text: item?.location ?? '');
     _latitudeController = TextEditingController(
       text: item == null ? '' : item.latitude.toString(),
@@ -345,6 +370,9 @@ class _AttractionEditorSheetState extends State<_AttractionEditorSheet> {
     _categoryController = TextEditingController(text: item?.category ?? '');
     _webLinkController = TextEditingController(text: item?.webLink ?? '');
     _imageUrlController = TextEditingController(text: item?.imageUrl ?? '');
+    _audioUrlController = TextEditingController(text: item?.audioUrl ?? '');
+    _imageStoragePath = item?.imageStoragePath;
+    _audioStoragePath = item?.audioStoragePath;
   }
 
   @override
@@ -357,10 +385,58 @@ class _AttractionEditorSheetState extends State<_AttractionEditorSheet> {
     _categoryController.dispose();
     _webLinkController.dispose();
     _imageUrlController.dispose();
+    _audioUrlController.dispose();
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _uploadAudioGuide() async {
+    final attractionId = widget.item?.id ?? _nameController.text.trim();
+    if (attractionId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Enter an attraction name before uploading audio.')),
+      );
+      return;
+    }
+
+    setState(() => _uploadingAudio = true);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const <String>['mp3', 'wav', 'm4a', 'aac', 'ogg'],
+        withData: true,
+      );
+      final file = result?.files.single;
+      if (file == null || file.bytes == null) {
+        return;
+      }
+
+      final uploaded = await _mediaService.uploadAttractionAudio(
+        attractionId: attractionId,
+        bytes: file.bytes!,
+        fileName: file.name,
+        previousStoragePath: _audioStoragePath,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _audioUrlController.text = uploaded.downloadUrl;
+        _audioStoragePath = uploaded.storagePath;
+      });
+    } on FormatException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _uploadingAudio = false);
+      }
+    }
+  }
+
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -374,6 +450,14 @@ class _AttractionEditorSheetState extends State<_AttractionEditorSheet> {
       return;
     }
 
+    final shouldDeleteAudio = _audioUrlController.text.trim().isEmpty &&
+        widget.item?.audioStoragePath != null &&
+        widget.item!.audioStoragePath!.trim().isNotEmpty &&
+        _audioStoragePath == null;
+    if (shouldDeleteAudio) {
+      await _mediaService.deleteMedia(widget.item!.audioStoragePath);
+    }
+
     Navigator.pop(
       context,
       _AttractionFormPayload(
@@ -385,6 +469,9 @@ class _AttractionEditorSheetState extends State<_AttractionEditorSheet> {
         category: _normalizeOptional(_categoryController.text),
         webLink: _normalizeOptional(_webLinkController.text),
         imageUrl: _normalizeOptional(_imageUrlController.text),
+        imageStoragePath: _imageStoragePath,
+        audioUrl: _normalizeOptional(_audioUrlController.text),
+        audioStoragePath: _audioStoragePath,
       ),
     );
   }
@@ -432,8 +519,9 @@ class _AttractionEditorSheetState extends State<_AttractionEditorSheet> {
                     filled: true,
                     fillColor: Colors.white,
                   ),
-                  validator: (value) =>
-                      (value == null || value.trim().isEmpty) ? 'Name is required.' : null,
+                  validator: (value) => (value == null || value.trim().isEmpty)
+                      ? 'Name is required.'
+                      : null,
                 ),
                 const SizedBox(height: 10),
                 TextFormField(
@@ -464,9 +552,10 @@ class _AttractionEditorSheetState extends State<_AttractionEditorSheet> {
                           filled: true,
                           fillColor: Colors.white,
                         ),
-                        validator: (value) => double.tryParse((value ?? '').trim()) == null
-                            ? 'Invalid latitude.'
-                            : null,
+                        validator: (value) =>
+                            double.tryParse((value ?? '').trim()) == null
+                                ? 'Invalid latitude.'
+                                : null,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -483,9 +572,10 @@ class _AttractionEditorSheetState extends State<_AttractionEditorSheet> {
                           filled: true,
                           fillColor: Colors.white,
                         ),
-                        validator: (value) => double.tryParse((value ?? '').trim()) == null
-                            ? 'Invalid longitude.'
-                            : null,
+                        validator: (value) =>
+                            double.tryParse((value ?? '').trim()) == null
+                                ? 'Invalid longitude.'
+                                : null,
                       ),
                     ),
                   ],
@@ -522,6 +612,52 @@ class _AttractionEditorSheetState extends State<_AttractionEditorSheet> {
                 ),
                 const SizedBox(height: 10),
                 TextFormField(
+                  controller: _audioUrlController,
+                  decoration: const InputDecoration(
+                    labelText: 'Audio Guide URL (optional)',
+                    border: OutlineInputBorder(),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _uploadingAudio ? null : _uploadAudioGuide,
+                        icon: _uploadingAudio
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.audiotrack_rounded),
+                        label: Text(
+                          _audioUrlController.text.trim().isNotEmpty
+                              ? 'Replace Audio Guide'
+                              : 'Upload Audio Guide',
+                        ),
+                      ),
+                    ),
+                    if (_audioUrlController.text.trim().isNotEmpty) ...[
+                      const SizedBox(width: 10),
+                      TextButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _audioUrlController.clear();
+                            _audioStoragePath = null;
+                          });
+                        },
+                        icon: const Icon(Icons.delete_outline_rounded),
+                        label: const Text('Clear'),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
                   controller: _descriptionController,
                   maxLines: 4,
                   decoration: const InputDecoration(
@@ -539,8 +675,9 @@ class _AttractionEditorSheetState extends State<_AttractionEditorSheet> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: _submit,
-                    icon: Icon(isEditing ? Icons.save_rounded : Icons.add_rounded),
+                    onPressed: () => _submit(),
+                    icon: Icon(
+                        isEditing ? Icons.save_rounded : Icons.add_rounded),
                     label: Text(isEditing ? 'Save Changes' : 'Add Attraction'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppPalette.deepBlue,

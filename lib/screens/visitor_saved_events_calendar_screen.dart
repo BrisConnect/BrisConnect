@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:table_calendar/table_calendar.dart';
 
+import 'package:brisconnect/auth/local_auth.dart';
+import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/screens/visitor_event_detail_screen.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
-
-enum _CalendarViewMode { day, week, month }
 
 class _SavedCalendarEvent {
   final String id;
@@ -42,9 +43,11 @@ class VisitorSavedEventsCalendarScreen extends StatefulWidget {
   const VisitorSavedEventsCalendarScreen({
     super.key,
     required this.savedItems,
+    this.embedded = false,
   });
 
   final List<Map<String, dynamic>> savedItems;
+  final bool embedded;
 
   @override
   State<VisitorSavedEventsCalendarScreen> createState() =>
@@ -53,24 +56,44 @@ class VisitorSavedEventsCalendarScreen extends StatefulWidget {
 
 class _VisitorSavedEventsCalendarScreenState
     extends State<VisitorSavedEventsCalendarScreen> {
-  late final List<_SavedCalendarEvent> _events;
-  late final List<_UnscheduledSavedEvent> _unscheduledEvents;
-  _CalendarViewMode _viewMode = _CalendarViewMode.month;
-  DateTime _selectedDate = _dateOnly(DateTime.now());
+  late List<_SavedCalendarEvent> _events;
+  late List<_UnscheduledSavedEvent> _unscheduledEvents;
+  CalendarFormat _calendarFormat = CalendarFormat.month;
+  DateTime _focusedDay = DateTime.now();
+  DateTime _selectedDay = _dateOnly(DateTime.now());
 
   @override
   void initState() {
     super.initState();
+    _rebuildEvents();
+  }
+
+  @override
+  void didUpdateWidget(covariant VisitorSavedEventsCalendarScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.savedItems != widget.savedItems) {
+      _rebuildEvents();
+    }
+  }
+
+  void _rebuildEvents() {
     _events = _buildUpcomingEvents(widget.savedItems);
     _unscheduledEvents = _buildUnscheduledEvents(widget.savedItems);
   }
 
   static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
+  /// Event lookup by day for TableCalendar's eventLoader.
+  List<_SavedCalendarEvent> _eventsForDay(DateTime date) {
+    return _events.where((event) {
+      final d = event.start;
+      return d.year == date.year && d.month == date.month && d.day == date.day;
+    }).toList();
+  }
+
   List<_SavedCalendarEvent> _buildUpcomingEvents(
     List<Map<String, dynamic>> items,
   ) {
-    final now = DateTime.now();
     final parsed = <_SavedCalendarEvent>[];
 
     for (final item in items) {
@@ -79,9 +102,8 @@ class _VisitorSavedEventsCalendarScreenState
         continue;
       }
 
-      final dateTimeRaw = (item['dateTime'] as String? ?? '').trim();
-      final parsedStart = _tryParseEventStart(dateTimeRaw);
-      if (parsedStart == null || parsedStart.isBefore(now)) {
+      final parsedStart = _tryParseEventStartFromItem(item);
+      if (parsedStart == null) {
         continue;
       }
 
@@ -123,8 +145,8 @@ class _VisitorSavedEventsCalendarScreenState
         continue;
       }
 
-      final dateTimeRaw = (item['dateTime'] as String? ?? '').trim();
-      final parsedStart = _tryParseEventStart(dateTimeRaw);
+      final dateTimeRaw = _displayScheduleText(item);
+      final parsedStart = _tryParseEventStartFromItem(item);
       if (parsedStart != null) {
         continue;
       }
@@ -149,7 +171,34 @@ class _VisitorSavedEventsCalendarScreenState
       return null;
     }
 
-    final parts = dateTimeText.split('•');
+    final directParsed = DateTime.tryParse(dateTimeText.trim());
+    if (directParsed != null) {
+      return directParsed;
+    }
+
+    final compactDateTime = RegExp(
+      r'^(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{2})$',
+    ).firstMatch(dateTimeText.trim());
+    if (compactDateTime != null) {
+      final year = int.tryParse(compactDateTime.group(1)!);
+      final month = int.tryParse(compactDateTime.group(2)!);
+      final day = int.tryParse(compactDateTime.group(3)!);
+      final hour = int.tryParse(compactDateTime.group(4)!);
+      final minute = int.tryParse(compactDateTime.group(5)!);
+      if (year != null &&
+          month != null &&
+          day != null &&
+          hour != null &&
+          minute != null) {
+        return DateTime(year, month, day, hour, minute);
+      }
+    }
+
+    final parts = dateTimeText
+      .split(RegExp(r'\s*[•·]|ΓÇó|\|\s*'))
+      .map((part) => part.trim())
+      .where((part) => part.isNotEmpty)
+      .toList();
     final datePart = parts.first.trim();
     final timePart = parts.length > 1 ? parts[1].trim() : '';
 
@@ -166,7 +215,70 @@ class _VisitorSavedEventsCalendarScreenState
     return DateTime(date.year, date.month, date.day, time.$1, time.$2);
   }
 
+  DateTime? _tryParseEventStartFromItem(Map<String, dynamic> item) {
+    final dateTimeRaw = (item['dateTime'] as String? ?? '').trim();
+    final fromDateTime = _tryParseEventStart(dateTimeRaw);
+    if (fromDateTime != null) {
+      return fromDateTime;
+    }
+
+    final dateRaw = (item['date'] as String? ?? '').trim();
+    if (dateRaw.isEmpty) {
+      return null;
+    }
+
+    final date = _tryParseDate(dateRaw);
+    if (date == null) {
+      return null;
+    }
+
+    final timeRaw = (item['time'] as String? ?? '').trim();
+    final parsedTime = _tryParseTime(timeRaw);
+    if (parsedTime == null) {
+      return DateTime(date.year, date.month, date.day, 9, 0);
+    }
+
+    return DateTime(date.year, date.month, date.day, parsedTime.$1, parsedTime.$2);
+  }
+
+  String _displayScheduleText(Map<String, dynamic> item) {
+    final dateTimeRaw = (item['dateTime'] as String? ?? '').trim();
+    if (dateTimeRaw.isNotEmpty) {
+      return dateTimeRaw;
+    }
+
+    final dateRaw = (item['date'] as String? ?? '').trim();
+    final timeRaw = (item['time'] as String? ?? '').trim();
+    if (dateRaw.isEmpty && timeRaw.isEmpty) {
+      return 'Schedule to be confirmed';
+    }
+
+    final normalizedDate = dateRaw.isEmpty ? 'Date TBA' : dateRaw;
+    final normalizedTime = timeRaw.isEmpty ? 'Time TBA' : timeRaw;
+    return '$normalizedDate • $normalizedTime';
+  }
+
   DateTime? _tryParseDate(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+
+    final directParsed = DateTime.tryParse(trimmed);
+    if (directParsed != null) {
+      return DateTime(directParsed.year, directParsed.month, directParsed.day);
+    }
+
+    final iso = RegExp(r'^(\d{4})-(\d{1,2})-(\d{1,2})$').firstMatch(trimmed);
+    if (iso != null) {
+      final year = int.tryParse(iso.group(1)!);
+      final month = int.tryParse(iso.group(2)!);
+      final day = int.tryParse(iso.group(3)!);
+      if (day != null && month != null && year != null) {
+        return DateTime(year, month, day);
+      }
+    }
+
     final slash = raw.split('/');
     if (slash.length == 3) {
       final day = int.tryParse(slash[0]);
@@ -175,6 +287,13 @@ class _VisitorSavedEventsCalendarScreenState
       if (day != null && month != null && year != null) {
         return DateTime(year, month, day);
       }
+
+      final isoLikeYear = int.tryParse(slash[0]);
+      final isoLikeMonth = int.tryParse(slash[1]);
+      final isoLikeDay = int.tryParse(slash[2]);
+      if (isoLikeYear != null && isoLikeMonth != null && isoLikeDay != null) {
+        return DateTime(isoLikeYear, isoLikeMonth, isoLikeDay);
+      }
     }
 
     final words = raw.split(RegExp(r'\s+'));
@@ -182,6 +301,18 @@ class _VisitorSavedEventsCalendarScreenState
       final day = int.tryParse(words[0]);
       final month = _monthFromText(words[1]);
       final year = int.tryParse(words[2]);
+      if (day != null && month != null && year != null) {
+        return DateTime(year, month, day);
+      }
+    }
+
+    final monthNameFirst = RegExp(
+      r'^([A-Za-z]{3,9})\s+(\d{1,2}),?\s+(\d{4})$',
+    ).firstMatch(trimmed);
+    if (monthNameFirst != null) {
+      final month = _monthFromText(monthNameFirst.group(1)!);
+      final day = int.tryParse(monthNameFirst.group(2)!);
+      final year = int.tryParse(monthNameFirst.group(3)!);
       if (day != null && month != null && year != null) {
         return DateTime(year, month, day);
       }
@@ -213,113 +344,63 @@ class _VisitorSavedEventsCalendarScreenState
       return null;
     }
 
-    final normalized = raw.toLowerCase();
-    final match = RegExp(r'^(\d{1,2}):(\d{2})\s*(am|pm)$').firstMatch(normalized);
-    if (match == null) {
+    final normalized = raw.toLowerCase().trim();
+    final firstSegment = normalized.split(RegExp(r'\s*(?:-|to|–)\s*')).first.trim();
+
+    final withMinutes =
+        RegExp(r'^(\d{1,2}):(\d{2})\s*(am|pm)$').firstMatch(firstSegment);
+    if (withMinutes != null) {
+      final hourRaw = int.tryParse(withMinutes.group(1)!);
+      final minute = int.tryParse(withMinutes.group(2)!);
+      final meridiem = withMinutes.group(3)!;
+      if (hourRaw == null || minute == null) {
+        return null;
+      }
+
+      var hour = hourRaw % 12;
+      if (meridiem == 'pm') {
+        hour += 12;
+      }
+      return (hour, minute);
+    }
+
+    final hourOnly = RegExp(r'^(\d{1,2})\s*(am|pm)$').firstMatch(firstSegment);
+    if (hourOnly != null) {
+      final hourRaw = int.tryParse(hourOnly.group(1)!);
+      final meridiem = hourOnly.group(2)!;
+      if (hourRaw == null) {
+        return null;
+      }
+
+      var hour = hourRaw % 12;
+      if (meridiem == 'pm') {
+        hour += 12;
+      }
+      return (hour, 0);
+    }
+
+    final twentyFourHour = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(firstSegment);
+    if (twentyFourHour == null) {
       return null;
     }
 
-    final hourRaw = int.tryParse(match.group(1)!);
-    final minute = int.tryParse(match.group(2)!);
-    final meridiem = match.group(3)!;
+    final hourRaw = int.tryParse(twentyFourHour.group(1)!);
+    final minute = int.tryParse(twentyFourHour.group(2)!);
     if (hourRaw == null || minute == null) {
       return null;
     }
 
-    var hour = hourRaw % 12;
-    if (meridiem == 'pm') {
-      hour += 12;
+    if (hourRaw < 0 || hourRaw > 23 || minute < 0 || minute > 59) {
+      return null;
     }
 
-    return (hour, minute);
-  }
-
-  List<_SavedCalendarEvent> _eventsForDay(DateTime date) {
-    return _events.where((event) {
-      final d = event.start;
-      return d.year == date.year && d.month == date.month && d.day == date.day;
-    }).toList();
-  }
-
-  List<_SavedCalendarEvent> _eventsForWeek(DateTime selected) {
-    final start = _startOfWeek(selected);
-    final endExclusive = start.add(const Duration(days: 7));
-    return _events
-        .where((event) =>
-            !event.start.isBefore(start) && event.start.isBefore(endExclusive))
-        .toList();
-  }
-
-  DateTime _startOfWeek(DateTime date) {
-    final normalized = _dateOnly(date);
-    return normalized.subtract(Duration(days: normalized.weekday - 1));
-  }
-
-  void _moveRange(int offset) {
-    setState(() {
-      switch (_viewMode) {
-        case _CalendarViewMode.day:
-          _selectedDate = _selectedDate.add(Duration(days: offset));
-          break;
-        case _CalendarViewMode.week:
-          _selectedDate = _selectedDate.add(Duration(days: 7 * offset));
-          break;
-        case _CalendarViewMode.month:
-          _selectedDate = DateTime(
-            _selectedDate.year,
-            _selectedDate.month + offset,
-            1,
-          );
-          break;
-      }
-    });
-  }
-
-  String _rangeTitle() {
-    switch (_viewMode) {
-      case _CalendarViewMode.day:
-        return _formatDate(_selectedDate);
-      case _CalendarViewMode.week:
-        final start = _startOfWeek(_selectedDate);
-        final end = start.add(const Duration(days: 6));
-        return '${_formatDate(start)} - ${_formatDate(end)}';
-      case _CalendarViewMode.month:
-        return _monthYear(_selectedDate);
-    }
-  }
-
-  String _monthYear(DateTime d) {
-    const names = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    return '${names[d.month - 1]} ${d.year}';
+    return (hourRaw, minute);
   }
 
   String _formatDate(DateTime d) {
     const names = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return '${d.day} ${names[d.month - 1]} ${d.year}';
   }
@@ -331,124 +412,80 @@ class _VisitorSavedEventsCalendarScreenState
     return '$hour12:$minute $suffix';
   }
 
-  Widget _buildViewSwitcher() {
-    return SegmentedButton<_CalendarViewMode>(
-      segments: const [
-        ButtonSegment<_CalendarViewMode>(
-          value: _CalendarViewMode.day,
-          label: Text('Day'),
-        ),
-        ButtonSegment<_CalendarViewMode>(
-          value: _CalendarViewMode.week,
-          label: Text('Week'),
-        ),
-        ButtonSegment<_CalendarViewMode>(
-          value: _CalendarViewMode.month,
-          label: Text('Month'),
-        ),
-      ],
-      selected: {_viewMode},
-      onSelectionChanged: (selection) {
-        setState(() {
-          _viewMode = selection.first;
-        });
-      },
+  bool _removeInterestedEvent(String eventId) {
+    final normalized = eventId.trim();
+    if (normalized.isEmpty) {
+      return false;
+    }
+
+    if (VisitorAuth.currentVisitor != null) {
+      if (!VisitorAuth.isInterestedInEvent(normalized)) {
+        return true;
+      }
+      return VisitorAuth.toggleInterestedEvent(normalized);
+    }
+
+    if (LocalAuth.currentLocal != null) {
+      if (!LocalAuth.isInterestedInEvent(normalized)) {
+        return true;
+      }
+      return LocalAuth.toggleInterestedEvent(normalized);
+    }
+
+    return false;
+  }
+
+  void _removeFromSaved(_SavedCalendarEvent event) {
+    final removed = _removeInterestedEvent(event.id);
+    if (!removed) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to remove this saved event.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _events.removeWhere((e) => e.id == event.id);
+      _unscheduledEvents.removeWhere((e) => e.id == event.id);
+    });
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${event.title} removed from saved events.')),
     );
   }
 
-  Widget _buildMonthGrid() {
-    final firstOfMonth = DateTime(_selectedDate.year, _selectedDate.month, 1);
-    final firstCell = firstOfMonth.subtract(Duration(days: firstOfMonth.weekday - 1));
+  void _removeUnscheduledFromSaved(_UnscheduledSavedEvent event) {
+    final removed = _removeInterestedEvent(event.id);
+    if (!removed) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to remove this saved event.')),
+      );
+      return;
+    }
 
-    return Column(
-      children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8),
-          child: Row(
-            children: [
-              Expanded(child: Center(child: Text('Mon'))),
-              Expanded(child: Center(child: Text('Tue'))),
-              Expanded(child: Center(child: Text('Wed'))),
-              Expanded(child: Center(child: Text('Thu'))),
-              Expanded(child: Center(child: Text('Fri'))),
-              Expanded(child: Center(child: Text('Sat'))),
-              Expanded(child: Center(child: Text('Sun'))),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        for (var week = 0; week < 6; week++)
-          Row(
-            children: [
-              for (var day = 0; day < 7; day++)
-                Expanded(
-                  child: _buildMonthCell(
-                    firstCell.add(Duration(days: week * 7 + day)),
-                  ),
-                ),
-            ],
-          ),
-      ],
+    setState(() {
+      _events.removeWhere((e) => e.id == event.id);
+      _unscheduledEvents.removeWhere((e) => e.id == event.id);
+    });
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${event.title} removed from saved events.')),
     );
   }
 
-  Widget _buildMonthCell(DateTime date) {
-    final isCurrentMonth = date.month == _selectedDate.month;
-    final isSelected = _dateOnly(date) == _dateOnly(_selectedDate);
-    final dayEvents = _eventsForDay(date);
-
-    return InkWell(
-      onTap: () => setState(() => _selectedDate = _dateOnly(date)),
-      child: Container(
-        margin: const EdgeInsets.all(2),
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? AppPalette.deepBlue.withValues(alpha: 0.12) : null,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppPalette.border.withValues(alpha: 0.6)),
-        ),
-        child: Column(
-          children: [
-            Text(
-              '${date.day}',
-              style: TextStyle(
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isCurrentMonth ? AppPalette.charcoal : AppPalette.mutedText,
-              ),
-            ),
-            const SizedBox(height: 4),
-            if (dayEvents.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppPalette.ochre.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '${dayEvents.length}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppPalette.charcoal,
-                  ),
-                ),
-              )
-            else
-              const SizedBox(height: 18),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEventList(List<_SavedCalendarEvent> events, {required String emptyLabel}) {
+  Widget _buildEventList(List<_SavedCalendarEvent> events,
+      {required String emptyLabel}) {
     if (events.isEmpty) {
       return Container(
         width: double.infinity,
         margin: const EdgeInsets.only(top: 12),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: AppPalette.surface,
+          color: AppPalette.surface.withValues(alpha: 0.75),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppPalette.border),
         ),
@@ -474,10 +511,10 @@ class _VisitorSavedEventsCalendarScreenState
                 );
               },
               child: Container(
-                margin: const EdgeInsets.only(top: 10),
+                margin: const EdgeInsets.only(top: 14),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppPalette.surface,
+                  color: AppPalette.surface.withValues(alpha: 0.75),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppPalette.border),
                 ),
@@ -521,6 +558,14 @@ class _VisitorSavedEventsCalendarScreenState
                         ],
                       ),
                     ),
+                    IconButton(
+                      tooltip: 'Remove from saved',
+                      onPressed: () => _removeFromSaved(event),
+                      icon: const Icon(
+                        Icons.delete_rounded,
+                        color: Colors.red,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -538,6 +583,7 @@ class _VisitorSavedEventsCalendarScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SizedBox(height: 16),
         const SizedBox(height: 16),
         const Text(
           'Saved Events Awaiting Confirmed Date/Time',
@@ -563,10 +609,10 @@ class _VisitorSavedEventsCalendarScreenState
               );
             },
             child: Container(
-              margin: const EdgeInsets.only(top: 10),
-              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(top: 14),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppPalette.surface,
+                color: AppPalette.surface.withValues(alpha: 0.75),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppPalette.border),
               ),
@@ -593,6 +639,18 @@ class _VisitorSavedEventsCalendarScreenState
                       color: AppPalette.deepBlue,
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () => _removeUnscheduledFromSaved(event),
+                      icon: const Icon(Icons.delete_rounded, color: Colors.red),
+                      label: const Text(
+                        'Remove',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -604,105 +662,130 @@ class _VisitorSavedEventsCalendarScreenState
 
   @override
   Widget build(BuildContext context) {
-    final dayEvents = _eventsForDay(_selectedDate);
-    final weekEvents = _eventsForWeek(_selectedDate);
+    final dayEvents = _eventsForDay(_selectedDay);
 
-    return Scaffold(
-      backgroundColor: AppPalette.background,
-      appBar: AppBar(
-        title: const LogoAppBarTitle('Saved Events Calendar'),
-      ),
-      body: SafeArea(
-        child: ListView(
+    final body = SafeArea(
+      child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
-            const Text(
-              'View your saved upcoming events in a calendar format.',
-              style: TextStyle(color: AppPalette.mutedText),
-            ),
-            const SizedBox(height: 12),
-            _buildViewSwitcher(),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                IconButton(
-                  tooltip: 'Previous',
-                  onPressed: () => _moveRange(-1),
-                  icon: const Icon(Icons.chevron_left_rounded),
-                ),
-                Expanded(
-                  child: Text(
-                    _rangeTitle(),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
+            Card(
+              color: AppPalette.surface.withValues(alpha: 0.78),
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: AppPalette.border),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                child: TableCalendar<_SavedCalendarEvent>(
+                  firstDay: DateTime.now().subtract(const Duration(days: 365)),
+                  lastDay: DateTime.now().add(const Duration(days: 730)),
+                  focusedDay: _focusedDay,
+                  calendarFormat: _calendarFormat,
+                  startingDayOfWeek: StartingDayOfWeek.monday,
+                  selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                  eventLoader: _eventsForDay,
+                  onDaySelected: (selectedDay, focusedDay) {
+                    setState(() {
+                      _selectedDay = _dateOnly(selectedDay);
+                      _focusedDay = focusedDay;
+                    });
+                  },
+                  onFormatChanged: (format) {
+                    setState(() => _calendarFormat = format);
+                  },
+                  onPageChanged: (focusedDay) {
+                    _focusedDay = focusedDay;
+                  },
+                  headerStyle: HeaderStyle(
+                    formatButtonVisible: true,
+                    titleCentered: true,
+                    formatButtonShowsNext: false,
+                    formatButtonDecoration: BoxDecoration(
+                      color: AppPalette.deepBlue.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    formatButtonTextStyle: const TextStyle(
+                      color: AppPalette.deepBlue,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                    titleTextStyle: const TextStyle(
                       fontWeight: FontWeight.w700,
+                      fontSize: 17,
+                      color: AppPalette.charcoal,
+                    ),
+                    leftChevronIcon: const Icon(
+                      Icons.chevron_left,
+                      color: AppPalette.charcoal,
+                    ),
+                    rightChevronIcon: const Icon(
+                      Icons.chevron_right,
                       color: AppPalette.charcoal,
                     ),
                   ),
+                  daysOfWeekStyle: const DaysOfWeekStyle(
+                    weekdayStyle: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppPalette.mutedText,
+                      fontSize: 13,
+                    ),
+                    weekendStyle: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppPalette.mutedText,
+                      fontSize: 13,
+                    ),
+                  ),
+                  calendarStyle: CalendarStyle(
+                    todayDecoration: BoxDecoration(
+                      color: AppPalette.deepBlue.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    todayTextStyle: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AppPalette.deepBlue,
+                    ),
+                    selectedDecoration: const BoxDecoration(
+                      color: AppPalette.deepBlue,
+                      shape: BoxShape.circle,
+                    ),
+                    selectedTextStyle: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                    outsideDaysVisible: true,
+                    outsideTextStyle: const TextStyle(
+                      color: Color(0xFFA8A8A8),
+                    ),
+                    markerDecoration: const BoxDecoration(
+                      color: Color(0xFFE53935),
+                      shape: BoxShape.circle,
+                    ),
+                    markerSize: 6,
+                    markersMaxCount: 3,
+                    markerMargin: const EdgeInsets.symmetric(horizontal: 1),
+                  ),
                 ),
-                IconButton(
-                  tooltip: 'Next',
-                  onPressed: () => _moveRange(1),
-                  icon: const Icon(Icons.chevron_right_rounded),
-                ),
-              ],
+              ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 16),
             if (_events.isEmpty)
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: AppPalette.surface,
+                  color: AppPalette.surface.withValues(alpha: 0.75),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppPalette.border),
                 ),
                 child: const Text(
-                  'No upcoming saved events with confirmed dates are available for calendar view.',
+                  'No upcoming saved events with confirmed dates.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: AppPalette.mutedText),
                 ),
               )
-            else if (_viewMode == _CalendarViewMode.month) ...[
-              _buildMonthGrid(),
-              const SizedBox(height: 10),
+            else ...[
               Text(
-                'Events on ${_formatDate(_selectedDate)}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: AppPalette.charcoal,
-                ),
-              ),
-              _buildEventList(
-                dayEvents,
-                emptyLabel: 'No saved events on this date.',
-              ),
-            ] else if (_viewMode == _CalendarViewMode.week) ...[
-              Text(
-                'Events this week',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: AppPalette.charcoal,
-                ),
-              ),
-              _buildEventList(
-                weekEvents,
-                emptyLabel: 'No saved events in this week.',
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Events on ${_formatDate(_selectedDate)}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: AppPalette.charcoal,
-                ),
-              ),
-              _buildEventList(
-                dayEvents,
-                emptyLabel: 'No saved events on this date.',
-              ),
-            ] else ...[
-              Text(
-                'Events on ${_formatDate(_selectedDate)}',
+                'Events on ${_formatDate(_selectedDay)}',
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   color: AppPalette.charcoal,
@@ -716,7 +799,16 @@ class _VisitorSavedEventsCalendarScreenState
             _buildUnscheduledList(),
           ],
         ),
+      );
+
+    if (widget.embedded) return body;
+
+    return Scaffold(
+      backgroundColor: AppPalette.background,
+      appBar: AppBar(
+        title: const LogoAppBarTitle('Saved Events Calendar'),
       ),
+      body: body,
     );
   }
 }

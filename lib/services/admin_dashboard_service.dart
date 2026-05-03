@@ -55,6 +55,14 @@ class AdminDashboardService {
     );
   }
 
+  Stream<int> pendingFeedbackCount() {
+    return _countStream(
+      _firestore
+          .collection('app_feedback')
+          .where('status', isEqualTo: 'pending_triage'),
+    );
+  }
+
   Stream<int> _countStream(Query<Map<String, dynamic>> query) {
     return query.snapshots().map((snapshot) => snapshot.size).distinct();
   }

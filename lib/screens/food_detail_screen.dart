@@ -107,8 +107,6 @@ class FoodDetailScreen extends StatelessWidget {
       backgroundColor: AppPalette.background,
       appBar: AppBar(
         title: const LogoAppBarTitle('Food Details'),
-        backgroundColor: AppPalette.surface,
-        foregroundColor: AppPalette.charcoal,
         actions: [
           IconButton(
             tooltip: 'Share',
@@ -278,12 +276,12 @@ class FoodDetailScreen extends StatelessWidget {
                   const SizedBox(height: 22),
                 ],
                 if (narrationText.isNotEmpty) ...[
-                  const _FoodSectionHeader(title: 'Audio Guide'),
+                  const _FoodSectionHeader(title: 'AI Tour Guide'),
                   const SizedBox(height: 10),
-                  AudioGuideWidget(
+                  AiNarrationWidget(
                     narrationText: narrationText,
                     helperText:
-                        'Listen to a guided intro to the food experience, atmosphere, and highlights.',
+                        'Tap play to hear your AI tour guide describe this food spot and its highlights.',
                   ),
                   const SizedBox(height: 22),
                 ],

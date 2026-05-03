@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:brisconnect/models/event_item.dart';
 import 'package:brisconnect/theme/app_palette.dart';
+import 'package:brisconnect/widgets/audio_guide_widget.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 
 class LocalEventDetailScreen extends StatelessWidget {
@@ -33,9 +36,26 @@ class LocalEventDetailScreen extends StatelessWidget {
     }
   }
 
+  String _buildNarrationText() {
+    final parts = <String>[
+      'Welcome to ${event.title}',
+      if (event.date.trim().isNotEmpty || event.time.trim().isNotEmpty)
+        'Here is when it happens: ${[
+          event.date,
+          event.time,
+        ].where((value) => value.trim().isNotEmpty).join(' at ')}',
+      if (event.location.trim().isNotEmpty)
+        'The event location is ${event.location}',
+      if (event.description.trim().isNotEmpty)
+        'Event overview: ${event.description}',
+    ];
+    return '${parts.where((part) => part.trim().isNotEmpty).join('. ')}.';
+  }
+
   @override
   Widget build(BuildContext context) {
     final statusColor = _statusColor(event.reviewStatus);
+    final narrationText = _buildNarrationText();
 
     return Scaffold(
       backgroundColor: AppPalette.background,
@@ -65,7 +85,8 @@ class LocalEventDetailScreen extends StatelessWidget {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           color: statusColor.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(999),
@@ -81,9 +102,51 @@ class LocalEventDetailScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
+                  if (event.imageAsset != null &&
+                      event.imageAsset!.startsWith('http')) ...[                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: CachedNetworkImage(
+                        imageUrl: event.imageAsset!,
+                        width: double.infinity,
+                        height: 200,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => Container(
+                          height: 200,
+                          color: AppPalette.border.withValues(alpha: 0.3),
+                          child: const Center(
+                              child: CircularProgressIndicator()),
+                        ),
+                        errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   _DetailRow(label: 'Date', value: event.date),
                   _DetailRow(label: 'Time', value: event.time),
                   _DetailRow(label: 'Location', value: event.location),
+                  if (event.location.trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final url = Uri.parse(
+                            'https://maps.google.com/?q=${Uri.encodeComponent(event.location.trim())}',
+                          );
+                          await launchUrl(url, mode: LaunchMode.inAppBrowserView);
+                        },
+                        icon: const Icon(Icons.map_rounded, size: 18),
+                        label: const Text('View on Map'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppPalette.deepBlue,
+                          side: const BorderSide(color: AppPalette.deepBlue),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   const Text(
                     'Description',
@@ -101,6 +164,23 @@ class LocalEventDetailScreen extends StatelessWidget {
                       height: 1.35,
                     ),
                   ),
+                  if (narrationText.isNotEmpty) ...[
+                    const SizedBox(height: 18),
+                    const Text(
+                      'AI Narration',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppPalette.charcoal,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    AiNarrationWidget(
+                      narrationText: narrationText,
+                      helperText:
+                          'Tap play to hear your AI tour guide walk you through this event.',
+                    ),
+                  ],
                 ],
               ),
             ),

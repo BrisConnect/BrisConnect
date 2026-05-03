@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>User Story – Local User Login | BrisConnect</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 13px;
+      color: #1a1a1a;
+      background: #fff;
+      padding: 40px;
+      max-width: 900px;
+      margin: auto;
+    }
+    h1 { font-size: 22px; color: #1565C0; margin-bottom: 4px; }
+    h2 { font-size: 15px; color: #1565C0; margin: 28px 0 10px; border-bottom: 2px solid #1565C0; padding-bottom: 4px; }
+    h3 { font-size: 13px; color: #333; margin: 14px 0 6px; }
+    .subtitle { font-size: 12px; color: #666; margin-bottom: 24px; }
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-right: 6px;
+    }
+    .badge-blue  { background: #E3F2FD; color: #1565C0; }
+    .badge-green { background: #E8F5E9; color: #2E7D32; }
+
+    /* Story card */
+    .story-card {
+      background: #F5F9FF;
+      border-left: 4px solid #1565C0;
+      padding: 14px 18px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+    .story-card p { margin-bottom: 6px; }
+    .story-card strong { color: #1565C0; }
+
+    /* Acceptance criteria */
+    .ac-list { list-style: none; padding: 0; }
+    .ac-list li {
+      padding: 7px 12px 7px 32px;
+      margin-bottom: 5px;
+      background: #F9F9F9;
+      border-radius: 5px;
+      border: 1px solid #E0E0E0;
+      position: relative;
+    }
+    .ac-list li::before {
+      content: '✓';
+      position: absolute;
+      left: 10px;
+      color: #2E7D32;
+      font-weight: 700;
+    }
+
+    /* Steps */
+    .steps-list { list-style: none; counter-reset: step-counter; padding: 0; }
+    .steps-list li {
+      counter-increment: step-counter;
+      padding: 7px 12px 7px 38px;
+      margin-bottom: 5px;
+      background: #F9F9F9;
+      border-radius: 5px;
+      border: 1px solid #E0E0E0;
+      position: relative;
+    }
+    .steps-list li::before {
+      content: counter(step-counter);
+      position: absolute;
+      left: 10px;
+      background: #1565C0;
+      color: #fff;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      top: 7px;
+    }
+
+    /* Schema table */
+    table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 12px; }
+    th {
+      background: #1565C0;
+      color: #fff;
+      padding: 8px 10px;
+      text-align: left;
+    }
+    td { padding: 7px 10px; border-bottom: 1px solid #E0E0E0; vertical-align: top; }
+    tr:nth-child(even) td { background: #F5F9FF; }
+    code {
+      background: #EEEEEE;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-family: Consolas, monospace;
+    }
+
+    /* JSON */
+    .json-block {
+      background: #1E1E1E;
+      color: #D4D4D4;
+      padding: 14px 16px;
+      border-radius: 6px;
+      font-family: Consolas, monospace;
+      font-size: 11.5px;
+      white-space: pre;
+      overflow-x: auto;
+      margin-bottom: 10px;
+    }
+    .json-key   { color: #9CDCFE; }
+    .json-str   { color: #CE9178; }
+    .json-bool  { color: #569CD6; }
+    .json-num   { color: #B5CEA8; }
+
+    /* Flow diagram */
+    .flow-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .flow-node {
+      padding: 7px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      text-align: center;
+    }
+    .flow-arrow { font-size: 18px; line-height: 36px; color: #999; align-self: center; }
+    .node-green  { background: #E8F5E9; border: 1.5px solid #4CAF50; color: #2E7D32; }
+    .node-blue   { background: #E3F2FD; border: 1.5px solid #2196F3; color: #1565C0; }
+    .node-orange { background: #FFF3E0; border: 1.5px solid #FF9800; color: #E65100; }
+    .node-red    { background: #FFEBEE; border: 1.5px solid #f44336; color: #B71C1C; }
+    .node-grey   { background: #F5F5F5; border: 1.5px solid #9E9E9E; color: #333; }
+
+    .flow-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+    .flow-table th { background: #1565C0; color: #fff; padding: 7px 10px; text-align: left; }
+    .flow-table td { padding: 7px 10px; border-bottom: 1px solid #E0E0E0; }
+    .flow-table tr:nth-child(even) td { background: #F5F9FF; }
+
+    /* Footer */
+    .footer {
+      margin-top: 40px;
+      padding-top: 12px;
+      border-top: 1px solid #E0E0E0;
+      font-size: 11px;
+      color: #999;
+      text-align: center;
+    }
+
+    @media print {
+      body { padding: 20px; }
+      .json-block { font-size: 10px; }
+      h2 { page-break-before: auto; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <h1>BrisConnect — User Story Documentation</h1>
+  <div class="subtitle">
+    <span class="badge badge-blue">Sprint 3</span>
+    <span class="badge badge-green">Local User</span>
+    Generated: April 27, 2026
+  </div>
+
+  <!-- 1. User Story -->
+  <h2>1. User Story</h2>
+  <div class="story-card">
+    <p><strong>As a</strong> Local User,</p>
+    <p><strong>I want</strong> to log in to my account,</p>
+    <p><strong>So that</strong> I can access local portal features.</p>
+  </div>
+
+  <!-- 2. Acceptance Criteria -->
+  <h2>2. Acceptance Criteria</h2>
+  <ul class="ac-list">
+    <li>Local login requires valid local credentials.</li>
+    <li>Invalid credentials are rejected with feedback.</li>
+    <li>Successful login redirects the user to the local portal.</li>
+    <li>Local-only routes are restricted from other user roles.</li>
+    <li>Session state is restored correctly after login.</li>
+    <li>The system shall provide secure, reliable, and efficient login for Local users.</li>
+  </ul>
+
+  <!-- 3. User Steps -->
+  <h2>3. User Steps (App Interaction)</h2>
+  <ol class="steps-list">
+    <li>Open BrisConnect app → tap <strong>Local User Login</strong> on the home screen.</li>
+    <li>Enter registered <strong>email</strong> and <strong>password</strong> in the login form.</li>
+    <li>Tap the <strong>Login</strong> button to submit.</li>
+    <li>If credentials are incorrect → error message displayed → user corrects and retries.</li>
+    <li>If too many failed attempts → account locked → lockout message shown with retry guidance.</li>
+    <li>If account is pending or disabled → access denied message shown.</li>
+    <li>If credentials are valid → system verifies local user role and account approval.</li>
+    <li>Redirected to the <strong>Local Portal dashboard</strong> with portal features unlocked.</li>
+    <li>On next app open → restore key detected → session resumed automatically → user lands directly on Local Portal.</li>
+    <li>Attempting to access local-only screens from another role → access blocked → redirected away.</li>
+  </ol>
+
+  <!-- 4. Database Schema -->
+  <h2>4. Database Schema Design</h2>
+
+  <h3>Table: local_users</h3>
+  <table>
+    <tr><th>Column</th><th>Type</th><th>Purpose</th></tr>
+    <tr><td><code>id</code></td><td>BIGINT UNSIGNED PK</td><td>Unique user identifier</td></tr>
+    <tr><td><code>email</code></td><td>VARCHAR(255) UNIQUE</td><td>Login identifier</td></tr>
+    <tr><td><code>password_hash</code></td><td>VARCHAR(255)</td><td>Argon2id hashed password</td></tr>
+    <tr><td><code>display_name</code></td><td>VARCHAR(120)</td><td>User's display name</td></tr>
+    <tr><td><code>approval_status</code></td><td>ENUM(pending, approved, rejected)</td><td>Account approval gate</td></tr>
+    <tr><td><code>account_status</code></td><td>ENUM(active, locked, disabled)</td><td>Login access state</td></tr>
+    <tr><td><code>failed_login_count</code></td><td>INT UNSIGNED</td><td>Brute-force tracking</td></tr>
+    <tr><td><code>locked_until</code></td><td>DATETIME(3)</td><td>Temporary lockout expiry</td></tr>
+    <tr><td><code>last_login_at</code></td><td>DATETIME(3)</td><td>Last successful login</td></tr>
+    <tr><td><code>created_at</code></td><td>DATETIME(3)</td><td>Account creation time</td></tr>
+  </table>
+
+  <h3 style="margin-top:16px;">Table: local_sessions</h3>
+  <table>
+    <tr><th>Column</th><th>Type</th><th>Purpose</th></tr>
+    <tr><td><code>id</code></td><td>BIGINT UNSIGNED PK</td><td>Session identifier</td></tr>
+    <tr><td><code>user_id</code></td><td>BIGINT UNSIGNED FK</td><td>Links to local_users</td></tr>
+    <tr><td><code>session_token_hash</code></td><td>CHAR(64) UNIQUE</td><td>Hashed session token</td></tr>
+    <tr><td><code>restore_key_hash</code></td><td>CHAR(64) UNIQUE</td><td>Enables session restoration on app reopen</td></tr>
+    <tr><td><code>is_revoked</code></td><td>TINYINT(1)</td><td>Session revocation flag</td></tr>
+    <tr><td><code>expires_at</code></td><td>DATETIME(3)</td><td>Session expiry</td></tr>
+    <tr><td><code>created_at</code></td><td>DATETIME(3)</td><td>Session creation time</td></tr>
+  </table>
+
+  <h3 style="margin-top:16px;">Table: local_login_attempts</h3>
+  <table>
+    <tr><th>Column</th><th>Type</th><th>Purpose</th></tr>
+    <tr><td><code>id</code></td><td>BIGINT UNSIGNED PK</td><td>Attempt identifier</td></tr>
+    <tr><td><code>user_id</code></td><td>BIGINT UNSIGNED FK</td><td>Links to local_users (nullable)</td></tr>
+    <tr><td><code>email_tried</code></td><td>VARCHAR(255)</td><td>Email submitted at login</td></tr>
+    <tr><td><code>was_successful</code></td><td>TINYINT(1)</td><td>Outcome flag</td></tr>
+    <tr><td><code>failure_reason</code></td><td>ENUM(invalid_credentials, locked, disabled, unknown_user)</td><td>Maps to UI error message</td></tr>
+    <tr><td><code>attempted_at</code></td><td>DATETIME(3)</td><td>Timestamp of attempt</td></tr>
+    <tr><td><code>ip_address</code></td><td>VARCHAR(45)</td><td>Source IP for audit</td></tr>
+  </table>
+
+  <!-- 5. JSON Examples -->
+  <h2>5. Example JSON Documents</h2>
+
+  <h3>Login Request</h3>
+  <div class="json-block">{
+  <span class="json-key">"email"</span>: <span class="json-str">"john.local@email.com"</span>,
+  <span class="json-key">"password"</span>: <span class="json-str">"SecurePass123!"</span>
+}</div>
+
+  <h3>Login Response — Success</h3>
+  <div class="json-block">{
+  <span class="json-key">"status"</span>: <span class="json-str">"success"</span>,
+  <span class="json-key">"user"</span>: {
+    <span class="json-key">"id"</span>: <span class="json-num">101</span>,
+    <span class="json-key">"email"</span>: <span class="json-str">"john.local@email.com"</span>,
+    <span class="json-key">"display_name"</span>: <span class="json-str">"John Smith"</span>,
+    <span class="json-key">"account_type"</span>: <span class="json-str">"local"</span>,
+    <span class="json-key">"approval_status"</span>: <span class="json-str">"approved"</span>
+  },
+  <span class="json-key">"session"</span>: {
+    <span class="json-key">"session_token"</span>: <span class="json-str">"eyJhbGci...abc"</span>,
+    <span class="json-key">"restore_key"</span>: <span class="json-str">"rk_9f3e...xyz"</span>,
+    <span class="json-key">"expires_at"</span>: <span class="json-str">"2026-05-27T10:00:00.000Z"</span>
+  },
+  <span class="json-key">"redirect"</span>: <span class="json-str">"/local/dashboard"</span>
+}</div>
+
+  <h3>Login Response — Failure</h3>
+  <div class="json-block">{
+  <span class="json-key">"status"</span>: <span class="json-str">"error"</span>,
+  <span class="json-key">"failure_reason"</span>: <span class="json-str">"invalid_credentials"</span>,
+  <span class="json-key">"message"</span>: <span class="json-str">"Incorrect email or password."</span>
+}</div>
+
+  <h3>Session Restore Request</h3>
+  <div class="json-block">{
+  <span class="json-key">"restore_key"</span>: <span class="json-str">"rk_9f3e...xyz"</span>
+}</div>
+
+  <h3>Session Restore Response</h3>
+  <div class="json-block">{
+  <span class="json-key">"status"</span>: <span class="json-str">"restored"</span>,
+  <span class="json-key">"user_id"</span>: <span class="json-num">101</span>,
+  <span class="json-key">"redirect"</span>: <span class="json-str">"/local/dashboard"</span>
+}</div>
+
+  <!-- 6. Flow Diagram Summary -->
+  <h2>6. Login Flow Summary</h2>
+  <table class="flow-table">
+    <tr><th>Step</th><th>Outcome</th><th>Acceptance Criterion Met</th></tr>
+    <tr><td>App opens with restore key</td><td>Session restored → Local Portal</td><td>Session state restored correctly</td></tr>
+    <tr><td>App opens without restore key</td><td>Redirected to Login screen</td><td>—</td></tr>
+    <tr><td>Unknown email submitted</td><td>Account not found error</td><td>Invalid credentials rejected with feedback</td></tr>
+    <tr><td>Wrong password submitted</td><td>Error + failed count incremented</td><td>Invalid credentials rejected with feedback</td></tr>
+    <tr><td>Max failed attempts reached</td><td>Account locked temporarily</td><td>Secure and reliable login</td></tr>
+    <tr><td>Account disabled / pending</td><td>Access denied message</td><td>Secure and reliable login</td></tr>
+    <tr><td>Valid credentials, wrong role</td><td>No local user access message</td><td>Local-only routes restricted from other roles</td></tr>
+    <tr><td>Valid credentials, local role</td><td>Session created → Local Portal dashboard</td><td>Successful login redirects to local portal</td></tr>
+    <tr><td>Other role accesses /local/* route</td><td>Route blocked, redirected away</td><td>Local-only routes restricted from other roles</td></tr>
+  </table>
+
+  <div class="footer">
+    BrisConnect &nbsp;|&nbsp; User Story: Local User Login &nbsp;|&nbsp; April 27, 2026 &nbsp;|&nbsp; Confidential
+  </div>
+
+</body>
+</html>

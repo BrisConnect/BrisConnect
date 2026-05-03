@@ -43,7 +43,8 @@ void main() {
       expect(results.first.name, 'Approved Attraction');
     });
 
-    test('accepts approval from status/reviewStatus/isApproved fields', () async {
+    test('accepts approval from status/reviewStatus/isApproved fields',
+        () async {
       final FakeFirebaseFirestore firestore = FakeFirebaseFirestore();
 
       await firestore.collection('attractions').doc('r1').set({
@@ -105,11 +106,40 @@ void main() {
 
       final ApprovedAttraction cultural =
           results.firstWhere((r) => r.id == 'c1');
-      final ApprovedAttraction noCat =
-          results.firstWhere((r) => r.id == 'c2');
+      final ApprovedAttraction noCat = results.firstWhere((r) => r.id == 'c2');
 
       expect(cultural.category, 'Cultural');
       expect(noCat.category, isNull);
+    });
+
+    test('parses accessibility details from approved attraction data',
+        () async {
+      final FakeFirebaseFirestore firestore = FakeFirebaseFirestore();
+
+      await firestore.collection('attractions').doc('acc1').set({
+        'name': 'Accessible Attraction',
+        'description': 'Accessibility enabled location',
+        'location': 'CBD',
+        'latitude': -27.47,
+        'longitude': 153.02,
+        'approvalStatus': 'approved',
+        'accessibilityDetails': [
+          'Wheelchair access',
+          'Accessible toilets',
+        ],
+      });
+
+      final ApprovedAttractionService service =
+          ApprovedAttractionService(firestore: firestore);
+
+      final List<ApprovedAttraction> results =
+          await service.watchApprovedAttractions().first;
+
+      expect(results.length, 1);
+      expect(
+        results.first.accessibilityDetails,
+        ['Wheelchair access', 'Accessible toilets'],
+      );
     });
   });
 }

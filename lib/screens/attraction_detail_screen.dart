@@ -1,8 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:brisconnect/services/approved_attraction_service.dart';
@@ -97,7 +96,12 @@ class AttractionDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final detail =
         AttractionDetailService.getDetail(attraction, allAttractions);
-    final narrationText = _buildNarrationText(detail);
+    final narrationText = (attraction.aiNarration ?? '').isNotEmpty
+        ? attraction.aiNarration!
+        : _buildNarrationText(detail);
+    final accessibilityDetails = attraction.accessibilityDetails.isNotEmpty
+        ? attraction.accessibilityDetails
+        : const <String>['Accessibility details not provided by admin yet.'];
 
     return ValueListenableBuilder<int>(
       valueListenable: AttractionDetailService.savedVersion,
@@ -110,8 +114,6 @@ class AttractionDetailScreen extends StatelessWidget {
           backgroundColor: AppPalette.background,
           appBar: AppBar(
             title: Text(attraction.name),
-            backgroundColor: AppPalette.surface,
-            foregroundColor: AppPalette.charcoal,
           ),
           body: SafeArea(
             child: ListView(
@@ -171,10 +173,10 @@ class AttractionDetailScreen extends StatelessWidget {
                 if (narrationText.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 18),
-                    child: AudioGuideWidget(
+                    child: AiNarrationWidget(
                       narrationText: narrationText,
                       helperText:
-                          'Listen to a guided intro to the attraction, its story, and visit planning details.',
+                          'Tap play to hear your AI tour guide introduce this attraction and its story.',
                     ),
                   ),
                 _DetailSection(
@@ -278,7 +280,7 @@ class AttractionDetailScreen extends StatelessWidget {
                     ),
                     _ChipCollectionCard(
                       title: 'Accessibility',
-                      items: detail.accessibility,
+                      items: accessibilityDetails,
                     ),
                   ],
                 ),
@@ -583,33 +585,24 @@ class _MapCard extends StatelessWidget {
             height: 180,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(18),
-              child: FlutterMap(
-                options: MapOptions(
-                  initialCenter:
-                      LatLng(attraction.latitude, attraction.longitude),
-                  initialZoom: 14.5,
-                  interactionOptions:
-                      const InteractionOptions(flags: InteractiveFlag.none),
+              child: GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: LatLng(attraction.latitude, attraction.longitude),
+                  zoom: 14.5,
                 ),
-                children: [
-                  TileLayer(
-                    urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.example.brisconnect',
+                scrollGesturesEnabled: false,
+                zoomGesturesEnabled: false,
+                tiltGesturesEnabled: false,
+                rotateGesturesEnabled: false,
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+                markers: {
+                  Marker(
+                    markerId: const MarkerId('attraction'),
+                    position: LatLng(attraction.latitude, attraction.longitude),
+                    infoWindow: InfoWindow(title: attraction.name),
                   ),
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point:
-                            LatLng(attraction.latitude, attraction.longitude),
-                        width: 40,
-                        height: 40,
-                        child: const Icon(Icons.location_pin,
-                            color: AppPalette.ochre, size: 36),
-                      ),
-                    ],
-                  ),
-                ],
+                },
               ),
             ),
           ),

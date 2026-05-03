@@ -146,7 +146,7 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(label,
-                  style: const TextStyle(fontSize: 11, color: Colors.black45)),
+                  style: const TextStyle(fontSize: 11, color: Colors.black87)),
               Text(value,
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
             ],
@@ -217,7 +217,7 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
             const SizedBox(height: 4),
             const Text(
               'Select all that apply',
-              style: TextStyle(fontSize: 12, color: Colors.black45),
+              style: TextStyle(fontSize: 12, color: Colors.black87),
             ),
             const SizedBox(height: 12),
 

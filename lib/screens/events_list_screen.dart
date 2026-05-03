@@ -6,6 +6,7 @@ import 'package:brisconnect/screens/event_detail_screen.dart';
 import 'package:brisconnect/screens/event_map_screen.dart';
 import 'package:brisconnect/screens/visitor_interested_events_screen.dart';
 import 'package:brisconnect/screens/visitor_notifications_screen.dart';
+import 'package:brisconnect/screens/visitor_saved_events_calendar_screen.dart';
 import 'package:brisconnect/services/firestore_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
@@ -20,13 +21,16 @@ class EventsListScreen extends StatefulWidget {
 class _EventsListScreenState extends State<EventsListScreen> {
   DateTime? _selectedDate;
   final FirestoreService _firestoreService = FirestoreService();
+  late final Stream<List<Map<String, dynamic>>> _eventsStream =
+      _firestoreService.getEvents();
   List<EventItem> _latestApprovedEvents = const <EventItem>[];
 
   void _toggleInterested(EventItem event) {
     if (!VisitorAuth.isVisitorLoggedIn) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please log in as a Visitor to save interested events.'),
+          content:
+              Text('Please log in as a Visitor to save interested events.'),
         ),
       );
       return;
@@ -72,7 +76,8 @@ class _EventsListScreenState extends State<EventsListScreen> {
     final trimmed = value.trim();
 
     // Supports format: dd/MM/yyyy
-    final slashMatch = RegExp(r'^(\d{2})\/(\d{2})\/(\d{4})$').firstMatch(trimmed);
+    final slashMatch =
+        RegExp(r'^(\d{2})\/(\d{2})\/(\d{4})$').firstMatch(trimmed);
     if (slashMatch != null) {
       final day = int.parse(slashMatch.group(1)!);
       final month = int.parse(slashMatch.group(2)!);
@@ -81,7 +86,8 @@ class _EventsListScreenState extends State<EventsListScreen> {
     }
 
     // Supports format: dd MMM yyyy (e.g. 22 Mar 2026)
-    final wordMatch = RegExp(r'^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$').firstMatch(trimmed);
+    final wordMatch =
+        RegExp(r'^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$').firstMatch(trimmed);
     if (wordMatch != null) {
       final day = int.parse(wordMatch.group(1)!);
       final monthText = wordMatch.group(2)!.toLowerCase();
@@ -148,10 +154,15 @@ class _EventsListScreenState extends State<EventsListScreen> {
       title: ((map['title'] as String?) ?? 'Untitled Event').trim(),
       date: ((map['date'] as String?) ?? 'Date TBA').trim(),
       time: ((map['time'] as String?) ?? 'Time TBA').trim(),
+      category: ((map['category'] as String?) ?? 'General').trim(),
       location: ((map['location'] as String?) ?? 'Location TBA').trim(),
       description: ((map['description'] as String?) ?? '').trim(),
       reviewStatus: reviewStatus,
       createdByLocalEmail: (map['createdByLocalEmail'] as String?)?.trim(),
+      imageAsset: (map['imageUrl'] as String?)?.trim(),
+      imageStoragePath: (map['imageStoragePath'] as String?)?.trim(),
+      audioUrl: (map['audioUrl'] as String?)?.trim(),
+      audioStoragePath: (map['audioStoragePath'] as String?)?.trim(),
       latitude: _toDouble(map['latitude']),
       longitude: _toDouble(map['longitude']),
     );
@@ -179,6 +190,22 @@ class _EventsListScreenState extends State<EventsListScreen> {
             lat: event.latitude ?? -27.4698,
             lng: event.longitude ?? 153.0251,
           ),
+        )
+        .toList(growable: false);
+  }
+
+  List<Map<String, dynamic>> _toCalendarItems(List<EventItem> events) {
+    return events
+        .map(
+          (event) => <String, dynamic>{
+            'id': event.id,
+            'section': 'events',
+            'title': event.title,
+            'dateTime': '${event.date} • ${event.time}',
+            'location': event.location,
+            'description': event.description,
+            'imageUrl': event.imageAsset ?? '',
+          },
         )
         .toList(growable: false);
   }
@@ -230,6 +257,22 @@ class _EventsListScreenState extends State<EventsListScreen> {
               onPressed: _clearDateFilter,
             ),
           IconButton(
+            icon: const Icon(Icons.calendar_today_rounded),
+            tooltip: 'Calendar view',
+            onPressed: _latestApprovedEvents.isEmpty
+                ? null
+                : () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => VisitorSavedEventsCalendarScreen(
+                          savedItems: _toCalendarItems(_latestApprovedEvents),
+                        ),
+                      ),
+                    );
+                  },
+          ),
+          IconButton(
             icon: const Icon(Icons.map),
             tooltip: 'View on map',
             onPressed: _latestApprovedEvents.isEmpty
@@ -248,22 +291,24 @@ class _EventsListScreenState extends State<EventsListScreen> {
         ],
       ),
       body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _firestoreService.getEvents(),
+        stream: _eventsStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
           if (snapshot.hasError) {
-            return const Center(child: Text('Unable to load events right now.'));
+            return const Center(
+                child: Text('Unable to load events right now.'));
           }
 
-          final approvedEvents = (snapshot.data ?? const <Map<String, dynamic>>[])
-              .map(_eventFromMap)
-              .where((event) => event.isApproved)
-              .toList(growable: false);
+          final approvedEvents =
+              (snapshot.data ?? const <Map<String, dynamic>>[])
+                  .map(_eventFromMap)
+                  .where((event) => event.isApproved)
+                  .toList(growable: false);
 
-            _latestApprovedEvents = approvedEvents;
+          _latestApprovedEvents = approvedEvents;
 
           final events = _getFilteredEvents(approvedEvents);
 
@@ -273,7 +318,8 @@ class _EventsListScreenState extends State<EventsListScreen> {
                 Container(
                   width: double.infinity,
                   margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     color: AppPalette.surfaceAlt,
                     borderRadius: BorderRadius.circular(10),
@@ -281,7 +327,8 @@ class _EventsListScreenState extends State<EventsListScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.event, size: 18, color: AppPalette.ochre),
+                      const Icon(Icons.event,
+                          size: 18, color: AppPalette.ochre),
                       const SizedBox(width: 8),
                       Text(
                         'Selected date: ${_formatSelectedDate(_selectedDate!)}',
@@ -303,9 +350,11 @@ class _EventsListScreenState extends State<EventsListScreen> {
                         itemBuilder: (context, index) {
                           final event = events[index];
                           return Card(
+                            key: ValueKey(event.id),
                             color: AppPalette.surface,
                             child: ListTile(
-                              leading: const Icon(Icons.event, color: AppPalette.ochre),
+                              leading: const Icon(Icons.event,
+                                  color: AppPalette.ochre),
                               title: Text(
                                 event.title,
                                 style: const TextStyle(
@@ -333,7 +382,8 @@ class _EventsListScreenState extends State<EventsListScreen> {
                                       VisitorAuth.isInterestedInEvent(event.id)
                                           ? Icons.favorite_rounded
                                           : Icons.favorite_border_rounded,
-                                      color: VisitorAuth.isInterestedInEvent(event.id)
+                                      color: VisitorAuth.isInterestedInEvent(
+                                              event.id)
                                           ? AppPalette.ochre
                                           : AppPalette.deepBlue,
                                     ),
@@ -345,7 +395,8 @@ class _EventsListScreenState extends State<EventsListScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => EventDetailScreen(event: event),
+                                    builder: (_) =>
+                                        EventDetailScreen(event: event),
                                   ),
                                 );
                               },

@@ -1,29 +1,38 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:brisconnect/screens/attraction_detail_screen.dart';
+import 'package:brisconnect/screens/brisbane_stories_screen.dart';
 import 'package:brisconnect/screens/food_detail_screen.dart';
 import 'package:brisconnect/screens/stadium_detail_screen.dart';
 import 'package:brisconnect/screens/visitor_event_detail_screen.dart';
-import 'package:brisconnect/screens/visitor_interested_events_screen.dart';
 import 'package:brisconnect/screens/visitor_saved_events_calendar_screen.dart';
-import 'package:brisconnect/screens/profile_camera_capture_screen.dart';
 import 'package:brisconnect/widgets/report_event_dialog.dart';
 import 'package:brisconnect/theme/app_palette.dart';
+import 'package:brisconnect/utils/venue_image_fallback.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/services/approved_attraction_service.dart';
 import 'package:brisconnect/services/discover_data_service.dart';
-import 'package:brisconnect/services/event_repository.dart';
+import 'package:brisconnect/services/firestore_service.dart';
+import 'package:brisconnect/services/location_utilities.dart';
+import 'package:brisconnect/services/olympic_event_email_service.dart';
 import 'package:brisconnect/services/visitor_notification_service.dart';
 import 'package:brisconnect/screens/welcome_screen.dart';
+import 'package:brisconnect/services/firebase_media_service.dart';
 import 'package:brisconnect/utils/error_messages.dart';
 import 'package:brisconnect/utils/profile_image_utils.dart';
 import 'visitor_notifications_screen.dart';
+import 'notification_settings_screen.dart';
+import 'interest_categories_screen.dart';
 import 'visitor_settings_screen.dart';
+import 'appearance_settings_screen.dart';
+import 'my_feedback_screen.dart';
 import 'map_events_screen.dart';
 import '../widgets/inline_status_message.dart';
 import '../widgets/reusable_event_card.dart';
@@ -43,10 +52,22 @@ class VisitorPortalScreen extends StatefulWidget {
 
 class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   final TextEditingController _searchController = TextEditingController();
+  FirebaseMediaService? _mediaService;
+  Uint8List? _pendingProfileImageBytes;
+  Timer? _searchDebounce;
   int _selectedIndex = 0;
+  bool _isNavVisible = true;
   DateTime? _selectedEventDate;
   DiscoverDataService? _discoverDataService;
+  FirestoreService? _firestoreService;
   ApprovedAttractionService? _approvedAttractionService;
+  Stream<List<Map<String, dynamic>>>? _discoverItemsStreamCache;
+  Stream<List<Map<String, dynamic>>>? _discoverRadiusStreamCache;
+  Stream<List<Map<String, dynamic>>>? _approvedEventsStreamCache;
+  late double _userLatitude;
+  late double _userLongitude;
+  late int _radiusKm;
+  late bool _isUsingRadius;
 
   final Set<_VisitorFilterSection> _selectedSections = {
     _VisitorFilterSection.events,
@@ -58,30 +79,109 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     _VisitorPriceFilter.free,
     _VisitorPriceFilter.paid,
   };
-
   @override
   void initState() {
     super.initState();
-    testFirestore();
+    // Stream caches are lazily initialized in _discoverItemsStream().
+    _updateUserPreferences();
+
+    final visitor = VisitorAuth.currentVisitor;
+    if (visitor != null) {
+      () async {
+        try {
+          await OlympicEventEmailService()
+              .queueUpcomingOlympicEventEmailsForOptedInVisitors();
+        } catch (error) {
+          debugPrint('[VisitorPortal] Olympic email dispatch failed: $error');
+        }
+      }();
+    }
   }
 
-  void testFirestore() async {
-    final snapshot =
-        await FirebaseFirestore.instance.collection('events').get();
+  void _updateUserPreferences() {
 
-    print("Documents found: ${snapshot.docs.length}");
+    final visitor = VisitorAuth.currentVisitor;
+    if (visitor != null) {
+      _radiusKm = visitor.locationRadiusKm;
+      _isUsingRadius = visitor.useCurrentLocation;
+    } else {
+      _radiusKm = 20;
+      _isUsingRadius = false;
+    }
+
+    // Use default Brisbane location
+    final (defaultLat, defaultLon) = LocationUtilities.getDefaultLocation();
+    _userLatitude = defaultLat;
+    _userLongitude = defaultLon;
   }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
   Stream<List<Map<String, dynamic>>> _discoverItemsStream() {
-    return widget.discoverItemsStreamOverride ??
-      (_discoverDataService ??= DiscoverDataService())
-        .watchApprovedDiscoverItems();
+    _discoverItemsStreamCache ??=
+        (widget.discoverItemsStreamOverride ??
+            (_discoverDataService ??= DiscoverDataService())
+                .watchApprovedDiscoverItems())
+        .asBroadcastStream();
+
+    // Apply radius filtering if enabled
+    if (_isUsingRadius) {
+      return _discoverRadiusStreamCache ??=
+          _discoverItemsStreamCache!.map((items) {
+        return (_discoverDataService ??= DiscoverDataService()).filterByRadius(
+          items: items,
+          userLatitude: _userLatitude,
+          userLongitude: _userLongitude,
+          radiusKm: _radiusKm,
+        );
+      }).asBroadcastStream();
+    }
+
+    return _discoverItemsStreamCache!;
+  }
+
+  Stream<List<Map<String, dynamic>>> _approvedEventsStream() {
+    final stream = _approvedEventsStreamCache ??= (_firestoreService ??=
+            FirestoreService())
+        .getEvents()
+        .asBroadcastStream();
+    return stream;
+  }
+
+  Map<String, dynamic> _toSavedEventCardItem(Map<String, dynamic> item) {
+    final date = (item['date'] as String? ?? '').trim();
+    final time = (item['time'] as String? ?? '').trim();
+    final dateLower = date.toLowerCase();
+    final timeLower = time.toLowerCase();
+    final hasConcreteDate = date.isNotEmpty && dateLower != 'date tba';
+    final hasConcreteTime = time.isNotEmpty && timeLower != 'time tba';
+    final rawDateTime = ((item['dateTime'] as String?) ?? '').trim();
+    final dateTime = hasConcreteDate || hasConcreteTime
+        ? '${hasConcreteDate ? date : 'Date TBA'} • ${hasConcreteTime ? time : 'Time TBA'}'
+        : (rawDateTime.isNotEmpty ? rawDateTime : 'Date TBA • Time TBA');
+
+    return {
+      ...item,
+      'id': (item['id'] as String? ?? '').trim(),
+      'section': 'events',
+      'imageUrl': (item['imageUrl'] as String? ?? '').trim(),
+      'badge': 'EVENT',
+      'title': ((item['title'] as String?) ?? 'Untitled Event').trim(),
+      'description': ((item['description'] as String?) ?? '').trim(),
+      'dateTime': dateTime,
+      'location': ((item['location'] as String?) ?? 'Location TBA').trim(),
+      'price': ((item['price'] as String?) ?? 'Price TBA').trim(),
+      'webLink': ((item['webLink'] as String?) ?? '').trim(),
+    };
+  }
+
+  FirebaseMediaService get _effectiveMediaService {
+    return _mediaService ??= FirebaseMediaService();
   }
 
   List<Map<String, dynamic>> _filterItems(
@@ -96,12 +196,22 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     return items.where((item) {
       final matchesSection =
           (item['section'] as String? ?? '') == _sectionKey(section);
+      final categoryList = (item['categories'] as List?)
+              ?.map((v) => '$v'.trim().toLowerCase())
+              .toList(growable: false) ??
+          const <String>[];
+      final singleCategory =
+          (item['category'] as String? ?? '').toLowerCase();
+      final sectionVal = (item['section'] as String? ?? '').toLowerCase();
       final matchesSearch = query.isEmpty ||
           (item['title'] as String? ?? '').toLowerCase().contains(query) ||
           (item['description'] as String? ?? '')
               .toLowerCase()
               .contains(query) ||
-          (item['location'] as String? ?? '').toLowerCase().contains(query);
+          (item['location'] as String? ?? '').toLowerCase().contains(query) ||
+          sectionVal.contains(query) ||
+          singleCategory.contains(query) ||
+          categoryList.any((c) => c.contains(query));
       final matchesPrice =
           _selectedPriceFilters.any((p) => _itemMatchesPrice(item, p));
       final matchesDate = _selectedEventDate == null ||
@@ -139,6 +249,120 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     } else {
       return !price.contains('free');
     }
+  }
+
+  bool _isApprovedItem(Map<String, dynamic> item) {
+    final approvalStatus =
+        (item['approvalStatus'] as String? ?? '').trim().toLowerCase();
+    final reviewStatus =
+        (item['reviewStatus'] as String? ?? '').trim().toLowerCase();
+    final status = (item['status'] as String? ?? '').trim().toLowerCase();
+    final isApproved = (item['isApproved'] as bool?) ?? false;
+
+    if (approvalStatus.isEmpty && reviewStatus.isEmpty && status.isEmpty) {
+      return true;
+    }
+    return isApproved ||
+        approvalStatus == 'approved' ||
+        reviewStatus == 'approved' ||
+        status == 'approved';
+  }
+
+  Set<String> _itemInterestTags(Map<String, dynamic> item) {
+    final tags = <String>{};
+
+    final badge = (item['badge'] as String? ?? '').trim().toLowerCase();
+    if (badge.contains('music')) tags.add('music');
+    if (badge.contains('culture')) tags.add('culture');
+    if (badge.contains('sport')) tags.add('sports');
+    if (badge.contains('histor')) tags.add('historical');
+
+    final categoryValues = (item['categories'] as List?)
+            ?.map((value) => '$value'.trim().toLowerCase())
+            .where((value) => value.isNotEmpty)
+            .toList(growable: false) ??
+        const <String>[];
+    tags.addAll(categoryValues);
+
+    final title = (item['title'] as String? ?? '').toLowerCase();
+    if (title.contains('music') || title.contains('concert')) {
+      tags.add('music');
+    }
+    if (title.contains('culture') || title.contains('festival')) {
+      tags.add('culture');
+    }
+    if (title.contains('sport') || title.contains('stadium')) {
+      tags.add('sports');
+    }
+
+    return tags.map(_normalizeInterestTag).toSet();
+  }
+
+  String _normalizeInterestTag(String raw) {
+    final value = raw.trim().toLowerCase();
+    if (value.isEmpty) return '';
+    if (value.startsWith('sport')) return 'sports';
+    if (value.startsWith('histor')) return 'historical';
+    if (value == 'history') return 'historical';
+    if (value == 'event') return 'events';
+    if (value.contains('culture')) return 'culture';
+    if (value.contains('music')) return 'music';
+    if (value.contains('food') || value.contains('dining')) return 'food';
+    if (value.contains('stadium')) return 'stadiums';
+    return value;
+  }
+
+  List<Map<String, dynamic>> _recommendedItems(
+    List<Map<String, dynamic>> allItems,
+  ) {
+    final interestedIds = VisitorAuth.getInterestedEventIds();
+    if (interestedIds.isEmpty) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    final interestTags = <String>{};
+    for (final item in allItems) {
+      final id = (item['id'] as String? ?? '').trim();
+      if (id.isEmpty || !interestedIds.contains(id)) {
+        continue;
+      }
+      interestTags.addAll(_itemInterestTags(item));
+    }
+
+    if (interestTags.isEmpty) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    final scored = <({Map<String, dynamic> item, int score})>[];
+    for (final item in allItems) {
+      final id = (item['id'] as String? ?? '').trim();
+      final section = (item['section'] as String? ?? '').trim().toLowerCase();
+      if (id.isEmpty || interestedIds.contains(id) || section != 'events') {
+        continue;
+      }
+      if (!_isApprovedItem(item)) {
+        continue;
+      }
+
+      final tags = _itemInterestTags(item);
+      final overlapCount = tags.where(interestTags.contains).length;
+      final score = overlapCount;
+      if (score > 0) {
+        scored.add((item: item, score: score));
+      }
+    }
+
+    scored.sort((a, b) {
+      final byScore = b.score.compareTo(a.score);
+      if (byScore != 0) {
+        return byScore;
+      }
+      final aTitle = (a.item['title'] as String? ?? '').toLowerCase();
+      final bTitle = (b.item['title'] as String? ?? '').toLowerCase();
+      return aTitle.compareTo(bTitle);
+    });
+
+    return scored.take(6).map((entry) => entry.item).toList(growable: false);
   }
 
   DateTime? _parseDateFromString(String value) {
@@ -359,7 +583,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                                 onDeleted: () =>
                                     setModalState(() => selectedDate = null),
                                 backgroundColor: AppPalette.surfaceAlt,
-                                side: const BorderSide(color: AppPalette.border),
+                                side:
+                                    const BorderSide(color: AppPalette.border),
                               ),
                           ],
                         ),
@@ -493,8 +718,14 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     );
   }
 
-  void _toggleFavorite(String id, {Map<String, dynamic>? eventData}) {
-    final didUpdate = VisitorAuth.toggleInterestedEvent(id);
+  void _toggleSavedItem(String id, {Map<String, dynamic>? itemData}) {
+    final section =
+        (itemData?['section'] as String? ?? '').trim().toLowerCase();
+    final isEvent = section == 'events';
+
+    final didUpdate = isEvent
+        ? VisitorAuth.toggleInterestedEvent(id)
+        : VisitorAuth.toggleSavedAttraction(id);
     if (!didUpdate) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -508,14 +739,17 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     // 1. Event was marked as interested (not removed)
     // 2. Notifications are enabled
     // 3. Event data is available
-    final isNowInterested = VisitorAuth.isInterestedInEvent(id);
-    if (isNowInterested &&
-        VisitorAuth.areNotificationsEnabled() &&
-        eventData != null) {
+    final isNowSaved = isEvent
+        ? VisitorAuth.isInterestedInEvent(id)
+        : VisitorAuth.isAttractionSaved(id);
+    if (isEvent &&
+        isNowSaved &&
+        VisitorAuth.areEventRemindersEnabled() &&
+        itemData != null) {
       final notificationService = VisitorNotificationService();
-      final eventTitle = eventData['title'] as String? ?? 'Event';
-      final eventDateTime = eventData['dateTime'] as String? ?? 'Date TBA';
-      final eventLocation = eventData['location'] as String? ?? 'Location TBA';
+      final eventTitle = itemData['title'] as String? ?? 'Event';
+      final eventDateTime = itemData['dateTime'] as String? ?? 'Date TBA';
+      final eventLocation = itemData['location'] as String? ?? 'Location TBA';
 
       notificationService
           .scheduleNotificationForInterestedEvent(
@@ -524,6 +758,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
         eventLocation: eventLocation,
         eventId: id,
         userEmail: VisitorAuth.currentVisitor?.email ?? '',
+        reminderTiming: VisitorAuth.getReminderTiming(),
       )
           .catchError((e) {
         debugPrint('[VisitorPortal] Failed to schedule notification: $e');
@@ -531,22 +766,33 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('$eventTitle saved to Interested.')),
       );
-    } else if (!isNowInterested && eventData != null) {
+    } else if (isEvent && !isNowSaved && itemData != null) {
       final notificationService = VisitorNotificationService();
-      final eventTitle = eventData['title'] as String? ?? 'Event';
-      final eventDateTime = eventData['dateTime'] as String? ?? 'Date TBA';
+      final eventTitle = itemData['title'] as String? ?? 'Event';
+      final eventDateTime = itemData['dateTime'] as String? ?? 'Date TBA';
       notificationService
           .cancelNotificationForInterestedEvent(
-            eventTitle: eventTitle,
-            eventDatetime: eventDateTime,
-            eventId: id,
-            userEmail: VisitorAuth.currentVisitor?.email ?? '',
-          )
+        eventTitle: eventTitle,
+        eventDatetime: eventDateTime,
+        eventId: id,
+        userEmail: VisitorAuth.currentVisitor?.email ?? '',
+      )
           .catchError((e) {
-            debugPrint('[VisitorPortal] Failed to cancel notification: $e');
-          });
+        debugPrint('[VisitorPortal] Failed to cancel notification: $e');
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('$eventTitle removed from Interested.')),
+      );
+    } else {
+      final title = itemData?['title'] as String? ?? 'Attraction';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isNowSaved
+                ? '$title saved to Saved Attractions.'
+                : '$title removed from Saved Attractions.',
+          ),
+        ),
       );
     }
 
@@ -625,13 +871,22 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                   imageUrl: imageUrl,
                   badgeText: item['badge'] as String? ?? '',
                   title: title,
+                  section: (item['section'] as String? ?? '').trim(),
                   description: description,
                   dateTime: dateTime,
                   location: location,
                   price: price,
+                  source: item['source'] as String?,
+                  venue: item['venue'] as String?,
+                  categories: (item['categories'] as List<dynamic>?)
+                      ?.map((e) => e.toString())
+                      .toList(),
+                  cuisine: item['cuisine'] as String?,
+                  rating: (item['rating'] as num?)?.toDouble(),
                   onShareTap: null,
                   onWebTap: null,
                   onFavoriteTap: null,
+                  cardColor: AppPalette.surface.withValues(alpha: 0.80),
                 ),
                 if (description.isNotEmpty)
                   Padding(
@@ -662,8 +917,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
 
     final title = (item['title'] as String? ?? '').trim().toLowerCase();
     final location = (item['location'] as String? ?? '').trim().toLowerCase();
-    final attractions =
-      await (_approvedAttractionService ??= ApprovedAttractionService())
+    final attractions = await (_approvedAttractionService ??=
+            ApprovedAttractionService())
         .fetchApprovedAttractions();
     if (!mounted) return true;
 
@@ -746,11 +1001,10 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
 
   Widget _buildSearchBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
       decoration: BoxDecoration(
-        color: AppPalette.surface,
+        color: AppPalette.surface.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: AppPalette.border),
         boxShadow: const [
           BoxShadow(
             color: AppPalette.cardShadow,
@@ -766,25 +1020,32 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           Expanded(
             child: TextField(
               controller: _searchController,
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) {
+                _searchDebounce?.cancel();
+                _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+                  if (mounted) setState(() {});
+                });
+              },
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => FocusScope.of(context).unfocus(),
               decoration: const InputDecoration(
                 border: InputBorder.none,
-                hintText: 'Find things to do in Brisbane',
+                hintText: 'Search events, places & more...',
                 hintStyle: TextStyle(color: AppPalette.mutedText),
               ),
             ),
           ),
-          Container(
-            width: 38,
-            height: 38,
-            decoration: const BoxDecoration(
-              color: AppPalette.surfaceAlt,
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              onPressed: _openFilterSheet,
-              icon: const Icon(Icons.tune_rounded, size: 20),
-              color: AppPalette.deepBlue,
+          GestureDetector(
+            onTap: _openFilterSheet,
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppPalette.surfaceAlt,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppPalette.border.withValues(alpha: 0.5)),
+              ),
+              child: const Icon(Icons.mic_rounded, size: 18, color: AppPalette.mutedText),
             ),
           ),
         ],
@@ -792,13 +1053,13 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     );
   }
 
-  Widget _buildMapBanner() {
+  Widget _buildStoriesBanner() {
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => const MapEventsScreen(),
+            builder: (_) => const BrisbaneStoriesScreen(),
           ),
         );
       },
@@ -806,7 +1067,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [AppPalette.deepBlue, Color(0xFF2A5298)],
+            colors: [AppPalette.ochre, Color(0xFFD4A017)],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),
@@ -828,8 +1089,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                 color: Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child:
-                  const Icon(Icons.map_rounded, color: Colors.white, size: 24),
+              child: const Icon(Icons.auto_stories_rounded,
+                  color: Colors.white, size: 24),
             ),
             const SizedBox(width: 14),
             const Expanded(
@@ -837,7 +1098,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Explore Brisbane on Map',
+                    'Brisbane Stories',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -846,7 +1107,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                   ),
                   SizedBox(height: 2),
                   Text(
-                    'Cultural, Events, Historical and Olympic venues',
+                    'Explore culture, history, and people',
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: 12,
@@ -869,130 +1130,895 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     final section = (item['section'] as String? ?? '').trim();
     final isEvent = section == 'events';
     final visitorEmail = VisitorAuth.currentVisitor?.email ?? '';
-   
-     return Column(
-       children: [
-         ReusableEventCard(
-      imageUrl: item['imageUrl'] as String? ?? '',
-      badgeText: item['badge'] as String? ?? '',
-      title: item['title'] as String? ?? 'Event',
-      description: item['description'] as String? ?? '',
-      dateTime: item['dateTime'] as String? ?? '',
-      location: item['location'] as String? ?? '',
-      price: item['price'] as String? ?? '',
-      isFavorite: VisitorAuth.isInterestedInEvent(id),
-      onShareTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Share: ${item['title'] ?? 'Event'}')),
-        );
-      },
-      onCardTap: () async {
-        final section = (item['section'] as String? ?? '').trim();
-        if (section == 'events') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => VisitorEventDetailScreen(event: item),
+    final isFavorite = isEvent
+        ? VisitorAuth.isInterestedInEvent(id)
+        : VisitorAuth.isAttractionSaved(id);
+
+    return Column(
+      children: [
+        ReusableEventCard(
+          imageUrl: item['imageUrl'] as String? ?? '',
+          badgeText: item['badge'] as String? ?? '',
+          title: item['title'] as String? ?? 'Event',
+          section: section,
+          description: item['description'] as String? ?? '',
+          dateTime: item['dateTime'] as String? ?? '',
+          location: item['location'] as String? ?? '',
+          price: item['price'] as String? ?? '',
+          source: item['source'] as String?,
+          venue: item['venue'] as String?,
+          categories: (item['categories'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList(),
+          cuisine: item['cuisine'] as String?,
+          rating: (item['rating'] as num?)?.toDouble(),
+          isFavorite: isFavorite,
+          cardColor: AppPalette.surface.withValues(alpha: 0.80),
+          onShareTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Share: ${item['title'] ?? 'Event'}')),
+            );
+          },
+          onCardTap: () async {
+            final section = (item['section'] as String? ?? '').trim();
+            if (section == 'events') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => VisitorEventDetailScreen(event: item),
+                ),
+              );
+              return;
+            }
+            if (section == 'food') {
+              await _openFoodDetails(item);
+              return;
+            }
+            if (section == 'stadiums') {
+              await _openStadiumDetails(item);
+              return;
+            }
+            final openedAttraction =
+                await _openAttractionDetailsIfAvailable(item);
+            if (!openedAttraction && mounted) {
+              _showItemDetails(item);
+            }
+          },
+          onWebTap: () async {
+            final section = (item['section'] as String? ?? '').trim();
+            final link = (item['webLink'] as String? ?? '').trim();
+            if (section == 'events') {
+              if (link.isNotEmpty) {
+                _openWebLink(link);
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => VisitorEventDetailScreen(event: item),
+                  ),
+                );
+              }
+              return;
+            }
+            if (section == 'food' && link.isEmpty) {
+              await _openFoodDetails(item);
+              return;
+            }
+            if (section == 'stadiums' && link.isEmpty) {
+              await _openStadiumDetails(item);
+              return;
+            }
+            if (link.isEmpty) {
+              final openedAttraction =
+                  await _openAttractionDetailsIfAvailable(item);
+              if (!openedAttraction && mounted) {
+                _showItemDetails(item);
+              }
+              return;
+            }
+            _openWebLink(link);
+          },
+          onFavoriteTap: () => _toggleSavedItem(id, itemData: item),
+        ),
+        if (isEvent && visitorEmail.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: () async {
+                  final result = await ReportEventDialog.show(
+                    context: context,
+                    eventId: id,
+                    visitorEmail: visitorEmail,
+                  );
+                  if (result == true && mounted) {
+                    setState(() {});
+                  }
+                },
+                icon: const Icon(Icons.flag, size: 18),
+                label: const Text('Report Event'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildRecommendedCarousel(List<Map<String, dynamic>> items) {
+    if (items.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Recommended for You',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: AppPalette.charcoal,
+                ),
+              ),
+              GestureDetector(
+                onTap: () {},
+                child: const Row(
+                  children: [
+                    Text(
+                      'See All',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppPalette.ochre,
+                      ),
+                    ),
+                    SizedBox(width: 2),
+                    Icon(Icons.chevron_right_rounded,
+                        color: AppPalette.ochre, size: 20),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 210,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 14),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final id = (item['id'] as String? ?? '').trim();
+              final imageUrl = (item['imageUrl'] as String? ?? '').trim();
+              final title = (item['title'] as String? ?? 'Event').trim();
+              final dateTime = (item['dateTime'] as String? ?? '').trim();
+              final location = (item['location'] as String? ?? '').trim();
+              final section = (item['section'] as String? ?? '').trim();
+              final badge = (item['badge'] as String? ?? '').trim();
+              final venueFallback = VenueImageFallback.forVenue(
+                title: title,
+                section: section,
+                badge: badge,
+              );
+              final resolvedImageUrl = imageUrl.isNotEmpty ? imageUrl : venueFallback;
+              final isEvent = section == 'events';
+              final isFavorite = isEvent
+                  ? VisitorAuth.isInterestedInEvent(id)
+                  : VisitorAuth.isAttractionSaved(id);
+
+              return GestureDetector(
+                onTap: () async {
+                  if (section == 'events') {
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => VisitorEventDetailScreen(event: item),
+                    ));
+                    return;
+                  }
+                  if (section == 'food') {
+                    await _openFoodDetails(item);
+                    return;
+                  }
+                  if (section == 'stadiums') {
+                    await _openStadiumDetails(item);
+                    return;
+                  }
+                  final opened = await _openAttractionDetailsIfAvailable(item);
+                  if (!opened && mounted) _showItemDetails(item);
+                },
+                child: SizedBox(
+                  width: 170,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Image card
+                      Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: CachedNetworkImage(
+                              imageUrl: resolvedImageUrl,
+                              height: 130,
+                              width: 170,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) => Container(
+                                height: 130,
+                                width: 170,
+                                decoration: BoxDecoration(
+                                  color: AppPalette.surfaceAlt,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                ),
+                              ),
+                              errorWidget: (_, __, ___) => Image.network(
+                                venueFallback,
+                                height: 130,
+                                width: 170,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  height: 130,
+                                  width: 170,
+                                  decoration: BoxDecoration(
+                                    color: AppPalette.surfaceAlt,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: const Icon(Icons.image_rounded,
+                                      color: AppPalette.mutedText, size: 36),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: GestureDetector(
+                              onTap: () => _toggleSavedItem(id, itemData: item),
+                              child: Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.85),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  isFavorite
+                                      ? Icons.favorite_rounded
+                                      : Icons.favorite_border_rounded,
+                                  size: 18,
+                                  color: isFavorite
+                                      ? Colors.red
+                                      : AppPalette.mutedText,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppPalette.charcoal,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      if (dateTime.isNotEmpty || location.isNotEmpty)
+                        Text(
+                          [dateTime, location]
+                              .where((s) => s.isNotEmpty)
+                              .join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppPalette.mutedText,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryChips() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            'Categories',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: AppPalette.charcoal,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              _CategoryChip(
+                label: 'Events',
+                emoji: '🎪',
+                isSelected: _selectedSections
+                    .contains(_VisitorFilterSection.events),
+                onTap: () {
+                  setState(() {
+                    _selectedSections
+                      ..clear()
+                      ..add(_VisitorFilterSection.events);
+                  });
+                },
+              ),
+              const SizedBox(width: 10),
+              _CategoryChip(
+                label: 'Attractions',
+                emoji: '🏛️',
+                isSelected: _selectedSections
+                    .contains(_VisitorFilterSection.historical),
+                onTap: () {
+                  setState(() {
+                    _selectedSections
+                      ..clear()
+                      ..add(_VisitorFilterSection.historical);
+                  });
+                },
+              ),
+              const SizedBox(width: 10),
+              _CategoryChip(
+                label: 'Food',
+                emoji: '🍴',
+                isSelected: _selectedSections
+                    .contains(_VisitorFilterSection.food),
+                onTap: () {
+                  setState(() {
+                    _selectedSections
+                      ..clear()
+                      ..add(_VisitorFilterSection.food);
+                  });
+                },
+              ),
+              const SizedBox(width: 10),
+              _CategoryChip(
+                label: 'Venues',
+                emoji: '🏟️',
+                isSelected: _selectedSections
+                    .contains(_VisitorFilterSection.stadiums),
+                onTap: () {
+                  setState(() {
+                    _selectedSections
+                      ..clear()
+                      ..add(_VisitorFilterSection.stadiums);
+                  });
+                },
+              ),
+              const SizedBox(width: 10),
+              _CategoryChip(
+                label: 'All',
+                emoji: '✨',
+                isSelected: _selectedSections.length ==
+                    _VisitorFilterSection.values.length,
+                onTap: () {
+                  setState(() {
+                    _selectedSections
+                      ..clear()
+                      ..addAll(_VisitorFilterSection.values);
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNearbySection(List<Map<String, dynamic>> items) {
+    // Pick items with location set, limit to 5
+    final nearby = items
+        .where((item) =>
+            (item['location'] as String? ?? '').trim().isNotEmpty)
+        .take(5)
+        .toList();
+
+    if (nearby.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            'Nearby',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: AppPalette.charcoal,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        ...nearby.map((item) {
+          final title = (item['title'] as String? ?? 'Place').trim();
+          final location = (item['location'] as String? ?? '').trim();
+          final imageUrl = (item['imageUrl'] as String? ?? '').trim();
+          final section = (item['section'] as String? ?? '').trim();
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            child: GestureDetector(
+              onTap: () async {
+                if (section == 'events') {
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => VisitorEventDetailScreen(event: item),
+                  ));
+                  return;
+                }
+                if (section == 'food') {
+                  await _openFoodDetails(item);
+                  return;
+                }
+                if (section == 'stadiums') {
+                  await _openStadiumDetails(item);
+                  return;
+                }
+                final opened = await _openAttractionDetailsIfAvailable(item);
+                if (!opened && mounted) _showItemDetails(item);
+              },
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppPalette.surface.withValues(alpha: 0.80),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppPalette.border.withValues(alpha: 0.5)),
+                ),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: imageUrl.isNotEmpty
+                          ? Image.network(
+                              imageUrl,
+                              width: 64,
+                              height: 64,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                width: 64,
+                                height: 64,
+                                color: AppPalette.surfaceAlt,
+                                child: const Icon(Icons.place_rounded,
+                                    color: AppPalette.mutedText),
+                              ),
+                            )
+                          : Container(
+                              width: 64,
+                              height: 64,
+                              color: AppPalette.surfaceAlt,
+                              child: const Icon(Icons.place_rounded,
+                                  color: AppPalette.mutedText),
+                            ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppPalette.charcoal,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppPalette.mutedText,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.place_rounded,
+                        color: AppPalette.ochre, size: 22),
+                  ],
+                ),
+              ),
             ),
           );
-          return;
-        }
-        if (section == 'food') {
-          await _openFoodDetails(item);
-          return;
-        }
-        if (section == 'stadiums') {
-          await _openStadiumDetails(item);
-          return;
-        }
-        final openedAttraction = await _openAttractionDetailsIfAvailable(item);
-        if (!openedAttraction && mounted) {
-          _showItemDetails(item);
-        }
-      },
-      onWebTap: () async {
-        final section = (item['section'] as String? ?? '').trim();
-        final link = (item['webLink'] as String? ?? '').trim();
-        if (section == 'events') {
-          if (link.isNotEmpty) {
-            _openWebLink(link);
-          } else {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => VisitorEventDetailScreen(event: item),
-              ),
-            );
-          }
-          return;
-        }
-        if (section == 'food' && link.isEmpty) {
-          await _openFoodDetails(item);
-          return;
-        }
-        if (section == 'stadiums' && link.isEmpty) {
-          await _openStadiumDetails(item);
-          return;
-        }
-        if (link.isEmpty) {
-          final openedAttraction =
-              await _openAttractionDetailsIfAvailable(item);
-          if (!openedAttraction && mounted) {
-            _showItemDetails(item);
-          }
-          return;
-        }
-        _openWebLink(link);
-      },
-      onFavoriteTap: () => _toggleFavorite(id, eventData: item),
-       ),
-       if (isEvent && visitorEmail.isNotEmpty)
-         Padding(
-           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-           child: SizedBox(
-             width: double.infinity,
-             child: TextButton.icon(
-               onPressed: () async {
-                 final result = await ReportEventDialog.show(
-                   context: context,
-                   eventId: id,
-                   visitorEmail: visitorEmail,
-                 );
-                 if (result == true && mounted) {
-                   setState(() {});
-                 }
-               },
-               icon: const Icon(Icons.flag, size: 18),
-               label: const Text('Report Event'),
-               style: TextButton.styleFrom(
-                 foregroundColor: Colors.red,
-               ),
-             ),
-           ),
-         ),
-     ],
-   );
+        }),
+      ],
+    );
   }
 
   Widget _buildDiscoverBody() {
-    return StreamBuilder(
-      stream: FirebaseFirestore.instance.collection('events').snapshots(),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _discoverItemsStream(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const CircularProgressIndicator();
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
         }
 
-        final docs = snapshot.data!.docs;
+        if (snapshot.hasError) {
+          final message = AppErrorMessages.fromException(
+            snapshot.error,
+            fallback:
+                'Unable to load discover items right now. Please try again.',
+          );
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: InlineStatusMessage(
+                message: message,
+                type: InlineStatusType.error,
+                actionLabel: 'Retry',
+                onAction: () => setState(() {}),
+              ),
+            ),
+          );
+        }
 
-        return ListView.builder(
-          itemCount: docs.length,
-          itemBuilder: (context, index) {
-            final data = docs[index];
-
-            return ListTile(
-              title: Text(data['title'] ?? 'No title'),
-              subtitle: Text(data['location'] ?? 'No location'),
+        return ValueListenableBuilder<int>(
+          valueListenable: VisitorAuth.interestedEventsVersion,
+          builder: (context, _, __) {
+            final items = snapshot.data ?? const <Map<String, dynamic>>[];
+            final eventItems = _filterItems(
+              items,
+              section: _VisitorFilterSection.events,
             );
+            final historicalItems = _filterItems(
+              items,
+              section: _VisitorFilterSection.historical,
+            );
+            final foodItems = _filterItems(
+              items,
+              section: _VisitorFilterSection.food,
+            );
+            final stadiumItems = _filterItems(
+              items,
+              section: _VisitorFilterSection.stadiums,
+            );
+            final recommendedItems = _recommendedItems(items);
+
+            // Remove recommended events from the main events list to
+            // avoid showing the same card twice.
+            final recommendedIds = recommendedItems
+                .map((item) => (item['id'] as String? ?? '').trim())
+                .where((id) => id.isNotEmpty)
+                .toSet();
+            final deduplicatedEventItems = eventItems
+                .where((item) =>
+                    !recommendedIds.contains(
+                        (item['id'] as String? ?? '').trim()))
+                .toList();
+
+            final hasAnyVisibleItems = deduplicatedEventItems.isNotEmpty ||
+                historicalItems.isNotEmpty ||
+                foodItems.isNotEmpty ||
+                stadiumItems.isNotEmpty;
+
+            final visitorName =
+                VisitorAuth.currentVisitor?.name.split(' ').first ?? 'Visitor';
+            final heroProfileImage =
+                _profileImageProvider(VisitorAuth.currentVisitor);
+
+            return Stack(
+              children: [
+                // Full-screen kangaroo background
+                Positioned.fill(
+                  child: Image.asset('assets/Kangaroo1.png', fit: BoxFit.cover),
+                ),
+                // Gradient overlay (darker)
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: const [0.0, 0.35, 1.0],
+                        colors: [
+                          const Color(0xFF3E1C0A).withValues(alpha: 0.50),
+                          const Color(0xFF3E1C0A).withValues(alpha: 0.55),
+                          const Color(0xFFF8F3EA).withValues(alpha: 0.80),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Slight blur
+                Positioned.fill(
+                  child: BackdropFilter(
+                    filter: ui.ImageFilter.blur(sigmaX: 1.5, sigmaY: 1.5),
+                    child: const SizedBox.expand(),
+                  ),
+                ),
+                CustomScrollView(
+              slivers: [
+                // ── Hero section (text over full-screen background) ──
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      top: MediaQuery.of(context).padding.top + 12,
+                      left: 16,
+                      right: 16,
+                      bottom: 12,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                            Row(
+                              children: [
+                                Image.asset('assets/logo.png', height: 48),
+                                const SizedBox(width: 10),
+                                const Text(
+                                  'BrisConnect',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                    shadows: [
+                                      Shadow(
+                                        offset: Offset(0, 1),
+                                        blurRadius: 6,
+                                        color: Colors.black45,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Spacer(),
+                                GestureDetector(
+                                  onTap: () => setState(() => _selectedIndex = 4),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white, width: 2),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.25),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: CircleAvatar(
+                                      radius: 38,
+                                      backgroundColor: AppPalette.deepBlue,
+                                      backgroundImage: heroProfileImage,
+                                      child: heroProfileImage == null
+                                          ? const Icon(Icons.person_rounded, color: Colors.white, size: 36)
+                                          : null,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 18),
+                            Text(
+                              '👋 Hi, $visitorName',
+                              style: const TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                shadows: [
+                                  Shadow(
+                                    offset: Offset(0, 1),
+                                    blurRadius: 8,
+                                    color: Colors.black54,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Discover Brisbane',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white70,
+                                shadows: [
+                                  Shadow(
+                                    offset: Offset(0, 1),
+                                    blurRadius: 6,
+                                    color: Colors.black38,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            _buildSearchBar(),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // ── Content sheet ──
+                SliverToBoxAdapter(
+                  child: Transform.translate(
+                    offset: const Offset(0, -24),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8F3EA).withValues(alpha: 0.55),
+                        borderRadius:
+                            const BorderRadius.vertical(top: Radius.circular(28)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 22),
+
+                          // Recommended horizontal carousel
+                          _buildRecommendedCarousel(
+                            recommendedItems.isNotEmpty
+                                ? recommendedItems
+                                : items.take(6).toList(),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Category chips
+                          _buildCategoryChips(),
+                          const SizedBox(height: 20),
+
+                          // Nearby section
+                          _buildNearbySection(items),
+                          const SizedBox(height: 16),
+
+                          // Stories banner
+                          Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 20),
+                            child: _buildStoriesBanner(),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Active filter chips
+                          Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 20),
+                            child: _buildActiveFilterChips(),
+                          ),
+
+                          // Full event cards
+                          if (!hasAnyVisibleItems)
+                            const Padding(
+                              padding: EdgeInsets.fromLTRB(20, 8, 20, 0),
+                              child: _EmptyState(
+                                title: 'No matching items',
+                                subtitle:
+                                    'Try changing your search or filter selections.',
+                              ),
+                            ),
+                          if (deduplicatedEventItems.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20),
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  const _SectionHeader(
+                                    title: 'Events',
+                                    subtitle:
+                                        'Upcoming events in Brisbane',
+                                  ),
+                                  ...deduplicatedEventItems.map(
+                                    (item) => KeyedSubtree(
+                                      key: Key(
+                                        'discover-event-card-${(item['id'] as String? ?? '').trim()}',
+                                      ),
+                                      child: _buildEventCard(item),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          if (historicalItems.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20),
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  const _SectionHeader(
+                                    title: 'Attractions',
+                                    subtitle:
+                                        'Brisbane cultural and historical highlights',
+                                  ),
+                                  ...historicalItems
+                                      .map(_buildEventCard),
+                                ],
+                              ),
+                            ),
+                          ],
+                          if (foodItems.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20),
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  const _SectionHeader(
+                                    title: 'Food',
+                                    subtitle:
+                                        'Discover local dining experiences',
+                                  ),
+                                  ...foodItems.map(_buildEventCard),
+                                ],
+                              ),
+                            ),
+                          ],
+                          if (stadiumItems.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20),
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  const _SectionHeader(
+                                    title: 'Stadiums',
+                                    subtitle:
+                                        'Explore iconic sporting venues',
+                                  ),
+                                  ...stadiumItems.map(_buildEventCard),
+                                ],
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+              ], // Stack children
+            ); // Stack
           },
         );
       },
@@ -1003,14 +2029,15 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     return ValueListenableBuilder<int>(
       valueListenable: VisitorAuth.interestedEventsVersion,
       builder: (context, _, __) {
-        final savedIds = VisitorAuth.getInterestedEventIds();
+        final savedEventIds = VisitorAuth.getInterestedEventIds();
+        final savedAttractionIds = VisitorAuth.getSavedAttractionIds();
 
-        if (savedIds.isEmpty) {
+        if (savedEventIds.isEmpty && savedAttractionIds.isEmpty) {
           return const Center(
             child: _EmptyState(
               title: 'No saved items yet',
               subtitle:
-                  'Tap the heart icon on discovery cards to save events here.',
+                  'Tap the heart icon on discover cards to save events and attractions here.',
             ),
           );
         }
@@ -1042,81 +2069,97 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
             }
 
             final allItems = snapshot.data ?? const <Map<String, dynamic>>[];
-            final savedDiscoverItems = allItems.where((item) {
+            final savedDiscoverEvents = allItems.where((item) {
               final id = (item['id'] as String? ?? '').trim();
-              return id.isNotEmpty && savedIds.contains(id);
+              final section = (item['section'] as String? ?? '').trim();
+              return id.isNotEmpty &&
+                  section == 'events' &&
+                  savedEventIds.contains(id);
             }).toList();
 
-            final savedRepoItems = EventRepository.getApprovedEvents()
-                .where((event) => savedIds.contains(event.id))
-                .where(
-                  (event) => !savedDiscoverItems.any(
-                    (item) =>
-                        ((item['id'] as String? ?? '').trim() == event.id),
-                  ),
-                )
-                .map<Map<String, dynamic>>(
-                  (event) => {
-                    'id': event.id,
-                    'section': 'events',
-                    'imageUrl': event.imageAsset ?? '',
-                    'badge': 'EVENT',
-                    'title': event.title,
-                    'description': event.description,
-                    'dateTime': '${event.date} • ${event.time}',
-                    'location': event.location,
-                    'price': 'Price TBA',
-                    'webLink': '',
-                  },
-                )
-                .toList();
+            final savedAttractions = allItems.where((item) {
+              final id = (item['id'] as String? ?? '').trim();
+              final section = (item['section'] as String? ?? '').trim();
+              return id.isNotEmpty &&
+                  section != 'events' &&
+                  savedAttractionIds.contains(id);
+            }).toList();
 
-            final savedItems = <Map<String, dynamic>>[
-              ...savedDiscoverItems,
-              ...savedRepoItems,
-            ];
+            return StreamBuilder<List<Map<String, dynamic>>>(
+              stream: _approvedEventsStream(),
+              builder: (context, approvedSnapshot) {
+                if (approvedSnapshot.hasError) {
+                  debugPrint(
+                    '[VisitorPortal] Approved events fallback unavailable: ${approvedSnapshot.error}',
+                  );
+                }
 
-            if (savedItems.isEmpty) {
-              return const Center(
-                child: _EmptyState(
-                  title: 'Saved items unavailable',
-                  subtitle:
-                      'Some saved items are no longer published in discovery feed.',
-                ),
-              );
-            }
-
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-              children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: _SectionHeader(
-                        title: 'Saved Items',
-                        subtitle:
-                            'Quick access to events you marked with heart icon',
+                final approvedEvents =
+                    approvedSnapshot.data ?? const <Map<String, dynamic>>[];
+                final savedFirestoreEvents = approvedEvents
+                    .where((event) {
+                      final id = (event['id'] as String? ?? '').trim();
+                      return id.isNotEmpty && savedEventIds.contains(id);
+                    })
+                    .where(
+                      (event) => !savedDiscoverEvents.any(
+                        (item) => ((item['id'] as String? ?? '').trim() ==
+                            (event['id'] as String? ?? '').trim()),
                       ),
+                    )
+                    .map(_toSavedEventCardItem)
+                    .toList(growable: false);
+
+                final savedEvents = <Map<String, dynamic>>[
+                  ...savedDiscoverEvents,
+                  ...savedFirestoreEvents,
+                ];
+
+                if (savedEvents.isEmpty && savedAttractions.isEmpty) {
+                  return const Center(
+                    child: _EmptyState(
+                      title: 'Saved items unavailable',
+                      subtitle:
+                          'Some saved items are no longer published in discovery feed.',
                     ),
-                    IconButton.filledTonal(
-                      tooltip: 'Calendar view',
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => VisitorSavedEventsCalendarScreen(
-                              savedItems: savedItems,
-                            ),
+                  );
+                }
+
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+                  children: [
+                    if (savedEvents.isNotEmpty) ...[
+                      const _SectionHeader(
+                        title: 'Saved Events',
+                        subtitle: 'Your event reminders and plans',
+                      ),
+                      ...savedEvents.map(
+                        (item) => KeyedSubtree(
+                          key: Key(
+                            'saved-event-card-${(item['id'] as String? ?? '').trim()}',
                           ),
-                        );
-                      },
-                      icon: const Icon(Icons.calendar_month_rounded),
-                      color: AppPalette.deepBlue,
-                    ),
+                          child: _buildEventCard(item),
+                        ),
+                      ),
+                    ],
+                    if (savedAttractions.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      const _SectionHeader(
+                        title: 'Saved Attractions',
+                        subtitle: 'Places to visit independently of events',
+                      ),
+                      ...savedAttractions.map(
+                        (item) => KeyedSubtree(
+                          key: Key(
+                            'saved-attraction-card-${(item['id'] as String? ?? '').trim()}',
+                          ),
+                          child: _buildEventCard(item),
+                        ),
+                      ),
+                    ],
                   ],
-                ),
-                ...savedItems.map(_buildEventCard),
-              ],
+                );
+              },
             );
           },
         );
@@ -1141,14 +2184,22 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     );
   }
 
-  ImageProvider<Object>? _profileImageProvider(String? profileImageBase64) {
-    final raw = profileImageBase64?.trim() ?? '';
+  ImageProvider<Object>? _profileImageProvider(VisitorUser? visitor) {
+    if (_pendingProfileImageBytes != null) {
+      return MemoryImage(_pendingProfileImageBytes!);
+    }
+
+    final imageUrl = visitor?.profileImageUrl?.trim() ?? '';
+    if (imageUrl.isNotEmpty) {
+      return NetworkImage(imageUrl);
+    }
+
+    final raw = visitor?.profileImageBase64?.trim() ?? '';
     if (raw.isEmpty) {
       return null;
     }
     try {
-      final bytes = base64Decode(raw);
-      return MemoryImage(bytes);
+      return MemoryImage(base64Decode(raw));
     } catch (_) {
       return null;
     }
@@ -1193,26 +2244,21 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     if (source == null) return;
     if (!mounted) return;
 
-    Uint8List bytes;
-    if (source == ImageSource.camera) {
-      final captured = await Navigator.of(context).push<Uint8List>(
-        MaterialPageRoute(builder: (_) => const ProfileCameraCaptureScreen()),
-      );
-      if (captured == null) return;
-      bytes = captured;
-    } else {
-      final picker = ImagePicker();
-      final picked = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 75,
-        maxWidth: 720,
-        maxHeight: 720,
-      );
-      if (picked == null) return;
-      bytes = await picked.readAsBytes();
-    }
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: source,
+      imageQuality: 75,
+      maxWidth: 720,
+      maxHeight: 720,
+      preferredCameraDevice: CameraDevice.front,
+    );
+    if (picked == null) return;
+
+    final bytes = await picked.readAsBytes();
+    final fileName = picked.name;
 
     if (!ProfileImageUtils.isSupportedImage(bytes)) {
+      setState(() => _pendingProfileImageBytes = null);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Only JPG and PNG images are supported.')),
@@ -1221,15 +2267,47 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     }
 
     if (bytes.length > ProfileImageUtils.maxImageBytes) {
+      setState(() => _pendingProfileImageBytes = null);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Image is too large. Please choose a smaller image.')),
+        const SnackBar(
+            content:
+                Text('Image is too large. Please choose a smaller image.')),
       );
       return;
     }
 
-    final encoded = base64Encode(bytes);
-    final ok = await VisitorAuth.updateProfileImage(encoded);
+    bool ok = false;
+    setState(() => _pendingProfileImageBytes = bytes);
+    try {
+      final uploaded = await _effectiveMediaService.uploadProfileImage(
+        role: 'visitor',
+        email: visitor.email,
+        bytes: bytes,
+        fileName: fileName,
+        previousStoragePath: visitor.profileImageStoragePath,
+      );
+      if (!mounted) return;
+      ok = await VisitorAuth.updateProfileImage(
+        base64Image: null,
+        imageUrl: uploaded.downloadUrl,
+        storagePath: uploaded.storagePath,
+      );
+      if (!mounted) return;
+      if (ok) {
+        setState(() => _pendingProfileImageBytes = null);
+      }
+    } on FormatException catch (error) {
+      setState(() => _pendingProfileImageBytes = null);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+      return;
+    } catch (error) {
+      debugPrint('[VisitorPortal] Profile image upload failed: $error');
+      setState(() => _pendingProfileImageBytes = null);
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -1243,10 +2321,15 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     );
   }
 
-  Future<void> _showEditProfileSheet(String currentName, String currentEmail) async {
+  Future<void> _showEditProfileSheet(
+    String currentName,
+    String currentEmail,
+    String currentPhone,
+  ) async {
     final formKey = GlobalKey<FormState>();
     bool saving = false;
     String editedName = currentName;
+    String editedPhone = currentPhone;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -1315,6 +2398,32 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      initialValue: currentPhone,
+                      keyboardType: TextInputType.phone,
+                      onChanged: (value) => editedPhone = value,
+                      decoration: InputDecoration(
+                        labelText: 'Phone number',
+                        hintText: 'e.g. 04xxxxxxxx',
+                        prefixIcon: const Icon(Icons.phone_outlined),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      validator: (value) {
+                        final trimmed = (value ?? '').trim();
+                        if (trimmed.isEmpty) {
+                          return null;
+                        }
+                        final normalized =
+                            trimmed.replaceAll(RegExp(r'[^0-9+]'), '');
+                        if (normalized.length < 8 || normalized.length > 16) {
+                          return 'Enter a valid phone number.';
+                        }
+                        return null;
+                      },
+                    ),
                     const SizedBox(height: 20),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
@@ -1330,8 +2439,9 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                           : () async {
                               if (!formKey.currentState!.validate()) return;
                               setSheetState(() => saving = true);
-                              final ok = await VisitorAuth.updateName(
-                                editedName,
+                              final ok = await VisitorAuth.updateProfileInfo(
+                                newName: editedName,
+                                newPhone: editedPhone,
                               );
                               if (!sheetContext.mounted) return;
                               Navigator.pop(sheetContext);
@@ -1412,62 +2522,45 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
       valueListenable: VisitorAuth.profileVersion,
       builder: (context, _, __) {
         final visitor = VisitorAuth.currentVisitor;
-        final savedCount = VisitorAuth.getInterestedEventIds().length;
         final displayName = visitor?.name ?? 'Visitor User';
         final displayEmail = visitor?.email ?? '';
-        final profileImage = _profileImageProvider(visitor?.profileImageBase64);
+        final displayPhone = visitor?.phone.trim() ?? '';
+        final profileImage = _profileImageProvider(visitor);
 
         return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 36),
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 36),
           children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Profile',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: AppPalette.charcoal,
-                    ),
-                  ),
-                ),
-                IconButton.filledTonal(
-                  tooltip: 'Settings',
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const VisitorSettingsScreen(),
-                    ),
-                  ),
-                  icon: const Icon(Icons.settings_rounded),
-                  color: AppPalette.deepBlue,
-                ),
-              ],
+            const Text(
+              'Profile',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: AppPalette.charcoal,
+              ),
             ),
             const SizedBox(height: 16),
-
-            // ── Profile header card ──────────────────────────────────
+            _buildSectionLabel('Profile Info'),
             Card(
-              color: AppPalette.surface,
-              elevation: 0,
+              color: AppPalette.surface.withValues(alpha: 0.88),
+              elevation: 4,
+              shadowColor: AppPalette.cardShadow,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: const BorderSide(color: AppPalette.border),
+                side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Row(
                   children: [
                     CircleAvatar(
-                      radius: 30,
+                      radius: 48,
                       backgroundColor: AppPalette.deepBlue,
                       backgroundImage: profileImage,
                       child: profileImage == null
                           ? const Icon(
                               Icons.person_rounded,
                               color: Colors.white,
-                              size: 30,
+                              size: 48,
                             )
                           : null,
                     ),
@@ -1492,11 +2585,22 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                               color: AppPalette.mutedText,
                             ),
                           ),
+                          if (displayPhone.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              displayPhone,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppPalette.mutedText,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
                     IconButton(
-                      tooltip: visitor?.profileImageBase64?.isNotEmpty == true
+                      tooltip: (visitor?.profileImageUrl?.isNotEmpty == true ||
+                              visitor?.profileImageBase64?.isNotEmpty == true)
                           ? 'Change profile picture'
                           : 'Upload profile picture',
                       onPressed: _uploadVisitorProfileImage,
@@ -1508,8 +2612,11 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                     ),
                     IconButton(
                       tooltip: 'Edit profile',
-                      onPressed: () =>
-                          _showEditProfileSheet(displayName, displayEmail),
+                      onPressed: () => _showEditProfileSheet(
+                        displayName,
+                        displayEmail,
+                        displayPhone,
+                      ),
                       icon: const Icon(
                         Icons.edit_rounded,
                         color: AppPalette.deepBlue,
@@ -1520,95 +2627,15 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                 ),
               ),
             ),
-
             const SizedBox(height: 24),
-
-            // ── My Activity ─────────────────────────────────────────
-            _buildSectionLabel('My Activity'),
+            _buildSectionLabel('Notifications'),
             Card(
-              color: AppPalette.surface,
-              elevation: 0,
+              color: AppPalette.surface.withValues(alpha: 0.88),
+              elevation: 4,
+              shadowColor: AppPalette.cardShadow,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: const BorderSide(color: AppPalette.border),
-              ),
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: AppPalette.ochre.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.favorite_rounded,
-                        color: AppPalette.ochre,
-                        size: 20,
-                      ),
-                    ),
-                    title: const Text(
-                      'Saved & Interested Events',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: Text(
-                      savedCount > 0
-                          ? '$savedCount item${savedCount == 1 ? '' : 's'} saved'
-                          : 'No saved events yet',
-                    ),
-                    trailing: const Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppPalette.mutedText,
-                    ),
-                    onTap: () => setState(() => _selectedIndex = 1),
-                  ),
-                  const Divider(height: 1, indent: 16, endIndent: 16),
-                  ListTile(
-                    leading: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: AppPalette.deepBlue.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.notifications_none_rounded,
-                        color: AppPalette.deepBlue,
-                        size: 20,
-                      ),
-                    ),
-                    title: const Text(
-                      'Event Notifications',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle:
-                        const Text('Reminders for your interested events'),
-                    trailing: const Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppPalette.mutedText,
-                    ),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const VisitorNotificationsScreen(),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // ── Preferences ─────────────────────────────────────────
-            _buildSectionLabel('Preferences'),
-            Card(
-              color: AppPalette.surface,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: const BorderSide(color: AppPalette.border),
+                side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
               ),
               child: ListTile(
                 leading: Container(
@@ -1619,16 +2646,16 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
-                    Icons.settings_rounded,
+                    Icons.notifications_none_rounded,
                     color: AppPalette.deepBlue,
                     size: 20,
                   ),
                 ),
                 title: const Text(
-                  'Settings',
+                  'Event Reminders & History',
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
-                subtitle: const Text('Manage notifications and preferences'),
+                subtitle: const Text('View reminder status and notifications'),
                 trailing: const Icon(
                   Icons.chevron_right_rounded,
                   color: AppPalette.mutedText,
@@ -1636,22 +2663,170 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const VisitorSettingsScreen(),
+                    builder: (_) => const VisitorNotificationsScreen(),
                   ),
                 ),
               ),
             ),
-
             const SizedBox(height: 24),
-
-            // ── Account ─────────────────────────────────────────────
-            _buildSectionLabel('Account'),
+            _buildSectionLabel('Preferences'),
             Card(
-              color: AppPalette.surface,
-              elevation: 0,
+              color: AppPalette.surface.withValues(alpha: 0.88),
+              elevation: 4,
+              shadowColor: AppPalette.cardShadow,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: const BorderSide(color: AppPalette.border),
+                side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
+              ),
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(
+                      Icons.interests_rounded,
+                      color: AppPalette.deepBlue,
+                    ),
+                    title: const Text(
+                      'Interest Categories',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: const Text('Choose what you want to discover'),
+                    trailing: const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppPalette.mutedText,
+                    ),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const InterestCategoriesScreen.visitor(),
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.pin_drop_outlined,
+                      color: AppPalette.deepBlue,
+                    ),
+                    title: const Text(
+                      'Location Radius',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: const Text('Set how far recommendations can be'),
+                    trailing: const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppPalette.mutedText,
+                    ),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const VisitorSettingsScreen(),
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.notifications_active_outlined,
+                      color: AppPalette.deepBlue,
+                    ),
+                    title: const Text(
+                      'Notification Settings',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: const Text('Manage event reminder preferences'),
+                    trailing: const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppPalette.mutedText,
+                    ),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const NotificationSettingsScreen.visitor(),
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.palette_outlined,
+                      color: AppPalette.deepBlue,
+                    ),
+                    title: const Text(
+                      'Appearance Settings',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: const Text('Theme, text size & feedback'),
+                    trailing: const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppPalette.mutedText,
+                    ),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const AppearanceSettingsScreen.visitor(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            _buildSectionLabel('Feedback'),
+            Card(
+              color: AppPalette.surface.withValues(alpha: 0.88),
+              elevation: 4,
+              shadowColor: AppPalette.cardShadow,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
+              ),
+              child: ListTile(
+                leading: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppPalette.deepBlue.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.inbox_rounded,
+                    color: AppPalette.deepBlue,
+                    size: 20,
+                  ),
+                ),
+                title: const Text(
+                  'My Feedback',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text(
+                  'View your submitted feedback and admin responses',
+                ),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppPalette.mutedText,
+                ),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MyFeedbackScreen(
+                      reporterEmail: displayEmail,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            _buildSectionLabel('Sign Out'),
+            Card(
+              color: AppPalette.surface.withValues(alpha: 0.88),
+              elevation: 4,
+              shadowColor: AppPalette.cardShadow,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
               ),
               child: ListTile(
                 leading: Container(
@@ -1684,46 +2859,266 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     );
   }
 
+  String _appBarTitleForIndex(int index) {
+    switch (index) {
+      case 1:
+        return 'Map';
+      case 2:
+        return 'Calendar';
+      case 3:
+        return 'Saved';
+      case 4:
+        return 'Profile';
+      default:
+        return '';
+    }
+  }
+
+  Widget _kangarooBackground(String assetPath, Widget child) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Image.asset(assetPath, fit: BoxFit.cover),
+        ),
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A0E05).withValues(alpha: 0.40),
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F4ED).withValues(alpha: 0.72),
+            ),
+          ),
+        ),
+        Positioned.fill(child: SafeArea(child: child)),
+      ],
+    );
+  }
+
+  Widget _buildCalendarTab() {
+    return ValueListenableBuilder<int>(
+      valueListenable: VisitorAuth.interestedEventsVersion,
+      builder: (context, _, __) {
+        final savedEventIds = VisitorAuth.getInterestedEventIds();
+        final savedAttractionIds = VisitorAuth.getSavedAttractionIds();
+
+        return StreamBuilder<List<Map<String, dynamic>>>(
+          stream: _discoverItemsStream(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final allItems = snapshot.data ?? const <Map<String, dynamic>>[];
+            final savedDiscoverEvents = allItems.where((item) {
+              final id = (item['id'] as String? ?? '').trim();
+              final section = (item['section'] as String? ?? '').trim();
+              return id.isNotEmpty &&
+                  section == 'events' &&
+                  savedEventIds.contains(id);
+            }).toList();
+            final savedAttractions = allItems.where((item) {
+              final id = (item['id'] as String? ?? '').trim();
+              final section = (item['section'] as String? ?? '').trim();
+              return id.isNotEmpty &&
+                  section != 'events' &&
+                  savedAttractionIds.contains(id);
+            }).toList();
+
+            return StreamBuilder<List<Map<String, dynamic>>>(
+              stream: _approvedEventsStream(),
+              builder: (context, approvedSnapshot) {
+                final approvedEvents =
+                    approvedSnapshot.data ?? const <Map<String, dynamic>>[];
+                final savedFirestoreEvents = approvedEvents
+                    .where((event) {
+                      final id = (event['id'] as String? ?? '').trim();
+                      return id.isNotEmpty && savedEventIds.contains(id);
+                    })
+                    .where(
+                      (event) => !savedDiscoverEvents.any(
+                        (item) => ((item['id'] as String? ?? '').trim() ==
+                            (event['id'] as String? ?? '').trim()),
+                      ),
+                    )
+                    .map(_toSavedEventCardItem)
+                    .toList(growable: false);
+
+                return VisitorSavedEventsCalendarScreen(
+                  savedItems: [
+                    ...savedDiscoverEvents,
+                    ...savedFirestoreEvents,
+                    ...savedAttractions,
+                  ],
+                  embedded: true,
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bool isDiscover = _selectedIndex == 0;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F3EA),
-      appBar: AppBar(
-        title: const LogoAppBarTitle('Visitor Portal'),
-        backgroundColor: AppPalette.deepBlue,
-      ),
-      body: SafeArea(
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
+      extendBody: true,
+      appBar: isDiscover
+          ? null
+          : AppBar(
+              automaticallyImplyLeading: false,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => setState(() => _selectedIndex = 0),
+              ),
+              title: LogoAppBarTitle(_appBarTitleForIndex(_selectedIndex)),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+            ),
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification is ScrollUpdateNotification) {
+            final delta = notification.scrollDelta ?? 0;
+            if (delta > 2 && _isNavVisible) {
+              setState(() => _isNavVisible = false);
+            } else if (delta < -2 && !_isNavVisible) {
+              setState(() => _isNavVisible = true);
+            }
+          } else if (notification is ScrollEndNotification) {
+            if (!_isNavVisible) setState(() => _isNavVisible = true);
+          }
+          return false;
+        },
         child: IndexedStack(
           index: _selectedIndex,
           children: [
             _buildDiscoverBody(),
-            _buildSavedBody(),
-            _buildProfileBody(),
+            SafeArea(child: MapEventsScreen(
+              embedded: true,
+              onBackPressed: () => setState(() => _selectedIndex = 0),
+            )),
+            _kangarooBackground(
+              'assets/Kangaroo3.png',
+              _buildCalendarTab(),
+            ),
+            _kangarooBackground(
+              'assets/Kangaroo2.png',
+              _buildSavedBody(),
+            ),
+            _kangarooBackground(
+              'assets/Kangaroo4.png',
+              _buildProfileBody(),
+            ),
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
+      bottomNavigationBar: AnimatedSlide(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        offset: _isNavVisible ? Offset.zero : const Offset(0, 1),
+        child: Theme(
+        data: Theme.of(context).copyWith(
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+        ),
+        child: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
-        selectedItemColor: AppPalette.ochre,
-        unselectedItemColor: AppPalette.deepBlue,
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.white70,
+        backgroundColor: AppPalette.ochre.withValues(alpha: 0.92),
         type: BottomNavigationBarType.fixed,
-        items: const [
+        elevation: 12,
+        selectedFontSize: 13,
+        unselectedFontSize: 12,
+        iconSize: 26,
+        items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.explore_rounded),
-            label: 'Discover',
+            icon: const Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Icon(Icons.home_outlined),
+            ),
+            activeIcon: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.home_rounded),
+            ),
+            label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.favorite_border_rounded),
-            activeIcon: Icon(Icons.favorite_rounded),
+            icon: const Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Icon(Icons.map_outlined),
+            ),
+            activeIcon: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.map_rounded),
+            ),
+            label: 'Map',
+          ),
+          BottomNavigationBarItem(
+            icon: const Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Icon(Icons.calendar_month_outlined),
+            ),
+            activeIcon: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.calendar_month_rounded),
+            ),
+            label: 'Calendar',
+          ),
+          BottomNavigationBarItem(
+            icon: const Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Icon(Icons.favorite_border_rounded),
+            ),
+            activeIcon: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.favorite_rounded),
+            ),
             label: 'Saved',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline_rounded),
-            activeIcon: Icon(Icons.person_rounded),
+            icon: const Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Icon(Icons.person_outline_rounded),
+            ),
+            activeIcon: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.person_rounded),
+            ),
             label: 'Profile',
           ),
         ],
+      ),
+      ),
       ),
     );
   }
@@ -1775,7 +3170,7 @@ class _EmptyState extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppPalette.surface,
+        color: AppPalette.surface.withValues(alpha: 0.80),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppPalette.border),
       ),
@@ -1804,3 +3199,65 @@ class _EmptyState extends StatelessWidget {
 enum _VisitorFilterSection { events, historical, food, stadiums }
 
 enum _VisitorPriceFilter { free, paid }
+
+class _CategoryChip extends StatelessWidget {
+  final String label;
+  final String emoji;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _CategoryChip({
+    required this.label,
+    required this.emoji,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? AppPalette.ochre : Colors.white.withValues(alpha: 0.80),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: isSelected
+                ? AppPalette.ochre
+                : AppPalette.border,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppPalette.ochre.withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 16)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? Colors.white : AppPalette.charcoal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+
+

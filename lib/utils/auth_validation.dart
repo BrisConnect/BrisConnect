@@ -56,6 +56,9 @@ class AuthValidation {
     if (!RegExp(r'[0-9]').hasMatch(password)) {
       return 'Password must include at least one number';
     }
+    if (!RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(password)) {
+      return 'Password must include at least one special character';
+    }
     return null;
   }
 }

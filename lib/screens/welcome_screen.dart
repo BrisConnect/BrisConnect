@@ -1,326 +1,590 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:brisconnect/screens/login_selection_screen.dart';
 import 'package:brisconnect/screens/register_selection_screen.dart';
+import 'package:brisconnect/theme/app_palette.dart';
 
-class WelcomeScreen extends StatelessWidget {
+// ═══════════════════════════════════════════════════════════════════════════
+// Fire-spark particle data
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _Spark {
+  _Spark(math.Random rng) { reset(rng, initial: true); }
+
+  late double x, y, vx, vy, life, maxLife, radius;
+  late Color color;
+
+  static const _sparkColors = [
+    Color(0xFFFFE082), // bright yellow
+    Color(0xFFFFAB40), // amber
+    Color(0xFFFF8F00), // deep amber
+    Color(0xFFE8600A), // orange
+    Color(0xFFC1440E), // burnt orange
+    Color(0xFFFFFFFF), // white-hot
+    Color(0xFFFFD54F), // light gold
+  ];
+
+  void reset(math.Random rng, {bool initial = false}) {
+    // Spawn from a narrow horizontal band (fire tip zone).
+    x = -0.08 + rng.nextDouble() * 0.16;            // ±8 % of width from centre
+    y = 0.0;                                         // relative to spark origin
+    vx = (rng.nextDouble() - 0.5) * 0.15;            // gentle horizontal drift
+    vy = -(0.25 + rng.nextDouble() * 0.55);          // rise upward
+    maxLife = 0.6 + rng.nextDouble() * 1.0;
+    life = initial ? rng.nextDouble() * maxLife : 0;  // stagger on first frame
+    radius = 1.2 + rng.nextDouble() * 2.8;
+    color = _sparkColors[rng.nextInt(_sparkColors.length)];
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Fire-spark painter (driven by elapsed seconds)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _FireSparkPainter extends CustomPainter {
+  _FireSparkPainter({
+    required this.sparks,
+    required this.sparkOriginY,
+    required this.elapsed,
+  }) : super(repaint: elapsed);
+
+  final List<_Spark> sparks;
+  final double sparkOriginY;   // absolute Y in canvas coords
+  final ValueNotifier<double> elapsed;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    for (final s in sparks) {
+      final t = (s.life / s.maxLife).clamp(0.0, 1.0);
+      if (t >= 1.0) continue;
+
+      // Fade out and shrink near end of life.
+      final opacity = (1.0 - t) * (1.0 - t);
+      final r = s.radius * (1.0 - t * 0.5);
+
+      final px = cx + s.x * size.width;
+      final py = sparkOriginY + s.y * size.height * 0.35;
+
+      if (px < -r || px > size.width + r || py < -r || py > size.height + r) {
+        continue;
+      }
+
+      // Glow halo
+      canvas.drawCircle(
+        Offset(px, py),
+        r * 2.5,
+        Paint()
+          ..color = s.color.withValues(alpha: opacity * 0.15)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+      );
+
+      // Core spark
+      canvas.drawCircle(
+        Offset(px, py),
+        r,
+        Paint()..color = s.color.withValues(alpha: opacity),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_FireSparkPainter old) => true;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Welcome Screen
+// ═══════════════════════════════════════════════════════════════════════════
+
+class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
 
-  static const Color _background = Color(0xFFF7F4ED);
-  static const Color _ochre = Color(0xFFC65D2E);
-  static const Color _gold = Color(0xFFD4A017);
-  static const Color _deepBlue = Color(0xFF1E3A5F);
-  static const Color _charcoal = Color(0xFF2B2B2B);
+  @override
+  State<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends State<WelcomeScreen>
+    with TickerProviderStateMixin {
+  late final AnimationController _glowCtrl;
+  late final AnimationController _sparkCtrl;
+  final ValueNotifier<double> _elapsed = ValueNotifier(0);
+
+  static const int _sparkCount = 35;
+  late final List<_Spark> _sparks;
+  final math.Random _rng = math.Random(99);
+  double _lastT = 0;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Glow pulse
+    _glowCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    )..repeat(reverse: true);
+
+    // Spark ticker – runs ~60 fps
+    _sparkCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..repeat();
+    _sparkCtrl.addListener(_tickSparks);
+
+    _sparks = List.generate(_sparkCount, (_) => _Spark(_rng));
+  }
+
+  void _tickSparks() {
+    final now = _sparkCtrl.lastElapsedDuration?.inMicroseconds ?? 0;
+    final sec = now / 1e6;
+    final dt = (sec - _lastT).clamp(0.0, 0.05);
+    _lastT = sec;
+
+    for (final s in _sparks) {
+      s.life += dt;
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      // Add slight upward acceleration & random horizontal wobble
+      s.vy -= 0.08 * dt;
+      s.vx += ((_rng.nextDouble() - 0.5) * 0.3) * dt;
+
+      if (s.life >= s.maxLife) {
+        s.reset(_rng);
+      }
+    }
+    _elapsed.value = sec;
+  }
+
+  @override
+  void dispose() {
+    _sparkCtrl.removeListener(_tickSparks);
+    _sparkCtrl.dispose();
+    _glowCtrl.dispose();
+    _elapsed.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final logoSize = (screenWidth * 0.44).clamp(140.0, 210.0);
+
+    // Spark origin: roughly at the top of the logo's fire tip.
+    // Logo centre is at ~28 % from top; fire tip is ~logoSize*0.42 above centre.
+    final logoTopFrac = 0.28;
+    final sparkOriginY =
+        screenHeight * logoTopFrac - logoSize * 0.42;
+
     return Scaffold(
-      backgroundColor: _background,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            const Positioned(
-              top: -90,
-              right: -80,
-              child: _DecorCircle(
-                size: 220,
-                color: Color(0x33D4A017),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // ── L1: Aboriginal dot-art ──
+          const AboriginalDotArtBackground(seed: 42),
+
+          // ── L2: Dark warm cinematic overlay ──
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: const Alignment(0.0, -0.20),
+                    radius: 1.1,
+                    colors: [
+                      const Color(0xFF2A1508).withValues(alpha: 0.60),
+                      const Color(0xFF0F0804).withValues(alpha: 0.85),
+                    ],
+                  ),
+                ),
               ),
             ),
-            const Positioned(
-              top: 170,
-              left: -55,
-              child: _DecorCircle(
-                size: 130,
-                color: Color(0x33C65D2E),
+          ),
+
+          // ── L3: Animated fire glow (radial) ──
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _glowCtrl,
+                builder: (context, _) {
+                  final t = _glowCtrl.value;
+                  final opacity = 0.22 + t * 0.20;
+                  final radius = 0.36 + t * 0.10;
+                  return DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        center: const Alignment(0.0, -0.30),
+                        radius: radius,
+                        colors: [
+                          const Color(0xFFFF6D00)
+                              .withValues(alpha: opacity),
+                          const Color(0xFFD4A017)
+                              .withValues(alpha: opacity * 0.40),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 0.38, 1.0],
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
-            const Positioned(
-              bottom: -70,
-              right: -30,
-              child: _DecorCircle(
-                size: 160,
-                color: Color(0x221E3A5F),
+          ),
+
+          // ── L4: Bottom vignette ──
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.transparent,
+                      const Color(0xFF0F0804).withValues(alpha: 0.70),
+                    ],
+                    stops: const [0.0, 0.48, 1.0],
+                  ),
+                ),
               ),
             ),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: (constraints.maxHeight - 48).clamp(0.0, double.infinity)),
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+          ),
+
+          // ── L5: Fire spark particles ──
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _FireSparkPainter(
+                  sparks: _sparks,
+                  sparkOriginY: sparkOriginY,
+                  elapsed: _elapsed,
+                ),
+              ),
+            ),
+          ),
+
+          // ── L6: Content ──
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 36),
+              child: Column(
+                children: [
+                  const Spacer(flex: 2),
+
+                  // ── Logo with animated fire halo ──
+                  AnimatedBuilder(
+                    animation: _glowCtrl,
+                    builder: (context, child) {
+                      final t = _glowCtrl.value;
+                      final spread = 12.0 + t * 14.0;
+                      final a = 0.28 + t * 0.24;
+                      return Container(
                         decoration: BoxDecoration(
-                          color: const Color(0xF9FFFDF8),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: const Color(0xFFE4D8C4)),
-                          boxShadow: const [
+                          shape: BoxShape.circle,
+                          boxShadow: [
                             BoxShadow(
-                              color: Color(0x16000000),
-                              blurRadius: 30,
-                              offset: Offset(0, 14),
+                              color: const Color(0xFFFF6D00)
+                                  .withValues(alpha: a),
+                              blurRadius: spread * 2.5,
+                              spreadRadius: spread,
+                            ),
+                            BoxShadow(
+                              color: const Color(0xFFFFAB40)
+                                  .withValues(alpha: a * 0.30),
+                              blurRadius: spread * 4,
+                              spreadRadius: spread * 1.8,
                             ),
                           ],
                         ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            // 1) Decorative top section/logo
-                            Container(
-                              width: 102,
-                              height: 102,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFFFFF6DF), Color(0xFFF5E2D6)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                border: Border.all(
-                                  color: const Color(0xFFE1C9A2),
-                                  width: 1.2,
-                                ),
-                              ),
-                              padding: const EdgeInsets.all(18),
-                              child: Image.asset(
-                                'assets/logo.png',
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              alignment: WrapAlignment.center,
-                              children: const [
-                                _ThemeChip(icon: Icons.celebration_rounded, label: 'Events'),
-                                _ThemeChip(icon: Icons.museum_rounded, label: 'Culture'),
-                                _ThemeChip(icon: Icons.groups_rounded, label: 'Community'),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
+                        child: child,
+                      );
+                    },
+                    child: Image.asset(
+                      'assets/logo.png',
+                      width: logoSize,
+                      height: logoSize,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
 
-                            // 2) App title
-                            const Text(
-                              'BrisConnect',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 34,
-                                fontWeight: FontWeight.w800,
-                                color: _charcoal,
-                                letterSpacing: -0.4,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
+                  const SizedBox(height: 20),
 
-                            // 3) Slogan
-                            const Text(
-                              'Experience Brisbane Like a Local',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
-                                color: _deepBlue,
-                                height: 1.25,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
+                  // ── Title ──
+                  Text(
+                    'BrisConnect',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 42,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: -0.5,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black.withValues(alpha: 0.55),
+                          blurRadius: 18,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 6),
 
-                            // 4) Main description
-                            const Text(
-                              'Find things to do in Brisbane and explore events, culture, and local experiences as the city prepares for the 2032 Olympic Games.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 15.5,
-                                height: 1.58,
-                                color: _charcoal,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
+                  // ── Subtitle (gold italic) ──
+                  Text(
+                    'Connecting people, culture, and place',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w500,
+                      fontStyle: FontStyle.italic,
+                      color: const Color(0xFFE8C87A),
+                      shadows: [
+                        Shadow(
+                          color: Colors.black.withValues(alpha: 0.40),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                  ),
 
-                            // 5) Acknowledgement text
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFF8EA),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: const Color(0xFFE8D3AA)),
-                              ),
-                              child: const Text(
-                              'We acknowledge the First Nations peoples, the Traditional Custodians of this land, and honour their culture and connection to community.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                height: 1.5,
-                                color: Color(0xFF6C5A43),
-                              ),
-                            ),
-                            ),
-                            const SizedBox(height: 12),
+                  const SizedBox(height: 20),
 
-                            // 6) Small trust line
-                            const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.verified_user_outlined,
-                                  size: 16,
-                                  color: _gold,
-                                ),
-                                SizedBox(width: 6),
-                                Flexible(
-                                  child: Text(
-                              'Safe and trusted for visitors and locals.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                                color: _deepBlue,
-                              ),
-                            ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 26),
+                  // ── Aboriginal dot-circle divider ──
+                  const _DotCircleDivider(),
 
-                            // 7) Log In button (primary)
-                            SizedBox(
-                              width: double.infinity,
-                              height: 54,
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const LoginSelectionScreen(),
-                                    ),
-                                  );
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _ochre,
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  shadowColor: const Color(0x33C65D2E),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  textStyle: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                child: const Text('Log In'),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
+                  const SizedBox(height: 24),
 
-                            // 8) Create Account button (secondary)
-                            SizedBox(
-                              width: double.infinity,
-                              height: 54,
-                              child: OutlinedButton(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const RegisterSelectionScreen(),
-                                    ),
-                                  );
-                                },
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: _deepBlue,
-                                  side: const BorderSide(
-                                    color: _gold,
-                                    width: 1.5,
-                                  ),
-                                  backgroundColor: const Color(0xFFFFFBF1),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  textStyle: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                child: const Text('Create Account'),
-                              ),
+                  // ── Welcome heading ──
+                  Text(
+                    'Welcome to BrisConnect',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          blurRadius: 12,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // ── Description ──
+                  Text(
+                    'Your guide to events, attractions and stories\n'
+                    'across Brisbane. Let\u2019s explore together.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 15,
+                      height: 1.5,
+                      color: const Color(0xFFEED9B7),
+                      shadows: [
+                        Shadow(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const Spacer(flex: 2),
+
+                  // ── Get Started (orange gradient + arrow) ──
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(28),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF6D00), Color(0xFFC1440E)],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                const Color(0xFFC1440E).withValues(alpha: 0.45),
+                            blurRadius: 14,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const RegisterSelectionScreen(),
                             ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(28),
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Text('Get Started'),
+                            SizedBox(width: 10),
+                            Icon(Icons.arrow_forward_rounded, size: 22),
                           ],
                         ),
                       ),
                     ),
                   ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+                  const SizedBox(height: 24),
 
-class _DecorCircle extends StatelessWidget {
-  final double size;
-  final Color color;
+                  // ── Log In (outlined + person icon) ──
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const LoginSelectionScreen(),
+                          ),
+                        );
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: BorderSide(
+                          color: const Color(0xFFF5DEB3).withValues(alpha: 0.55),
+                          width: 1.4,
+                        ),
+                        backgroundColor: const Color(0x18FFFFFF),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Text('Log In'),
+                          SizedBox(width: 10),
+                          Icon(Icons.person_outline_rounded, size: 22),
+                        ],
+                      ),
+                    ),
+                  ),
 
-  const _DecorCircle({
-    required this.size,
-    required this.color,
-  });
+                  const SizedBox(height: 20),
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color,
-      ),
-    );
-  }
-}
+                  // ── Acknowledgment of Country ──
+                  const Text(
+                    'We acknowledge the Traditional Custodians of the land on '
+                    'which Brisbane stands, and pay our respects to Elders '
+                    'past, present, and emerging.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      height: 1.4,
+                      color: Color(0xAAEED9B7),
+                    ),
+                  ),
 
-class _ThemeChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _ThemeChip({
-    required this.icon,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF8EA),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE7D5B1)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: WelcomeScreen._ochre),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: WelcomeScreen._deepBlue,
+                  const SizedBox(height: 28),
+                ],
+              ),
             ),
           ),
         ],
       ),
     );
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Aboriginal-style concentric dot-circle divider
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _DotCircleDivider extends StatelessWidget {
+  const _DotCircleDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 32,
+      child: CustomPaint(painter: const _DotCirclePainter()),
+    );
+  }
+}
+
+class _DotCirclePainter extends CustomPainter {
+  const _DotCirclePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+
+    // Centre dot
+    canvas.drawCircle(
+      Offset(cx, cy),
+      3.0,
+      Paint()..color = const Color(0xFFE8600A),
+    );
+
+    // Two concentric rings of dots
+    const ringRadii = [8.0, 15.0];
+    const ringDotCounts = [6, 10];
+    const ringDotR = [1.8, 1.5];
+    const ringColors = [Color(0xFFD4A017), Color(0xFFE8C87A)];
+
+    for (int r = 0; r < ringRadii.length; r++) {
+      final paint = Paint()..color = ringColors[r];
+      for (int d = 0; d < ringDotCounts[r]; d++) {
+        final angle = (d / ringDotCounts[r]) * math.pi * 2 - math.pi / 2;
+        canvas.drawCircle(
+          Offset(
+            cx + ringRadii[r] * math.cos(angle),
+            cy + ringRadii[r] * math.sin(angle),
+          ),
+          ringDotR[r],
+          paint,
+        );
+      }
+    }
+
+    // Side dot rows
+    const sideDots = 5;
+    const sideGap = 7.0;
+    const sideDotR = 2.0;
+    final sidePaint = Paint()..color = const Color(0xFFE8600A);
+    for (int i = 1; i <= sideDots; i++) {
+      canvas.drawCircle(
+        Offset(cx - 15.0 - i * sideGap, cy),
+        sideDotR * (1.0 - i * 0.08),
+        sidePaint,
+      );
+      canvas.drawCircle(
+        Offset(cx + 15.0 + i * sideGap, cy),
+        sideDotR * (1.0 - i * 0.08),
+        sidePaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DotCirclePainter oldDelegate) => false;
 }

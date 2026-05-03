@@ -17,15 +17,22 @@ void main() {
     await firestore.collection('events').doc('e2').set({
       'title': 'Approved Event',
       'reviewStatus': 'approved',
+      'interestedCount': 50,
     });
 
     await firestore.collection('local_users').doc('l1').set({
       'email': 'l1@test.com',
+      'name': 'Local One',
+      'suburb': 'South Bank',
       'approvalStatus': 'pending',
+      'createdAt': '2026-04-01',
     });
     await firestore.collection('local_users').doc('l2').set({
       'email': 'l2@test.com',
+      'name': 'Local Two',
+      'suburb': 'CBD',
       'approvalStatus': 'approved',
+      'createdAt': '2026-04-02',
     });
 
     await firestore.collection('visitor_users').doc('v1').set({
@@ -52,7 +59,7 @@ void main() {
     );
   }
 
-  testWidgets('shows accurate live metric values from Firestore', (tester) async {
+  testWidgets('shows stat cards with live values', (tester) async {
     final firestore = FakeFirebaseFirestore();
     await seedData(firestore);
 
@@ -62,21 +69,17 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('Total Events'), findsOneWidget);
-    expect(find.text('Pending Events'), findsOneWidget);
-    expect(find.text('Local Users'), findsOneWidget);
-    expect(find.text('Total Users'), findsOneWidget);
-    expect(find.text('Pending Local Approvals'), findsOneWidget);
+    // Stats carousel labels
+    expect(find.text('Users'), findsOneWidget);
+    expect(find.text('Events'), findsOneWidget);
 
-    // e1 + e2
-    expect(find.text('2'), findsWidgets);
-    // users (2 local + 1 visitor + 1 admin)
+    // Users total = 2 local + 1 visitor + 1 admin = 4
     expect(find.text('4'), findsWidgets);
-    // pending events -> 1
-    expect(find.text('1'), findsWidgets);
+    // Events total = 2
+    expect(find.text('2'), findsWidgets);
   });
 
-  testWidgets('metric update appears when data changes', (tester) async {
+  testWidgets('stat values update when data changes', (tester) async {
     final firestore = FakeFirebaseFirestore();
     await seedData(firestore);
     final service = AdminDashboardService(firestore: firestore);
@@ -97,14 +100,13 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    // total events now 3, pending now 2
+    // total events now 3
     expect(find.text('3'), findsWidgets);
-    expect(find.text('2'), findsWidgets);
     // users now 5
     expect(find.text('5'), findsWidgets);
   });
 
-  testWidgets('tapping metric card navigates to details page', (tester) async {
+  testWidgets('shows hero section with Admin Dashboard title', (tester) async {
     final firestore = FakeFirebaseFirestore();
     await seedData(firestore);
     final service = AdminDashboardService(firestore: firestore);
@@ -113,9 +115,28 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    await tester.tap(find.text('Pending Events'));
+    expect(find.text('Admin Dashboard'), findsOneWidget);
+    expect(find.text('BrisConnect'), findsOneWidget);
+  });
+
+  testWidgets('shows quick action chips', (tester) async {
+    final firestore = FakeFirebaseFirestore();
+    await seedData(firestore);
+    final service = AdminDashboardService(firestore: firestore);
+
+    await tester.pumpWidget(buildApp(service));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.scrollUntilVisible(
+      find.text('Quick Actions'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
 
-    expect(find.text('Events Test Page'), findsOneWidget);
+    expect(find.text('Quick Actions'), findsOneWidget);
+    expect(find.text('SMS Broadcast'), findsOneWidget);
+    expect(find.text('Feedback'), findsOneWidget);
   });
 }

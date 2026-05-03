@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
-import 'package:brisconnect/screens/map_events_screen.dart';
 import 'package:brisconnect/services/visitor_notification_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
+import 'package:brisconnect/utils/venue_image_fallback.dart';
 import 'package:brisconnect/widgets/audio_guide_widget.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 
 /// Full-page event detail screen shown when a Visitor taps an event card.
-/// Displays hero image, cultural background description, optional audio guide,
+/// Displays hero image, cultural background description, optional AI narration,
 /// and navigation actions (map, website, share, save/interested).
 class VisitorEventDetailScreen extends StatefulWidget {
   /// The raw Firestore discover-item map for the event.
@@ -24,8 +24,7 @@ class VisitorEventDetailScreen extends StatefulWidget {
 }
 
 class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
-  static const String _fallbackImage =
-      'https://images.unsplash.com/photo-1472653431158-6364773b2a56?auto=format&fit=crop&w=1400&q=80';
+  String get _fallbackImage => VenueImageFallback.forItem(widget.event);
 
   bool get _isSaved {
     final id = (widget.event['id'] as String? ?? '').trim();
@@ -47,7 +46,7 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
     }
 
     final isNowInterested = VisitorAuth.isInterestedInEvent(id);
-    if (isNowInterested && VisitorAuth.areNotificationsEnabled()) {
+    if (isNowInterested && VisitorAuth.areEventRemindersEnabled()) {
       final svc = VisitorNotificationService();
       await svc
           .scheduleNotificationForInterestedEvent(
@@ -57,6 +56,7 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
                 widget.event['location'] as String? ?? 'Location TBA',
             eventId: id,
             userEmail: VisitorAuth.currentVisitor?.email ?? '',
+            reminderTiming: VisitorAuth.getReminderTiming(),
           )
           .catchError(
             (Object e) => debugPrint('[EventDetail] Notification error: $e'),
@@ -89,7 +89,7 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
     }
     final uri = Uri.tryParse(rawUrl.trim());
     if (uri == null) return;
-    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    final ok = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Unable to open this link right now.')),
@@ -178,6 +178,8 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
     final culturalBackground =
         (widget.event['culturalBackground'] as String? ?? '').trim();
     final aiAudio = (widget.event['aiAudio'] as String? ?? '').trim();
+    final aiNarration =
+        (widget.event['aiNarration'] as String? ?? '').trim();
     final narrationText = _buildNarrationText(
       badge: badge,
       title: title,
@@ -186,7 +188,7 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
       price: price,
       description: description,
       culturalBackground: culturalBackground,
-      aiAudio: aiAudio,
+      aiAudio: aiAudio.isNotEmpty ? aiAudio : aiNarration,
     );
     final webLink = (widget.event['webLink'] as String? ?? '').trim();
     final hasMapQuery =
@@ -202,8 +204,6 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
           backgroundColor: AppPalette.background,
           appBar: AppBar(
             title: const LogoAppBarTitle('Event Details'),
-            backgroundColor: AppPalette.surface,
-            foregroundColor: AppPalette.charcoal,
             actions: [
               IconButton(
                 tooltip: _isSaved ? 'Remove from saved' : 'Save event',
@@ -359,14 +359,16 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
                       const SizedBox(height: 22),
                     ],
 
-                    // Audio guide
+                    // AI tour guide narration
                     if (narrationText.isNotEmpty) ...[
-                      const _SectionHeader(title: 'Audio Guide'),
+                      _SectionHeader(
+                        title: 'AI Tour Guide',
+                      ),
                       const SizedBox(height: 10),
-                      AudioGuideWidget(
+                      AiNarrationWidget(
                         narrationText: narrationText,
                         helperText:
-                            'Reads all visible event details using AI narration.',
+                            'Tap play to hear your personal AI tour guide walk you through this event.',
                       ),
                       const SizedBox(height: 22),
                     ],
@@ -393,37 +395,13 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
                             child: _ActionButton(
                               icon: Icons.open_in_browser_rounded,
                               label: 'Website',
-                              backgroundColor: AppPalette.mutedText,
+                              backgroundColor: AppPalette.deepBlue,
                               onPressed: () => _openLink(webLink),
                             ),
                           ),
                       ],
                     ),
                     const SizedBox(height: 12),
-
-                    // Also accessible from the map banner
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.map_outlined, size: 18),
-                        label: const Text('Explore Brisbane on Map'),
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const MapEventsScreen(),
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppPalette.deepBlue,
-                          side: const BorderSide(color: AppPalette.border),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
 
                     // Save / interested CTA
                     SizedBox(

@@ -30,8 +30,6 @@ class LocalNotificationsScreen extends StatelessWidget {
       backgroundColor: AppPalette.background,
       appBar: AppBar(
         title: const LogoAppBarTitle('Notifications'),
-        backgroundColor: AppPalette.deepBlue,
-        foregroundColor: Colors.white,
       ),
       body: ValueListenableBuilder<int>(
         valueListenable: profileVersionListenable ?? LocalAuth.profileVersion,

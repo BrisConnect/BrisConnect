@@ -164,7 +164,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                       child: Text(
                         'No tasks yet.\nTap + to add one.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.black45),
+                        style: TextStyle(color: Colors.black87),
                       ),
                     )
                   : ListView.builder(

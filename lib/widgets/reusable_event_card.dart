@@ -1,43 +1,62 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:brisconnect/theme/app_palette.dart';
+import 'package:brisconnect/utils/venue_image_fallback.dart';
 
 class ReusableEventCard extends StatelessWidget {
-  static const String _fallbackImageUrl =
-      'https://images.unsplash.com/photo-1472653431158-6364773b2a56?auto=format&fit=crop&w=1400&q=80';
 
   final String imageUrl;
   final String badgeText;
   final String title;
+  final String? section;
   final String? description;
   final String dateTime;
   final String location;
   final String price;
+  final String? source;
+  final String? venue;
+  final List<String>? categories;
+  final String? cuisine;
+  final double? rating;
   final bool isFavorite;
   final VoidCallback? onShareTap;
   final VoidCallback? onWebTap;
   final VoidCallback? onFavoriteTap;
   final VoidCallback? onCardTap;
+  final Color? cardColor;
 
   const ReusableEventCard({
     super.key,
     required this.imageUrl,
     required this.badgeText,
     required this.title,
+    this.section,
     this.description,
     required this.dateTime,
     required this.location,
     required this.price,
+    this.source,
+    this.venue,
+    this.categories,
+    this.cuisine,
+    this.rating,
     this.isFavorite = false,
     this.onShareTap,
     this.onWebTap,
     this.onFavoriteTap,
     this.onCardTap,
+    this.cardColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final normalizedImageUrl = imageUrl.trim().isEmpty ? _fallbackImageUrl : imageUrl.trim();
+    final venueFallback = VenueImageFallback.forVenue(
+      title: title,
+      section: section,
+      badge: badgeText,
+    );
+    final normalizedImageUrl =
+        imageUrl.trim().isEmpty ? venueFallback : imageUrl.trim();
 
     return Material(
       color: Colors.transparent,
@@ -47,7 +66,7 @@ class ReusableEventCard extends StatelessWidget {
         child: Container(
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
-            color: AppPalette.surface,
+            color: cardColor ?? AppPalette.surface,
             borderRadius: BorderRadius.circular(22),
             boxShadow: const [
               BoxShadow(
@@ -82,14 +101,20 @@ class ReusableEventCard extends StatelessWidget {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       ),
-                      errorWidget: (context, _, __) => Container(
+                      errorWidget: (context, _, __) => Image.network(
+                        venueFallback,
                         height: 190,
-                        color: AppPalette.surfaceAlt,
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.image_not_supported_rounded,
-                          color: AppPalette.mutedText,
-                          size: 32,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, _, __) => Container(
+                          height: 190,
+                          color: AppPalette.surfaceAlt,
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.image_not_supported_rounded,
+                            color: AppPalette.mutedText,
+                            size: 32,
+                          ),
                         ),
                       ),
                     ),
@@ -150,8 +175,70 @@ class ReusableEventCard extends StatelessWidget {
                     _DetailRow(icon: Icons.calendar_today_rounded, text: dateTime),
                     const SizedBox(height: 6),
                     _DetailRow(icon: Icons.place_rounded, text: location),
+                    if (venue != null && venue!.trim().isNotEmpty && venue != location) ...[
+                      const SizedBox(height: 6),
+                      _DetailRow(icon: Icons.location_city_rounded, text: venue!),
+                    ],
                     const SizedBox(height: 6),
                     _DetailRow(icon: Icons.sell_rounded, text: price),
+                    if (cuisine != null && cuisine!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      _DetailRow(icon: Icons.restaurant_rounded, text: cuisine!),
+                    ],
+                    if (rating != null && rating! > 0) ...[
+                      const SizedBox(height: 6),
+                      _DetailRow(
+                        icon: Icons.star_rounded,
+                        text: '${rating!.toStringAsFixed(1)} rating',
+                      ),
+                    ],
+                    if (source != null && source!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(Icons.verified_rounded, size: 14, color: AppPalette.deepBlue.withValues(alpha: 0.6)),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Source: $source',
+                              style: TextStyle(
+                                color: AppPalette.deepBlue.withValues(alpha: 0.6),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (categories != null && categories!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: categories!
+                            .take(4)
+                            .map(
+                              (cat) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: AppPalette.deepBlue.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  cat,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppPalette.deepBlue,
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     Row(
                       children: [

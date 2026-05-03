@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:brisconnect/models/event_item.dart';
 import 'package:brisconnect/theme/app_palette.dart';
@@ -45,12 +46,19 @@ class EventDetailScreen extends StatelessWidget {
                 if (event.imageAsset != null) ...[
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(
-                      event.imageAsset!,
-                      width: double.infinity,
-                      height: 180,
-                      fit: BoxFit.cover,
-                    ),
+                    child: event.imageAsset!.startsWith('http')
+                        ? CachedNetworkImage(
+                            imageUrl: event.imageAsset!,
+                            width: double.infinity,
+                            height: 180,
+                            fit: BoxFit.cover,
+                          )
+                        : Image.asset(
+                            event.imageAsset!,
+                            width: double.infinity,
+                            height: 180,
+                            fit: BoxFit.cover,
+                          ),
                   ),
                   const SizedBox(height: 14),
                 ],
@@ -99,7 +107,7 @@ class EventDetailScreen extends StatelessWidget {
                 if (narrationText.isNotEmpty) ...[
                   const SizedBox(height: 18),
                   const Text(
-                    'Audio Guide',
+                    'AI Narration',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -107,10 +115,10 @@ class EventDetailScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  AudioGuideWidget(
+                  AiNarrationWidget(
                     narrationText: narrationText,
                     helperText:
-                        'Listen to a short guided intro to the event, timing, and location.',
+                        'Tap play to hear your AI tour guide walk you through this event.',
                   ),
                 ],
               ],

@@ -1,6 +1,6 @@
 {
-    "name": "brisconnect",
-    "short_name": "brisconnect",
+    "name": "BrisConnect",
+    "short_name": "BrisConnect",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

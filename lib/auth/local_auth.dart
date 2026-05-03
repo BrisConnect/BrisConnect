@@ -1,9 +1,13 @@
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
+import 'package:brisconnect/services/local_email_notification_service.dart';
+import 'package:brisconnect/services/sms_notification_service.dart';
+import 'package:brisconnect/services/app_display_settings_controller.dart';
 
 enum AccountApprovalStatus { pending, approved, rejected }
 
@@ -14,8 +18,21 @@ class LocalUser {
   final String phone;
   final String suburb;
   final List<String> interestedEventIds;
+  final List<String> interestCategories;
   final bool notificationsEnabled;
+  final bool eventRemindersEnabled;
+  final String reminderTiming;
+  final bool eventUpdatesEnabled;
+  final bool nearbyEventsEnabled;
+  final bool recommendedEventsEnabled;
+  final bool useCurrentLocation;
+  final int locationRadiusKm;
+  final bool locationAccessEnabled;
+  final String themePreference;
+  final double textScaleFactor;
   final String? profileImageBase64;
+  final String? profileImageUrl;
+  final String? profileImageStoragePath;
   final String accountType = 'local';
   final AccountApprovalStatus approvalStatus;
 
@@ -26,8 +43,21 @@ class LocalUser {
     required this.phone,
     required this.suburb,
     this.interestedEventIds = const [],
+    this.interestCategories = const [],
     this.notificationsEnabled = true,
+    this.eventRemindersEnabled = true,
+    this.reminderTiming = '24h',
+    this.eventUpdatesEnabled = true,
+    this.nearbyEventsEnabled = true,
+    this.recommendedEventsEnabled = true,
+    this.useCurrentLocation = true,
+    this.locationRadiusKm = 20,
+    this.locationAccessEnabled = true,
+    this.themePreference = 'system',
+    this.textScaleFactor = 1.0,
     this.profileImageBase64,
+    this.profileImageUrl,
+    this.profileImageStoragePath,
     this.approvalStatus = AccountApprovalStatus.pending,
   });
 
@@ -38,8 +68,21 @@ class LocalUser {
     String? phone,
     String? suburb,
     List<String>? interestedEventIds,
+    List<String>? interestCategories,
     bool? notificationsEnabled,
+    bool? eventRemindersEnabled,
+    String? reminderTiming,
+    bool? eventUpdatesEnabled,
+    bool? nearbyEventsEnabled,
+    bool? recommendedEventsEnabled,
+    bool? useCurrentLocation,
+    int? locationRadiusKm,
+    bool? locationAccessEnabled,
+    String? themePreference,
+    double? textScaleFactor,
     String? profileImageBase64,
+    String? profileImageUrl,
+    String? profileImageStoragePath,
     AccountApprovalStatus? approvalStatus,
   }) {
     return LocalUser(
@@ -49,8 +92,25 @@ class LocalUser {
       phone: phone ?? this.phone,
       suburb: suburb ?? this.suburb,
       interestedEventIds: interestedEventIds ?? this.interestedEventIds,
+        interestCategories: interestCategories ?? this.interestCategories,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+        eventRemindersEnabled:
+          eventRemindersEnabled ?? this.eventRemindersEnabled,
+        reminderTiming: reminderTiming ?? this.reminderTiming,
+        eventUpdatesEnabled: eventUpdatesEnabled ?? this.eventUpdatesEnabled,
+        nearbyEventsEnabled: nearbyEventsEnabled ?? this.nearbyEventsEnabled,
+        recommendedEventsEnabled:
+          recommendedEventsEnabled ?? this.recommendedEventsEnabled,
+        useCurrentLocation: useCurrentLocation ?? this.useCurrentLocation,
+        locationRadiusKm: locationRadiusKm ?? this.locationRadiusKm,
+        locationAccessEnabled:
+          locationAccessEnabled ?? this.locationAccessEnabled,
+        themePreference: themePreference ?? this.themePreference,
+        textScaleFactor: textScaleFactor ?? this.textScaleFactor,
       profileImageBase64: profileImageBase64 ?? this.profileImageBase64,
+        profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+        profileImageStoragePath:
+          profileImageStoragePath ?? this.profileImageStoragePath,
       approvalStatus: approvalStatus ?? this.approvalStatus,
     );
   }
@@ -68,6 +128,23 @@ class LocalAuth {
   static bool get isLocalLoggedIn => _currentLocal != null;
   static String? get lastErrorMessage => _lastErrorMessage;
   static ValueListenable<int> get profileVersion => _profileVersion;
+
+  @visibleForTesting
+  static bool isApprovalAuthorized(AccountApprovalStatus status) {
+    return status == AccountApprovalStatus.approved;
+  }
+
+  @visibleForTesting
+  static String approvalDeniedMessage(AccountApprovalStatus status) {
+    switch (status) {
+      case AccountApprovalStatus.pending:
+        return 'Your Local account is pending admin approval. You cannot access Local features yet.';
+      case AccountApprovalStatus.rejected:
+        return 'Your Local account was rejected by admin. Contact support for assistance.';
+      case AccountApprovalStatus.approved:
+        return '';
+    }
+  }
 
   static String _passwordHash(String password) {
     return sha256.convert(utf8.encode(password)).toString();
@@ -88,33 +165,21 @@ class LocalAuth {
     }
 
     try {
-      final snapshot =
-          await FirebaseFirestore.instance.collection('local_users').get();
-
-      String? matchedEmail;
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final email =
-            ((data['email'] as String?) ?? doc.id).trim().toLowerCase();
-        final username = ((data['username'] as String?) ?? _deriveUsername(email))
-            .trim()
-            .toLowerCase();
-
-        if (username != normalized) {
-          continue;
-        }
-
-        if (matchedEmail != null && matchedEmail != email) {
-          _lastErrorMessage =
-              'This username matches multiple accounts. Please log in with your email address.';
-          return null;
-        }
-        matchedEmail = email;
+      final callable = FirebaseFunctions.instanceFor(region: 'australia-southeast1')
+          .httpsCallable('resolveUsername');
+      final result = await callable.call<Map<String, dynamic>>({
+        'username': normalized,
+        'userType': 'local',
+      });
+      final data = result.data;
+      if (data['error'] == 'duplicate') {
+        _lastErrorMessage =
+            'This username matches multiple accounts. Please log in with your email address.';
+        return null;
       }
-
-      return matchedEmail;
+      return data['email'] as String?;
     } catch (_) {
-      return normalized;
+      return null;
     }
   }
 
@@ -152,7 +217,20 @@ class LocalAuth {
       'accountType': 'local',
       'approvalStatus': 'pending',
       'notificationsEnabled': true,
+      'eventRemindersEnabled': true,
+      'reminderTiming': '24h',
+      'eventUpdatesEnabled': true,
+      'nearbyEventsEnabled': true,
+      'recommendedEventsEnabled': true,
+      'useCurrentLocation': true,
+      'locationRadiusKm': 20,
+      'locationAccessEnabled': true,
+      'themePreference': 'system',
+      'textScaleFactor': 1.0,
       'profileImageBase64': null,
+      'profileImageUrl': null,
+      'profileImageStoragePath': null,
+      'interestCategories': const <String>[],
       'interestedEventIds': const <String>[],
       'passwordHash': passwordHash,
       'passwordUpdatedAt': FieldValue.serverTimestamp(),
@@ -308,6 +386,24 @@ class LocalAuth {
       _users.add(localUser);
     }
 
+        LocalEmailNotificationService()
+            .queueRegistrationReceivedEmail(
+              recipientEmail: normalizedEmail,
+              businessName: name.trim(),
+            )
+            .catchError((_) {
+          // Registration should still succeed if queuing email fails.
+        });
+
+        SmsNotificationService()
+            .queueLocalAccountRegistrationReceivedSms(
+              recipientPhone: phone.trim(),
+              businessName: name.trim(),
+            )
+            .catchError((_) {
+          // Registration should still succeed if queuing SMS fails.
+        });
+
     return true;
   }
 
@@ -380,6 +476,15 @@ class LocalAuth {
         return false;
       }
 
+          final approvalStatus = _approvalFromString(
+            (data['approvalStatus'] as String?) ?? 'pending',
+          );
+          if (!isApprovalAuthorized(approvalStatus)) {
+            await fb_auth.FirebaseAuth.instance.signOut();
+            _lastErrorMessage = approvalDeniedMessage(approvalStatus);
+            return false;
+          }
+
       final storedPasswordHash = (data['passwordHash'] as String?) ?? '';
       final storedLegacyPassword = (data['password'] as String?) ?? '';
       final matchesHashedPassword =
@@ -418,9 +523,32 @@ class LocalAuth {
         interestedEventIds: ((data['interestedEventIds'] as List?) ?? const [])
             .whereType<String>()
             .toList(growable: false),
+        interestCategories: ((data['interestCategories'] as List?) ?? const [])
+            .whereType<String>()
+            .toList(growable: false),
         notificationsEnabled: (data['notificationsEnabled'] as bool?) ?? true,
+        eventRemindersEnabled:
+            (data['eventRemindersEnabled'] as bool?) ?? true,
+        reminderTiming: (data['reminderTiming'] as String?) ?? '24h',
+        eventUpdatesEnabled: (data['eventUpdatesEnabled'] as bool?) ?? true,
+        nearbyEventsEnabled: (data['nearbyEventsEnabled'] as bool?) ?? true,
+        recommendedEventsEnabled:
+            (data['recommendedEventsEnabled'] as bool?) ?? true,
+        useCurrentLocation: (data['useCurrentLocation'] as bool?) ?? true,
+        locationRadiusKm: (data['locationRadiusKm'] as num?)?.toInt() ?? 20,
+        locationAccessEnabled:
+            (data['locationAccessEnabled'] as bool?) ?? true,
+        themePreference: (data['themePreference'] as String?) ?? 'system',
+        textScaleFactor:
+            (data['textScaleFactor'] as num?)?.toDouble() ?? 1.0,
         profileImageBase64: (data['profileImageBase64'] as String?)?.trim().isNotEmpty == true
             ? (data['profileImageBase64'] as String)
+            : null,
+        profileImageUrl: (data['profileImageUrl'] as String?)?.trim().isNotEmpty == true
+            ? (data['profileImageUrl'] as String)
+            : null,
+        profileImageStoragePath: (data['profileImageStoragePath'] as String?)?.trim().isNotEmpty == true
+            ? (data['profileImageStoragePath'] as String)
             : null,
         approvalStatus: _approvalFromString(
           (data['approvalStatus'] as String?) ?? 'pending',
@@ -439,6 +567,11 @@ class LocalAuth {
       _currentLocal = user;
       _lastErrorMessage = null;
       _profileVersion.value++;
+      AppDisplaySettingsController.applyFromPersisted(
+        locationAccessEnabled: user.locationAccessEnabled,
+        themePreference: user.themePreference,
+        textScaleFactor: user.textScaleFactor,
+      );
       return true;
     } on FirebaseException catch (error) {
       if (error.code == 'permission-denied') {
@@ -538,10 +671,33 @@ class LocalAuth {
       interestedEventIds: ((data['interestedEventIds'] as List?) ?? const [])
           .whereType<String>()
           .toList(growable: false),
+        interestCategories: ((data['interestCategories'] as List?) ?? const [])
+          .whereType<String>()
+          .toList(growable: false),
       notificationsEnabled: (data['notificationsEnabled'] as bool?) ?? true,
+        eventRemindersEnabled:
+          (data['eventRemindersEnabled'] as bool?) ?? true,
+        reminderTiming: (data['reminderTiming'] as String?) ?? '24h',
+        eventUpdatesEnabled: (data['eventUpdatesEnabled'] as bool?) ?? true,
+        nearbyEventsEnabled: (data['nearbyEventsEnabled'] as bool?) ?? true,
+        recommendedEventsEnabled:
+          (data['recommendedEventsEnabled'] as bool?) ?? true,
+        useCurrentLocation: (data['useCurrentLocation'] as bool?) ?? true,
+        locationRadiusKm: (data['locationRadiusKm'] as num?)?.toInt() ?? 20,
+        locationAccessEnabled: (data['locationAccessEnabled'] as bool?) ?? true,
+        themePreference: (data['themePreference'] as String?) ?? 'system',
+        textScaleFactor:
+          (data['textScaleFactor'] as num?)?.toDouble() ?? 1.0,
       profileImageBase64: (data['profileImageBase64'] as String?)?.trim().isNotEmpty == true
           ? (data['profileImageBase64'] as String)
           : null,
+        profileImageUrl: (data['profileImageUrl'] as String?)?.trim().isNotEmpty == true
+          ? (data['profileImageUrl'] as String)
+          : null,
+        profileImageStoragePath:
+          (data['profileImageStoragePath'] as String?)?.trim().isNotEmpty == true
+            ? (data['profileImageStoragePath'] as String)
+            : null,
       approvalStatus: _approvalFromString(
         (data['approvalStatus'] as String?) ?? 'pending',
       ),
@@ -670,6 +826,12 @@ class LocalAuth {
           (accountType != null && accountType.isNotEmpty && accountType != 'local')) {
         return false;
       }
+      final approvalStatus = _approvalFromString(
+        (data['approvalStatus'] as String?) ?? 'pending',
+      );
+      if (!isApprovalAuthorized(approvalStatus)) {
+        return false;
+      }
       final user = LocalUser(
         name: (data['name'] as String?)?.trim().isNotEmpty == true
             ? data['name'] as String
@@ -681,13 +843,34 @@ class LocalAuth {
         interestedEventIds: ((data['interestedEventIds'] as List?) ?? const [])
             .whereType<String>()
             .toList(growable: false),
+        interestCategories: ((data['interestCategories'] as List?) ?? const [])
+          .whereType<String>()
+          .toList(growable: false),
         notificationsEnabled: (data['notificationsEnabled'] as bool?) ?? true,
+        eventRemindersEnabled:
+          (data['eventRemindersEnabled'] as bool?) ?? true,
+        reminderTiming: (data['reminderTiming'] as String?) ?? '24h',
+        eventUpdatesEnabled: (data['eventUpdatesEnabled'] as bool?) ?? true,
+        nearbyEventsEnabled: (data['nearbyEventsEnabled'] as bool?) ?? true,
+        recommendedEventsEnabled:
+          (data['recommendedEventsEnabled'] as bool?) ?? true,
+        useCurrentLocation: (data['useCurrentLocation'] as bool?) ?? true,
+        locationRadiusKm: (data['locationRadiusKm'] as num?)?.toInt() ?? 20,
+        locationAccessEnabled: (data['locationAccessEnabled'] as bool?) ?? true,
+        themePreference: (data['themePreference'] as String?) ?? 'system',
+        textScaleFactor:
+          (data['textScaleFactor'] as num?)?.toDouble() ?? 1.0,
         profileImageBase64: (data['profileImageBase64'] as String?)?.trim().isNotEmpty == true
             ? (data['profileImageBase64'] as String)
             : null,
-        approvalStatus: _approvalFromString(
-          (data['approvalStatus'] as String?) ?? 'pending',
-        ),
+        profileImageUrl: (data['profileImageUrl'] as String?)?.trim().isNotEmpty == true
+          ? (data['profileImageUrl'] as String)
+          : null,
+        profileImageStoragePath:
+          (data['profileImageStoragePath'] as String?)?.trim().isNotEmpty == true
+            ? (data['profileImageStoragePath'] as String)
+            : null,
+        approvalStatus: approvalStatus,
       );
       final idx = _users.indexWhere((u) => u.email.toLowerCase() == normalizedEmail);
       if (idx >= 0) {
@@ -697,6 +880,11 @@ class LocalAuth {
       }
       _currentLocal = user;
       _profileVersion.value++;
+      AppDisplaySettingsController.applyFromPersisted(
+        locationAccessEnabled: user.locationAccessEnabled,
+        themePreference: user.themePreference,
+        textScaleFactor: user.textScaleFactor,
+      );
       return true;
     } catch (_) {
       return false;
@@ -704,11 +892,21 @@ class LocalAuth {
   }
 
   static Set<String> getInterestedEventIds() {
-    return Set<String>.from(_currentLocal?.interestedEventIds ?? const []);
+    return (_currentLocal?.interestedEventIds ?? const <String>[])
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
   }
 
   static bool isInterestedInEvent(String eventId) {
-    return _currentLocal?.interestedEventIds.contains(eventId) ?? false;
+    final normalized = eventId.trim();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    return _currentLocal?.interestedEventIds
+            .map((id) => id.trim())
+            .contains(normalized) ??
+        false;
   }
 
   static bool toggleInterestedEvent(String eventId) {
@@ -717,11 +915,19 @@ class LocalAuth {
       return false;
     }
 
-    final updatedIds = List<String>.from(current.interestedEventIds);
-    if (updatedIds.contains(eventId)) {
-      updatedIds.remove(eventId);
+    final normalized = eventId.trim();
+    if (normalized.isEmpty) {
+      return false;
+    }
+
+    final updatedIds = current.interestedEventIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toList(growable: true);
+    if (updatedIds.contains(normalized)) {
+      updatedIds.remove(normalized);
     } else {
-      updatedIds.add(eventId);
+      updatedIds.add(normalized);
     }
 
     final updatedUser = current.copyWith(interestedEventIds: updatedIds);
@@ -734,6 +940,13 @@ class LocalAuth {
     _currentLocal = updatedUser;
     _profileVersion.value++;
 
+    final currentNormalized = current.interestedEventIds
+      .map((id) => id.trim())
+      .where((id) => id.isNotEmpty)
+      .toSet();
+    final wasAdded =
+      updatedIds.contains(normalized) && !currentNormalized.contains(normalized);
+
     FirebaseFirestore.instance
         .collection('local_users')
         .doc(current.email)
@@ -744,7 +957,44 @@ class LocalAuth {
       debugPrint('[LocalAuth] Failed to persist interested events: $e');
     });
 
+    if (wasAdded) {
+      SmsNotificationService()
+          .queueLocalSavedEventSms(
+            localEmail: current.email,
+            eventId: normalized,
+          )
+          .catchError((e) {
+        debugPrint('[LocalAuth] Failed to queue saved-event SMS: $e');
+        return false;
+      });
+
+      _queueLocalEventSavedEmail(current.email, current.name, normalized);
+    }
+
     return true;
+  }
+
+  static void _queueLocalEventSavedEmail(String email, String name, String eventId) {
+    FirebaseFirestore.instance.collection('events').doc(eventId).get().then((doc) {
+      final data = doc.data() ?? const <String, dynamic>{};
+      final title = ((data['title'] as String?) ?? '').trim();
+      final date = ((data['date'] as String?) ?? '').trim();
+      final location = ((data['location'] as String?) ?? '').trim();
+      if (title.isEmpty) return;
+      LocalEmailNotificationService()
+          .queueEventSavedEmail(
+            recipientEmail: email,
+            businessName: name,
+            eventTitle: title,
+            eventDate: date,
+            eventLocation: location,
+          )
+          .catchError((e) {
+        debugPrint('[LocalAuth] Failed to queue saved-event email: $e');
+      });
+    }).catchError((e) {
+      debugPrint('[LocalAuth] Failed to fetch event for email: $e');
+    });
   }
 
   static bool areNotificationsEnabled() {
@@ -775,23 +1025,132 @@ class LocalAuth {
     }
   }
 
-  static Future<bool> updateProfileImage(String base64Image) async {
+  static bool areEventRemindersEnabled() {
+    return _currentLocal?.eventRemindersEnabled ?? true;
+  }
+
+  static String getReminderTiming() {
+    return _currentLocal?.reminderTiming ?? '24h';
+  }
+
+  static bool isLocationAccessEnabled() {
+    return _currentLocal?.locationAccessEnabled ?? true;
+  }
+
+  static String getThemePreference() {
+    return _currentLocal?.themePreference ?? 'system';
+  }
+
+  static double getTextScaleFactor() {
+    return _currentLocal?.textScaleFactor ?? 1.0;
+  }
+
+  static Future<List<String>> getInterestCategories() async {
+    return List<String>.from(_currentLocal?.interestCategories ?? const []);
+  }
+
+  static Future<bool> setInterestCategories(List<String> categories) async {
+    return _mergeCurrentLocal(
+      firestoreData: {'interestCategories': categories},
+      updatedUser: (current) => current.copyWith(interestCategories: categories),
+    );
+  }
+
+  static Future<bool> setLocationSettings({
+    bool? useCurrentLocation,
+    int? locationRadiusKm,
+  }) async {
+    return _mergeCurrentLocal(
+      firestoreData: {
+        if (useCurrentLocation != null)
+          'useCurrentLocation': useCurrentLocation,
+        if (locationRadiusKm != null) 'locationRadiusKm': locationRadiusKm,
+      },
+      updatedUser: (current) => current.copyWith(
+        useCurrentLocation: useCurrentLocation,
+        locationRadiusKm: locationRadiusKm,
+      ),
+    );
+  }
+
+  static Future<bool> setGeneralAppSettings({
+    bool? locationAccessEnabled,
+    String? themePreference,
+    double? textScaleFactor,
+  }) async {
+    return _mergeCurrentLocal(
+      firestoreData: {
+        if (locationAccessEnabled != null)
+          'locationAccessEnabled': locationAccessEnabled,
+        if (themePreference != null) 'themePreference': themePreference,
+        if (textScaleFactor != null) 'textScaleFactor': textScaleFactor,
+      },
+      updatedUser: (current) => current.copyWith(
+        locationAccessEnabled: locationAccessEnabled,
+        themePreference: themePreference,
+        textScaleFactor: textScaleFactor,
+      ),
+    );
+  }
+
+  static Future<bool> setNotificationSettings({
+    bool? notificationsEnabled,
+    bool? eventRemindersEnabled,
+    String? reminderTiming,
+    bool? eventUpdatesEnabled,
+    bool? nearbyEventsEnabled,
+    bool? recommendedEventsEnabled,
+  }) async {
+    return _mergeCurrentLocal(
+      firestoreData: {
+        if (notificationsEnabled != null)
+          'notificationsEnabled': notificationsEnabled,
+        if (eventRemindersEnabled != null)
+          'eventRemindersEnabled': eventRemindersEnabled,
+        if (reminderTiming != null) 'reminderTiming': reminderTiming,
+        if (eventUpdatesEnabled != null)
+          'eventUpdatesEnabled': eventUpdatesEnabled,
+        if (nearbyEventsEnabled != null)
+          'nearbyEventsEnabled': nearbyEventsEnabled,
+        if (recommendedEventsEnabled != null)
+          'recommendedEventsEnabled': recommendedEventsEnabled,
+      },
+      updatedUser: (current) => current.copyWith(
+        notificationsEnabled: notificationsEnabled,
+        eventRemindersEnabled: eventRemindersEnabled,
+        reminderTiming: reminderTiming,
+        eventUpdatesEnabled: eventUpdatesEnabled,
+        nearbyEventsEnabled: nearbyEventsEnabled,
+        recommendedEventsEnabled: recommendedEventsEnabled,
+      ),
+    );
+  }
+
+  static Future<bool> updateProfileImage({
+    String? base64Image,
+    String? imageUrl,
+    String? storagePath,
+  }) async {
     final current = _currentLocal;
     if (current == null) return false;
-    final trimmed = base64Image.trim();
-    if (trimmed.isEmpty) return false;
+    final resolvedBase64 = base64Image;
 
     try {
       await FirebaseFirestore.instance
           .collection('local_users')
           .doc(current.email)
-          .update({'profileImageBase64': trimmed});
+          .update({
+        'profileImageBase64': resolvedBase64,
+        'profileImageUrl': imageUrl,
+        'profileImageStoragePath': storagePath,
+      });
 
-      final updated = current.copyWith(profileImageBase64: trimmed);
-      _currentLocal = updated;
-      final idx = _users.indexWhere((u) => u.email == current.email);
-      if (idx != -1) _users[idx] = updated;
-      _profileVersion.value++;
+      final updated = current.copyWith(
+        profileImageBase64: resolvedBase64,
+        profileImageUrl: imageUrl,
+        profileImageStoragePath: storagePath,
+      );
+      _replaceCurrentLocal(updated);
       return true;
     } on FirebaseException catch (e) {
       debugPrint('[LocalAuth] updateProfileImage failed: ${e.code}');
@@ -799,5 +1158,38 @@ class LocalAuth {
     } catch (_) {
       return false;
     }
+  }
+
+  static Future<bool> _mergeCurrentLocal({
+    required Map<String, Object?> firestoreData,
+    required LocalUser Function(LocalUser current) updatedUser,
+  }) async {
+    final current = _currentLocal;
+    if (current == null) return false;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('local_users')
+          .doc(current.email)
+          .set(firestoreData, SetOptions(merge: true));
+      _replaceCurrentLocal(updatedUser(current));
+      return true;
+    } on FirebaseException catch (error) {
+      debugPrint('[LocalAuth] Failed to persist local settings: ${error.code}');
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static void _replaceCurrentLocal(LocalUser updated) {
+    _currentLocal = updated;
+    final idx = _users.indexWhere((u) => u.email == updated.email);
+    if (idx != -1) {
+      _users[idx] = updated;
+    } else {
+      _users.add(updated);
+    }
+    _profileVersion.value++;
   }
 }

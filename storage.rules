@@ -1,0 +1,61 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function authEmail() {
+      return isSignedIn() && request.auth.token.email != null
+          ? request.auth.token.email.lower()
+          : null;
+    }
+
+    function isOwner(email) {
+      return authEmail() != null && authEmail() == email.lower();
+    }
+
+    function isAdmin() {
+      return authEmail() != null
+        && firestore.exists(/databases/(default)/documents/admins/$(authEmail()))
+        && firestore.get(/databases/(default)/documents/admins/$(authEmail())).data.role == 'admin';
+    }
+
+    function isApprovedLocal() {
+      return authEmail() != null
+        && firestore.exists(/databases/(default)/documents/local_users/$(authEmail()))
+        && firestore.get(/databases/(default)/documents/local_users/$(authEmail())).data.role == 'local'
+        && firestore.get(/databases/(default)/documents/local_users/$(authEmail())).data.approvalStatus == 'approved';
+    }
+
+    match /profile-images/{role}/{email}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(email) || isAdmin();
+    }
+
+    match /event-images/{email}/{eventId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(email) || isAdmin();
+    }
+
+    match /event-audio/{email}/{eventId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(email) || isAdmin();
+    }
+
+    match /event-videos/{email}/{eventId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(email) || isAdmin();
+    }
+
+    match /attraction-media/{attractionId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /feedback-images/{email}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(email);
+    }
+  }
+}

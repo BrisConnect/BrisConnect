@@ -2,6 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:brisconnect/models/event_item.dart';
 import 'package:brisconnect/services/event_document_id_service.dart';
+import 'package:brisconnect/services/local_email_notification_service.dart';
+import 'package:brisconnect/services/sms_notification_service.dart';
+
+import 'package:brisconnect/utils/narration_builder.dart';
 
 class AdminEventService {
   AdminEventService({FirebaseFirestore? firestore})
@@ -77,10 +81,21 @@ class AdminEventService {
     required String eventId,
     required String title,
     required String date,
+    String? category,
+    EventReviewStatus? reviewStatus,
     required String location,
     required String description,
+    String? imageUrl,
+    String? imageStoragePath,
+    String? videoUrl,
+    String? videoStoragePath,
+    String? audioUrl,
+    String? audioStoragePath,
+    String? aiNarration,
   }) async {
     final eventRef = _firestore.collection('events').doc(eventId);
+    EventReviewStatus? previousReviewStatus;
+    String? createdByLocalEmail;
 
     await _firestore.runTransaction((transaction) async {
       final snapshot = await transaction.get(eventRef);
@@ -89,6 +104,14 @@ class AdminEventService {
       }
 
       final data = snapshot.data() ?? const <String, dynamic>{};
+      previousReviewStatus = _parseStatus(
+        (data['reviewStatus'] as String?) ??
+            (data['status'] as String?) ??
+            (data['badge'] as String?),
+      );
+      createdByLocalEmail = ((data['createdByLocalEmail'] as String?) ??
+              (data['createdBy'] as String?))
+          ?.trim();
       final time = ((data['time'] as String?) ?? _extractTime(data)).trim();
       final normalizedTitle = title.trim();
       final normalizedDate = date.trim();
@@ -98,12 +121,80 @@ class AdminEventService {
       transaction.update(eventRef, {
         'title': normalizedTitle,
         'date': normalizedDate,
+        if (category != null) 'category': category.trim(),
         'location': normalizedLocation,
         'description': normalizedDescription,
+        if (reviewStatus != null) ...{
+          'reviewStatus': _statusToValue(reviewStatus),
+          'status': _statusToValue(reviewStatus),
+          'badge': _statusBadgeValue(reviewStatus),
+          'isApproved': reviewStatus == EventReviewStatus.approved,
+        },
+        'imageUrl': imageUrl,
+        'imageStoragePath': imageStoragePath,
+        'videoUrl': videoUrl,
+        'videoStoragePath': videoStoragePath,
+        'audioUrl': audioUrl,
+        'audioStoragePath': audioStoragePath,
+        if (aiNarration != null) 'aiNarration': aiNarration.trim(),
         'dateTime': _composeDateTime(normalizedDate, time),
         'updatedAt': FieldValue.serverTimestamp(),
       });
     });
+
+    // Sync approved events to discover_items so visitors can see them.
+    if (reviewStatus == EventReviewStatus.approved) {
+      final eventSnapshot = await eventRef.get();
+      final eventData = eventSnapshot.data() ?? const <String, dynamic>{};
+      final narration = aiNarration ??
+          (eventData['aiNarration'] as String? ?? '') .trim();
+      final generatedNarration = narration.isNotEmpty
+          ? narration
+          : buildEventNarration(
+              title: title.trim(),
+              dateTime: eventData['dateTime'] as String? ?? '',
+              location: location.trim(),
+              description: description.trim(),
+            );
+
+      await _firestore.collection('discover_items').doc(eventId).set({
+        'id': eventId,
+        'title': title.trim(),
+        'date': date.trim(),
+        'dateTime': eventData['dateTime'] as String? ?? '',
+        'category': category?.trim() ?? eventData['category'] as String? ?? '',
+        'location': location.trim(),
+        'description': description.trim(),
+        'section': 'events',
+        'approvalStatus': 'approved',
+        'imageUrl': imageUrl ?? eventData['imageUrl'],
+        'imageStoragePath': imageStoragePath ?? eventData['imageStoragePath'],
+        'videoUrl': videoUrl ?? eventData['videoUrl'],
+        'videoStoragePath': videoStoragePath ?? eventData['videoStoragePath'],
+        'audioUrl': audioUrl ?? eventData['audioUrl'],
+        'audioStoragePath': audioStoragePath ?? eventData['audioStoragePath'],
+        'aiNarration': generatedNarration,
+        'source': eventData['source'] as String? ?? 'local_submission',
+        'createdByLocalEmail': createdByLocalEmail,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
+
+    if (reviewStatus != null &&
+        previousReviewStatus != null &&
+        previousReviewStatus != reviewStatus &&
+        (createdByLocalEmail?.isNotEmpty ?? false)) {
+      await _queueLocalReviewSms(
+        localEmail: createdByLocalEmail!,
+        eventTitle: title.trim(),
+        reviewStatus: _statusToValue(reviewStatus),
+      );
+      await _queueLocalReviewEmail(
+        localEmail: createdByLocalEmail!,
+        eventTitle: title.trim(),
+        approved: reviewStatus == EventReviewStatus.approved,
+      );
+    }
   }
 
   Future<void> deleteEvent(String eventId) async {
@@ -140,6 +231,12 @@ class AdminEventService {
               (data['createdBy'] as String?))
           ?.trim(),
       imageAsset: (data['imageUrl'] as String?)?.trim(),
+      imageStoragePath: (data['imageStoragePath'] as String?)?.trim(),
+      audioUrl: (data['audioUrl'] as String?)?.trim(),
+      audioStoragePath: (data['audioStoragePath'] as String?)?.trim(),
+      videoUrl: (data['videoUrl'] as String?)?.trim(),
+      videoStoragePath: (data['videoStoragePath'] as String?)?.trim(),
+      category: ((data['category'] as String?) ?? 'General').trim(),
       latitude: _toDouble(data['latitude']),
       longitude: _toDouble(data['longitude']),
     );
@@ -182,26 +279,92 @@ class AdminEventService {
     if (dateTime.isEmpty) {
       return 'Date TBA';
     }
-    final parts = dateTime.split('•');
+    final parts = dateTime.split('ΓÇó');
     return parts.first.trim();
   }
 
   String _extractTime(Map<String, dynamic> data) {
     final dateTime = ((data['dateTime'] as String?) ?? '').trim();
-    if (!dateTime.contains('•')) {
+    if (!dateTime.contains('ΓÇó')) {
       return '';
     }
-    final parts = dateTime.split('•');
+    final parts = dateTime.split('ΓÇó');
     if (parts.length < 2) {
       return '';
     }
-    return parts.sublist(1).join('•').trim();
+    return parts.sublist(1).join('ΓÇó').trim();
   }
 
   String _composeDateTime(String date, String time) {
     if (time.isEmpty) {
       return date;
     }
-    return '$date • $time';
+    return '$date ΓÇó $time';
+  }
+
+  String _statusToValue(EventReviewStatus status) {
+    switch (status) {
+      case EventReviewStatus.pending:
+        return 'pending';
+      case EventReviewStatus.approved:
+        return 'approved';
+      case EventReviewStatus.rejected:
+        return 'rejected';
+    }
+  }
+
+  String _statusBadgeValue(EventReviewStatus status) {
+    switch (status) {
+      case EventReviewStatus.pending:
+        return 'PENDING';
+      case EventReviewStatus.approved:
+        return 'APPROVED';
+      case EventReviewStatus.rejected:
+        return 'REJECTED';
+    }
+  }
+
+  Future<void> _queueLocalReviewSms({
+    required String localEmail,
+    required String eventTitle,
+    required String reviewStatus,
+  }) async {
+    final localDoc = await _firestore
+        .collection('local_users')
+        .doc(localEmail.toLowerCase())
+        .get();
+    final localData = localDoc.data() ?? const <String, dynamic>{};
+    final phone = ((localData['phone'] as String?) ??
+            (localData['phoneNumber'] as String?) ??
+            (localData['mobile'] as String?) ??
+            '')
+        .trim();
+    if (phone.isEmpty) {
+      return;
+    }
+
+    await SmsNotificationService().queueLocalEventReviewSms(
+      recipientPhone: phone,
+      eventTitle: eventTitle,
+      reviewStatus: reviewStatus,
+    );
+  }
+
+  Future<void> _queueLocalReviewEmail({
+    required String localEmail,
+    required String eventTitle,
+    required bool approved,
+  }) async {
+    final normalizedEmail = localEmail.trim().toLowerCase();
+    if (normalizedEmail.isEmpty) {
+      return;
+    }
+
+    await LocalEmailNotificationService(firestore: _firestore)
+        .queueEventReviewEmail(
+      recipientEmail: normalizedEmail,
+      eventTitle: eventTitle,
+      approved: approved,
+    );
   }
 }

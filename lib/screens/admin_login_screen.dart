@@ -14,7 +14,7 @@ class AdminLoginScreen extends StatefulWidget {
 
 class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isSubmitting = false;
@@ -22,7 +22,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -38,7 +38,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     });
 
     final success = await AdminAuth.login(
-      usernameOrEmail: _usernameController.text,
+      email: _emailController.text,
       password: _passwordController.text,
     );
 
@@ -104,10 +104,10 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                       ),
                       const SizedBox(height: 20),
                       TextFormField(
-                        controller: _usernameController,
+                        controller: _emailController,
                         decoration: InputDecoration(
-                          labelText: 'Admin Email or Username',
-                          hintText: 'Enter admin email or username',
+                          labelText: 'Admin Email',
+                          hintText: 'Enter admin email',
                           filled: true,
                           fillColor: Colors.white,
                           border: const OutlineInputBorder(),
@@ -121,7 +121,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                             borderSide: const BorderSide(color: AppPalette.deepBlue),
                           ),
                         ),
-                        validator: AuthValidation.emailOrUsername,
+                        validator: AuthValidation.email,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(

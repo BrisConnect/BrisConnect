@@ -5,7 +5,10 @@ import 'package:brisconnect/models/notification_record.dart';
 class NotificationRepository {
   static const _collection = 'user_notifications';
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  NotificationRepository({FirebaseFirestore? firestore})
+      : _db = firestore ?? FirebaseFirestore.instance;
+
+  final FirebaseFirestore _db;
 
   String _slugify(String value) {
     final normalized = value.trim().toLowerCase();
@@ -69,7 +72,8 @@ class NotificationRepository {
       }
       return migratedCount;
     } catch (e) {
-      debugPrint('[NotificationRepository] migrateNotificationIdsForUser failed: $e');
+      debugPrint(
+          '[NotificationRepository] migrateNotificationIdsForUser failed: $e');
       return 0;
     }
   }
@@ -79,6 +83,7 @@ class NotificationRepository {
   Future<bool> saveNotification({
     required String userEmail,
     required String userType,
+    required String eventId,
     required String eventTitle,
     required String eventDateTime,
     required String eventLocation,
@@ -88,7 +93,8 @@ class NotificationRepository {
       final normalized = userEmail.trim().toLowerCase();
 
       if (normalized.isEmpty) {
-        debugPrint('[NotificationRepository] saveNotification skipped: empty userEmail');
+        debugPrint(
+            '[NotificationRepository] saveNotification skipped: empty userEmail');
         return false;
       }
 
@@ -101,6 +107,7 @@ class NotificationRepository {
       );
 
       await _db.collection(_collection).doc(documentId).set({
+        'eventId': eventId.trim(),
         'userEmail': normalized,
         'userType': userType,
         'eventTitle': eventTitle.trim(),
@@ -129,16 +136,17 @@ class NotificationRepository {
         .where('userEmail', isEqualTo: normalized)
         .snapshots()
         .map((snapshot) {
-          final records = snapshot.docs
-              .map((doc) => NotificationRecord.fromDoc(doc))
-              .toList(growable: false);
-          records.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          return records;
-        });
+      final records = snapshot.docs
+          .map((doc) => NotificationRecord.fromDoc(doc))
+          .toList(growable: false);
+      records.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return records;
+    });
   }
 
   /// Toggles the isRead field on a notification document.
-  Future<void> setReadStatus(String notificationId, {required bool isRead}) async {
+  Future<void> setReadStatus(String notificationId,
+      {required bool isRead}) async {
     try {
       await _db
           .collection(_collection)
@@ -165,7 +173,8 @@ class NotificationRepository {
       if (documentId.isEmpty) return;
       await _db.collection(_collection).doc(documentId).delete();
     } catch (e) {
-      debugPrint('[NotificationRepository] deleteNotificationForEvent failed: $e');
+      debugPrint(
+          '[NotificationRepository] deleteNotificationForEvent failed: $e');
     }
   }
 }

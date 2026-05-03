@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:brisconnect/services/approved_attraction_service.dart';
 
@@ -108,6 +109,10 @@ class AttractionDetailData {
 class AttractionDetailService {
   AttractionDetailService._();
 
+  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static final Map<String, AttractionDetailData> _cache = {};
+  static bool _initialised = false;
+
   static final ValueNotifier<int> _savedVersion = ValueNotifier<int>(0);
   static final Set<String> _savedAttractionIds = <String>{};
   static final Set<String> _itineraryAttractionIds = <String>{};
@@ -138,11 +143,63 @@ class AttractionDetailService {
     _savedVersion.value++;
   }
 
+  /// Loads attraction detail documents from Firestore into the in-memory
+  /// cache.  If the collection is empty the first time, seeds it with the
+  /// initial catalog entries.  Call once at app startup (e.g. in main.dart
+  /// or from the detail screen's initState).
+  static Future<void> init() async {
+    if (_initialised) return;
+
+    final col = _firestore.collection('attraction_details');
+    QuerySnapshot<Map<String, dynamic>> snapshot;
+    try {
+      snapshot = await col.get();
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        debugPrint(
+          '[AttractionDetailService] Firestore permission denied for attraction_details; using fallback details.',
+        );
+        _initialised = true;
+        return;
+      }
+      rethrow;
+    }
+
+    if (snapshot.docs.isEmpty) {
+      // First run — seed the initial catalog to Firestore.
+      try {
+        for (final entry in _seedCatalog.entries) {
+          await col.doc(entry.key).set(entry.value);
+        }
+        // Re-read so we get server-normalised data.
+        final seeded = await col.get();
+        for (final doc in seeded.docs) {
+          _cache[doc.id] = _fromFirestore(doc.data());
+        }
+      } on FirebaseException catch (e) {
+        if (e.code == 'permission-denied') {
+          debugPrint(
+            '[AttractionDetailService] Firestore permission denied while seeding attraction_details; using fallback details.',
+          );
+          _initialised = true;
+          return;
+        }
+        rethrow;
+      }
+    } else {
+      for (final doc in snapshot.docs) {
+        _cache[doc.id] = _fromFirestore(doc.data());
+      }
+    }
+
+    _initialised = true;
+  }
+
   static AttractionDetailData getDetail(
     ApprovedAttraction attraction,
     List<ApprovedAttraction> allAttractions,
   ) {
-    final AttractionDetailData? configured = _catalog[attraction.id];
+    final AttractionDetailData? configured = _cache[attraction.id];
     final List<String> nearbyAttractions = _recommendedNearby(
       attraction,
       allAttractions,
@@ -202,23 +259,10 @@ class AttractionDetailService {
       bookingUrl: attraction.webLink,
       media: _fallbackMediaFor(attraction),
       virtualTourUrl: null,
-      rating: 4.4,
-      reviewCount: 86,
-      ratingBreakdown: const {'5': 52, '4': 21, '3': 9, '2': 3, '1': 1},
-      reviews: const [
-        AttractionReviewItem(
-          author: 'Brisbane Visitor',
-          rating: 4.5,
-          comment: 'Easy to add into a city day-plan and well worth a short visit.',
-          when: '2 weeks ago',
-        ),
-        AttractionReviewItem(
-          author: 'Weekend Explorer',
-          rating: 4.0,
-          comment: 'Useful signage and a convenient location near other attractions.',
-          when: '1 month ago',
-        ),
-      ],
+      rating: 0,
+      reviewCount: 0,
+      ratingBreakdown: const {'5': 0, '4': 0, '3': 0, '2': 0, '1': 0},
+      reviews: const [],
       phone: null,
       website: attraction.webLink,
       email: null,
@@ -241,6 +285,8 @@ class AttractionDetailService {
       personalisedSuggestions: personalisedSuggestions,
     );
   }
+
+  // ── helpers ──────────────────────────────────────────────────
 
   static List<String> _recommendedNearby(
     ApprovedAttraction attraction,
@@ -294,137 +340,173 @@ class AttractionDetailService {
     ];
   }
 
-  static final Map<String, AttractionDetailData> _catalog =
-      <String, AttractionDetailData>{
-    'attraction_city_hall': AttractionDetailData(
-      history:
+  // ── Firestore deserialisation ────────────────────────────────
+
+  static AttractionDetailData _fromFirestore(Map<String, dynamic> data) {
+    return AttractionDetailData(
+      history: data['history'] as String? ?? '',
+      address: data['address'] as String? ?? '',
+      openingHours: List<String>.from(data['openingHours'] ?? []),
+      specialSchedule: data['specialSchedule'] as String? ?? '',
+      entryRequirements: data['entryRequirements'] as String? ?? '',
+      ticketPrice: data['ticketPrice'] as String? ?? '',
+      bookingLabel: data['bookingLabel'] as String? ?? 'Visit Website',
+      bookingUrl: data['bookingUrl'] as String?,
+      media: (data['media'] as List<dynamic>?)
+              ?.map((m) => AttractionMediaItem(
+                    type: m['type'] as String? ?? 'photo',
+                    label: m['label'] as String? ?? '',
+                    url: m['url'] as String? ?? '',
+                  ))
+              .toList(growable: false) ??
+          const [],
+      virtualTourUrl: data['virtualTourUrl'] as String?,
+      rating: (data['rating'] as num?)?.toDouble() ?? 0,
+      reviewCount: (data['reviewCount'] as num?)?.toInt() ?? 0,
+      ratingBreakdown: Map<String, int>.from(
+        (data['ratingBreakdown'] as Map<String, dynamic>?)?.map(
+              (k, v) => MapEntry(k, (v as num).toInt()),
+            ) ??
+            {},
+      ),
+      reviews: (data['reviews'] as List<dynamic>?)
+              ?.map((r) => AttractionReviewItem(
+                    author: r['author'] as String? ?? 'Visitor',
+                    rating: (r['rating'] as num?)?.toDouble() ?? 4,
+                    comment: r['comment'] as String? ?? '',
+                    when: r['when'] as String? ?? '',
+                  ))
+              .toList(growable: false) ??
+          const [],
+      phone: data['phone'] as String?,
+      website: data['website'] as String?,
+      email: data['email'] as String?,
+      facilities: List<String>.from(data['facilities'] ?? []),
+      amenities: List<String>.from(data['amenities'] ?? []),
+      accessibility: List<String>.from(data['accessibility'] ?? []),
+      visitDuration: data['visitDuration'] as String? ?? '',
+      bestTimeToVisit: data['bestTimeToVisit'] as String? ?? '',
+      liveUpdate: AttractionLiveUpdate(
+        crowdLevel: (data['liveUpdate'] as Map<String, dynamic>?)?['crowdLevel'] as String? ?? 'Unknown',
+        closureStatus: (data['liveUpdate'] as Map<String, dynamic>?)?['closureStatus'] as String? ?? 'Unknown',
+        eventNote: (data['liveUpdate'] as Map<String, dynamic>?)?['eventNote'] as String? ?? '',
+        weatherImpact: (data['liveUpdate'] as Map<String, dynamic>?)?['weatherImpact'] as String? ?? '',
+        lastUpdated: (data['liveUpdate'] as Map<String, dynamic>?)?['lastUpdated'] as String? ?? '',
+      ),
+      nearbyAttractions: List<String>.from(data['nearbyAttractions'] ?? []),
+      nearbyServices: List<String>.from(data['nearbyServices'] ?? []),
+      languages: List<String>.from(data['languages'] ?? []),
+      audioFeatures: List<String>.from(data['audioFeatures'] ?? []),
+      personalisedSuggestions: List<String>.from(data['personalisedSuggestions'] ?? []),
+    );
+  }
+
+  // ── Seed catalog (written to Firestore on first run) ─────────
+
+  static const Map<String, Map<String, dynamic>> _seedCatalog = {
+    'attraction_city_hall': {
+      'history':
           'Brisbane City Hall has served as one of the city\'s most prominent civic landmarks since 1930, hosting ceremonies, events, and public life in the heart of the CBD.',
-      address: '64 Adelaide Street, Brisbane City QLD 4000',
-      openingHours: const [
+      'address': '64 Adelaide Street, Brisbane City QLD 4000',
+      'openingHours': [
         'Monday to Friday: 8:00 AM - 5:00 PM',
         'Saturday: 10:00 AM - 4:00 PM',
         'Sunday: Check event calendar',
       ],
-      specialSchedule:
+      'specialSchedule':
           'Clock tower tours and Museum of Brisbane sessions may run on separate operating times.',
-      entryRequirements: 'General public entry is free. Some guided tours may require prior booking.',
-      ticketPrice: 'Free general access. Special exhibits or tours may vary.',
-      bookingLabel: 'Book Tours / Visit Website',
-      bookingUrl: 'https://www.brisbane.qld.gov.au/things-to-see-and-do/council-venues-and-precincts/venues/brisbane-city-hall',
-      media: const [
-        AttractionMediaItem(
-          type: 'photo',
-          label: 'City Hall Exterior',
-          url: 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&w=1200&q=80',
-        ),
-        AttractionMediaItem(
-          type: 'photo',
-          label: 'Interior Hall',
-          url: 'https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&w=1200&q=80',
-        ),
+      'entryRequirements': 'General public entry is free. Some guided tours may require prior booking.',
+      'ticketPrice': 'Free general access. Special exhibits or tours may vary.',
+      'bookingLabel': 'Book Tours / Visit Website',
+      'bookingUrl': 'https://www.brisbane.qld.gov.au/things-to-see-and-do/council-venues-and-precincts/venues/brisbane-city-hall',
+      'media': [
+        {
+          'type': 'photo',
+          'label': 'City Hall Exterior',
+          'url': 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&w=1200&q=80',
+        },
+        {
+          'type': 'photo',
+          'label': 'Interior Hall',
+          'url': 'https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&w=1200&q=80',
+        },
       ],
-      virtualTourUrl: 'https://www.museumofbrisbane.com.au/',
-      rating: 4.7,
-      reviewCount: 1324,
-      ratingBreakdown: const {'5': 920, '4': 275, '3': 92, '2': 22, '1': 15},
-      reviews: const [
-        AttractionReviewItem(
-          author: 'Mina R.',
-          rating: 5,
-          comment: 'Beautiful heritage building and a very easy stop to include while exploring the CBD.',
-          when: '4 days ago',
-        ),
-        AttractionReviewItem(
-          author: 'Dylan W.',
-          rating: 4.5,
-          comment: 'Great architecture and tour options, especially if you pair it with King George Square.',
-          when: '2 weeks ago',
-        ),
-      ],
-      phone: '(07) 3403 8888',
-      website: 'https://www.brisbane.qld.gov.au/things-to-see-and-do/council-venues-and-precincts/venues/brisbane-city-hall',
-      email: 'cityhall@brisbane.qld.gov.au',
-      facilities: const ['Restrooms', 'Visitor information desk', 'Indoor seating'],
-      amenities: const ['Cafe nearby', 'Public transport nearby', 'Event spaces'],
-      accessibility: const ['Lift access', 'Wheelchair-friendly entry', 'Accessible restrooms'],
-      visitDuration: '60 to 120 minutes',
-      bestTimeToVisit: 'Weekday mornings for lighter foot traffic and easier tours.',
-      liveUpdate: const AttractionLiveUpdate(
-        crowdLevel: 'Moderate',
-        closureStatus: 'Open',
-        eventNote: 'King George Square event setup may affect entry points during major events.',
-        weatherImpact: 'Mostly indoor venue; weather impact is minimal.',
-        lastUpdated: 'Updated 15 minutes ago',
-      ),
-      nearbyAttractions: const ['Museum of Brisbane', 'King George Square', 'Queen Street Mall'],
-      nearbyServices: const ['Central Station', 'Bus interchange', 'Cafe precinct'],
-      languages: const ['English', 'Simplified Chinese', 'Japanese handout'],
-      audioFeatures: const ['Self-guided audio highlights available online'],
-      personalisedSuggestions: const [],
-    ),
-    'attraction_story_bridge': AttractionDetailData(
-      history:
+      'virtualTourUrl': 'https://www.museumofbrisbane.com.au/',
+      'rating': 0,
+      'reviewCount': 0,
+      'ratingBreakdown': {'5': 0, '4': 0, '3': 0, '2': 0, '1': 0},
+      'reviews': <Map<String, dynamic>>[],
+      'phone': null,
+      'website': 'https://www.brisbane.qld.gov.au/things-to-see-and-do/council-venues-and-precincts/venues/brisbane-city-hall',
+      'email': null,
+      'facilities': ['Restrooms', 'Visitor information desk', 'Indoor seating'],
+      'amenities': ['Cafe nearby', 'Public transport nearby', 'Event spaces'],
+      'accessibility': ['Lift access', 'Wheelchair-friendly entry', 'Accessible restrooms'],
+      'visitDuration': '60 to 120 minutes',
+      'bestTimeToVisit': 'Weekday mornings for lighter foot traffic and easier tours.',
+      'liveUpdate': {
+        'crowdLevel': 'Moderate',
+        'closureStatus': 'Open',
+        'eventNote': 'King George Square event setup may affect entry points during major events.',
+        'weatherImpact': 'Mostly indoor venue; weather impact is minimal.',
+        'lastUpdated': 'Updated recently',
+      },
+      'nearbyAttractions': ['Museum of Brisbane', 'King George Square', 'Queen Street Mall'],
+      'nearbyServices': ['Central Station', 'Bus interchange', 'Cafe precinct'],
+      'languages': ['English', 'Simplified Chinese', 'Japanese handout'],
+      'audioFeatures': ['Self-guided audio highlights available online'],
+      'personalisedSuggestions': <String>[],
+    },
+    'attraction_story_bridge': {
+      'history':
           'The Story Bridge opened in 1940 and remains one of Brisbane\'s defining steel cantilever structures, linking the CBD with Kangaroo Point and Fortitude Valley.',
-      address: 'State Route 15, Brisbane QLD 4169',
-      openingHours: const [
+      'address': 'State Route 15, Brisbane QLD 4169',
+      'openingHours': [
         'Bridge access: Open daily',
         'Climb operator: Check official schedule',
       ],
-      specialSchedule: 'Special event road closures may affect nearby access during city festivals.',
-      entryRequirements: 'Public bridge access is free. Climb experiences require booking and fitness criteria.',
-      ticketPrice: 'Bridge access free; guided climb is ticketed.',
-      bookingLabel: 'Open Official Info',
-      bookingUrl: 'https://www.brisbane.qld.gov.au/traffic-and-transport/bridges-tunnels-and-ferries/bridges/story-bridge',
-      media: const [
-        AttractionMediaItem(
-          type: 'photo',
-          label: 'Bridge Skyline View',
-          url: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
-        ),
-        AttractionMediaItem(
-          type: 'video',
-          label: 'Bridge at Sunset',
-          url: 'https://www.brisbane.qld.gov.au/traffic-and-transport/bridges-tunnels-and-ferries/bridges/story-bridge',
-        ),
+      'specialSchedule': 'Special event road closures may affect nearby access during city festivals.',
+      'entryRequirements': 'Public bridge access is free. Climb experiences require booking and fitness criteria.',
+      'ticketPrice': 'Bridge access free; guided climb is ticketed.',
+      'bookingLabel': 'Open Official Info',
+      'bookingUrl': 'https://www.brisbane.qld.gov.au/traffic-and-transport/bridges-tunnels-and-ferries/bridges/story-bridge',
+      'media': [
+        {
+          'type': 'photo',
+          'label': 'Bridge Skyline View',
+          'url': 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+        },
+        {
+          'type': 'video',
+          'label': 'Bridge at Sunset',
+          'url': 'https://www.brisbane.qld.gov.au/traffic-and-transport/bridges-tunnels-and-ferries/bridges/story-bridge',
+        },
       ],
-      virtualTourUrl: null,
-      rating: 4.8,
-      reviewCount: 2088,
-      ratingBreakdown: const {'5': 1630, '4': 330, '3': 86, '2': 21, '1': 21},
-      reviews: const [
-        AttractionReviewItem(
-          author: 'Sophie T.',
-          rating: 5,
-          comment: 'One of the best skyline landmarks in Brisbane and excellent around dusk.',
-          when: '6 days ago',
-        ),
-        AttractionReviewItem(
-          author: 'Marcus H.',
-          rating: 4.5,
-          comment: 'Very photogenic and easy to pair with Howard Smith Wharves.',
-          when: '3 weeks ago',
-        ),
-      ],
-      phone: null,
-      website: 'https://www.brisbane.qld.gov.au/traffic-and-transport/bridges-tunnels-and-ferries/bridges/story-bridge',
-      email: null,
-      facilities: const ['Viewing areas nearby', 'Pedestrian access', 'Cycle paths nearby'],
-      amenities: const ['Riverfront dining nearby', 'Public transport access'],
-      accessibility: const ['Public approaches vary by side', 'Some steep gradients nearby'],
-      visitDuration: '30 to 75 minutes',
-      bestTimeToVisit: 'Sunrise or sunset for views and cooler conditions.',
-      liveUpdate: const AttractionLiveUpdate(
-        crowdLevel: 'Busy in evenings',
-        closureStatus: 'Open',
-        eventNote: 'Bridge area may be busier during weekend events.',
-        weatherImpact: 'Strong wind and storms can reduce comfort for viewpoints.',
-        lastUpdated: 'Updated 20 minutes ago',
-      ),
-      nearbyAttractions: const ['Howard Smith Wharves', 'Kangaroo Point Cliffs', 'Brisbane Riverwalk'],
-      nearbyServices: const ['Ferry terminal', 'Riverfront restaurants', 'Ride-share pickup points'],
-      languages: const ['English'],
-      audioFeatures: const ['Scenic self-guided walk notes'],
-      personalisedSuggestions: const [],
-    ),
+      'virtualTourUrl': null,
+      'rating': 0,
+      'reviewCount': 0,
+      'ratingBreakdown': {'5': 0, '4': 0, '3': 0, '2': 0, '1': 0},
+      'reviews': <Map<String, dynamic>>[],
+      'phone': null,
+      'website': 'https://www.brisbane.qld.gov.au/traffic-and-transport/bridges-tunnels-and-ferries/bridges/story-bridge',
+      'email': null,
+      'facilities': ['Viewing areas nearby', 'Pedestrian access', 'Cycle paths nearby'],
+      'amenities': ['Riverfront dining nearby', 'Public transport access'],
+      'accessibility': ['Public approaches vary by side', 'Some steep gradients nearby'],
+      'visitDuration': '30 to 75 minutes',
+      'bestTimeToVisit': 'Sunrise or sunset for views and cooler conditions.',
+      'liveUpdate': {
+        'crowdLevel': 'Busy in evenings',
+        'closureStatus': 'Open',
+        'eventNote': 'Bridge area may be busier during weekend events.',
+        'weatherImpact': 'Strong wind and storms can reduce comfort for viewpoints.',
+        'lastUpdated': 'Updated recently',
+      },
+      'nearbyAttractions': ['Howard Smith Wharves', 'Kangaroo Point Cliffs', 'Brisbane Riverwalk'],
+      'nearbyServices': ['Ferry terminal', 'Riverfront restaurants', 'Ride-share pickup points'],
+      'languages': ['English'],
+      'audioFeatures': ['Scenic self-guided walk notes'],
+      'personalisedSuggestions': <String>[],
+    },
   };
 }

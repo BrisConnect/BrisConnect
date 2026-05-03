@@ -10,7 +10,12 @@ import 'package:brisconnect/widgets/inline_status_message.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 
 class VisitorInterestedEventsScreen extends StatefulWidget {
-  const VisitorInterestedEventsScreen({super.key});
+  final DiscoverDataService? discoverDataService;
+
+  const VisitorInterestedEventsScreen({
+    super.key,
+    this.discoverDataService,
+  });
 
   @override
   State<VisitorInterestedEventsScreen> createState() =>
@@ -19,13 +24,14 @@ class VisitorInterestedEventsScreen extends StatefulWidget {
 
 class _VisitorInterestedEventsScreenState
     extends State<VisitorInterestedEventsScreen> {
-  final DiscoverDataService _discoverDataService = DiscoverDataService();
+  late final DiscoverDataService _discoverDataService;
   DateTime _loadStartedAt = DateTime.now();
   Timer? _loadingHintTimer;
 
   @override
   void initState() {
     super.initState();
+    _discoverDataService = widget.discoverDataService ?? DiscoverDataService();
     _loadStartedAt = DateTime.now();
     _loadingHintTimer = Timer(const Duration(seconds: 2), () {
       if (mounted) {

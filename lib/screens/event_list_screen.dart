@@ -17,15 +17,12 @@ class _EventListScreenState extends State<EventListScreen> {
   final FirestoreService _firestoreService = FirestoreService();
 
   SimpleEvent _eventFromMap(Map<String, dynamic> map) {
-    final status = (map['reviewStatus'] as String? ?? '').trim().toLowerCase();
-    final isApproved = status != 'pending' && status != 'rejected';
-
     return SimpleEvent(
       title: ((map['title'] as String?) ?? 'Untitled Event').trim(),
       date: ((map['date'] as String?) ?? 'Date TBA').trim(),
       location: ((map['location'] as String?) ?? 'Location TBA').trim(),
       description: ((map['description'] as String?) ?? '').trim(),
-      isApproved: isApproved,
+      isApproved: true,
       lat: _toDouble(map['latitude']) ?? -27.4698,
       lng: _toDouble(map['longitude']) ?? 153.0251,
     );
@@ -56,13 +53,15 @@ class _EventListScreenState extends State<EventListScreen> {
           }
 
           if (snapshot.hasError) {
-            return const Center(child: Text('Unable to load events right now.'));
+            return const Center(
+                child: Text('Unable to load events right now.'));
           }
 
-          final approvedEvents = (snapshot.data ?? const <Map<String, dynamic>>[])
-              .map(_eventFromMap)
-              .where((event) => event.isApproved)
-              .toList(growable: false);
+          final approvedEvents =
+              (snapshot.data ?? const <Map<String, dynamic>>[])
+                  .map(_eventFromMap)
+                  .where((event) => event.isApproved)
+                  .toList(growable: false);
 
           if (approvedEvents.isEmpty) {
             return const Center(child: Text('No events available'));
@@ -124,10 +123,11 @@ class _EventListScreenState extends State<EventListScreen> {
       floatingActionButton: StreamBuilder<List<Map<String, dynamic>>>(
         stream: _firestoreService.getEvents(),
         builder: (context, snapshot) {
-          final approvedEvents = (snapshot.data ?? const <Map<String, dynamic>>[])
-              .map(_eventFromMap)
-              .where((event) => event.isApproved)
-              .toList(growable: false);
+          final approvedEvents =
+              (snapshot.data ?? const <Map<String, dynamic>>[])
+                  .map(_eventFromMap)
+                  .where((event) => event.isApproved)
+                  .toList(growable: false);
 
           if (approvedEvents.isEmpty) {
             return const SizedBox.shrink();

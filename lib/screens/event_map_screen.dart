@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:brisconnect/models/simple_event.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
@@ -22,6 +21,7 @@ class EventMapScreen extends StatefulWidget {
 }
 
 class _EventMapScreenState extends State<EventMapScreen> {
+  late GoogleMapController _mapController;
   SimpleEvent? _selectedEvent;
 
   // Default centre: Brisbane CBD
@@ -42,6 +42,41 @@ class _EventMapScreenState extends State<EventMapScreen> {
   }
 
   @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
+  }
+
+  Set<Marker> _buildMarkers() {
+    return widget.events
+        .asMap()
+        .entries
+        .map((entry) => _buildMarker(entry.value, entry.key))
+        .toSet();
+  }
+
+  Marker _buildMarker(SimpleEvent event, int index) {
+    final isSelected = _selectedEvent?.title == event.title;
+    return Marker(
+      markerId: MarkerId('event-$index'),
+      position: LatLng(event.lat, event.lng),
+      infoWindow: InfoWindow(
+        title: event.title,
+        snippet: event.location,
+      ),
+      onTap: () {
+        setState(() => _selectedEvent = event);
+        _mapController.animateCamera(
+          CameraUpdate.newLatLng(LatLng(event.lat, event.lng)),
+        );
+      },
+      icon: BitmapDescriptor.defaultMarkerWithHue(
+        isSelected ? BitmapDescriptor.hueYellow : BitmapDescriptor.hueOrange,
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppPalette.background,
@@ -50,24 +85,19 @@ class _EventMapScreenState extends State<EventMapScreen> {
       ),
       body: Stack(
         children: [
-          FlutterMap(
-            options: MapOptions(
-              initialCenter: _initialCenter,
-              initialZoom: _initialZoom,
-              onTap: (_, __) => setState(() => _selectedEvent = null),
+          GoogleMap(
+            initialCameraPosition: CameraPosition(
+              target: _initialCenter,
+              zoom: _initialZoom,
             ),
-            children: [
-              TileLayer(
-                urlTemplate:
-                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.brisconnect',
-              ),
-              MarkerLayer(
-                markers: widget.events
-                    .map((event) => _buildMarker(event))
-                    .toList(),
-              ),
-            ],
+            onMapCreated: (controller) {
+              _mapController = controller;
+            },
+            onTap: (_) => setState(() => _selectedEvent = null),
+            markers: _buildMarkers(),
+            myLocationButtonEnabled: true,
+            myLocationEnabled: true,
+            zoomControlsEnabled: true,
           ),
 
           // Info card shown when a marker is tapped
@@ -122,23 +152,6 @@ class _EventMapScreenState extends State<EventMapScreen> {
               ),
             ),
         ],
-      ),
-    );
-  }
-
-  Marker _buildMarker(SimpleEvent event) {
-    final isSelected = _selectedEvent?.title == event.title;
-    return Marker(
-      point: LatLng(event.lat, event.lng),
-      width: 48,
-      height: 48,
-      child: GestureDetector(
-        onTap: () => setState(() => _selectedEvent = event),
-        child: Icon(
-          Icons.location_pin,
-          color: isSelected ? AppPalette.gold : AppPalette.ochre,
-          size: isSelected ? 48 : 36,
-        ),
       ),
     );
   }

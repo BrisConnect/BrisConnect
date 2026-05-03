@@ -21,11 +21,13 @@ class RoleGuard extends StatefulWidget {
 
 class _RoleGuardState extends State<RoleGuard> {
   bool _handledDenied = false;
+  late final Future<bool> _roleFuture =
+      RoleAccessService.hasAnyRole(widget.allowedRoles);
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
-      future: RoleAccessService.hasAnyRole(widget.allowedRoles),
+      future: _roleFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Scaffold(

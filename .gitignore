@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Sensitive files — never commit
+auth-users.json
+email_worker_brevo/uids.json

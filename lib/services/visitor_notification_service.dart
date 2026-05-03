@@ -23,7 +23,8 @@ class VisitorNotificationService {
 
     _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -70,8 +71,7 @@ class VisitorNotificationService {
     const androidDetails = AndroidNotificationDetails(
       'event_reminders',
       'Event Reminders',
-      channelDescription:
-          'Notifications for events you are interested in.',
+      channelDescription: 'Notifications for events you are interested in.',
       importance: Importance.high,
       priority: Priority.high,
     );
@@ -112,7 +112,8 @@ class VisitorNotificationService {
       );
     }
 
-    final slashDate = RegExp(r'^(\d{1,2})\/(\d{1,2})\/(\d{4})$').firstMatch(text);
+    final slashDate =
+        RegExp(r'^(\d{1,2})\/(\d{1,2})\/(\d{4})$').firstMatch(text);
     if (slashDate != null) {
       return DateTime(
         int.parse(slashDate.group(3)!),
@@ -122,7 +123,8 @@ class VisitorNotificationService {
       );
     }
 
-    final wordDate = RegExp(r'^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$').firstMatch(text);
+    final wordDate =
+        RegExp(r'^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$').firstMatch(text);
     if (wordDate != null) {
       const months = {
         'jan': 1,
@@ -152,14 +154,23 @@ class VisitorNotificationService {
     return null;
   }
 
-  DateTime _resolveReminderTime(String eventDateText) {
+  DateTime _resolveReminderTime(String eventDateText, String reminderTiming) {
     final eventStart = _parseEventStart(eventDateText);
     if (eventStart == null) {
       // Fallback for demo data that does not contain parseable date/time.
       return DateTime.now().add(const Duration(seconds: 12));
     }
 
-    final reminderAt = eventStart.subtract(const Duration(hours: 24));
+    final reminderAt = switch (reminderTiming.trim().toLowerCase()) {
+      '1h' => eventStart.subtract(const Duration(hours: 1)),
+      'same_day' => DateTime(
+          eventStart.year,
+          eventStart.month,
+          eventStart.day,
+          8,
+        ),
+      _ => eventStart.subtract(const Duration(hours: 24)),
+    };
     final now = DateTime.now();
     if (reminderAt.isAfter(now)) {
       return reminderAt;
@@ -176,6 +187,7 @@ class VisitorNotificationService {
     required String eventDate,
     required String eventLocation,
     required int notificationId,
+    String reminderTiming = '24h',
   }) async {
     if (!_isInitialized) {
       await initialize();
@@ -200,7 +212,7 @@ class VisitorNotificationService {
       iOS: iosDetails,
     );
 
-    final reminderAt = _resolveReminderTime(eventDate);
+    final reminderAt = _resolveReminderTime(eventDate, reminderTiming);
     final tzReminderAt = tz.TZDateTime.from(reminderAt, tz.local);
 
     await _flutterLocalNotificationsPlugin.cancel(notificationId);
@@ -225,6 +237,7 @@ class VisitorNotificationService {
     required String eventId,
     required String userEmail,
     String userType = 'visitor',
+    String reminderTiming = '24h',
   }) async {
     if (!_isInitialized) {
       await initialize();
@@ -240,6 +253,7 @@ class VisitorNotificationService {
     final didSave = await repo.saveNotification(
       userEmail: userEmail,
       userType: userType,
+      eventId: eventId,
       eventTitle: eventTitle,
       eventDateTime: eventDatetime,
       eventLocation: eventLocation,
@@ -256,6 +270,7 @@ class VisitorNotificationService {
       eventDate: eventDatetime,
       eventLocation: eventLocation,
       notificationId: notificationId,
+      reminderTiming: reminderTiming,
     );
   }
 

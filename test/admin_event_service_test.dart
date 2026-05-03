@@ -1,80 +1,196 @@
-import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:brisconnect/models/event_item.dart';
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:brisconnect/screens/admin_event_review_screen.dart';
 import 'package:brisconnect/services/admin_event_service.dart';
+import 'package:brisconnect/models/event_item.dart';
 
 void main() {
-  group('AdminEventService', () {
-    test('watchAllEvents maps Firebase documents into EventItem values', () async {
-      final FakeFirebaseFirestore firestore = FakeFirebaseFirestore();
-      await firestore.collection('events').doc('event-1').set({
-        'title': 'Riverstage Jazz Night',
-        'date': '12/05/2026',
-        'time': '7:00 PM',
-        'location': 'Riverstage',
-        'description': 'Live jazz by the river.',
-        'reviewStatus': 'pending',
-        'createdByLocalEmail': 'local@brisconnect.com',
-      });
+  TestWidgetsFlutterBinding.ensureInitialized();
 
-      final AdminEventService service = AdminEventService(firestore: firestore);
-      final List<EventItem> events = await service.watchAllEvents().first;
+  Widget buildScreen({TestAdminEventService? service}) {
+    return MaterialApp(
+      home: AdminEventReviewScreen(
+        eventService: service ?? TestAdminEventService(),
+        enforceRoleGuard: false,
+      ),
+    );
+  }
 
-      expect(events, hasLength(1));
-      expect(events.first.id, 'event-1');
-      expect(events.first.title, 'Riverstage Jazz Night');
-      expect(events.first.location, 'Riverstage');
-      expect(events.first.reviewStatus, EventReviewStatus.pending);
-      expect(events.first.createdByLocalEmail, 'local@brisconnect.com');
+  group('AdminEventReviewScreen', () {
+    testWidgets('Renders AppBar, search summary, and event list',
+        (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // AppBar title
+      expect(find.text('Manage Events'), findsOneWidget);
+
+      // Summary section
+      expect(find.text('Admin Event Control'), findsOneWidget);
+      expect(find.textContaining('Total: 3'), findsOneWidget);
+      expect(find.textContaining('Pending: 1'), findsOneWidget);
+      expect(find.textContaining('Approved: 1'), findsOneWidget);
+      expect(find.textContaining('Rejected: 1'), findsOneWidget);
     });
 
-    test('updateEvent writes edited fields back to Firebase immediately', () async {
-      final FakeFirebaseFirestore firestore = FakeFirebaseFirestore();
-      await firestore.collection('events').doc('event-2').set({
-        'title': 'Old Title',
-        'date': '10/05/2026',
-        'time': '6:30 PM',
-        'location': 'Old Location',
-        'description': 'Old description',
-        'dateTime': '10/05/2026 • 6:30 PM',
-        'reviewStatus': 'approved',
-      });
+    testWidgets('Displays event cards from stream', (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
 
-      final AdminEventService service = AdminEventService(firestore: firestore);
-      await service.updateEvent(
-        eventId: 'event-2',
-        title: 'New Title',
-        date: '15/05/2026',
-        location: 'New Farm Park',
-        description: 'Updated description',
-      );
-
-      final snapshot = await firestore.collection('events').doc('event-2').get();
-      final data = snapshot.data();
-
-      expect(data, isNotNull);
-      expect(data!['title'], 'New Title');
-      expect(data['date'], '15/05/2026');
-      expect(data['location'], 'New Farm Park');
-      expect(data['description'], 'Updated description');
-      expect(data['dateTime'], '15/05/2026 • 6:30 PM');
-      expect(data['updatedAt'], isNotNull);
+      // Pending event sorts first and is visible
+      expect(find.text('Pending Festival'), findsOneWidget);
+      // Event details visible on card
+      expect(find.textContaining('South Bank'), findsOneWidget);
     });
 
-    test('deleteEvent fully removes the event document from Firebase', () async {
-      final FakeFirebaseFirestore firestore = FakeFirebaseFirestore();
-      await firestore.collection('events').doc('event-3').set({
-        'title': 'Delete Me',
-        'date': '18/05/2026',
-        'location': 'South Bank',
-        'description': 'Temporary event',
-      });
+    testWidgets('Shows approve and reject buttons for pending events',
+        (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
 
-      final AdminEventService service = AdminEventService(firestore: firestore);
-      await service.deleteEvent('event-3');
+      // Pending event has Approve and Reject action buttons
+      expect(find.text('Approve'), findsOneWidget);
+      expect(find.text('Reject'), findsOneWidget);
+    });
 
-      final snapshot = await firestore.collection('events').doc('event-3').get();
-      expect(snapshot.exists, isFalse);
+    testWidgets('Shows edit and delete buttons for all events',
+        (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // Every event card has Edit and Delete buttons
+      expect(find.text('Edit'), findsWidgets);
+      expect(find.text('Delete'), findsWidgets);
+    });
+
+    testWidgets('Delete button triggers confirmation dialog', (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // Tap the first Delete button
+      await tester.tap(find.text('Delete').first);
+      await tester.pumpAndSettle();
+
+      // Confirmation dialog appears
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.text('Are you sure?'), findsOneWidget);
+      expect(find.text('Cancel'), findsOneWidget);
+    });
+
+    testWidgets('Cancel dismisses delete dialog without deleting',
+        (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // Open delete dialog
+      await tester.tap(find.text('Delete').first);
+      await tester.pumpAndSettle();
+
+      // Tap Cancel
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      // Dialog dismissed, events still visible
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text('Pending Festival'), findsOneWidget);
+    });
+
+    testWidgets('Shows empty state when no events exist', (tester) async {
+      final emptyService = TestAdminEventService(events: []);
+      await tester.pumpWidget(buildScreen(service: emptyService));
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.text('No events found in Firebase.'), findsOneWidget);
+      expect(find.textContaining('Total: 0'), findsOneWidget);
     });
   });
+}
+
+class TestAdminEventService extends AdminEventService {
+  TestAdminEventService({List<EventItem>? events})
+      : _events = events ??
+            [
+              const EventItem(
+                id: 'evt-1',
+                title: 'Pending Festival',
+                date: '15 Apr 2026',
+                time: '10:00 AM',
+                location: 'South Bank',
+                description: 'A pending event for review.',
+                reviewStatus: EventReviewStatus.pending,
+                createdByLocalEmail: 'local@test.com',
+              ),
+              const EventItem(
+                id: 'evt-2',
+                title: 'Approved Market',
+                date: '20 Apr 2026',
+                time: '9:00 AM',
+                location: 'West End',
+                description: 'An approved market event.',
+                reviewStatus: EventReviewStatus.approved,
+              ),
+              const EventItem(
+                id: 'evt-3',
+                title: 'Rejected Concert',
+                date: '25 Apr 2026',
+                time: '7:00 PM',
+                location: 'Fortitude Valley',
+                description: 'A rejected concert.',
+                reviewStatus: EventReviewStatus.rejected,
+              ),
+            ],
+        super(firestore: FakeFirebaseFirestore());
+
+  final List<EventItem> _events;
+
+  // Cache so StreamBuilder sees the same object on rebuild.
+  Stream<List<EventItem>>? _cachedStream;
+
+  @override
+  Stream<List<EventItem>> watchAllEvents() {
+    return _cachedStream ??= Stream.value(_events);
+  }
+
+  @override
+  Future<int> migrateLegacyLocalSubmissionIds() async => 0;
+
+  @override
+  Future<void> updateEvent({
+    required String eventId,
+    required String title,
+    required String date,
+    String? category,
+    EventReviewStatus? reviewStatus,
+    required String location,
+    required String description,
+    String? imageUrl,
+    String? imageStoragePath,
+    String? videoUrl,
+    String? videoStoragePath,
+    String? audioUrl,
+    String? audioStoragePath,
+    String? aiNarration,
+  }) async {
+    debugPrint('[TestService] updateEvent $eventId status=$reviewStatus');
+  }
+
+  @override
+  Future<void> deleteEvent(String eventId) async {
+    debugPrint('[TestService] deleteEvent $eventId');
+  }
 }

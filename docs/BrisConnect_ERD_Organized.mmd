@@ -1,0 +1,245 @@
+erDiagram
+    %% -----------------------------
+    %% Access and governance
+    %% -----------------------------
+    ADMINS {
+        string email PK
+        string username
+        string name
+        string role
+        bool active
+        datetime lastLoginAt
+        datetime updatedAt
+    }
+
+    AFFILIATIONS {
+        string id PK
+        string name
+        string type
+        string suburb
+        string status
+        datetime createdAt
+    }
+
+    ADMIN_AFFILIATIONS {
+        string adminEmail PK,FK
+        string affiliationId PK,FK
+        string accessScope
+        datetime assignedAt
+        string assignedByAdminEmail FK
+    }
+
+    %% -----------------------------
+    %% User accounts
+    %% -----------------------------
+    LOCAL_USERS {
+        string email PK
+        string username
+        string name
+        string affiliationId FK
+        string approvalStatus
+        string accountType
+        string suburb
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    VISITOR_USERS {
+        string email PK
+        string username
+        string name
+        string role
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    %% -----------------------------
+    %% Core content
+    %% -----------------------------
+    EVENTS {
+        string id PK
+        string title
+        string category
+        string createdByLocalEmail FK
+        string reviewStatus
+        string approvalStatus
+        bool isApproved
+        string source
+        string sourceProvider
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    ATTRACTIONS {
+        string id PK
+        string name
+        string category
+        string reviewStatus
+        string approvalStatus
+        bool isApproved
+        string sourceProvider
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    ATTRACTION_DETAILS {
+        string attractionId PK,FK
+        string address
+        float rating
+        int reviewCount
+        string website
+        string phone
+    }
+
+    DISCOVER_ITEMS {
+        string id PK
+        string title
+        string section
+        string category
+        string source
+        string sourceProvider
+        string createdByLocalEmail FK
+        datetime updatedAt
+    }
+
+    %% -----------------------------
+    %% Moderation and interaction
+    %% -----------------------------
+    EVENT_REPORTS {
+        string id PK
+        string eventId FK
+        string visitorEmail FK
+        string reason
+        string status
+        datetime createdAt
+        datetime reviewedAt
+    }
+
+    APP_FEEDBACK {
+        string id PK
+        string referenceId
+        string reporterEmail
+        string reporterRole
+        string status
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    USER_NOTIFICATIONS {
+        string id PK
+        string eventId FK
+        string userEmail
+        string userType
+        bool isRead
+        datetime createdAt
+    }
+
+    VISITOR_USER_INTERESTED_EVENTS {
+        string visitorEmail PK,FK
+        string eventId PK,FK
+    }
+
+    VISITOR_USER_SAVED_ATTRACTIONS {
+        string visitorEmail PK,FK
+        string attractionId PK,FK
+    }
+
+    LOCAL_USER_INTERESTED_EVENTS {
+        string localEmail PK,FK
+        string eventId PK,FK
+    }
+
+    %% -----------------------------
+    %% Supporting platform data
+    %% -----------------------------
+    BRISBANE_STORIES {
+        string id PK
+        string title
+        string category
+        string approvalStatus
+        datetime createdAt
+    }
+
+    BRISBANE_VOICES {
+        string id PK
+        string name
+        string approvalStatus
+        datetime createdAt
+    }
+
+    MAIL {
+        string id PK
+        string to
+        object message
+        object meta
+        datetime createdAt
+    }
+
+    SMS_QUEUE {
+        string id PK
+        string to
+        string message
+        object meta
+        datetime createdAt
+    }
+
+    COUNTERS {
+        string id PK
+        int count
+    }
+
+    CONFIG {
+        string id PK
+        object payload
+    }
+
+    SEED_METADATA {
+        string id PK
+        int version
+        string sourceProvider
+        int discoverItemCount
+        int attractionCount
+        int eventCount
+        datetime seededAt
+        datetime lastSyncedAt
+    }
+
+    CONNECTIVITY_PROBE {
+        string id PK
+        object payload
+    }
+
+    %% -----------------------------
+    %% Relationships
+    %% -----------------------------
+    ADMINS ||--o{ ADMIN_AFFILIATIONS : grants
+    ADMINS ||--o{ ADMIN_AFFILIATIONS : assigns
+    AFFILIATIONS ||--o{ ADMIN_AFFILIATIONS : scopes
+    AFFILIATIONS ||--o{ LOCAL_USERS : includes
+
+    LOCAL_USERS ||--o{ EVENTS : creates
+    ATTRACTIONS ||--|| ATTRACTION_DETAILS : details
+    EVENTS ||--o| DISCOVER_ITEMS : publishes
+    ATTRACTIONS ||--o| DISCOVER_ITEMS : mirrors
+    LOCAL_USERS ||--o{ DISCOVER_ITEMS : owns_source
+
+    VISITOR_USERS ||--o{ EVENT_REPORTS : files
+    EVENTS ||--o{ EVENT_REPORTS : receives
+
+    EVENTS ||--o{ USER_NOTIFICATIONS : triggers
+    VISITOR_USERS ||--o{ USER_NOTIFICATIONS : receives
+    LOCAL_USERS ||--o{ USER_NOTIFICATIONS : receives
+
+    VISITOR_USERS ||--o{ VISITOR_USER_INTERESTED_EVENTS : tracks
+    EVENTS ||--o{ VISITOR_USER_INTERESTED_EVENTS : appears_in
+
+    VISITOR_USERS ||--o{ VISITOR_USER_SAVED_ATTRACTIONS : saves
+    ATTRACTIONS ||--o{ VISITOR_USER_SAVED_ATTRACTIONS : appears_in
+
+    LOCAL_USERS ||--o{ LOCAL_USER_INTERESTED_EVENTS : tracks
+    EVENTS ||--o{ LOCAL_USER_INTERESTED_EVENTS : appears_in
+
+    COUNTERS ||--o{ APP_FEEDBACK : issues_ids
+    SEED_METADATA ||--o{ DISCOVER_ITEMS : seeds
+    EVENTS ||--o{ MAIL : referenced_in
+    EVENTS ||--o{ SMS_QUEUE : referenced_in

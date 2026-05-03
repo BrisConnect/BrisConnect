@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BrisConnect Mobile App ERD</title>
+  <style>
+    :root { --bg:#f6f8fb; --card:#fff; --text:#1f2937; --muted:#6b7280; --accent:#0f4c81; --border:#e5e7eb; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:"Segoe UI", Arial, sans-serif; }
+    .wrap { max-width:1400px; margin:24px auto; padding:0 16px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; box-shadow:0 2px 12px rgba(15,23,42,.06); }
+    h1 { margin:0 0 8px; font-size:24px; color:var(--accent); }
+    p { margin:0 0 16px; color:var(--muted); font-size:14px; }
+    .mermaid { overflow:auto; }
+  </style>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose' });
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>BrisConnect Mobile App ERD</h1>
+      <p>Includes explicit admin-to-affiliation connections and normalized moderation relationships.</p>
+      <div class="mermaid">
+erDiagram
+    ADMINS {
+      varchar email PK
+      varchar username
+      varchar role
+      bool active
+      datetime created_at
+    }
+
+    AFFILIATIONS {
+      varchar id PK
+      varchar name
+      varchar type
+      varchar suburb
+      varchar status
+      datetime created_at
+    }
+
+    ADMIN_AFFILIATIONS {
+      varchar admin_email PK,FK
+      varchar affiliation_id PK,FK
+      varchar access_scope
+      datetime assigned_at
+      varchar assigned_by_admin_email FK
+    }
+
+    LOCAL_USERS {
+      varchar email PK
+      varchar username
+      varchar name
+      varchar affiliation_id FK
+      varchar approval_status
+      varchar account_type
+      datetime created_at
+    }
+
+    VISITOR_USERS {
+      varchar email PK
+      varchar username
+      varchar name
+      datetime created_at
+    }
+
+    EVENTS {
+      varchar id PK
+      varchar title
+      varchar created_by_local_email FK
+      varchar review_status
+      varchar approval_status
+      bool is_approved
+      datetime created_at
+    }
+
+    ATTRACTIONS {
+      varchar id PK
+      varchar name
+      varchar review_status
+      varchar approval_status
+      bool is_approved
+      datetime created_at
+    }
+
+    ATTRACTION_DETAILS {
+      varchar attraction_id PK,FK
+      varchar address
+      decimal rating
+      int review_count
+    }
+
+    EVENT_REPORTS {
+      varchar id PK
+      varchar event_id FK
+      varchar visitor_email FK
+      varchar status
+      datetime created_at
+    }
+
+    APP_FEEDBACK {
+      varchar id PK
+      varchar reporter_email
+      varchar reporter_role
+      varchar status
+      datetime created_at
+    }
+
+    FEEDBACK_RESPONSES {
+      varchar id PK
+      varchar feedback_id FK
+      varchar admin_email FK
+      text response_text
+      datetime responded_at
+    }
+
+    EVENT_REVIEW_LOG {
+      varchar id PK
+      varchar event_id FK
+      varchar admin_email FK
+      varchar action
+      text notes
+      datetime reviewed_at
+    }
+
+    ATTRACTION_REVIEW_LOG {
+      varchar id PK
+      varchar attraction_id FK
+      varchar admin_email FK
+      varchar action
+      text notes
+      datetime reviewed_at
+    }
+
+    LOCAL_ACCOUNT_REVIEW_LOG {
+      varchar id PK
+      varchar local_email FK
+      varchar admin_email FK
+      varchar action
+      text notes
+      datetime reviewed_at
+    }
+
+    USER_NOTIFICATIONS {
+      varchar id PK
+      varchar event_id FK
+      varchar user_email
+      varchar user_type
+      bool is_read
+      datetime created_at
+    }
+
+    VISITOR_USER_INTERESTED_EVENTS {
+      varchar visitor_email PK,FK
+      varchar event_id PK,FK
+      datetime created_at
+    }
+
+    VISITOR_USER_SAVED_ATTRACTIONS {
+      varchar visitor_email PK,FK
+      varchar attraction_id PK,FK
+      datetime created_at
+    }
+
+    LOCAL_USER_INTERESTED_EVENTS {
+      varchar local_email PK,FK
+      varchar event_id PK,FK
+      datetime created_at
+    }
+
+    ADMINS ||--o{ ADMIN_AFFILIATIONS : granted_to
+    AFFILIATIONS ||--o{ ADMIN_AFFILIATIONS : mapped_in
+    AFFILIATIONS ||--o{ LOCAL_USERS : includes
+
+    ADMINS ||--o{ EVENT_REVIEW_LOG : reviews
+    EVENTS ||--o{ EVENT_REVIEW_LOG : audited_in
+
+    ADMINS ||--o{ ATTRACTION_REVIEW_LOG : reviews
+    ATTRACTIONS ||--o{ ATTRACTION_REVIEW_LOG : audited_in
+
+    ADMINS ||--o{ LOCAL_ACCOUNT_REVIEW_LOG : reviews
+    LOCAL_USERS ||--o{ LOCAL_ACCOUNT_REVIEW_LOG : reviewed_in
+
+    ADMINS ||--o{ FEEDBACK_RESPONSES : replies
+    APP_FEEDBACK ||--o{ FEEDBACK_RESPONSES : answered_by
+
+    LOCAL_USERS ||--o{ EVENTS : creates
+    ATTRACTIONS ||--|| ATTRACTION_DETAILS : has
+
+    VISITOR_USERS ||--o{ EVENT_REPORTS : files
+    EVENTS ||--o{ EVENT_REPORTS : receives
+
+    EVENTS ||--o{ USER_NOTIFICATIONS : triggers
+
+    VISITOR_USERS ||--o{ VISITOR_USER_INTERESTED_EVENTS : tracks
+    EVENTS ||--o{ VISITOR_USER_INTERESTED_EVENTS : appears_in
+
+    VISITOR_USERS ||--o{ VISITOR_USER_SAVED_ATTRACTIONS : saves
+    ATTRACTIONS ||--o{ VISITOR_USER_SAVED_ATTRACTIONS : appears_in
+
+    LOCAL_USERS ||--o{ LOCAL_USER_INTERESTED_EVENTS : tracks
+    EVENTS ||--o{ LOCAL_USER_INTERESTED_EVENTS : appears_in
+
+      </div>
+    </div>
+  </div>
+</body>
+</html>

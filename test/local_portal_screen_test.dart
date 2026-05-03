@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:brisconnect/models/event_item.dart';
 import 'package:brisconnect/screens/local_portal_screen.dart';
+import 'package:brisconnect/screens/visitor_saved_events_calendar_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -56,5 +58,34 @@ void main() {
 
     expect(find.text('Approved'), findsOneWidget);
     expect(find.text('Pending Approval'), findsNothing);
+  });
+
+  testWidgets('Calendar & Personal Plans button opens calendar screen',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final controller = StreamController<List<EventItem>>();
+    addTearDown(controller.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocalPortalScreen(
+          enforceRoleGuard: false,
+          initialTabIndex: 0,
+          submittedEventsStreamOverride: controller.stream,
+          discoverItemsStreamOverride:
+              Stream<List<Map<String, dynamic>>>.value(const []),
+        ),
+      ),
+    );
+    controller.add(const []);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Calendar & Personal Plans'), findsOneWidget);
+
+    await tester.tap(find.text('Calendar & Personal Plans'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(VisitorSavedEventsCalendarScreen), findsOneWidget);
+    expect(find.text('Saved Events Calendar'), findsOneWidget);
   });
 }

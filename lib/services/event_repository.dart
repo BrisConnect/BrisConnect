@@ -1,55 +1,12 @@
 import 'package:brisconnect/models/event_item.dart';
 
+/// In-memory event cache used only to sync newly-submitted events into the
+/// local portal view before the Firestore stream delivers them.
+///
+/// All persistent event data lives in the Firestore `events` collection;
+/// this repository is a transient write-through cache.
 class EventRepository {
-  static final List<EventItem> _events = [
-    const EventItem(
-      id: 'approved-brisbane-multicultural-festival',
-      title: 'Brisbane Multicultural Festival',
-      date: '22 Mar 2026',
-      time: '10:00 AM - 8:00 PM',
-      location: 'South Bank Parklands',
-      description:
-          'A city-wide celebration of food, music, and performances from diverse cultures.',
-      reviewStatus: EventReviewStatus.approved,
-      imageAsset: 'assets/logo.png',
-      latitude: -27.4810,
-      longitude: 153.0234,
-    ),
-    const EventItem(
-      id: 'approved-riverfire-community-concert',
-      title: 'Riverfire Community Concert',
-      date: '05 Apr 2026',
-      time: '6:30 PM - 10:00 PM',
-      location: 'Kangaroo Point Cliffs',
-      description:
-          'Outdoor live concert with local artists and fireworks over the Brisbane River.',
-      reviewStatus: EventReviewStatus.approved,
-      latitude: -27.4748,
-      longitude: 153.0353,
-    ),
-    const EventItem(
-      id: 'pending-lantern-night-market',
-      title: 'Lantern Night Market',
-      date: '18 Apr 2026',
-      time: '4:00 PM - 9:00 PM',
-      location: 'Roma Street Parkland',
-      description:
-          'Night market featuring artisan stalls, cultural dance groups, and local cuisine.',
-      reviewStatus: EventReviewStatus.pending,
-    ),
-    const EventItem(
-      id: 'approved-first-nations-storytelling-evening',
-      title: 'First Nations Storytelling Evening',
-      date: '27 Apr 2026',
-      time: '5:30 PM - 7:00 PM',
-      location: 'State Library of Queensland',
-      description:
-          'Guided storytelling and talks showcasing local First Nations heritage and history.',
-      reviewStatus: EventReviewStatus.approved,
-      latitude: -27.4730,
-      longitude: 153.0170,
-    ),
-  ];
+  static final List<EventItem> _events = [];
 
   static List<EventItem> getApprovedEvents() {
     return _events.where((event) => event.isApproved).toList();

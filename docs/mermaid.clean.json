@@ -1,0 +1,9 @@
+{
+  "theme": "neutral",
+  "securityLevel": "strict",
+  "fontFamily": "Arial",
+  "er": {
+    "diagramPadding": 20,
+    "layoutDirection": "LR"
+  }
+}

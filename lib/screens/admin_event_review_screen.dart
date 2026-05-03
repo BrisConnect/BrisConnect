@@ -12,9 +12,11 @@ class AdminEventReviewScreen extends StatefulWidget {
   AdminEventReviewScreen({
     super.key,
     AdminEventService? eventService,
+    this.enforceRoleGuard = true,
   }) : eventService = eventService ?? AdminEventService();
 
   final AdminEventService eventService;
+  final bool enforceRoleGuard;
 
   @override
   State<AdminEventReviewScreen> createState() => _AdminEventReviewScreenState();
@@ -24,7 +26,9 @@ class _AdminEventReviewScreenState extends State<AdminEventReviewScreen> {
   @override
   void initState() {
     super.initState();
-    widget.eventService.migrateLegacyLocalSubmissionIds();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.eventService.migrateLegacyLocalSubmissionIds();
+    });
   }
 
   Future<void> _openEditForm(EventItem event) async {
@@ -58,6 +62,50 @@ class _AdminEventReviewScreenState extends State<AdminEventReviewScreen> {
     }
   }
 
+  Future<void> _approveEvent(EventItem event) async {
+    try {
+      await widget.eventService.updateEvent(
+        eventId: event.id,
+        title: event.title,
+        date: event.date,
+        location: event.location,
+        description: event.description,
+        reviewStatus: EventReviewStatus.approved,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"${event.title}" approved.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to approve event: $error')),
+      );
+    }
+  }
+
+  Future<void> _rejectEvent(EventItem event) async {
+    try {
+      await widget.eventService.updateEvent(
+        eventId: event.id,
+        title: event.title,
+        date: event.date,
+        location: event.location,
+        description: event.description,
+        reviewStatus: EventReviewStatus.rejected,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"${event.title}" rejected.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to reject event: $error')),
+      );
+    }
+  }
+
   Future<void> _confirmDelete(EventItem event) async {
     final shouldDelete = await showDialog<bool>(
       context: context,
@@ -87,12 +135,13 @@ class _AdminEventReviewScreenState extends State<AdminEventReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return RoleGuard(
-      allowedRoles: const {AppUserRole.admin},
-      deniedMessage: 'Access denied. Admin privileges are required.',
-      child: Scaffold(
-        backgroundColor: AppPalette.background,
-        appBar: AppBar(title: const LogoAppBarTitle('Manage Events')),
+    final scaffold = Scaffold(
+        backgroundColor: widget.enforceRoleGuard ? AppPalette.background : Colors.transparent,
+        appBar: AppBar(
+          automaticallyImplyLeading: widget.enforceRoleGuard,
+          title: const LogoAppBarTitle('Manage Events'),
+          backgroundColor: widget.enforceRoleGuard ? null : AppPalette.ochre,
+        ),
         body: StreamBuilder<List<EventItem>>(
           stream: widget.eventService.watchAllEvents(),
           builder: (context, snapshot) {
@@ -122,12 +171,13 @@ class _AdminEventReviewScreenState extends State<AdminEventReviewScreen> {
 
             if (events.isEmpty) {
               return ListView(
+                physics: const ClampingScrollPhysics(),
                 padding: const EdgeInsets.all(16),
                 children: const [
                   _AdminEventSummary(total: 0, pending: 0, approved: 0, rejected: 0),
                   SizedBox(height: 16),
                   Card(
-                    color: AppPalette.surface,
+                    color: Color(0xCCFFFFFF),
                     child: Padding(
                       padding: EdgeInsets.all(16),
                       child: Text('No events found in Firebase.'),
@@ -137,40 +187,61 @@ class _AdminEventReviewScreenState extends State<AdminEventReviewScreen> {
               );
             }
 
-            return ListView(
+            return ListView.builder(
+              physics: const ClampingScrollPhysics(),
               padding: const EdgeInsets.all(16),
-              children: [
-                _AdminEventSummary(
-                  total: events.length,
-                  pending: pendingCount,
-                  approved: approvedCount,
-                  rejected: rejectedCount,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'All Events',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppPalette.charcoal,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ...events.map(
-                  (event) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _AdminEventCard(
-                      event: event,
-                      onEdit: () => _openEditForm(event),
-                      onDelete: () => _confirmDelete(event),
+              itemCount: events.length + 3, // summary + title + spacer + events
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return _AdminEventSummary(
+                    total: events.length,
+                    pending: pendingCount,
+                    approved: approvedCount,
+                    rejected: rejectedCount,
+                  );
+                }
+                if (index == 1) {
+                  return const Padding(
+                    padding: EdgeInsets.only(top: 16),
+                    child: Text(
+                      'All Events',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppPalette.charcoal,
+                      ),
                     ),
+                  );
+                }
+                if (index == 2) {
+                  return const SizedBox(height: 12);
+                }
+                final event = events[index - 3];
+                return Padding(
+                  key: ValueKey(event.id),
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _AdminEventCard(
+                    event: event,
+                    onApprove: () => _approveEvent(event),
+                    onReject: () => _rejectEvent(event),
+                    onEdit: () => _openEditForm(event),
+                    onDelete: () => _confirmDelete(event),
                   ),
-                ),
-              ],
+                );
+              },
             );
           },
         ),
-      ),
+      );
+
+    if (!widget.enforceRoleGuard) {
+      return scaffold;
+    }
+
+    return RoleGuard(
+      allowedRoles: const {AppUserRole.admin},
+      deniedMessage: 'Access denied. Admin privileges are required.',
+      child: scaffold,
     );
   }
 }
@@ -258,11 +329,15 @@ class _SummaryChip extends StatelessWidget {
 class _AdminEventCard extends StatelessWidget {
   const _AdminEventCard({
     required this.event,
+    required this.onApprove,
+    required this.onReject,
     required this.onEdit,
     required this.onDelete,
   });
 
   final EventItem event;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -294,7 +369,7 @@ class _AdminEventCard extends StatelessWidget {
     final ownerEmail = event.createdByLocalEmail?.trim();
 
     return Card(
-      color: AppPalette.surface,
+      color: AppPalette.surface.withValues(alpha: 0.80),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -348,6 +423,33 @@ class _AdminEventCard extends StatelessWidget {
               style: const TextStyle(color: AppPalette.charcoal),
             ),
             const SizedBox(height: 14),
+            if (event.isPending) ...[              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: onApprove,
+                      icon: const Icon(Icons.check_circle_rounded),
+                      label: const Text('Approve'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.green.shade700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: onReject,
+                      icon: const Icon(Icons.cancel_rounded),
+                      label: const Text('Reject'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppPalette.ochre,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
             Row(
               children: [
                 Expanded(

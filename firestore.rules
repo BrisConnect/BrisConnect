@@ -1,8 +1,136 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function authEmail() {
+      return request.auth != null && request.auth.token.email != null
+          ? request.auth.token.email.lower()
+          : null;
+    }
+
+    function isAdmin() {
+      return authEmail() != null
+        && exists(/databases/$(database)/documents/admins/$(authEmail()));
+    }
+
+    // ── Admin collection ──
+    match /admins/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ── Local users ──
+    match /local_users/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && authEmail() == docId;
+      allow update: if (isSignedIn() && authEmail() == docId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── Visitor users ──
+    match /visitor_users/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && authEmail() == docId;
+      allow update: if (isSignedIn() && authEmail() == docId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── Events ──
+    match /events/{eventId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn()
+        && (resource.data.createdByLocalEmail == authEmail() || isAdmin());
+      allow delete: if isSignedIn()
+        && (resource.data.createdByLocalEmail == authEmail() || isAdmin());
+    }
+
+    // ── Attractions ──
+    match /attractions/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ── Attraction details ──
+    match /attraction_details/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ── Event reports ──
+    match /event_reports/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    // ── App feedback ──
+    match /app_feedback/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── Mail queue (consumed by extensions) ──
+    match /mail/{docId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    // ── SMS queue ──
+    match /sms_queue/{docId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ── User notifications ──
+    match /user_notifications/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // ── Brisbane stories & voices (read-only, seeded server-side) ──
+    match /brisbane_stories/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /brisbane_voices/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ── Discover items (seeded, read by all) ──
+    match /discover_items/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ── Seed metadata ──
+    match /seed_metadata/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ── Counters (auto-increment IDs for feedback etc.) ──
+    match /counters/{docId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // ── Config (event categories etc.) ──
+    match /config/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ── Connectivity probe ──
+    match /_connectivity_probe/{docId} {
+      allow read: if isSignedIn();
     }
   }
 }

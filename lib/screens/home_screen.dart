@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
@@ -14,6 +16,7 @@ import 'package:brisconnect/screens/stadium_detail_screen.dart';
 import 'package:brisconnect/screens/visitor_event_detail_screen.dart';
 import 'package:brisconnect/services/discover_data_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
+import 'package:brisconnect/utils/venue_image_fallback.dart';
 
 enum _DiscoverSection { events, sights, food, stadiums }
 
@@ -27,6 +30,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   final DiscoverDataService _discoverDataService = DiscoverDataService();
+  Timer? _searchDebounce;
 
   int _selectedTabIndex = 0;
   bool _isLoading = true;
@@ -65,6 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController
       ..removeListener(_onSearchChanged)
       ..dispose();
@@ -103,7 +108,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _onSearchChanged() => setState(() {});
+  void _onSearchChanged() {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) setState(() {});
+    });
+  }
 
   bool _matchesCategory(List<String> categories) {
     if (_selectedCategoryChips.isEmpty) return true;
@@ -336,7 +346,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _openAttractions() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const AttractionsScreen()),
+      MaterialPageRoute(builder: (_) => AttractionsScreen()),
     );
   }
 
@@ -450,40 +460,83 @@ class _HomeScreenState extends State<HomeScreen> {
           _matchesSearch([item.name, item.location, item.description]);
     }).toList();
 
-    return Scaffold(
-      backgroundColor: AppPalette.background,
-      body: SafeArea(
-        child: _buildTabBody(
-          filteredEvents: filteredEvents,
-          filteredSights: filteredSights,
-          filteredFood: filteredFood,
-          filteredStadiums: filteredStadiums,
+    return Stack(
+      children: [
+        // Full-screen kangaroo background
+        Positioned.fill(
+          child: Image.asset(
+            'assets/Kangaroo1.png',
+            fit: BoxFit.cover,
+          ),
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedTabIndex,
-        onTap: (index) => setState(() => _selectedTabIndex = index),
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: AppPalette.surface,
-        selectedItemColor: AppPalette.ochre,
-        unselectedItemColor: AppPalette.deepBlue,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded),
-            label: 'Discover',
+        // Gradient overlay for readability
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  const Color(0xFFC1440E).withValues(alpha: 0.40),
+                  const Color(0xFF5C3D2E).withValues(alpha: 0.45),
+                  const Color(0xFFF8F3EA).withValues(alpha: 0.70),
+                ],
+                stops: const [0.0, 0.35, 1.0],
+              ),
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite_border_rounded),
-            activeIcon: Icon(Icons.favorite_rounded),
-            label: 'Saved',
+        ),
+        Scaffold(
+          backgroundColor: Colors.transparent,
+          extendBodyBehindAppBar: true,
+          extendBody: true,
+          body: SafeArea(
+            child: _buildTabBody(
+              filteredEvents: filteredEvents,
+              filteredSights: filteredSights,
+              filteredFood: filteredFood,
+              filteredStadiums: filteredStadiums,
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline_rounded),
-            activeIcon: Icon(Icons.person_rounded),
-            label: 'Profile',
+          bottomNavigationBar: Container(
+            decoration: BoxDecoration(
+              color: AppPalette.surface.withValues(alpha: 0.85),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 12,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: BottomNavigationBar(
+              currentIndex: _selectedTabIndex,
+              onTap: (index) => setState(() => _selectedTabIndex = index),
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              selectedItemColor: AppPalette.ochre,
+              unselectedItemColor: AppPalette.deepBlue,
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home_rounded),
+                  label: 'Discover',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.favorite_border_rounded),
+                  activeIcon: Icon(Icons.favorite_rounded),
+                  label: 'Saved',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline_rounded),
+                  activeIcon: Icon(Icons.person_rounded),
+                  label: 'Profile',
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -562,8 +615,10 @@ class _HomeScreenState extends State<HomeScreen> {
           }).toList(),
         ),
         const SizedBox(height: 20),
+        const _SectionTitle('Recommended for You'),
+        const SizedBox(height: 14),
         if (_enabledSections.contains(_DiscoverSection.events)) ...[
-          const _SectionTitle('Brisbane City Council Events'),
+          const _SubSectionTitle('Brisbane City Council Events'),
           const SizedBox(height: 10),
           if (filteredEvents.isEmpty)
             const _EmptySection(
@@ -590,7 +645,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 20),
         ],
         if (_enabledSections.contains(_DiscoverSection.sights)) ...[
-          const _SectionTitle('Historical Sights in Brisbane'),
+          const _SubSectionTitle('Historical Sights in Brisbane'),
           const SizedBox(height: 10),
           if (filteredSights.isEmpty)
             const _EmptySection('No matching historical sights found.')
@@ -615,7 +670,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 20),
         ],
         if (_enabledSections.contains(_DiscoverSection.food)) ...[
-          const _SectionTitle('Authentic Brisbane Food'),
+          const _SubSectionTitle('Authentic Brisbane Food'),
           const SizedBox(height: 10),
           if (filteredFood.isEmpty)
             const _EmptySection('No matching food places found.')
@@ -641,7 +696,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 20),
         ],
         if (_enabledSections.contains(_DiscoverSection.stadiums)) ...[
-          const _SectionTitle('Brisbane Stadiums & Event Venues'),
+          const _SubSectionTitle('Brisbane Stadiums & Event Venues'),
           const SizedBox(height: 10),
           if (filteredStadiums.isEmpty)
             const _EmptySection('No matching stadiums found.')
@@ -753,7 +808,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 12),
         Card(
-          color: AppPalette.surface,
+          color: AppPalette.surface.withValues(alpha: 0.80),
           child: ListTile(
             leading: const CircleAvatar(
               backgroundColor: AppPalette.surfaceAlt,
@@ -768,7 +823,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         Card(
-          color: AppPalette.surface,
+          color: AppPalette.surface.withValues(alpha: 0.80),
           child: ListTile(
             leading: const Icon(Icons.dashboard_customize_outlined,
                 color: AppPalette.deepBlue),
@@ -779,7 +834,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         Card(
-          color: AppPalette.surface,
+          color: AppPalette.surface.withValues(alpha: 0.80),
           child: ListTile(
             leading: Icon(
               isLoggedIn ? Icons.logout_rounded : Icons.login_rounded,
@@ -797,7 +852,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         if (!isLoggedIn)
           Card(
-            color: AppPalette.surface,
+            color: AppPalette.surface.withValues(alpha: 0.80),
             child: ListTile(
               leading: const Icon(Icons.app_registration_rounded,
                   color: AppPalette.gold),
@@ -824,36 +879,49 @@ class _DiscoverSearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: AppPalette.surface,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppPalette.border),
+        color: AppPalette.surface.withValues(alpha: 0.80),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: AppPalette.border.withValues(alpha: 0.5)),
         boxShadow: const [
           BoxShadow(
             color: AppPalette.cardShadow,
-            blurRadius: 16,
-            offset: Offset(0, 8),
+            blurRadius: 20,
+            offset: Offset(0, 6),
           ),
         ],
       ),
       child: Row(
         children: [
-          const Icon(Icons.search_rounded, color: AppPalette.ochre),
+          const Icon(Icons.search_rounded, color: AppPalette.ochre, size: 22),
           const SizedBox(width: 10),
           Expanded(
             child: TextField(
               controller: controller,
               decoration: const InputDecoration(
-                hintText: 'Find things to do in Brisbane',
+                hintText: 'Search events, places, food...',
+                hintStyle: TextStyle(color: AppPalette.mutedText, fontSize: 14.5),
                 border: InputBorder.none,
+                isDense: true,
               ),
+              style: const TextStyle(fontSize: 14.5),
             ),
           ),
-          IconButton(
-            onPressed: onFilterTap,
-            icon: const Icon(Icons.tune_rounded, color: AppPalette.deepBlue),
-            tooltip: 'Filter',
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppPalette.ochre.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              onPressed: onFilterTap,
+              icon: const Icon(Icons.tune_rounded, color: AppPalette.ochre, size: 18),
+              tooltip: 'Filter',
+              padding: EdgeInsets.zero,
+            ),
           ),
         ],
       ),
@@ -871,7 +939,26 @@ class _SectionTitle extends StatelessWidget {
     return Text(
       text,
       style: const TextStyle(
-        fontSize: 20,
+        fontSize: 24,
+        fontWeight: FontWeight.w800,
+        color: AppPalette.charcoal,
+        letterSpacing: -0.3,
+      ),
+    );
+  }
+}
+
+class _SubSectionTitle extends StatelessWidget {
+  final String text;
+
+  const _SubSectionTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 18,
         fontWeight: FontWeight.w700,
         color: AppPalette.charcoal,
       ),
@@ -889,9 +976,9 @@ class _EmptySection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppPalette.surface,
+        color: AppPalette.surface.withValues(alpha: 0.75),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppPalette.border),
+        border: Border.all(color: AppPalette.border.withValues(alpha: 0.5)),
       ),
       child: Text(
         message,
@@ -920,6 +1007,8 @@ class _CouncilEventCard extends StatelessWidget {
       width: 290,
       child: _BaseCard(
         imageUrl: event.imageUrl,
+        title: event.title,
+        section: 'events',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -990,6 +1079,8 @@ class _HistoricalSightCard extends StatelessWidget {
       width: 290,
       child: _BaseCard(
         imageUrl: sight.imageUrl,
+        title: sight.name,
+        section: 'historical',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1064,6 +1155,8 @@ class _FoodPlaceCard extends StatelessWidget {
       width: 300,
       child: _BaseCard(
         imageUrl: place.imageUrl,
+        title: place.name,
+        section: 'food',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1158,6 +1251,8 @@ class _StadiumVenueCard extends StatelessWidget {
       width: 300,
       child: _BaseCard(
         imageUrl: stadium.imageUrl,
+        title: stadium.name,
+        section: 'stadiums',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1216,25 +1311,35 @@ class _StadiumVenueCard extends StatelessWidget {
 
 class _BaseCard extends StatelessWidget {
   final String imageUrl;
+  final String? title;
+  final String? section;
   final Widget child;
 
   const _BaseCard({
     required this.imageUrl,
+    this.title,
+    this.section,
     required this.child,
   });
 
   @override
   Widget build(BuildContext context) {
+    final venueFallback = VenueImageFallback.forVenue(
+      title: title,
+      section: section,
+    );
+    final effectiveUrl =
+        imageUrl.trim().isEmpty ? venueFallback : imageUrl.trim();
+
     return Container(
       decoration: BoxDecoration(
-        color: AppPalette.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppPalette.border),
+        color: Colors.white.withValues(alpha: 0.75),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: const [
           BoxShadow(
-            color: AppPalette.cardShadow,
-            blurRadius: 14,
-            offset: Offset(0, 7),
+            color: Color(0x14000000),
+            blurRadius: 18,
+            offset: Offset(0, 6),
           ),
         ],
       ),
@@ -1243,16 +1348,16 @@ class _BaseCard extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(18),
-              topRight: Radius.circular(18),
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
             ),
             child: CachedNetworkImage(
-              imageUrl: imageUrl,
-              height: 130,
+              imageUrl: effectiveUrl,
+              height: 140,
               width: double.infinity,
               fit: BoxFit.cover,
               placeholder: (context, _) => Container(
-                height: 130,
+                height: 140,
                 color: AppPalette.surfaceAlt,
                 alignment: Alignment.center,
                 child: const SizedBox(
@@ -1260,25 +1365,31 @@ class _BaseCard extends StatelessWidget {
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: AppPalette.deepBlue,
+                    color: AppPalette.ochre,
                   ),
                 ),
               ),
-              errorWidget: (context, _, __) => Container(
-                height: 130,
-                color: AppPalette.surfaceAlt,
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.image_not_supported_rounded,
-                  color: AppPalette.mutedText,
-                  size: 28,
+              errorWidget: (context, _, __) => Image.network(
+                venueFallback,
+                height: 140,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, _, __) => Container(
+                  height: 140,
+                  color: AppPalette.surfaceAlt,
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.image_not_supported_rounded,
+                    color: AppPalette.mutedText,
+                    size: 28,
+                  ),
                 ),
               ),
             ),
           ),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               child: SingleChildScrollView(
                 child: child,
               ),
@@ -1308,7 +1419,7 @@ class _SavedCompactCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Card(
-        color: AppPalette.surface,
+        color: AppPalette.surface.withValues(alpha: 0.80),
         child: ListTile(
           leading: Icon(icon, color: AppPalette.deepBlue),
           title: Text(title),

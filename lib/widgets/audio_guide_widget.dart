@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 
-class AudioGuideWidget extends StatefulWidget {
-  const AudioGuideWidget({
+class AiNarrationWidget extends StatefulWidget {
+  const AiNarrationWidget({
     super.key,
     required this.narrationText,
     required this.helperText,
@@ -13,18 +13,24 @@ class AudioGuideWidget extends StatefulWidget {
   final String helperText;
 
   @override
-  State<AudioGuideWidget> createState() => _AudioGuideWidgetState();
+  State<AiNarrationWidget> createState() => _AiNarrationWidgetState();
 }
 
-class _AudioGuideWidgetState extends State<AudioGuideWidget> {
+class _AiNarrationWidgetState extends State<AiNarrationWidget> {
   late final FlutterTts _tts;
   bool _speaking = false;
+  bool _ttsInitialized = false;
   bool _loading = false;
 
   @override
   void initState() {
     super.initState();
     _tts = FlutterTts();
+    _initializeTts();
+    _setupTtsHandlers();
+  }
+
+  void _setupTtsHandlers() {
     _tts.setStartHandler(() {
       if (!mounted) return;
       setState(() {
@@ -55,13 +61,43 @@ class _AudioGuideWidgetState extends State<AudioGuideWidget> {
     });
   }
 
+  Future<void> _initializeTts() async {
+    if (_ttsInitialized) return;
+    try {
+      await _tts.awaitSpeakCompletion(true);
+      await _tts.setLanguage('en-AU');
+      // Warm, natural tour-guide voice: slightly lower pitch, relaxed pace
+      await _tts.setPitch(0.92);
+      await _tts.setSpeechRate(0.45);
+      await _tts.setVolume(1.0);
+      _ttsInitialized = true;
+    } catch (_) {
+      _ttsInitialized = true;
+    }
+  }
+
+  String _sanitizeNarration(String raw) {
+    var text = raw
+        .replaceAll('•', ',')
+        .replaceAll(RegExp(r'\n{2,}'), '. ... ')
+        .replaceAll('\n', '. ')
+        .replaceAll(RegExp(r'\.\s*\.'), '.')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    text = text.replaceAllMapped(
+      RegExp(r'\.\s+(?=[A-Z])'),
+      (m) => '. ... ',
+    );
+    return text;
+  }
+
   @override
   void dispose() {
     _tts.stop();
     super.dispose();
   }
 
-  Future<void> _toggleNarration() async {
+  Future<void> _togglePlayback() async {
     if (_speaking) {
       await _tts.stop();
       if (!mounted) return;
@@ -74,15 +110,19 @@ class _AudioGuideWidgetState extends State<AudioGuideWidget> {
 
     setState(() => _loading = true);
     try {
-      await _tts.setLanguage('en-AU');
-      await _tts.setPitch(1.0);
-      await _tts.setSpeechRate(0.45);
-      await _tts.speak(widget.narrationText);
+      await _initializeTts();
+      final narration = _sanitizeNarration(widget.narrationText);
+      if (narration.isEmpty) {
+        throw Exception('Narration text is empty');
+      }
+      await _tts.stop();
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      await _tts.speak(narration);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Unable to start AI audio guide right now.'),
+          content: Text('Unable to start AI narration right now.'),
         ),
       );
       setState(() {
@@ -94,9 +134,10 @@ class _AudioGuideWidgetState extends State<AudioGuideWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final buttonIcon =
-        _speaking ? Icons.stop_circle_rounded : Icons.record_voice_over_rounded;
-    final buttonLabel = _speaking ? 'Stop Narration' : 'Play AI Narration';
+    final buttonIcon = _speaking
+        ? Icons.stop_circle_rounded
+        : Icons.record_voice_over_rounded;
+    final buttonLabel = _speaking ? 'Stop' : 'AI Tour Guide';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -109,7 +150,7 @@ class _AudioGuideWidgetState extends State<AudioGuideWidget> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ElevatedButton.icon(
-            onPressed: _loading ? null : _toggleNarration,
+            onPressed: _loading ? null : _togglePlayback,
             icon: _loading
                 ? const SizedBox(
                     width: 16,

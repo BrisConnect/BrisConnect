@@ -1,0 +1,260 @@
+erDiagram
+    ADMINS {
+      varchar email PK
+      varchar username
+      varchar role
+      bool active
+      datetime created_at
+    }
+
+    AFFILIATIONS {
+      varchar id PK
+      varchar name
+      varchar type
+      varchar suburb
+      varchar status
+      datetime created_at
+    }
+
+    ADMIN_AFFILIATIONS {
+      varchar admin_email PK,FK
+      varchar affiliation_id PK,FK
+      varchar access_scope
+      datetime assigned_at
+      varchar assigned_by_admin_email FK
+    }
+
+    LOCAL_USERS {
+      varchar email PK
+      varchar username
+      varchar name
+      varchar affiliation_id FK
+      varchar approval_status
+      varchar account_type
+      datetime created_at
+    }
+
+    VISITOR_USERS {
+      varchar email PK
+      varchar username
+      varchar name
+      datetime created_at
+    }
+
+    EVENTS {
+      varchar id PK
+      varchar title
+      varchar created_by_local_email FK
+      varchar moderation_status
+      datetime created_at
+    }
+
+    ATTRACTIONS {
+      varchar id PK
+      varchar name
+      varchar moderation_status
+      datetime created_at
+    }
+
+    ATTRACTION_DETAILS {
+      varchar attraction_id PK,FK
+      varchar address
+      decimal rating
+      int review_count
+    }
+
+    EVENT_REPORTS {
+      varchar id PK
+      varchar event_id FK
+      varchar visitor_email FK
+      varchar status
+      datetime created_at
+    }
+
+    APP_FEEDBACK {
+      varchar id PK
+      varchar reference_id
+      varchar reporter_email
+      varchar reporter_role
+      varchar status
+      datetime created_at
+    }
+
+    FEEDBACK_RESPONSES {
+      varchar id PK
+      varchar feedback_id FK
+      varchar admin_email FK
+      text response_text
+      datetime responded_at
+    }
+
+    EVENT_REVIEW_LOG {
+      varchar id PK
+      varchar event_id FK
+      varchar admin_email FK
+      varchar action
+      text notes
+      datetime reviewed_at
+    }
+
+    ATTRACTION_REVIEW_LOG {
+      varchar id PK
+      varchar attraction_id FK
+      varchar admin_email FK
+      varchar action
+      text notes
+      datetime reviewed_at
+    }
+
+    LOCAL_ACCOUNT_REVIEW_LOG {
+      varchar id PK
+      varchar local_email FK
+      varchar admin_email FK
+      varchar action
+      text notes
+      datetime reviewed_at
+    }
+
+    USER_NOTIFICATIONS {
+      varchar id PK
+      varchar event_id FK
+      varchar user_email
+      varchar user_type
+      bool is_read
+      datetime created_at
+    }
+
+    DISCOVER_ITEMS {
+      varchar id PK
+      varchar title
+      varchar section
+      varchar created_by_local_email FK
+      varchar source
+      varchar source_provider
+      varchar source_place_id
+      datetime updated_at
+    }
+
+    BRISBANE_STORIES {
+      varchar id PK
+      varchar title
+      varchar category
+      varchar approval_status
+      datetime created_at
+    }
+
+    BRISBANE_VOICES {
+      varchar id PK
+      varchar name
+      varchar approval_status
+      datetime created_at
+    }
+
+    MAIL {
+      varchar id PK
+      varchar to
+      json message
+      json meta
+      datetime created_at
+    }
+
+    SMS_QUEUE {
+      varchar id PK
+      varchar to
+      varchar message
+      json meta
+      datetime created_at
+    }
+
+    COUNTERS {
+      varchar id PK
+      bigint count_value
+    }
+
+    CONFIG {
+      varchar id PK
+      json payload
+    }
+
+    SEED_METADATA {
+      varchar id PK
+      int version
+      varchar source_provider
+      int discover_item_count
+      int attraction_count
+      int event_count
+      datetime seeded_at
+      datetime last_synced_at
+    }
+
+    CONNECTIVITY_PROBE {
+      varchar id PK
+      json payload
+    }
+
+    VISITOR_USER_INTERESTED_EVENTS {
+      varchar visitor_email PK,FK
+      varchar event_id PK,FK
+      datetime created_at
+    }
+
+    VISITOR_USER_SAVED_ATTRACTIONS {
+      varchar visitor_email PK,FK
+      varchar attraction_id PK,FK
+      datetime created_at
+    }
+
+    LOCAL_USER_INTERESTED_EVENTS {
+      varchar local_email PK,FK
+      varchar event_id PK,FK
+      datetime created_at
+    }
+
+    ADMINS ||--o{ ADMIN_AFFILIATIONS : granted_to
+    ADMINS ||--o{ ADMIN_AFFILIATIONS : assigned_by
+    AFFILIATIONS ||--o{ ADMIN_AFFILIATIONS : mapped_in
+    AFFILIATIONS ||--o{ LOCAL_USERS : includes
+
+    ADMINS ||--o{ EVENT_REVIEW_LOG : reviews
+    EVENTS ||--o{ EVENT_REVIEW_LOG : audited_in
+
+    ADMINS ||--o{ ATTRACTION_REVIEW_LOG : reviews
+    ATTRACTIONS ||--o{ ATTRACTION_REVIEW_LOG : audited_in
+
+    ADMINS ||--o{ LOCAL_ACCOUNT_REVIEW_LOG : reviews
+    LOCAL_USERS ||--o{ LOCAL_ACCOUNT_REVIEW_LOG : reviewed_in
+
+    ADMINS ||--o{ FEEDBACK_RESPONSES : replies
+    APP_FEEDBACK ||--o{ FEEDBACK_RESPONSES : answered_by
+
+    LOCAL_USERS ||--o{ EVENTS : creates
+    ATTRACTIONS ||--|| ATTRACTION_DETAILS : has
+    EVENTS ||--o| DISCOVER_ITEMS : published_as
+    ATTRACTIONS ||--o| DISCOVER_ITEMS : mirrored_as
+    LOCAL_USERS ||--o{ DISCOVER_ITEMS : source_owner
+
+    VISITOR_USERS ||--o{ EVENT_REPORTS : files
+    EVENTS ||--o{ EVENT_REPORTS : receives
+
+    EVENTS ||--o{ USER_NOTIFICATIONS : triggers
+    VISITOR_USERS ||--o{ USER_NOTIFICATIONS : receives
+    LOCAL_USERS ||--o{ USER_NOTIFICATIONS : receives
+
+    VISITOR_USERS ||--o{ VISITOR_USER_INTERESTED_EVENTS : tracks
+    EVENTS ||--o{ VISITOR_USER_INTERESTED_EVENTS : appears_in
+
+    VISITOR_USERS ||--o{ VISITOR_USER_SAVED_ATTRACTIONS : saves
+    ATTRACTIONS ||--o{ VISITOR_USER_SAVED_ATTRACTIONS : appears_in
+
+    LOCAL_USERS ||--o{ LOCAL_USER_INTERESTED_EVENTS : tracks
+    EVENTS ||--o{ LOCAL_USER_INTERESTED_EVENTS : appears_in
+
+  COUNTERS ||--o{ APP_FEEDBACK : issues_reference_ids
+  SEED_METADATA ||--o{ DISCOVER_ITEMS : seeds
+  VISITOR_USERS ||--o{ MAIL : receives_email
+  LOCAL_USERS ||--o{ MAIL : receives_email
+  ADMINS ||--o{ MAIL : receives_email
+  VISITOR_USERS ||--o{ SMS_QUEUE : receives_sms
+  LOCAL_USERS ||--o{ SMS_QUEUE : receives_sms
+  EVENTS ||--o{ MAIL : referenced_in
+  EVENTS ||--o{ SMS_QUEUE : referenced_in

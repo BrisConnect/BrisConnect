@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BrisConnect ERD</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f1e8;
+      --panel: #fffaf2;
+      --ink: #1f2a37;
+      --muted: #5f6b7a;
+      --accent: #0d5c63;
+      --border: #d7c8a8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      background:
+        radial-gradient(circle at top left, rgba(13, 92, 99, 0.12), transparent 28%),
+        linear-gradient(180deg, #f8f4ec 0%, var(--bg) 100%);
+      color: var(--ink);
+    }
+
+    main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+
+    .header {
+      margin-bottom: 20px;
+      padding: 24px;
+      background: rgba(255, 250, 242, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 18px 50px rgba(31, 42, 55, 0.08);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(2rem, 3vw, 3rem);
+      line-height: 1.05;
+      color: var(--accent);
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+
+    .diagram-wrap {
+      overflow: auto;
+      padding: 20px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: 0 18px 50px rgba(31, 42, 55, 0.08);
+    }
+
+    .mermaid {
+      min-width: 1200px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="header">
+      <h1>BrisConnect Entity Relationship Diagram</h1>
+      <p>Standalone browser view of the Firestore data model used by BrisConnect.</p>
+    </section>
+
+    <section class="diagram-wrap">
+      <pre class="mermaid">
+erDiagram
+    ADMINS {
+        string email PK
+        string username
+        string name
+        string role
+        bool active
+        string profileImageUrl
+        datetime lastLoginAt
+        datetime updatedAt
+    }
+
+    LOCAL_USERS {
+        string email PK
+        string username
+        string name
+        string phone
+        string suburb
+        string role
+        string accountType
+        string approvalStatus
+        string passwordHash
+        string interestedEventIds
+        string interestCategories
+        bool notificationsEnabled
+        bool useCurrentLocation
+        int locationRadiusKm
+        datetime createdAt
+        datetime passwordUpdatedAt
+    }
+
+    VISITOR_USERS {
+        string email PK
+        string username
+        string name
+        string phone
+        string role
+        string passwordHash
+        string interestedEventIds
+        string savedAttractionIds
+        string interestCategories
+        string interestPriorities
+        bool notificationsEnabled
+        bool emailNotificationsEnabled
+        bool useCurrentLocation
+        int locationRadiusKm
+        datetime createdAt
+        datetime passwordUpdatedAt
+    }
+
+    EVENTS {
+        string id PK
+        string title
+        string date
+        string time
+        string dateTime
+        string category
+        string location
+        string venue
+        string suburb
+        string description
+        string createdByLocalEmail FK
+        string reviewStatus
+        string approvalStatus
+        string status
+        bool isApproved
+        int reportCount
+        bool flaggedForAdminReview
+        string source
+        string sourceProvider
+        string sourceUrl
+        float latitude
+        float longitude
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    EVENT_REPORTS {
+        string id PK
+        string eventId FK
+        string visitorEmail FK
+        string reason
+        string comments
+        string status
+        datetime createdAt
+        datetime reviewedAt
+    }
+
+    APP_FEEDBACK {
+        string id PK
+        string referenceId
+        string reporterRole
+        string reporterEmail
+        string reporterName
+        string subject
+        string category
+        string severity
+        string status
+        bool consideredForFix
+        int maintenanceWindowDays
+        datetime resolutionDueAt
+        datetime adminReplyAt
+        bool replyReadByReporter
+        string imageUrl
+        string imageStoragePath
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    USER_NOTIFICATIONS {
+        string id PK
+        string eventId FK
+        string userEmail
+        string userType
+        string eventTitle
+        string eventDateTime
+        string eventLocation
+        string scheduleType
+        bool isRead
+        datetime createdAt
+    }
+
+    ATTRACTIONS {
+        string id PK
+        string name
+        string title
+        string description
+        string location
+        float latitude
+        float longitude
+        string category
+        string accessibilityDetails
+        string webLink
+        string imageUrl
+        string imageStoragePath
+        string audioUrl
+        string audioStoragePath
+        string approvalStatus
+        bool isApproved
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    ATTRACTION_DETAILS {
+        string id PK
+        string history
+        string address
+        string openingHours
+        string specialSchedule
+        string entryRequirements
+        string ticketPrice
+        string bookingLabel
+        string bookingUrl
+        float rating
+        int reviewCount
+        string facilities
+        string amenities
+        string accessibility
+        string visitDuration
+        string bestTimeToVisit
+        string liveUpdate
+        string nearbyAttractions
+        string nearbyServices
+        string languages
+        string audioFeatures
+    }
+
+    DISCOVER_ITEMS {
+        string id PK
+        string title
+        string section
+        string category
+        string location
+        string venue
+        string suburb
+        string date
+        string time
+        string dateTime
+        string description
+        string approvalStatus
+        string source
+        string sourceProvider
+        string sourcePlaceId
+        string sourceUrl
+        string createdByLocalEmail
+        string imageUrl
+        string audioUrl
+        string videoUrl
+        datetime updatedAt
+    }
+
+    BRISBANE_STORIES {
+        string id PK
+        string title
+        string description
+        string imageUrl
+        string category
+        string content
+        float latitude
+        float longitude
+        string locationName
+        string approvalStatus
+        datetime publishedAt
+        datetime createdAt
+    }
+
+    BRISBANE_VOICES {
+        string id PK
+        string name
+        string quote
+        string profileImageUrl
+        string approvalStatus
+        datetime createdAt
+    }
+
+    MAIL {
+        string id PK
+        string to
+        string message
+        string meta
+        datetime createdAt
+    }
+
+    SMS_QUEUE {
+        string id PK
+        string to
+        string message
+        string meta
+        datetime createdAt
+    }
+
+    COUNTERS {
+        string id PK
+        int count
+    }
+
+    CONFIG {
+        string id PK
+        string payload
+    }
+
+    SEED_METADATA {
+        string id PK
+        int version
+        string sourceProvider
+        int discoverItemCount
+        int attractionCount
+        int eventCount
+        int writeCount
+        datetime seededAt
+        datetime lastSyncedAt
+    }
+
+    LOCAL_USERS ||--o{ EVENTS : submits
+    VISITOR_USERS ||--o{ EVENT_REPORTS : files
+    EVENTS ||--o{ EVENT_REPORTS : receives
+    EVENTS ||--o{ USER_NOTIFICATIONS : triggers
+    LOCAL_USERS ||--o{ USER_NOTIFICATIONS : receives
+    VISITOR_USERS ||--o{ USER_NOTIFICATIONS : receives
+    ATTRACTIONS ||--o| ATTRACTION_DETAILS : has_detail_profile
+    ATTRACTIONS ||--o| DISCOVER_ITEMS : mirrored_as
+    EVENTS ||--o| DISCOVER_ITEMS : published_as
+    COUNTERS ||--o{ APP_FEEDBACK : issues_reference_ids
+    LOCAL_USERS }o--o{ EVENTS : interested_in
+    VISITOR_USERS }o--o{ EVENTS : interested_in
+    VISITOR_USERS }o--o{ ATTRACTIONS : saves
+      </pre>
+    </section>
+  </main>
+
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'neutral',
+      er: {
+        diagramPadding: 16,
+        layoutDirection: 'LR',
+      },
+    });
+  </script>
+</body>
+</html>

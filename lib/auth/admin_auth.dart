@@ -1,69 +1,34 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
+import 'package:flutter/foundation.dart';
 
 class AdminAuth {
   static bool _isAdminLoggedIn = false;
   static String? _lastErrorMessage;
+  static String? _profileImageUrl;
+  static String? _profileImageStoragePath;
+  static final ValueNotifier<int> profileVersion = ValueNotifier<int>(0);
 
   static bool get isAdminLoggedIn => _isAdminLoggedIn;
   static String? get lastErrorMessage => _lastErrorMessage;
   static String? get currentAdminEmail =>
       fb_auth.FirebaseAuth.instance.currentUser?.email;
+  static String? get profileImageUrl => _profileImageUrl;
+  static String? get profileImageStoragePath => _profileImageStoragePath;
 
   static String _deriveUsername(String email) {
     return email.trim().toLowerCase().split('@').first;
   }
 
-  static Future<String?> _resolveLoginEmail(String identifier) async {
-    final normalized = identifier.trim().toLowerCase();
-    if (normalized.isEmpty) {
-      return null;
-    }
-
-    if (normalized.contains('@')) {
-      return normalized;
-    }
-
-    try {
-      final snapshot =
-          await FirebaseFirestore.instance.collection('admins').get();
-
-      String? matchedEmail;
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final email =
-            ((data['email'] as String?) ?? doc.id).trim().toLowerCase();
-        final username = ((data['username'] as String?) ?? _deriveUsername(email))
-            .trim()
-            .toLowerCase();
-
-        if (username != normalized) {
-          continue;
-        }
-
-        if (matchedEmail != null && matchedEmail != email) {
-          _lastErrorMessage =
-              'This username matches multiple admin accounts. Please log in with email.';
-          return null;
-        }
-        matchedEmail = email;
-      }
-
-      return matchedEmail;
-    } catch (_) {
-      return normalized;
-    }
-  }
-
   static Future<bool> login({
-    required String usernameOrEmail,
+    required String email,
     required String password,
   }) async {
     _lastErrorMessage = null;
-    final normalized = await _resolveLoginEmail(usernameOrEmail);
-    if (normalized == null || normalized.isEmpty) {
+    final normalized = email.trim().toLowerCase();
+    if (normalized.isEmpty || !normalized.contains('@')) {
       _isAdminLoggedIn = false;
-      _lastErrorMessage ??= 'Invalid admin email or username.';
+      _lastErrorMessage = 'Please enter a valid admin email address.';
       return false;
     }
 
@@ -112,7 +77,10 @@ class AdminAuth {
         // Non-critical: login can continue if role metadata update fails.
       }
 
+      _profileImageUrl = (data['profileImageUrl'] as String?)?.trim();
+      _profileImageStoragePath = (data['profileImageStoragePath'] as String?)?.trim();
       _isAdminLoggedIn = true;
+      profileVersion.value++;
       return true;
     } on fb_auth.FirebaseAuthException catch (error) {
       _isAdminLoggedIn = false;
@@ -130,7 +98,8 @@ class AdminAuth {
               'Email/password sign-in is not enabled in Firebase Authentication.';
           break;
         case 'network-request-failed':
-          _lastErrorMessage = 'Network error. Check your connection and try again.';
+          _lastErrorMessage =
+              'Network error. Check your connection and try again.';
           break;
         default:
           _lastErrorMessage = 'Admin login failed (${error.code}).';
@@ -155,6 +124,36 @@ class AdminAuth {
   static Future<void> logout() async {
     await fb_auth.FirebaseAuth.instance.signOut();
     _isAdminLoggedIn = false;
+    _profileImageUrl = null;
+    _profileImageStoragePath = null;
+    profileVersion.value++;
+  }
+
+  static Future<bool> updateProfile({required String name}) async {
+    final currentEmail =
+        fb_auth.FirebaseAuth.instance.currentUser?.email?.trim().toLowerCase();
+    final trimmedName = name.trim();
+    if (!_isAdminLoggedIn || currentEmail == null || currentEmail.isEmpty) {
+      return false;
+    }
+    if (trimmedName.isEmpty) {
+      return false;
+    }
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('admins')
+          .doc(currentEmail)
+          .set({
+        'name': trimmedName,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      return true;
+    } on FirebaseException {
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Restores an admin session from Firestore after an app restart.
@@ -171,8 +170,42 @@ class AdminAuth {
       final isActive = (data['active'] as bool?) ?? true;
       final role = (data['role'] as String?)?.toLowerCase() ?? 'admin';
       if (!isActive || role != 'admin') return false;
+      _profileImageUrl = (data['profileImageUrl'] as String?)?.trim();
+      _profileImageStoragePath = (data['profileImageStoragePath'] as String?)?.trim();
       _isAdminLoggedIn = true;
+      profileVersion.value++;
       return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> updateProfileImage({
+    String? imageUrl,
+    String? storagePath,
+  }) async {
+    final currentEmail =
+        fb_auth.FirebaseAuth.instance.currentUser?.email?.trim().toLowerCase();
+    if (!_isAdminLoggedIn || currentEmail == null || currentEmail.isEmpty) {
+      return false;
+    }
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('admins')
+          .doc(currentEmail)
+          .set({
+        'profileImageUrl': imageUrl,
+        'profileImageStoragePath': storagePath,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      _profileImageUrl = imageUrl;
+      _profileImageStoragePath = storagePath;
+      profileVersion.value++;
+      return true;
+    } on FirebaseException catch (e) {
+      debugPrint('[AdminAuth] updateProfileImage failed: ${e.code}');
+      return false;
     } catch (_) {
       return false;
     }

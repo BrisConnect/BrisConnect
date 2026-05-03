@@ -170,11 +170,14 @@ class ReportEventService {
     return _firestore
         .collection('event_reports')
         .where('status', isEqualTo: 'pending')
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => EventReport.fromFirestore(doc.id, doc.data()))
-            .toList());
+        .map((snapshot) {
+          final items = snapshot.docs
+              .map((doc) => EventReport.fromFirestore(doc.id, doc.data()))
+              .toList();
+          items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return items;
+        });
   }
 
   /// Stream of all reports by status (for admin dashboard)
@@ -182,11 +185,14 @@ class ReportEventService {
     return _firestore
         .collection('event_reports')
         .where('status', isEqualTo: status)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => EventReport.fromFirestore(doc.id, doc.data()))
-            .toList());
+        .map((snapshot) {
+          final items = snapshot.docs
+              .map((doc) => EventReport.fromFirestore(doc.id, doc.data()))
+              .toList();
+          items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return items;
+        });
   }
 
   /// Update report status (admin only)

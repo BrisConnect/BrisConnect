@@ -6,8 +6,10 @@ class AdminUserRecord {
   final String id;
   final String email;
   final String name;
+  final String? phone;
   final String role; // 'visitor', 'local', 'admin'
   final bool active;
+  final String? approvalStatus;
   final DateTime? createdAt;
   final DateTime? lastLoginAt;
 
@@ -15,8 +17,10 @@ class AdminUserRecord {
     required this.id,
     required this.email,
     required this.name,
+    this.phone,
     required this.role,
     required this.active,
+    this.approvalStatus,
     this.createdAt,
     this.lastLoginAt,
   });
@@ -29,8 +33,13 @@ class AdminUserRecord {
       id: docId,
       email: docId,
       name: ((data['name'] as String?) ?? 'Unnamed User').trim(),
+        phone: ((data['phone'] as String?) ??
+            (data['phoneNumber'] as String?) ??
+            (data['mobile'] as String?))
+          ?.trim(),
       role: 'visitor',
       active: (data['active'] as bool?) ?? true,
+      approvalStatus: null,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       lastLoginAt: (data['lastLoginAt'] as Timestamp?)?.toDate(),
     );
@@ -47,8 +56,14 @@ class AdminUserRecord {
               (data['name'] as String?) ??
               'Unnamed User')
           .trim(),
+        phone: ((data['phone'] as String?) ??
+            (data['phoneNumber'] as String?) ??
+            (data['mobile'] as String?))
+          ?.trim(),
       role: 'local',
       active: (data['active'] as bool?) ?? true,
+      approvalStatus: (data['approvalStatus'] as String?)?.toLowerCase() ??
+          'pending',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       lastLoginAt: (data['lastLoginAt'] as Timestamp?)?.toDate(),
     );
@@ -62,8 +77,10 @@ class AdminUserRecord {
       id: docId,
       email: docId,
       name: ((data['username'] as String?) ?? 'Admin User').trim(),
+      phone: null,
       role: 'admin',
       active: (data['active'] as bool?) ?? true,
+      approvalStatus: null,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       lastLoginAt: (data['lastLoginAt'] as Timestamp?)?.toDate(),
     );
@@ -231,6 +248,44 @@ class AdminUserManagementService {
     });
 
     debugPrint('[AdminUserManagementService] Reactivated user: $email ($role)');
+  }
+
+  /// Approve a pending local account.
+  Future<void> approveLocalUser(String email) async {
+    final docRef = _firestore.collection('local_users').doc(email);
+
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(docRef);
+      if (!snapshot.exists) {
+        throw StateError('Local account no longer exists.');
+      }
+
+      transaction.update(docRef, {
+        'approvalStatus': 'approved',
+        'approvedAt': FieldValue.serverTimestamp(),
+      });
+    });
+
+    debugPrint('[AdminUserManagementService] Approved local user: $email');
+  }
+
+  /// Reject a pending local account.
+  Future<void> rejectLocalUser(String email) async {
+    final docRef = _firestore.collection('local_users').doc(email);
+
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(docRef);
+      if (!snapshot.exists) {
+        throw StateError('Local account no longer exists.');
+      }
+
+      transaction.update(docRef, {
+        'approvalStatus': 'rejected',
+        'rejectedAt': FieldValue.serverTimestamp(),
+      });
+    });
+
+    debugPrint('[AdminUserManagementService] Rejected local user: $email');
   }
 
   /// Map role to Firestore collection name.

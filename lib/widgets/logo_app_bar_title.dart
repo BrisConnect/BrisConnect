@@ -59,8 +59,8 @@ class LogoAppBarTitle extends StatelessWidget {
             padding: const EdgeInsets.all(2),
             child: Image.asset(
               'assets/logo.png',
-              width: 30,
-              height: 30,
+              width: 38,
+              height: 38,
               fit: BoxFit.contain,
             ),
           ),
