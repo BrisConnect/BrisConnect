@@ -53,6 +53,9 @@ auth-users.json
 email_worker_brevo/uids.json
 service-account-key.json
 setup_twilio_secrets.sh
+functions/*-firebase-adminsdk*.json
+functions/.env.*
+functions/.env
 
 # Package/dependency caches
 npm-cache/

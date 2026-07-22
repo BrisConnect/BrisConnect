@@ -77,5 +77,22 @@ void main() {
       stopwatch.stop();
       expect(stopwatch.elapsedMilliseconds, lessThan(2000));
     });
+
+    test('shareToPlatform falls back to copied on timeout', () async {
+      final slowClipboardHistory = <String>[];
+      final slowService = BusinessShareService(
+        clipboardWriter: (text) async {
+          await Future.delayed(const Duration(milliseconds: 2100));
+          slowClipboardHistory.add(text);
+        },
+      );
+      final result = await slowService.shareToPlatform(
+        platform: 'copy',
+        businessId: 'biz_123',
+        businessName: 'Test Cafe',
+      );
+      expect(result, ShareResult.timedOut);
+      expect(slowClipboardHistory, isNotEmpty);
+    });
   });
 }
