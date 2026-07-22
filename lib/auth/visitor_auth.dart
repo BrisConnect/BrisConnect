@@ -614,7 +614,11 @@ class VisitorAuth {
         if (!doc.exists) return;
         final businessId = (doc.data()?['businessId'] as String?)?.trim();
         if (businessId != null && businessId.isNotEmpty) {
-          await BusinessDashboardService().recordSave(businessId);
+          final visitorId = fb_auth.FirebaseAuth.instance.currentUser?.uid;
+          await BusinessDashboardService().recordSave(
+            businessId,
+            visitorId: visitorId,
+          );
         }
       }).catchError((e) {
         debugPrint('[VisitorAuth] Failed to record save metric: $e');

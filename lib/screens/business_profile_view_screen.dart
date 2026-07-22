@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:brisconnect/models/business.dart';
 import 'package:brisconnect/services/business_dashboard_service.dart';
@@ -45,7 +46,11 @@ class _BusinessProfileViewScreenState extends State<BusinessProfileViewScreen> {
     _viewTracked = true;
     try {
       await _businessProfileService.incrementViewCount(widget.businessId);
-      await _dashboardService.recordProfileView(widget.businessId);
+      final visitorId = FirebaseAuth.instance.currentUser?.uid;
+      await _dashboardService.recordProfileView(
+        widget.businessId,
+        visitorId: visitorId,
+      );
     } catch (_) {
       // Silently fail so view tracking never blocks the user.
     }

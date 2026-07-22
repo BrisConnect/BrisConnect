@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+import 'package:brisconnect/models/audience_interaction.dart';
 import 'package:brisconnect/models/business.dart';
+import 'package:brisconnect/services/audience_analytics_service.dart';
 
 /// Aggregated metrics for a business owner's dashboard.
 class BusinessDashboardMetrics {
@@ -38,9 +40,13 @@ class BusinessDashboardMetrics {
 /// dashboard load under 2–3 seconds.
 class BusinessDashboardService {
   final FirebaseFirestore _firestore;
+  final AudienceAnalyticsService? _audienceAnalyticsService;
 
-  BusinessDashboardService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  BusinessDashboardService({
+    FirebaseFirestore? firestore,
+    AudienceAnalyticsService? audienceAnalyticsService,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _audienceAnalyticsService = audienceAnalyticsService;
 
   FirebaseFirestore get firestore => _firestore;
 
@@ -255,7 +261,13 @@ class BusinessDashboardService {
   }
 
   /// Records a profile view for [businessId] and updates daily view history.
-  Future<void> recordProfileView(String businessId) async {
+  ///
+  /// If [visitorId] is provided, an anonymised audience interaction is also
+  /// recorded for new vs returning analytics.
+  Future<void> recordProfileView(
+    String businessId, {
+    String? visitorId,
+  }) async {
     final today = _formatDate(DateTime.now());
     try {
       await _firestore.collection(_businessesCollection).doc(businessId).update({
@@ -263,13 +275,27 @@ class BusinessDashboardService {
         'viewHistory.$today': FieldValue.increment(1),
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      if (visitorId != null && visitorId.trim().isNotEmpty) {
+        await _audienceAnalyticsService?.recordInteraction(
+          businessId: businessId,
+          visitorId: visitorId,
+          type: AudienceInteractionType.view,
+        );
+      }
     } catch (e) {
       debugPrint('[BusinessDashboardService] recordProfileView failed: $e');
     }
   }
 
   /// Records a save/favourite for [businessId] and updates daily save history.
-  Future<void> recordSave(String businessId) async {
+  ///
+  /// If [visitorId] is provided, an anonymised audience interaction is also
+  /// recorded for new vs returning analytics.
+  Future<void> recordSave(
+    String businessId, {
+    String? visitorId,
+  }) async {
     final today = _formatDate(DateTime.now());
     try {
       await _firestore.collection(_businessesCollection).doc(businessId).update({
@@ -277,6 +303,14 @@ class BusinessDashboardService {
         'saveHistory.$today': FieldValue.increment(1),
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      if (visitorId != null && visitorId.trim().isNotEmpty) {
+        await _audienceAnalyticsService?.recordInteraction(
+          businessId: businessId,
+          visitorId: visitorId,
+          type: AudienceInteractionType.save,
+        );
+      }
     } catch (e) {
       debugPrint('[BusinessDashboardService] recordSave failed: $e');
     }

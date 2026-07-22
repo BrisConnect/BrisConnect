@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:brisconnect/services/audience_analytics_service.dart';
 import 'package:brisconnect/services/business_dashboard_service.dart';
 
 void main() {
@@ -8,11 +9,16 @@ void main() {
 
   group('BusinessDashboardService', () {
     late FakeFirebaseFirestore fakeFirestore;
+    late AudienceAnalyticsService audienceService;
     late BusinessDashboardService service;
 
     setUp(() {
       fakeFirestore = FakeFirebaseFirestore();
-      service = BusinessDashboardService(firestore: fakeFirestore);
+      audienceService = AudienceAnalyticsService(firestore: fakeFirestore);
+      service = BusinessDashboardService(
+        firestore: fakeFirestore,
+        audienceAnalyticsService: audienceService,
+      );
     });
 
     Future<DocumentReference> addBusiness({
@@ -151,6 +157,35 @@ void main() {
       );
     });
 
+    test('recordProfileView records anonymised audience interaction when visitorId provided',
+        () async {
+      await addBusiness(id: 'b1', ownerId: 'owner@test.com');
+
+      await service.recordProfileView('b1', visitorId: 'visitor_1');
+
+      final interactions = await fakeFirestore
+          .collection('audience_interactions')
+          .get();
+      expect(interactions.docs.length, 1);
+      final data = interactions.docs.first.data();
+      expect(data['businessId'], 'b1');
+      expect(data['type'], 'view');
+      expect(data['visitorHash'],
+          AudienceAnalyticsService.anonymiseVisitorId('visitor_1'));
+    });
+
+    test('recordProfileView skips audience interaction when visitorId omitted',
+        () async {
+      await addBusiness(id: 'b1', ownerId: 'owner@test.com');
+
+      await service.recordProfileView('b1');
+
+      final interactions = await fakeFirestore
+          .collection('audience_interactions')
+          .get();
+      expect(interactions.docs.length, 0);
+    });
+
     test('recordSave increments savedCount and saveHistory', () async {
       await addBusiness(id: 'b1', ownerId: 'owner@test.com');
 
@@ -163,6 +198,21 @@ void main() {
         (data['saveHistory'] as Map<String, dynamic>)[_formatDate(DateTime.now())],
         1,
       );
+    });
+
+    test('recordSave records anonymised audience interaction when visitorId provided',
+        () async {
+      await addBusiness(id: 'b1', ownerId: 'owner@test.com');
+
+      await service.recordSave('b1', visitorId: 'visitor_1');
+
+      final interactions = await fakeFirestore
+          .collection('audience_interactions')
+          .get();
+      expect(interactions.docs.length, 1);
+      final data = interactions.docs.first.data();
+      expect(data['businessId'], 'b1');
+      expect(data['type'], 'save');
     });
 
     test('active promotions and upcoming events are counted', () async {

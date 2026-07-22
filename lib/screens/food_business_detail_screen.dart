@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:brisconnect/models/food_business.dart';
 import 'package:brisconnect/services/business_dashboard_service.dart';
@@ -30,7 +31,11 @@ class _FoodBusinessDetailScreenState extends State<FoodBusinessDetailScreen> {
 
   Future<void> _trackView() async {
     try {
-      await _dashboardService.recordProfileView(widget.businessId);
+      final visitorId = FirebaseAuth.instance.currentUser?.uid;
+      await _dashboardService.recordProfileView(
+        widget.businessId,
+        visitorId: visitorId,
+      );
     } catch (_) {
       // Silently fail so analytics never block the user.
     }

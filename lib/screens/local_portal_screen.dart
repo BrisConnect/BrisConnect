@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:brisconnect/auth/app_user_role.dart';
 import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/models/event_item.dart';
+import 'package:brisconnect/screens/business_audience_screen.dart';
 import 'package:brisconnect/screens/business_search_screen.dart';
 import 'package:brisconnect/screens/business_map_screen.dart';
 import 'package:brisconnect/services/business_profile_service.dart';
@@ -924,7 +925,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                             ),
                             const Spacer(),
                             GestureDetector(
-                              onTap: () => setState(() => _selectedIndex = 3),
+                              onTap: () => setState(() => _selectedIndex = 4),
                               child: Container(
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
@@ -1695,7 +1696,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                 onPressed: () => setState(() => _selectedIndex = 0),
               ),
               title: LogoAppBarTitle(
-                _selectedIndex == 1 ? 'Map' : 'Profile',
+                _appBarTitleForIndex(_selectedIndex),
               ),
               backgroundColor: AppPalette.ochre,
               foregroundColor: Colors.white,
@@ -1719,6 +1720,9 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
           index: _selectedIndex,
           children: [
             BusinessDashboardScreen(
+              ownerId: LocalAuth.currentLocal?.email ?? '',
+            ),
+            BusinessAudienceScreen(
               ownerId: LocalAuth.currentLocal?.email ?? '',
             ),
             VendorFeedScreen(),
@@ -1782,28 +1786,50 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                 onTap: () => setState(() => _selectedIndex = 0),
               ),
               _LocalNavItem(
-                icon: Icons.dynamic_feed_rounded,
-                label: 'Feed',
+                icon: Icons.people_alt_rounded,
+                label: 'Audience',
                 isSelected: _selectedIndex == 1,
                 onTap: () => setState(() => _selectedIndex = 1),
               ),
               _LocalNavItem(
-                icon: Icons.reviews_rounded,
-                label: 'Reviews',
+                icon: Icons.dynamic_feed_rounded,
+                label: 'Feed',
                 isSelected: _selectedIndex == 2,
                 onTap: () => setState(() => _selectedIndex = 2),
               ),
               _LocalNavItem(
-                icon: Icons.business_center_rounded,
-                label: 'Business',
+                icon: Icons.reviews_rounded,
+                label: 'Reviews',
                 isSelected: _selectedIndex == 3,
                 onTap: () => setState(() => _selectedIndex = 3),
+              ),
+              _LocalNavItem(
+                icon: Icons.business_center_rounded,
+                label: 'Business',
+                isSelected: _selectedIndex == 4,
+                onTap: () => setState(() => _selectedIndex = 4),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  String _appBarTitleForIndex(int index) {
+    switch (index) {
+      case 1:
+        return 'Audience';
+      case 2:
+        return 'Feed';
+      case 3:
+        return 'Reviews';
+      case 4:
+        return 'Profile';
+      case 0:
+      default:
+        return 'Dashboard';
+    }
   }
 }
 
