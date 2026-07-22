@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/models/business.dart';
+import 'package:brisconnect/services/business_dashboard_service.dart';
 import 'package:brisconnect/services/business_profile_service.dart';
 import 'package:brisconnect/services/share/business_share_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
@@ -29,6 +30,8 @@ class _BusinessProfileViewScreenState extends State<BusinessProfileViewScreen> {
       widget.businessProfileService ?? BusinessProfileService();
   late final BusinessShareService _shareService =
       widget.shareService ?? BusinessShareService();
+  late final BusinessDashboardService _dashboardService =
+      BusinessDashboardService();
   bool _viewTracked = false;
 
   @override
@@ -42,6 +45,7 @@ class _BusinessProfileViewScreenState extends State<BusinessProfileViewScreen> {
     _viewTracked = true;
     try {
       await _businessProfileService.incrementViewCount(widget.businessId);
+      await _dashboardService.recordProfileView(widget.businessId);
     } catch (_) {
       // Silently fail so view tracking never blocks the user.
     }

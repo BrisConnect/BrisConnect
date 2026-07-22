@@ -1718,7 +1718,9 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
         child: IndexedStack(
           index: _selectedIndex,
           children: [
-            BusinessDashboardScreen(),
+            BusinessDashboardScreen(
+              ownerId: LocalAuth.currentLocal?.email ?? '',
+            ),
             VendorFeedScreen(),
             VendorReviewsScreen(),
             BusinessProfileScreen(),

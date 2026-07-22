@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/models/food_business.dart';
+import 'package:brisconnect/services/business_dashboard_service.dart';
 import 'package:brisconnect/services/food_business_service.dart';
 import 'package:brisconnect/widgets/crowd_report_widget.dart';
 import 'package:brisconnect/widgets/business_reviews_widget.dart';
@@ -19,6 +20,21 @@ class FoodBusinessDetailScreen extends StatefulWidget {
 
 class _FoodBusinessDetailScreenState extends State<FoodBusinessDetailScreen> {
   final _businessService = FoodBusinessService();
+  final _dashboardService = BusinessDashboardService();
+
+  @override
+  void initState() {
+    super.initState();
+    _trackView();
+  }
+
+  Future<void> _trackView() async {
+    try {
+      await _dashboardService.recordProfileView(widget.businessId);
+    } catch (_) {
+      // Silently fail so analytics never block the user.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

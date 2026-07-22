@@ -2,17 +2,22 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/screens/ai_post_sheet.dart';
+import 'package:brisconnect/services/business_dashboard_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 
 /// Screen 1 of the Local portal — Business Dashboard.
 /// Shows analytics, AI post creation, promotions and notifications.
 class BusinessDashboardScreen extends StatelessWidget {
-  const BusinessDashboardScreen({super.key});
+  /// Identifier for the business owner (defaults to the signed-in local email).
+  final String ownerId;
+
+  const BusinessDashboardScreen({super.key, this.ownerId = ''});
 
   @override
   Widget build(BuildContext context) {
     final user = LocalAuth.currentLocal;
     final name = user?.name ?? 'Business Owner';
+    final effectiveOwnerId = ownerId.trim().isEmpty ? user?.email ?? '' : ownerId;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D1117),
@@ -20,10 +25,16 @@ class BusinessDashboardScreen extends StatelessWidget {
         child: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(child: _buildHeader(name)),
-            SliverToBoxAdapter(child: _buildAnalyticsRow(context, user?.email)),
+            SliverToBoxAdapter(
+              child: _buildAnalyticsGrid(context, effectiveOwnerId),
+            ),
             SliverToBoxAdapter(child: _buildAIPostSection(context)),
-            SliverToBoxAdapter(child: _buildPromotionsSection(context)),
-            SliverToBoxAdapter(child: _buildNotificationsSection(context, user?.email)),
+            SliverToBoxAdapter(
+              child: _buildPromotionsSection(context, effectiveOwnerId),
+            ),
+            SliverToBoxAdapter(
+              child: _buildNotificationsSection(context, user?.email),
+            ),
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ),
@@ -87,7 +98,16 @@ class BusinessDashboardScreen extends StatelessWidget {
   }
 
   // ── Analytics ───────────────────────────────────────────────────────
-  Widget _buildAnalyticsRow(BuildContext context, String? email) {
+  Widget _buildAnalyticsGrid(BuildContext context, String ownerId) {
+    if (ownerId.trim().isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+        child: _DashboardErrorCard(
+          message: 'Sign in to view your business summary.',
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Column(
@@ -95,38 +115,76 @@ class BusinessDashboardScreen extends StatelessWidget {
         children: [
           _sectionLabel('Analytics'),
           const SizedBox(height: 10),
-          StreamBuilder<QuerySnapshot>(
-            stream: email == null
-                ? const Stream.empty()
-                : FirebaseFirestore.instance
-                    .collection('events')
-                    .where('createdByLocalEmail', isEqualTo: email)
-                    .snapshots(),
+          StreamBuilder<BusinessDashboardMetrics>(
+            stream: BusinessDashboardService().metricsStream(ownerId),
             builder: (context, snap) {
-              final count = snap.data?.docs.length ?? 0;
-              return Row(
-                children: [
-                  _AnalyticCard(
-                    icon: Icons.event_rounded,
-                    label: 'Events Posted',
-                    value: '$count',
-                    color: AppPalette.ochre,
+              if (snap.connectionState == ConnectionState.waiting &&
+                  !snap.hasData) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: CircularProgressIndicator(color: AppPalette.ochre),
                   ),
-                  const SizedBox(width: 10),
-                  _AnalyticCard(
-                    icon: Icons.visibility_rounded,
-                    label: 'Profile Views',
-                    value: '—',
-                    color: const Color(0xFF4F8FFF),
-                  ),
-                  const SizedBox(width: 10),
-                  _AnalyticCard(
-                    icon: Icons.star_rounded,
-                    label: 'Reviews',
-                    value: '—',
-                    color: const Color(0xFF9B59B6),
-                  ),
-                ],
+                );
+              }
+
+              if (snap.hasError) {
+                return _DashboardErrorCard(
+                  message: 'Unable to load analytics: ${snap.error}',
+                );
+              }
+
+              final metrics = snap.data ?? const BusinessDashboardMetrics();
+
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
+                  return GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: crossAxisCount,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 1.05,
+                    children: [
+                      _AnalyticCard(
+                        icon: Icons.visibility_rounded,
+                        label: 'Profile Views',
+                        value: '${metrics.profileViews}',
+                        change: metrics.profileViewsChange,
+                        color: const Color(0xFF4F8FFF),
+                      ),
+                      _AnalyticCard(
+                        icon: Icons.bookmark_rounded,
+                        label: 'Saves',
+                        value: '${metrics.saves}',
+                        change: metrics.savesChange,
+                        color: const Color(0xFF2ECC71),
+                      ),
+                      _AnalyticCard(
+                        icon: Icons.star_rounded,
+                        label: 'New Reviews',
+                        value: '${metrics.newReviews}',
+                        change: metrics.newReviewsChange,
+                        color: const Color(0xFF9B59B6),
+                      ),
+                      _AnalyticCard(
+                        icon: Icons.local_offer_rounded,
+                        label: 'Active Promotions',
+                        value: '${metrics.activePromotions}',
+                        change: metrics.activePromotionsChange,
+                        color: AppPalette.ochre,
+                      ),
+                      _AnalyticCard(
+                        icon: Icons.event_rounded,
+                        label: 'Upcoming Events',
+                        value: '${metrics.upcomingEvents}',
+                        change: metrics.upcomingEventsChange,
+                        color: const Color(0xFFE74C3C),
+                      ),
+                    ],
+                  );
+                },
               );
             },
           ),
@@ -217,68 +275,113 @@ class BusinessDashboardScreen extends StatelessWidget {
   }
 
   // ── Promotions ──────────────────────────────────────────────────────
-  Widget _buildPromotionsSection(BuildContext context) {
+  Widget _buildPromotionsSection(BuildContext context, String ownerId) {
+    if (ownerId.trim().isEmpty) return const SizedBox.shrink();
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _sectionLabel('Promotions'),
-              TextButton(
-                onPressed: () {},
-                child: const Text('+ New',
-                    style: TextStyle(
-                        color: AppPalette.ochre,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1C1C2E),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.05)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
+          _sectionLabel('Promotions'),
+          const SizedBox(height: 10),
+          StreamBuilder<BusinessDashboardMetrics>(
+            stream: BusinessDashboardService().metricsStream(ownerId),
+            builder: (context, snap) {
+              final metrics = snap.data;
+              final hasPromotions = (metrics?.activePromotions ?? 0) > 0;
+
+              if (!hasPromotions) {
+                return Container(
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2A2A3E),
-                    borderRadius: BorderRadius.circular(10),
+                    color: const Color(0xFF1C1C2E),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.05)),
                   ),
-                  child: const Icon(Icons.local_offer_rounded,
-                      color: Color(0xFF4F8FFF), size: 22),
-                ),
-                const SizedBox(width: 14),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      Text('No active promotions',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14)),
-                      SizedBox(height: 2),
-                      Text(
-                          'Create a promotion to attract more customers',
-                          style: TextStyle(
-                              color: Color(0xFF8B8FA8), fontSize: 12)),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A2A3E),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.local_offer_rounded,
+                            color: Color(0xFF4F8FFF), size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('No active promotions',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14)),
+                            SizedBox(height: 2),
+                            Text(
+                                'Create a promotion to attract more customers',
+                                style: TextStyle(
+                                    color: Color(0xFF8B8FA8), fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios_rounded,
+                          color: Color(0xFF8B8FA8), size: 14),
                     ],
                   ),
+                );
+              }
+
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1C1C2E),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                      color: AppPalette.ochre.withValues(alpha: 0.2)),
                 ),
-                const Icon(Icons.arrow_forward_ios_rounded,
-                    color: Color(0xFF8B8FA8), size: 14),
-              ],
-            ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppPalette.ochre.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.local_offer_rounded,
+                          color: AppPalette.ochre, size: 22),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${metrics!.activePromotions} active promotion${metrics.activePromotions == 1 ? '' : 's'}',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Keep them fresh to maximise reach.',
+                            style: TextStyle(
+                                color: Color(0xFF8B8FA8), fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios_rounded,
+                        color: Color(0xFF8B8FA8), size: 14),
+                  ],
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -356,40 +459,109 @@ class _AnalyticCard extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
+    this.change = 0,
   });
 
   final IconData icon;
   final String label;
   final String value;
   final Color color;
+  final double change;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1C1C2E),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(height: 8),
-            Text(value,
+    final isPositive = change >= 0;
+    final changeText = change.isFinite
+        ? '${isPositive ? '+' : ''}${(change * 100).toStringAsFixed(0)}%'
+        : '0%';
+    final changeColor = isPositive ? const Color(0xFF2ECC71) : const Color(0xFFE74C3C);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C2E),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Icon(icon, color: color, size: 20),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isPositive ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                    color: changeColor,
+                    size: 12,
+                  ),
+                  const SizedBox(width: 2),
+                  Text(
+                    changeText,
+                    style: TextStyle(
+                      color: changeColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
                 style: TextStyle(
-                    color: color,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold)),
-            const SizedBox(height: 2),
-            Text(label,
+                    color: color, fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
                 style: const TextStyle(
                     color: Color(0xFF8B8FA8), fontSize: 11),
-                overflow: TextOverflow.ellipsis),
-          ],
-        ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Error Card ────────────────────────────────────────────────────────
+class _DashboardErrorCard extends StatelessWidget {
+  final String message;
+
+  const _DashboardErrorCard({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C2E),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded,
+              color: Color(0xFFE74C3C), size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(color: Color(0xFF8B8FA8), fontSize: 14),
+            ),
+          ),
+        ],
       ),
     );
   }

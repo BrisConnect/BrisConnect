@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
 import 'package:brisconnect/config/app_config.dart';
+import 'package:brisconnect/services/business_dashboard_service.dart';
 import 'package:brisconnect/services/local_email_notification_service.dart';
 import 'package:brisconnect/services/sms_notification_service.dart';
 import 'package:brisconnect/services/app_display_settings_controller.dart';
@@ -1019,6 +1020,21 @@ class LocalAuth {
       });
 
       _queueLocalEventSavedEmail(current.email, current.name, normalized);
+
+      // Best-effort increment of the event's saved count for owner analytics.
+      FirebaseFirestore.instance
+          .collection('business_events')
+          .doc(normalized)
+          .get()
+          .then((doc) async {
+        if (!doc.exists) return;
+        final businessId = (doc.data()?['businessId'] as String?)?.trim();
+        if (businessId != null && businessId.isNotEmpty) {
+          await BusinessDashboardService().recordSave(businessId);
+        }
+      }).catchError((e) {
+        debugPrint('[LocalAuth] Failed to record save metric: $e');
+      });
     }
 
     return true;
