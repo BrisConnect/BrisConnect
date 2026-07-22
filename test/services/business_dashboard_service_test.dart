@@ -70,11 +70,13 @@ void main() {
       required String id,
       required String businessId,
       required DateTime endDate,
+      String ownerId = 'owner@test.com',
       bool isActive = true,
     }) async {
       final ref = fakeFirestore.collection('promotions').doc(id);
       await ref.set({
         'businessId': businessId,
+        'ownerId': ownerId,
         'title': 'Promo $id',
         'isActive': isActive,
         'endDate': Timestamp.fromDate(endDate),
@@ -169,6 +171,7 @@ void main() {
       expect(interactions.docs.length, 1);
       final data = interactions.docs.first.data();
       expect(data['businessId'], 'b1');
+      expect(data['ownerId'], 'owner@test.com');
       expect(data['type'], 'view');
       expect(data['visitorHash'],
           AudienceAnalyticsService.anonymiseVisitorId('visitor_1'));
@@ -212,6 +215,7 @@ void main() {
       expect(interactions.docs.length, 1);
       final data = interactions.docs.first.data();
       expect(data['businessId'], 'b1');
+      expect(data['ownerId'], 'owner@test.com');
       expect(data['type'], 'save');
     });
 

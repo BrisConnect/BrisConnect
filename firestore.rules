@@ -201,5 +201,58 @@ service cloud.firestore {
         && request.resource.data.timestamp is timestamp;
       allow update, delete: if false;
     }
+
+    // ── Audience interactions (anonymised engagement analytics) ──
+    // Business owners can read interactions for businesses they own.
+    // Any signed-in visitor can record an anonymised view/save interaction.
+    match /audience_interactions/{interactionId} {
+      allow read: if isSignedIn() && resource.data.ownerId == authEmail();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasAll(['businessId', 'ownerId', 'visitorHash', 'type', 'timestamp'])
+        && request.resource.data.businessId is string
+        && request.resource.data.ownerId is string
+        && request.resource.data.visitorHash is string
+        && request.resource.data.type is string
+        && request.resource.data.timestamp is timestamp;
+      allow update, delete: if false;
+    }
+
+    // ── Business events (local business owner events) ──
+    match /business_events/{eventId} {
+      allow read: if isSignedIn() && (
+        resource.data.ownerId == authEmail() || resource.data.status == 'published'
+      );
+      allow create: if isSignedIn() && request.resource.data.ownerId == authEmail();
+      allow update: if isSignedIn() && (
+        resource.data.ownerId == authEmail() || isAdmin()
+      );
+      allow delete: if isSignedIn() && (
+        resource.data.ownerId == authEmail() || isAdmin()
+      );
+    }
+
+    // ── Promotions (local business owner promotions) ──
+    match /promotions/{promotionId} {
+      allow read: if isSignedIn() && resource.data.ownerId == authEmail();
+      allow create: if isSignedIn() && request.resource.data.ownerId == authEmail();
+      allow update: if isSignedIn() && (
+        resource.data.ownerId == authEmail() || isAdmin()
+      );
+      allow delete: if isSignedIn() && (
+        resource.data.ownerId == authEmail() || isAdmin()
+      );
+    }
+
+    // ── AI-generated posts (drafts and published posts) ──
+    match /ai_generated_posts/{postId} {
+      allow read: if isSignedIn() && resource.data.ownerId == authEmail();
+      allow create: if isSignedIn() && request.resource.data.ownerId == authEmail();
+      allow update: if isSignedIn() && (
+        resource.data.ownerId == authEmail() || isAdmin()
+      );
+      allow delete: if isSignedIn() && (
+        resource.data.ownerId == authEmail() || isAdmin()
+      );
+    }
   }
 }

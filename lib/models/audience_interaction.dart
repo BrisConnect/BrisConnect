@@ -11,6 +11,7 @@ enum AudienceInteractionType { view, save }
 class AudienceInteraction {
   final String? id;
   final String businessId;
+  final String ownerId;
   final String visitorHash;
   final AudienceInteractionType type;
   final DateTime timestamp;
@@ -18,6 +19,7 @@ class AudienceInteraction {
   const AudienceInteraction({
     this.id,
     required this.businessId,
+    required this.ownerId,
     required this.visitorHash,
     required this.type,
     required this.timestamp,
@@ -26,6 +28,7 @@ class AudienceInteraction {
   Map<String, dynamic> toFirestore() {
     return {
       'businessId': businessId,
+      'ownerId': ownerId,
       'visitorHash': visitorHash,
       'type': type.name,
       'timestamp': Timestamp.fromDate(timestamp),
@@ -37,6 +40,7 @@ class AudienceInteraction {
     return AudienceInteraction(
       id: doc.id,
       businessId: data['businessId'] ?? '',
+      ownerId: data['ownerId'] ?? '',
       visitorHash: data['visitorHash'] ?? '',
       type: _parseType(data['type'] as String?),
       timestamp: (data['timestamp'] as Timestamp).toDate(),
@@ -56,6 +60,7 @@ class AudienceInteraction {
   AudienceInteraction copyWith({
     String? id,
     String? businessId,
+    String? ownerId,
     String? visitorHash,
     AudienceInteractionType? type,
     DateTime? timestamp,
@@ -63,6 +68,7 @@ class AudienceInteraction {
     return AudienceInteraction(
       id: id ?? this.id,
       businessId: businessId ?? this.businessId,
+      ownerId: ownerId ?? this.ownerId,
       visitorHash: visitorHash ?? this.visitorHash,
       type: type ?? this.type,
       timestamp: timestamp ?? this.timestamp,

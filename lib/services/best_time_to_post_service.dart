@@ -102,13 +102,10 @@ class BestTimeToPostService {
   }) async {
     if (ownerId.trim().isEmpty) return BestTimeToPostResult.insufficient;
 
-    final businessIds = await _businessIdsForOwner(ownerId);
-    if (businessIds.isEmpty) return BestTimeToPostResult.insufficient;
-
     final now = DateTime.now();
     final cutoff = now.subtract(Duration(days: lookbackDays));
 
-    final interactions = await _fetchInteractions(businessIds, cutoff, now);
+    final interactions = await _fetchInteractions(ownerId, cutoff, now);
     if (interactions.isEmpty) return BestTimeToPostResult.insufficient;
 
     final historySpan = _historySpanDays(interactions);
@@ -144,23 +141,14 @@ class BestTimeToPostService {
     );
   }
 
-  Future<List<String>> _businessIdsForOwner(String ownerId) async {
-    final snapshot = await _firestore
-        .collection('businesses')
-        .where('ownerId', isEqualTo: ownerId)
-        .get();
-    return snapshot.docs.map((doc) => doc.id).toList();
-  }
-
   Future<List<AudienceInteraction>> _fetchInteractions(
-    List<String> businessIds,
+    String ownerId,
     DateTime start,
     DateTime end,
   ) async {
-    if (businessIds.isEmpty) return const [];
     final snapshot = await _firestore
         .collection(_interactionsCollection)
-        .where('businessId', whereIn: businessIds)
+        .where('ownerId', isEqualTo: ownerId)
         .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
         .where('timestamp', isLessThanOrEqualTo: Timestamp.fromDate(end))
         .get();

@@ -48,7 +48,6 @@ class AudienceAnalyticsService {
   AudienceAnalyticsService({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  static const String _businessesCollection = 'businesses';
   static const String _interactionsCollection = 'audience_interactions';
   static const int _minSampleSize = 20;
 
@@ -67,38 +66,23 @@ class AudienceAnalyticsService {
   static bool isSampleMeaningful(int interactionCount) =>
       interactionCount >= _minSampleSize;
 
-  /// Returns the business IDs owned by [ownerId].
-  Future<List<String>> _businessIdsForOwner(String ownerId) async {
-    final snapshot = await _firestore
-        .collection(_businessesCollection)
-        .where('ownerId', isEqualTo: ownerId)
-        .get();
-    return snapshot.docs.map((doc) => doc.id).toList();
-  }
-
   /// Streams all anonymised interactions for businesses owned by [ownerId]
   /// within the optional [dateRange].
   Stream<List<AudienceInteraction>> interactionsStream(
     String ownerId, {
     DateTimeRange? dateRange,
   }) async* {
-    final businessIds = await _businessIdsForOwner(ownerId);
-    if (businessIds.isEmpty) {
-      yield const <AudienceInteraction>[];
-      return;
-    }
-
     Query query = _firestore
         .collection(_interactionsCollection)
-        .where('businessId', whereIn: businessIds)
+        .where('ownerId', isEqualTo: ownerId)
         .orderBy('timestamp', descending: true);
 
     if (dateRange != null) {
       query = query
           .where('timestamp',
               isGreaterThanOrEqualTo: Timestamp.fromDate(dateRange.start))
-              .where('timestamp',
-                  isLessThanOrEqualTo: Timestamp.fromDate(dateRange.end));
+          .where('timestamp',
+              isLessThanOrEqualTo: Timestamp.fromDate(dateRange.end));
     }
 
     yield* query.snapshots().map(
@@ -114,14 +98,11 @@ class AudienceAnalyticsService {
     required DateTime start,
     required DateTime end,
   }) async {
-    final businessIds = await _businessIdsForOwner(ownerId);
-    if (businessIds.isEmpty) return const AudienceBreakdown();
-
     // Fetch all interactions in range up-front so we can compare the
     // selected range to the lifetime history of each visitor.
     final snapshot = await _firestore
         .collection(_interactionsCollection)
-        .where('businessId', whereIn: businessIds)
+        .where('ownerId', isEqualTo: ownerId)
         .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
         .where('timestamp', isLessThanOrEqualTo: Timestamp.fromDate(end))
         .get();
@@ -144,7 +125,7 @@ class AudienceAnalyticsService {
     for (final visitorHash in visitorsInRange) {
       final firstInteractionSnap = await _firestore
           .collection(_interactionsCollection)
-          .where('businessId', whereIn: businessIds)
+          .where('ownerId', isEqualTo: ownerId)
           .where('visitorHash', isEqualTo: visitorHash)
           .orderBy('timestamp', descending: false)
           .limit(1)
@@ -175,12 +156,9 @@ class AudienceAnalyticsService {
     required DateTime start,
     required DateTime end,
   }) async {
-    final businessIds = await _businessIdsForOwner(ownerId);
-    if (businessIds.isEmpty) return const EngagementDistribution();
-
     final snapshot = await _firestore
         .collection(_interactionsCollection)
-        .where('businessId', whereIn: businessIds)
+        .where('ownerId', isEqualTo: ownerId)
         .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
         .where('timestamp', isLessThanOrEqualTo: Timestamp.fromDate(end))
         .get();
@@ -207,15 +185,21 @@ class AudienceAnalyticsService {
   /// Records a single anonymised interaction.
   Future<void> recordInteraction({
     required String businessId,
+    required String ownerId,
     required String visitorId,
     required AudienceInteractionType type,
     DateTime? timestamp,
   }) async {
-    if (businessId.trim().isEmpty || visitorId.trim().isEmpty) return;
+    if (businessId.trim().isEmpty ||
+        ownerId.trim().isEmpty ||
+        visitorId.trim().isEmpty) {
+      return;
+    }
 
     final visitorHash = anonymiseVisitorId(visitorId);
     final interaction = AudienceInteraction(
       businessId: businessId,
+      ownerId: ownerId,
       visitorHash: visitorHash,
       type: type,
       timestamp: timestamp ?? DateTime.now(),

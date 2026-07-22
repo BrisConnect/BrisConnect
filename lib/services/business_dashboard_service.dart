@@ -91,6 +91,7 @@ class BusinessDashboardService {
   ) async {
     if (businesses.isEmpty) return const BusinessDashboardMetrics();
 
+    final ownerId = businesses.first.ownerId;
     final businessIds = businesses.map((b) => b.id!).toList();
     final now = DateTime.now();
     final weekAgo = now.subtract(const Duration(days: 7));
@@ -98,8 +99,8 @@ class BusinessDashboardService {
 
     final viewsResult = await _profileViews(businessIds, weekAgo, twoWeeksAgo);
     final savesResult = await _saves(businessIds, weekAgo, twoWeeksAgo);
-    final activePromotions = await _activePromotions(businessIds);
-    final upcomingEvents = await _upcomingEvents(businessIds, now);
+    final activePromotions = await _activePromotions(ownerId);
+    final upcomingEvents = await _upcomingEvents(ownerId, now);
     final reviewsResult = await _newReviews(businessIds, weekAgo, twoWeeksAgo);
 
     final currentViews = viewsResult['current'] ?? 0;
@@ -168,10 +169,10 @@ class BusinessDashboardService {
     return {'current': current, 'previous': previous};
   }
 
-  Future<int> _activePromotions(List<String> businessIds) async {
+  Future<int> _activePromotions(String ownerId) async {
     final snapshot = await _firestore
         .collection(_promotionsCollection)
-        .where('businessId', whereIn: businessIds)
+        .where('ownerId', isEqualTo: ownerId)
         .where('isActive', isEqualTo: true)
         .where('endDate', isGreaterThanOrEqualTo: Timestamp.now())
         .count()
@@ -179,10 +180,10 @@ class BusinessDashboardService {
     return snapshot.count ?? 0;
   }
 
-  Future<int> _upcomingEvents(List<String> businessIds, DateTime now) async {
+  Future<int> _upcomingEvents(String ownerId, DateTime now) async {
     final snapshot = await _firestore
         .collection(_businessEventsCollection)
-        .where('businessId', whereIn: businessIds)
+        .where('ownerId', isEqualTo: ownerId)
         .where('status', isEqualTo: 'published')
         .where('date', isGreaterThanOrEqualTo: _formatDate(now))
         .count()
@@ -270,15 +271,24 @@ class BusinessDashboardService {
   }) async {
     final today = _formatDate(DateTime.now());
     try {
+      final businessDoc = await _firestore
+          .collection(_businessesCollection)
+          .doc(businessId)
+          .get();
+      final ownerId = businessDoc.data()?['ownerId'] as String? ?? '';
+
       await _firestore.collection(_businessesCollection).doc(businessId).update({
         'viewCount': FieldValue.increment(1),
         'viewHistory.$today': FieldValue.increment(1),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      if (visitorId != null && visitorId.trim().isNotEmpty) {
+      if (visitorId != null &&
+          visitorId.trim().isNotEmpty &&
+          ownerId.isNotEmpty) {
         await _audienceAnalyticsService?.recordInteraction(
           businessId: businessId,
+          ownerId: ownerId,
           visitorId: visitorId,
           type: AudienceInteractionType.view,
         );
@@ -298,15 +308,24 @@ class BusinessDashboardService {
   }) async {
     final today = _formatDate(DateTime.now());
     try {
+      final businessDoc = await _firestore
+          .collection(_businessesCollection)
+          .doc(businessId)
+          .get();
+      final ownerId = businessDoc.data()?['ownerId'] as String? ?? '';
+
       await _firestore.collection(_businessesCollection).doc(businessId).update({
         'savedCount': FieldValue.increment(1),
         'saveHistory.$today': FieldValue.increment(1),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      if (visitorId != null && visitorId.trim().isNotEmpty) {
+      if (visitorId != null &&
+          visitorId.trim().isNotEmpty &&
+          ownerId.isNotEmpty) {
         await _audienceAnalyticsService?.recordInteraction(
           businessId: businessId,
+          ownerId: ownerId,
           visitorId: visitorId,
           type: AudienceInteractionType.save,
         );

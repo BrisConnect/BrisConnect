@@ -33,12 +33,14 @@ void main() {
 
     Future<DocumentReference> addInteraction({
       required String businessId,
+      required String ownerId,
       required String visitorId,
       required DateTime timestamp,
       AudienceInteractionType type = AudienceInteractionType.view,
     }) async {
       return fakeFirestore.collection('audience_interactions').add({
         'businessId': businessId,
+        'ownerId': ownerId,
         'visitorHash': AudienceAnalyticsService.anonymiseVisitorId(visitorId),
         'type': type.name,
         'timestamp': Timestamp.fromDate(timestamp),
@@ -62,6 +64,7 @@ void main() {
     test('recordInteraction stores anonymised interaction', () async {
       await service.recordInteraction(
         businessId: 'b1',
+        ownerId: 'owner@test.com',
         visitorId: 'visitor_1',
         type: AudienceInteractionType.view,
         timestamp: DateTime(2026, 7, 20, 14, 0),
@@ -71,6 +74,7 @@ void main() {
       expect(snapshot.docs.length, 1);
       final data = snapshot.docs.first.data();
       expect(data['businessId'], 'b1');
+      expect(data['ownerId'], 'owner@test.com');
       expect(data['visitorHash'],
           AudienceAnalyticsService.anonymiseVisitorId('visitor_1'));
       expect(data['type'], 'view');
@@ -82,11 +86,13 @@ void main() {
       final now = DateTime.now();
       await addInteraction(
         businessId: 'b1',
+        ownerId: 'owner@test.com',
         visitorId: 'v1',
         timestamp: now.subtract(const Duration(days: 2)),
       );
       await addInteraction(
         businessId: 'b1',
+        ownerId: 'owner@test.com',
         visitorId: 'v2',
         timestamp: now.subtract(const Duration(days: 1)),
       );
@@ -107,16 +113,19 @@ void main() {
       final now = DateTime.now();
       await addInteraction(
         businessId: 'b1',
+        ownerId: 'owner@test.com',
         visitorId: 'v1',
         timestamp: now.subtract(const Duration(days: 20)),
       );
       await addInteraction(
         businessId: 'b1',
+        ownerId: 'owner@test.com',
         visitorId: 'v1',
         timestamp: now.subtract(const Duration(days: 2)),
       );
       await addInteraction(
         businessId: 'b1',
+        ownerId: 'owner@test.com',
         visitorId: 'v2',
         timestamp: now.subtract(const Duration(days: 1)),
       );
@@ -138,6 +147,7 @@ void main() {
       final now = DateTime.now();
       await addInteraction(
         businessId: 'b2',
+        ownerId: 'other@test.com',
         visitorId: 'v1',
         timestamp: now,
       );
@@ -156,16 +166,19 @@ void main() {
       final now = DateTime.now();
       await addInteraction(
         businessId: 'b1',
+        ownerId: 'owner@test.com',
         visitorId: 'v1',
         timestamp: DateTime(now.year, now.month, now.day, 9, 0),
       );
       await addInteraction(
         businessId: 'b1',
+        ownerId: 'owner@test.com',
         visitorId: 'v2',
         timestamp: DateTime(now.year, now.month, now.day, 9, 30),
       );
       await addInteraction(
         businessId: 'b1',
+        ownerId: 'owner@test.com',
         visitorId: 'v3',
         timestamp: DateTime(now.year, now.month, now.day, 18, 0),
       );
@@ -188,6 +201,7 @@ void main() {
       final now = DateTime.now();
       await addInteraction(
         businessId: 'b1',
+        ownerId: 'owner@test.com',
         visitorId: 'v1',
         timestamp: now,
       );

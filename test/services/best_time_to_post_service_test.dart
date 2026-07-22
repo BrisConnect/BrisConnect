@@ -34,11 +34,13 @@ void main() {
 
     Future<DocumentReference> addInteraction({
       required String businessId,
+      required String ownerId,
       required String visitorId,
       required DateTime timestamp,
     }) async {
       return fakeFirestore.collection('audience_interactions').add({
         'businessId': businessId,
+        'ownerId': ownerId,
         'visitorHash': AudienceAnalyticsService.anonymiseVisitorId(visitorId),
         'type': AudienceInteractionType.view.name,
         'timestamp': Timestamp.fromDate(timestamp),
@@ -56,6 +58,7 @@ void main() {
       for (var i = 0; i < 5; i++) {
         await addInteraction(
           businessId: 'b1',
+          ownerId: 'owner@test.com',
           visitorId: 'v$i',
           timestamp: now.subtract(Duration(days: i, hours: i)),
         );
@@ -79,6 +82,7 @@ void main() {
         for (var i = 0; i < 10; i++) {
           await addInteraction(
             businessId: 'b1',
+            ownerId: 'owner@test.com',
             visitorId: 'v_${week}_$i',
             timestamp: base.add(Duration(days: week * 7 + 4, hours: 18)),
           );
@@ -90,6 +94,7 @@ void main() {
         if (day % 7 == 4) continue;
         await addInteraction(
           businessId: 'b1',
+          ownerId: 'owner@test.com',
           visitorId: 'noise_$day',
           timestamp: base.add(Duration(days: day, hours: day % 24)),
         );
@@ -163,6 +168,7 @@ void main() {
         for (var i = 0; i < 10; i++) {
           await addInteraction(
             businessId: 'b1',
+            ownerId: 'owner@test.com',
             visitorId: 'fri_${week}_$i',
             timestamp: base.add(Duration(days: week * 7 + 4, hours: 18)),
           );
@@ -173,6 +179,7 @@ void main() {
         for (var i = 0; i < 8; i++) {
           await addInteraction(
             businessId: 'b1',
+            ownerId: 'owner@test.com',
             visitorId: 'sat_${week}_$i',
             timestamp: base.add(Duration(days: week * 7 + 5, hours: 12)),
           );
@@ -183,6 +190,7 @@ void main() {
         for (var i = 0; i < 6; i++) {
           await addInteraction(
             businessId: 'b1',
+            ownerId: 'owner@test.com',
             visitorId: 'sun_${week}_$i',
             timestamp: base.add(Duration(days: week * 7 + 6, hours: 20)),
           );
@@ -195,6 +203,7 @@ void main() {
         if (day % 7 >= 4) continue; // skip Friday-Sunday peaks
         await addInteraction(
           businessId: 'b1',
+          ownerId: 'owner@test.com',
           visitorId: 'noise_$day',
           timestamp: base.add(Duration(days: day, hours: day % 24)),
         );
