@@ -6,6 +6,7 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret, defineString } = require('firebase-functions/params');
 const logger = require('firebase-functions/logger');
 const twilio = require('twilio');
+const { ogProxy } = require('./og_proxy');
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -1943,3 +1944,6 @@ Requirements:
     });
   }
 );
+
+// ── Social sharing Open Graph proxy ─────────────────────────────────────────
+exports.ogProxy = ogProxy;

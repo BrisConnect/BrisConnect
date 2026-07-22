@@ -34,6 +34,24 @@
 	"hosting": {
 		"public": "build/web",
 		"ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-		"cleanUrls": true
+		"cleanUrls": true,
+		"rewrites": [
+			{
+				"source": "/business/**",
+				"function": "ogProxy"
+			},
+			{
+				"source": "/event/**",
+				"function": "ogProxy"
+			},
+			{
+				"source": "/food/**",
+				"function": "ogProxy"
+			},
+			{
+				"source": "/venue/**",
+				"function": "ogProxy"
+			}
+		]
 	}
 }

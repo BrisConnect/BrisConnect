@@ -1,14 +1,15 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
+import 'package:brisconnect/services/share/content_share_service.dart';
 import 'package:brisconnect/services/visitor_notification_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/utils/venue_image_fallback.dart';
 import 'package:brisconnect/widgets/audio_guide_widget.dart';
 import 'package:brisconnect/widgets/crowd_report_widget.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
+import 'package:brisconnect/widgets/share_bottom_sheet.dart';
 
 /// Full-page event detail screen shown when a Visitor taps an event card.
 /// Displays hero image, cultural background description, optional AI narration,
@@ -16,8 +17,13 @@ import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 class VisitorEventDetailScreen extends StatefulWidget {
   /// The raw Firestore discover-item map for the event.
   final Map<String, dynamic> event;
+  final ContentShareService? shareService;
 
-  const VisitorEventDetailScreen({super.key, required this.event});
+  const VisitorEventDetailScreen({
+    super.key,
+    required this.event,
+    this.shareService,
+  });
 
   @override
   State<VisitorEventDetailScreen> createState() =>
@@ -25,6 +31,9 @@ class VisitorEventDetailScreen extends StatefulWidget {
 }
 
 class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
+  late final ContentShareService _shareService =
+      widget.shareService ?? ContentShareService();
+
   String get _fallbackImage => VenueImageFallback.forItem(widget.event);
 
   bool get _isSaved {
@@ -107,18 +116,31 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
   }
 
   Future<void> _share() async {
+    final id = (widget.event['id'] as String? ?? '').trim();
     final title = (widget.event['title'] as String? ?? 'Event').trim();
     final dateTime = (widget.event['dateTime'] as String? ?? '').trim();
     final location = (widget.event['location'] as String? ?? '').trim();
-    final webLink = (widget.event['webLink'] as String? ?? '').trim();
+    final description =
+        (widget.event['description'] as String? ?? '').trim();
 
-    final lines = [
-      title,
-      if (dateTime.isNotEmpty) dateTime,
-      if (location.isNotEmpty) location,
-      if (webLink.isNotEmpty) webLink,
-    ];
-    await SharePlus.instance.share(ShareParams(text: lines.join('\n')));
+    if (id.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This event cannot be shared right now.')),
+      );
+      return;
+    }
+
+    await showShareBottomSheet(
+      context: context,
+      shareService: _shareService,
+      type: ShareContentType.event,
+      id: id,
+      title: title,
+      description: description,
+      location: location,
+      dateTime: dateTime,
+    );
   }
 
   String _buildNarrationText({

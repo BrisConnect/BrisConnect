@@ -1,14 +1,16 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:brisconnect/services/share/content_share_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/audio_guide_widget.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
+import 'package:brisconnect/widgets/share_bottom_sheet.dart';
 
 class StadiumDetailScreen extends StatelessWidget {
   const StadiumDetailScreen({
     super.key,
+    required this.id,
     required this.title,
     required this.description,
     required this.location,
@@ -20,11 +22,13 @@ class StadiumDetailScreen extends StatelessWidget {
     this.mapQuery,
     this.webLink,
     this.aiAudio,
+    this.shareService,
   });
 
   static const String _fallbackImage =
       'https://images.unsplash.com/photo-1577223625816-7546f13df25d?auto=format&fit=crop&w=1400&q=80';
 
+  final String id;
   final String title;
   final String description;
   final String location;
@@ -36,6 +40,7 @@ class StadiumDetailScreen extends StatelessWidget {
   final String? mapQuery;
   final String? webLink;
   final String? aiAudio;
+  final ContentShareService? shareService;
 
   String _buildNarrationText() {
     if ((aiAudio ?? '').trim().isNotEmpty) return aiAudio!.trim();
@@ -79,14 +84,28 @@ class StadiumDetailScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _share() async {
-    final lines = [
-      title,
-      if (location.trim().isNotEmpty) location,
-      if (description.trim().isNotEmpty) description,
-      if ((webLink ?? '').trim().isNotEmpty) webLink!.trim(),
-    ];
-    await SharePlus.instance.share(ShareParams(text: lines.join('\n')));
+  Future<void> _share(BuildContext context) async {
+    if (id.trim().isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This venue cannot be shared right now.'),
+          ),
+        );
+      }
+      return;
+    }
+
+    await showShareBottomSheet(
+      context: context,
+      shareService: shareService,
+      type: ShareContentType.stadium,
+      id: id.trim(),
+      title: title,
+      description: description,
+      location: location,
+      dateTime: dateTime,
+    );
   }
 
   @override
@@ -102,7 +121,7 @@ class StadiumDetailScreen extends StatelessWidget {
         actions: [
           IconButton(
             tooltip: 'Share',
-            onPressed: _share,
+            onPressed: () => _share(context),
             icon: const Icon(Icons.share_rounded),
           ),
         ],

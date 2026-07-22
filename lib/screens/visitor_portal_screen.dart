@@ -903,6 +903,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => FoodDetailScreen(
+          id: (item['id'] as String? ?? '').trim(),
           title: (item['title'] as String? ?? 'Food Experience').trim(),
           description: (item['description'] as String? ?? '').trim(),
           location: (item['location'] as String? ?? '').trim(),
@@ -927,6 +928,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => StadiumDetailScreen(
+          id: (item['id'] as String? ?? '').trim(),
           title: (item['title'] as String? ?? 'Stadium').trim(),
           description: (item['description'] as String? ?? '').trim(),
           location: (item['location'] as String? ?? '').trim(),
