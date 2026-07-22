@@ -166,5 +166,17 @@ service cloud.firestore {
       allow read: if true; // Allow public read
       allow write: if isAdmin() || request.auth == null; // Dev: allow unauthenticated for seeding
     }
+
+    // ── Crowd reports (public read, authenticated create with cooldown enforced client-side) ──
+    match /crowd_reports/{reportId} {
+      allow read: if true;
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasAll(['eventId', 'level', 'weight', 'timestamp'])
+        && request.resource.data.eventId is string
+        && request.resource.data.level is string
+        && request.resource.data.weight is int
+        && request.resource.data.timestamp is timestamp;
+      allow update, delete: if false;
+    }
   }
 }

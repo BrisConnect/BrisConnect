@@ -5,15 +5,20 @@ import 'package:intl/intl.dart';
 
 class CrowdReportWidget extends StatefulWidget {
   final String eventId;
+  final CrowdReportService? crowdReportService;
 
-  const CrowdReportWidget({super.key, required this.eventId});
+  const CrowdReportWidget({
+    super.key,
+    required this.eventId,
+    this.crowdReportService,
+  });
 
   @override
   State<CrowdReportWidget> createState() => _CrowdReportWidgetState();
 }
 
 class _CrowdReportWidgetState extends State<CrowdReportWidget> {
-  final _service = CrowdReportService();
+  late final CrowdReportService _service;
   CrowdLevel? _selected;
   bool _submitting = false;
   bool _submitted = false;
@@ -22,6 +27,7 @@ class _CrowdReportWidgetState extends State<CrowdReportWidget> {
   @override
   void initState() {
     super.initState();
+    _service = widget.crowdReportService ?? CrowdReportService();
     _checkCooldown();
   }
 
