@@ -32,6 +32,7 @@ import 'appearance_settings_screen.dart';
 import 'my_feedback_screen.dart';
 import 'map_events_screen.dart';
 import 'business_search_screen.dart';
+import 'visitor_activity_feed_screen.dart';
 import '../widgets/inline_status_message.dart';
 import '../widgets/reusable_event_card.dart';
 import '../widgets/logo_app_bar_title.dart';
@@ -2535,10 +2536,12 @@ _buildSectionLabel('Help & Support'),
   String _appBarTitleForIndex(int index) {
     switch (index) {
       case 1:
-        return 'Map';
+        return 'Community';
       case 2:
-        return 'Saved';
+        return 'Map';
       case 3:
+        return 'Saved';
+      case 4:
         return 'Profile';
       default:
         return '';
@@ -2595,6 +2598,7 @@ _buildSectionLabel('Help & Support'),
           index: _selectedIndex,
           children: [
             _buildDiscoverBody(),
+            const SafeArea(child: VisitorActivityFeedScreen()),
             SafeArea(child: MapEventsScreen(
               embedded: true,
               onBackPressed: () => setState(() => _selectedIndex = 0),
@@ -2646,6 +2650,21 @@ _buildSectionLabel('Help & Support'),
               child: const Icon(Icons.home_rounded),
             ),
             label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: const Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Icon(Icons.people_outline_rounded),
+            ),
+            activeIcon: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.people_rounded),
+            ),
+            label: 'Community',
           ),
           BottomNavigationBarItem(
             icon: const Padding(
