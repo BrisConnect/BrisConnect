@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF9500;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFB84D;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Rounded gradient background -->
+  <rect width="1024" height="1024" rx="200" fill="url(#bgGradient)"/>
+  
+  <!-- 3x3 grid of dark circles (8 circles, center empty) -->
+  <g fill="#0B1929">
+    <!-- Top row -->
+    <circle cx="220" cy="220" r="120"/>
+    <circle cx="512" cy="220" r="120"/>
+    <circle cx="804" cy="220" r="120"/>
+    <!-- Middle row (skip center) -->
+    <circle cx="220" cy="512" r="120"/>
+    <circle cx="804" cy="512" r="120"/>
+    <!-- Bottom row -->
+    <circle cx="220" cy="804" r="120"/>
+    <circle cx="512" cy="804" r="120"/>
+    <circle cx="804" cy="804" r="120"/>
+  </g>
+  
+  <!-- Colorful flame/leaf design in center -->
+  <g>
+    <!-- Center flame petals -->
+    <circle cx="560" cy="460" r="50" fill="#FF3B30"/>
+    <circle cx="610" cy="490" r="50" fill="#FF9500"/>
+    <circle cx="590" cy="560" r="50" fill="#FFCC00"/>
+    <circle cx="500" cy="540" r="50" fill="#1FCFED"/>
+    <circle cx="480" cy="470" r="50" fill="#34C759"/>
+    <!-- Center highlight -->
+    <circle cx="540" cy="510" r="35" fill="#FFFFFF" opacity="0.15"/>
+  </g>
+</svg>

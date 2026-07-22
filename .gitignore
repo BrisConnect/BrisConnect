@@ -51,3 +51,20 @@ node_modules/
 # Sensitive files — never commit
 auth-users.json
 email_worker_brevo/uids.json
+service-account-key.json
+setup_twilio_secrets.sh
+
+# Package/dependency caches
+npm-cache/
+
+# Generated platform/build files
+macos/Podfile
+macos/Podfile.lock
+
+# Web build/website artifacts
+web/assets/
+website/
+
+# IDE/swap files
+*.swp
+*~
