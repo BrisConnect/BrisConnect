@@ -1,8 +1,21 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:brisconnect/services/review_service.dart';
 import 'package:brisconnect/widgets/submit_review_bottom_sheet.dart';
+
+class _FakeConnectivity implements Connectivity {
+  @override
+  Future<List<ConnectivityResult>> checkConnectivity() async =>
+      <ConnectivityResult>[ConnectivityResult.wifi];
+
+  @override
+  Stream<List<ConnectivityResult>> get onConnectivityChanged =>
+      Stream<List<ConnectivityResult>>.value(
+        <ConnectivityResult>[ConnectivityResult.wifi],
+      );
+}
 
 void main() {
   group('SubmitReviewBottomSheet', () {
@@ -11,7 +24,11 @@ void main() {
 
     setUp(() {
       fakeFirestore = FakeFirebaseFirestore();
-      reviewService = ReviewService(firestore: fakeFirestore);
+      reviewService = ReviewService(
+        firestore: fakeFirestore,
+        connectivity: _FakeConnectivity(),
+        useFirebaseAuth: false,
+      );
     });
 
     Future<void> openSheet(WidgetTester tester) async {
@@ -60,7 +77,7 @@ void main() {
       await tester.pump();
 
       // Do not check the consent box; tap submit
-      await tester.tap(find.text('Submit Review'));
+      await tester.tap(find.text('Submit Recommendation'));
       await tester.pump();
 
       // SnackBar should indicate consent is required
@@ -82,7 +99,7 @@ void main() {
       // Verify the checkbox is checked by tapping submit and ensuring the
       // consent error is NOT shown (actual submission hits the fake service
       // and would succeed; service tests cover the actual write path).
-      await tester.tap(find.text('Submit Review'));
+      await tester.tap(find.text('Submit Recommendation'));
       await tester.pump();
 
       expect(find.text('Please agree to the privacy notice'), findsNothing);

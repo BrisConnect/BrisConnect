@@ -32,8 +32,8 @@ class _SubmitReviewBottomSheetState extends State<SubmitReviewBottomSheet> {
   bool _privacyConsent = false;
 
   static const String _privacyNotice =
-      'Your review, first name, and rating will be publicly visible on this business profile. '
-      'You can delete your review at any time. By submitting, you consent to this display.';
+      'Your recommendation, first name, and rating will be publicly visible on this business profile. '
+      'You can delete your recommendation at any time. By submitting, you consent to this display.';
 
   @override
   void dispose() {
@@ -44,7 +44,7 @@ class _SubmitReviewBottomSheetState extends State<SubmitReviewBottomSheet> {
   Future<void> _submitReview() async {
     if (_commentController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a comment')),
+        const SnackBar(content: Text('Please share why you recommend this business')),
       );
       return;
     }
@@ -69,7 +69,7 @@ class _SubmitReviewBottomSheetState extends State<SubmitReviewBottomSheet> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Review submitted successfully!')),
+          const SnackBar(content: Text('Recommendation submitted successfully!')),
         );
         widget.onReviewSubmitted(reviewId);
         Navigator.pop(context);
@@ -110,7 +110,7 @@ class _SubmitReviewBottomSheetState extends State<SubmitReviewBottomSheet> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Leave a Review',
+                      'Recommend this Business',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -168,7 +168,7 @@ class _SubmitReviewBottomSheetState extends State<SubmitReviewBottomSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Comment',
+                      'Why do you recommend this business?',
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
@@ -182,7 +182,7 @@ class _SubmitReviewBottomSheetState extends State<SubmitReviewBottomSheet> {
                       maxLength: 500,
                       enabled: !_isSubmitting,
                       decoration: InputDecoration(
-                        hintText: 'Share your experience...',
+                        hintText: 'Share what you loved about your visit...',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -247,7 +247,7 @@ class _SubmitReviewBottomSheetState extends State<SubmitReviewBottomSheet> {
                             ),
                           )
                         : const Text(
-                            'Submit Review',
+                            'Submit Recommendation',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Colors.white,

@@ -9,8 +9,12 @@ class Review {
   final String comment;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final DateTime? deletedAt;
   final bool isReported;
   final String? reportReason;
+  final int helpfulCount;
+  final bool isFlagged;
+  final bool visible;
 
   Review({
     required this.id,
@@ -21,9 +25,15 @@ class Review {
     required this.comment,
     required this.createdAt,
     this.updatedAt,
+    this.deletedAt,
     this.isReported = false,
     this.reportReason,
+    this.helpfulCount = 0,
+    this.isFlagged = false,
+    this.visible = true,
   });
+
+  bool get isDeleted => deletedAt != null;
 
   // Convert Review to Firestore JSON
   Map<String, dynamic> toFirestore() {
@@ -35,8 +45,12 @@ class Review {
       'comment': comment,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
+      'deletedAt': deletedAt,
       'isReported': isReported,
       'reportReason': reportReason,
+      'helpfulCount': helpfulCount,
+      'isFlagged': isFlagged,
+      'visible': visible,
     };
   }
 
@@ -52,8 +66,12 @@ class Review {
       comment: data['comment'] ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      deletedAt: (data['deletedAt'] as Timestamp?)?.toDate(),
       isReported: data['isReported'] ?? false,
       reportReason: data['reportReason'],
+      helpfulCount: data['helpfulCount'] ?? 0,
+      isFlagged: data['isFlagged'] ?? false,
+      visible: data['visible'] ?? !(data['isReported'] == true || data['isFlagged'] == true || data['deletedAt'] != null),
     );
   }
 
@@ -67,8 +85,12 @@ class Review {
     String? comment,
     DateTime? createdAt,
     DateTime? updatedAt,
+    DateTime? deletedAt,
     bool? isReported,
     String? reportReason,
+    int? helpfulCount,
+    bool? isFlagged,
+    bool? visible,
   }) {
     return Review(
       id: id ?? this.id,
@@ -79,8 +101,12 @@ class Review {
       comment: comment ?? this.comment,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
       isReported: isReported ?? this.isReported,
       reportReason: reportReason ?? this.reportReason,
+      helpfulCount: helpfulCount ?? this.helpfulCount,
+      isFlagged: isFlagged ?? this.isFlagged,
+      visible: visible ?? this.visible,
     );
   }
 }

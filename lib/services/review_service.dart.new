@@ -22,6 +22,7 @@ class ReviewService {
 
   // Spam / rate-limiting constants.
   static const Duration _globalCooldown = Duration(minutes: 1);
+  static const Duration _perBusinessCooldown = Duration(days: 1);
   static const int _defaultPageSize = 10;
   static const int _maxCommentLength = 500;
 
@@ -52,10 +53,11 @@ class ReviewService {
   CollectionReference<Map<String, dynamic>> get _reviewsCollection =>
       firestore.collection('reviews');
 
-  Query<Map<String, dynamic>> _visibleReviewsForBusiness(String businessId) =>
+  Query<Map<String, dynamic>> get _visibleReviewsQuery =>
       _reviewsCollection
-          .where('visible', isEqualTo: true)
-          .where('businessId', isEqualTo: businessId);
+          .where('isReported', isEqualTo: false)
+          .where('isFlagged', isEqualTo: false)
+          .where('deletedAt', isNull: true);
 
   Future<T> _withRetry<T>(
     Future<T> Function() operation, {
@@ -211,11 +213,8 @@ class ReviewService {
           'deletedAt': null,
           'isReported': false,
           'reportReason': null,
-          'reportedBy': null,
-          'deletedBy': null,
           'helpfulCount': 0,
           'isFlagged': false,
-          'visible': true,
         }),
         operationName: 'createReview',
       );
@@ -238,25 +237,11 @@ class ReviewService {
     int limit = _defaultPageSize,
     DocumentSnapshot? startAfterDocument,
   }) async {
-    final page = await getBusinessReviewsPage(
-      businessId,
-      limit: limit,
-      startAfterDocument: startAfterDocument,
-    );
-    return page.items;
-  }
-
-  /// Get a paginated page of visible recommendations, including the cursor
-  /// needed to fetch the next page.
-  Future<ReviewsPage> getBusinessReviewsPage(
-    String businessId, {
-    int limit = _defaultPageSize,
-    DocumentSnapshot? startAfterDocument,
-  }) async {
     try {
       if (limit <= 0) limit = _defaultPageSize;
 
-      var query = _visibleReviewsForBusiness(businessId)
+      var query = _visibleReviewsQuery
+          .where('businessId', isEqualTo: businessId)
           .orderBy('createdAt', descending: true)
           .limit(limit);
 
@@ -266,13 +251,10 @@ class ReviewService {
 
       final snapshot = await _withRetry(
         () => query.get(),
-        operationName: 'getBusinessReviewsPage',
+        operationName: 'getBusinessReviews',
       );
 
-      final items = snapshot.docs.map((doc) => Review.fromFirestore(doc)).toList();
-      final lastDocument = snapshot.docs.isNotEmpty ? snapshot.docs.last : null;
-
-      return ReviewsPage(items: items, lastDocument: lastDocument);
+      return snapshot.docs.map((doc) => Review.fromFirestore(doc)).toList();
     } catch (e) {
       throw Exception('Failed to fetch recommendations: $e');
     }
@@ -284,7 +266,8 @@ class ReviewService {
     String businessId, {
     int limit = _defaultPageSize,
   }) {
-    return _visibleReviewsForBusiness(businessId)
+    return _visibleReviewsQuery
+        .where('businessId', isEqualTo: businessId)
         .orderBy('createdAt', descending: true)
         .limit(limit)
         .snapshots()
@@ -301,7 +284,9 @@ class ReviewService {
       final snapshot = await _withRetry(
         () => _reviewsCollection
             .where('businessId', isEqualTo: businessId)
-            .where('visible', isEqualTo: true)
+            .where('isReported', isEqualTo: false)
+            .where('isFlagged', isEqualTo: false)
+            .where('deletedAt', isNull: true)
             .get(),
         operationName: 'getAverageRating',
       );
@@ -320,7 +305,9 @@ class ReviewService {
   Stream<double> getAverageRatingStream(String businessId) {
     return _reviewsCollection
         .where('businessId', isEqualTo: businessId)
-        .where('visible', isEqualTo: true)
+        .where('isReported', isEqualTo: false)
+        .where('isFlagged', isEqualTo: false)
+        .where('deletedAt', isNull: true)
         .snapshots()
         .map((snapshot) {
       if (snapshot.docs.isEmpty) return 0.0;
@@ -336,7 +323,9 @@ class ReviewService {
       final snapshot = await _withRetry(
         () => _reviewsCollection
             .where('businessId', isEqualTo: businessId)
-            .where('visible', isEqualTo: true)
+            .where('isReported', isEqualTo: false)
+            .where('isFlagged', isEqualTo: false)
+            .where('deletedAt', isNull: true)
             .count()
             .get(),
         operationName: 'getReviewCount',
@@ -352,7 +341,9 @@ class ReviewService {
   Stream<int> getReviewCountStream(String businessId) {
     return _reviewsCollection
         .where('businessId', isEqualTo: businessId)
-        .where('visible', isEqualTo: true)
+        .where('isReported', isEqualTo: false)
+        .where('isFlagged', isEqualTo: false)
+        .where('deletedAt', isNull: true)
         .snapshots()
         .map((snapshot) => snapshot.docs.length);
   }
@@ -374,7 +365,6 @@ class ReviewService {
           'isReported': true,
           'reportReason': reportReason.trim(),
           'reportedBy': reporterId ?? _currentUserIdOrAuth ?? '',
-          'visible': false,
           'updatedAt': FieldValue.serverTimestamp(),
         }),
         operationName: 'reportReview',
@@ -407,7 +397,6 @@ class ReviewService {
         () => _reviewsCollection.doc(reviewId).update({
           'deletedAt': FieldValue.serverTimestamp(),
           'deletedBy': visitorId ?? _currentUserIdOrAuth ?? '',
-          'visible': false,
           'updatedAt': FieldValue.serverTimestamp(),
         }),
         operationName: 'deleteReview',
@@ -427,7 +416,6 @@ class ReviewService {
         () => _reviewsCollection.doc(reviewId).update({
           'deletedAt': null,
           'deletedBy': null,
-          'visible': true,
           'updatedAt': FieldValue.serverTimestamp(),
         }),
         operationName: 'restoreReview',
@@ -449,7 +437,6 @@ class ReviewService {
       await _withRetry(
         () => _reviewsCollection.doc(reviewId).update({
           'isFlagged': true,
-          'visible': false,
           'updatedAt': FieldValue.serverTimestamp(),
         }),
         operationName: 'flagReview',
@@ -466,7 +453,6 @@ class ReviewService {
       await _withRetry(
         () => _reviewsCollection.doc(reviewId).update({
           'isFlagged': false,
-          'visible': true,
           'updatedAt': FieldValue.serverTimestamp(),
         }),
         operationName: 'unflagReview',
@@ -500,7 +486,9 @@ class ReviewService {
       final snapshot = await _withRetry(
         () => _reviewsCollection
             .where('businessId', isEqualTo: businessId)
-            .where('visible', isEqualTo: true)
+            .where('isReported', isEqualTo: false)
+            .where('isFlagged', isEqualTo: false)
+            .where('deletedAt', isNull: true)
             .get(),
         operationName: '_updateBusinessReviewMetrics',
       );
@@ -603,12 +591,4 @@ class ReviewService {
       throw Exception('Failed to fetch recommendation history: $e');
     }
   }
-}
-
-/// A paginated result returned by [ReviewService.getBusinessReviewsPage].
-class ReviewsPage {
-  final List<Review> items;
-  final DocumentSnapshot? lastDocument;
-
-  const ReviewsPage({required this.items, this.lastDocument});
 }

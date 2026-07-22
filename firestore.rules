@@ -151,14 +151,37 @@ service cloud.firestore {
       );
     }
 
-    // ── Reviews (visitor feedback on businesses) ──
+    // ── Reviews / Recommendations (visitor feedback on businesses) ──
     match /reviews/{reviewId} {
-      allow read: if resource.data.isReported != true; // Show non-reported reviews to all
-      allow create: if isSignedIn() && request.resource.data.visitorId == request.auth.uid;
-      allow update: if isAdmin(); // Only admins can update (mark as reported)
-      allow delete: if isAdmin() || (
-        isSignedIn() && resource.data.visitorId == request.auth.uid
+      // Only show recommendations that are public (visible == true).
+      allow read: if resource.data.visible == true;
+
+      // Authenticated visitors can create one recommendation per business.
+      // Rate limits are enforced client-side; rules guarantee auth binding
+      // and data shape so fake/spam payloads are rejected.
+      allow create: if isSignedIn()
+        && request.resource.data.visitorId == request.auth.uid
+        && request.resource.data.businessId is string
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() > 0
+        && request.resource.data.comment.size() <= 500
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.visible == true;
+
+      // Owners can soft-delete their own recommendations. Admins can perform
+      // any update (report, flag, restore, moderate).
+      allow update: if isAdmin() || (
+        isSignedIn()
+        && resource.data.visitorId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['deletedAt', 'deletedBy', 'visible', 'updatedAt'])
       );
+
+      // Hard delete is reserved for admins only so history is preserved.
+      allow delete: if isAdmin();
     }
 
     // ── Food businesses (public read, seeding allows unauthenticated write) ──

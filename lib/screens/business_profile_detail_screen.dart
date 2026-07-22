@@ -127,7 +127,7 @@ class _BusinessProfileDetailScreenState
 
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please sign in to leave a review')),
+        const SnackBar(content: Text('Please sign in to leave a recommendation')),
       );
       return;
     }
@@ -140,7 +140,7 @@ class _BusinessProfileDetailScreenState
 
     if (hasReviewed && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You have already reviewed this business')),
+        const SnackBar(content: Text('You have already recommended this business')),
       );
       return;
     }
@@ -172,7 +172,7 @@ class _BusinessProfileDetailScreenState
         actions: [
           IconButton(
             icon: const Icon(Icons.rate_review_outlined),
-            tooltip: 'Leave a Review',
+            tooltip: 'Recommend this Business',
             onPressed: _showReviewBottomSheet,
           ),
         ],

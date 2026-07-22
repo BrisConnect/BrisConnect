@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:brisconnect/models/review.dart';
 import 'package:brisconnect/services/review_service.dart';
@@ -23,6 +24,63 @@ class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
   late final ReviewService _reviewService =
       widget.reviewService ?? ReviewService();
 
+  final List<Review> _reviews = [];
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  DocumentSnapshot? _lastDocument;
+
+  static const int _pageSize = 10;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMore();
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || !_hasMore) return;
+
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final page = await _reviewService.getBusinessReviewsPage(
+        widget.businessId,
+        limit: _pageSize,
+        startAfterDocument: _lastDocument,
+      );
+
+      setState(() {
+        if (page.items.isEmpty || page.items.length < _pageSize) {
+          _hasMore = false;
+        }
+        if (page.items.isNotEmpty) {
+          _lastDocument = page.lastDocument;
+          _reviews.addAll(page.items);
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading recommendations: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
+  }
+
+  Future<void> _markHelpful(String reviewId) async {
+    try {
+      await _reviewService.markHelpful(reviewId);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -32,9 +90,9 @@ class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
         _buildRatingSummary(),
         const SizedBox(height: 20),
 
-        // Reviews List
+        // Recommendations List
         const Text(
-          'Customer Reviews',
+          'Visitor Recommendations',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -87,7 +145,7 @@ class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
                               _buildStarRating(averageRating),
                               const SizedBox(height: 4),
                               Text(
-                                'Based on $reviewCount reviews',
+                                'Based on $reviewCount recommendations',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: AppPalette.mutedText,
@@ -122,59 +180,62 @@ class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
   }
 
   Widget _buildReviewsList() {
-    return StreamBuilder<List<Review>>(
-      stream: _reviewService.getBusinessReviewsStream(widget.businessId),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    if (_reviews.isEmpty && _isLoadingMore) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-        if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-
-        final reviews = snapshot.data ?? [];
-
-        if (reviews.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.rate_review_outlined,
-                    size: 48,
-                    color: AppPalette.border,
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'No reviews yet',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Be the first to leave a review!',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppPalette.mutedText,
-                    ),
-                  ),
-                ],
+    if (_reviews.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              Icon(
+                Icons.recommend_outlined,
+                size: 48,
+                color: AppPalette.border,
               ),
-            ),
-          );
-        }
+              const SizedBox(height: 12),
+              const Text(
+                'No recommendations yet',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Be the first to recommend this business!',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppPalette.mutedText,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
-        return ListView.builder(
+    return Column(
+      children: [
+        ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: reviews.length,
-          itemBuilder: (context, index) => _buildReviewCard(reviews[index]),
-        );
-      },
+          itemCount: _reviews.length,
+          itemBuilder: (context, index) => _buildReviewCard(_reviews[index]),
+        ),
+        if (_hasMore)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: _isLoadingMore
+                ? const Center(child: CircularProgressIndicator())
+                : TextButton(
+                    onPressed: _loadMore,
+                    child: const Text('Load more recommendations'),
+                  ),
+          ),
+      ],
     );
   }
 
@@ -254,13 +315,29 @@ class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
             ),
             const SizedBox(height: 8),
 
-            // Date
-            Text(
-              _formatReviewDate(review.createdAt),
-              style: TextStyle(
-                fontSize: 11,
-                color: AppPalette.mutedText,
-              ),
+            // Date and helpful action
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _formatReviewDate(review.createdAt),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppPalette.mutedText,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => _markHelpful(review.id),
+                  icon: const Icon(Icons.thumb_up_outlined, size: 14),
+                  label: Text('Helpful ${review.helpfulCount}'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppPalette.mutedText,
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -274,12 +351,12 @@ class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Report Review'),
+        title: const Text('Report Recommendation'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'Why are you reporting this review?',
+              'Why are you reporting this recommendation?',
               style: TextStyle(fontSize: 14),
             ),
             const SizedBox(height: 16),
@@ -322,7 +399,7 @@ class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Review reported successfully'),
+                      content: Text('Recommendation reported successfully'),
                     ),
                   );
                 }
@@ -351,9 +428,9 @@ class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Review'),
+        title: const Text('Delete Recommendation'),
         content: const Text(
-          'Are you sure you want to delete your review? This action cannot be undone.',
+          'Are you sure you want to delete your recommendation? It will be hidden from the public but kept in your history.',
         ),
         actions: [
           TextButton(
@@ -367,7 +444,7 @@ class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
                 if (context.mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Review deleted successfully')),
+                    const SnackBar(content: Text('Recommendation deleted')),
                   );
                 }
               } catch (e) {
