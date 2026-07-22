@@ -18,6 +18,14 @@
       ]
     },
     {
+      "collectionGroup": "promotions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerId", "order": "ASCENDING" },
+        { "fieldPath": "scheduledAt", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "event_reports",
       "queryScope": "COLLECTION",
       "fields": [

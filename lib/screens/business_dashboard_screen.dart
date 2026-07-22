@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/screens/ai_post_sheet.dart';
+import 'package:brisconnect/screens/schedule_promotion_screen.dart';
+import 'package:brisconnect/services/best_time_to_post_service.dart';
 import 'package:brisconnect/services/business_dashboard_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 
@@ -29,6 +31,9 @@ class BusinessDashboardScreen extends StatelessWidget {
               child: _buildAnalyticsGrid(context, effectiveOwnerId),
             ),
             SliverToBoxAdapter(child: _buildAIPostSection(context)),
+            SliverToBoxAdapter(
+              child: _buildBestTimeToPostSection(context, effectiveOwnerId),
+            ),
             SliverToBoxAdapter(
               child: _buildPromotionsSection(context, effectiveOwnerId),
             ),
@@ -270,6 +275,186 @@ class BusinessDashboardScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ── Best Time to Post ───────────────────────────────────────────────
+  Widget _buildBestTimeToPostSection(BuildContext context, String ownerId) {
+    if (ownerId.trim().isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionLabel('Best Time to Post'),
+          const SizedBox(height: 10),
+          FutureBuilder<BestTimeToPostResult>(
+            future: BestTimeToPostService().getRecommendations(ownerId),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting &&
+                  !snap.hasData) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: CircularProgressIndicator(color: AppPalette.ochre),
+                  ),
+                );
+              }
+
+              if (snap.hasError) {
+                return _DashboardErrorCard(
+                  message: 'Unable to load recommendations: ${snap.error}',
+                );
+              }
+
+              final result = snap.data ?? BestTimeToPostResult.insufficient;
+
+              if (!result.hasEnoughData) {
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1C1C2E),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.05)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppPalette.ochre.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(Icons.schedule_rounded,
+                            color: AppPalette.ochre, size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Not enough data yet',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              result.insufficientDataReason ??
+                                  'Keep engaging customers to unlock posting-time insights.',
+                              style: const TextStyle(
+                                  color: Color(0xFF8B8FA8), fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              final recs = result.recommendations;
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1C1C2E),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                      color: AppPalette.ochre.withValues(alpha: 0.2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ...recs.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final rec = entry.value;
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          bottom: index == recs.length - 1 ? 0 : 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color:
+                                    AppPalette.ochre.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '#${index + 1}',
+                                  style: const TextStyle(
+                                    color: AppPalette.ochre,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${rec.dayLabel}s ${rec.timeRangeLabel}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    rec.explanation,
+                                    style: const TextStyle(
+                                      color: Color(0xFF8B8FA8),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => _openSchedulePromotion(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppPalette.ochre,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text('Schedule a Promotion'),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openSchedulePromotion(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const SchedulePromotionScreen(),
       ),
     );
   }
