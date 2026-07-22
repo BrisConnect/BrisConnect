@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/local_auth.dart';
+import 'package:brisconnect/models/ai_generated_post.dart';
 import 'package:brisconnect/screens/ai_post_sheet.dart';
 import 'package:brisconnect/screens/schedule_promotion_screen.dart';
 import 'package:brisconnect/services/best_time_to_post_service.dart';
@@ -257,17 +258,23 @@ class BusinessDashboardScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _QuickPostChip(
-                          label: '📅 New Event', context: context),
+                          label: '📅 New Event',
+                          type: AiPostType.businessEvent,
+                          context: context),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: _QuickPostChip(
-                          label: '🎉 Promotion', context: context),
+                          label: '🎉 Promotion',
+                          type: AiPostType.promotion,
+                          context: context),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: _QuickPostChip(
-                          label: '📣 Announcement', context: context),
+                          label: '📣 Announcement',
+                          type: AiPostType.announcement,
+                          context: context),
                     ),
                   ],
                 ),
@@ -754,8 +761,10 @@ class _DashboardErrorCard extends StatelessWidget {
 
 // ── Quick Post Chip ───────────────────────────────────────────────────
 class _QuickPostChip extends StatelessWidget {
-  const _QuickPostChip({required this.label, required this.context});
+  const _QuickPostChip(
+      {required this.label, required this.type, required this.context});
   final String label;
+  final AiPostType type;
   final BuildContext context;
 
   @override
@@ -765,7 +774,7 @@ class _QuickPostChip extends StatelessWidget {
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (_) => AiPostSheet(initialType: label),
+        builder: (_) => AiPostSheet(initialType: type),
       ),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),

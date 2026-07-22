@@ -2,14 +2,16 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:brisconnect/auth/local_auth.dart';
+import 'package:brisconnect/models/ai_generated_post.dart';
 import 'package:brisconnect/services/ai_post_service.dart';
+import 'package:brisconnect/services/ai_post_storage_service.dart';
 import 'package:brisconnect/services/business_profile_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 
 /// Bottom sheet for AI-powered social media post generation.
 class AiPostSheet extends StatefulWidget {
-  final String initialType;
-  const AiPostSheet({super.key, this.initialType = '📅 New Event'});
+  final AiPostType initialType;
+  const AiPostSheet({super.key, this.initialType = AiPostType.businessEvent});
 
   @override
   State<AiPostSheet> createState() => _AiPostSheetState();
@@ -17,36 +19,50 @@ class AiPostSheet extends StatefulWidget {
 
 class _AiPostSheetState extends State<AiPostSheet> {
   static const _postTypes = [
-    '📅 New Event',
-    '🎉 Promotion',
-    '📣 Announcement',
-    '⭐ Review Highlight',
-    '🍽️ Menu Feature',
+    AiPostType.businessEvent,
+    AiPostType.promotion,
+    AiPostType.menuItem,
+    AiPostType.announcement,
+    AiPostType.reviewHighlight,
   ];
 
-  late String _selectedType;
-  final _extraCtrl = TextEditingController();
+  late AiPostType _selectedType;
+
+  final _titleCtrl = TextEditingController();
+  final _descriptionCtrl = TextEditingController();
+  final _priceCtrl = TextEditingController();
+  final _discountCtrl = TextEditingController();
+  final _locationCtrl = TextEditingController();
+  DateTime? _eventDate;
+
+  final _generatedCtrl = TextEditingController();
   String? _generatedPost;
   bool _generating = false;
+  bool _saving = false;
   String? _error;
+  String? _successMessage;
+
+  String _businessId = '';
   String _businessName = '';
   String _category = '';
+  String _ownerId = '';
 
   @override
   void initState() {
     super.initState();
     _selectedType = widget.initialType;
+    _ownerId = LocalAuth.currentLocal?.email ?? '';
     _loadBusiness();
   }
 
   Future<void> _loadBusiness() async {
-    final email = LocalAuth.currentLocal?.email;
-    if (email == null) return;
+    if (_ownerId.isEmpty) return;
     try {
       final list =
-          await BusinessProfileService().getUserBusinessProfiles(email);
+          await BusinessProfileService().getUserBusinessProfiles(_ownerId);
       if (list.isNotEmpty && mounted) {
         setState(() {
+          _businessId = list.first.id ?? '';
           _businessName = list.first.businessName;
           _category = list.first.category;
         });
@@ -56,8 +72,29 @@ class _AiPostSheetState extends State<AiPostSheet> {
 
   @override
   void dispose() {
-    _extraCtrl.dispose();
+    _titleCtrl.dispose();
+    _descriptionCtrl.dispose();
+    _priceCtrl.dispose();
+    _discountCtrl.dispose();
+    _locationCtrl.dispose();
+    _generatedCtrl.dispose();
     super.dispose();
+  }
+
+  String get _extraContext {
+    final parts = <String>[
+      if (_titleCtrl.text.trim().isNotEmpty) 'Title: ${_titleCtrl.text.trim()}',
+      if (_descriptionCtrl.text.trim().isNotEmpty)
+        'Description: ${_descriptionCtrl.text.trim()}',
+      if (_priceCtrl.text.trim().isNotEmpty) 'Price: ${_priceCtrl.text.trim()}',
+      if (_discountCtrl.text.trim().isNotEmpty)
+        'Discount: ${_discountCtrl.text.trim()}',
+      if (_eventDate != null)
+        'Date: ${_eventDate!.day}/${_eventDate!.month}/${_eventDate!.year}',
+      if (_locationCtrl.text.trim().isNotEmpty)
+        'Location: ${_locationCtrl.text.trim()}',
+    ];
+    return parts.join('\n');
   }
 
   Future<void> _generate() async {
@@ -66,19 +103,28 @@ class _AiPostSheetState extends State<AiPostSheet> {
           'Complete your Business Profile first so AI knows your business name.');
       return;
     }
+    if (_titleCtrl.text.trim().isEmpty) {
+      setState(() => _error = 'Please enter a title or name for the post.');
+      return;
+    }
     setState(() {
       _generating = true;
       _error = null;
+      _successMessage = null;
       _generatedPost = null;
+      _generatedCtrl.clear();
     });
     try {
-      final post = await AiPostService.generatePost(
-        postType: _selectedType.replaceAll(RegExp(r'[^\x20-\x7E]'), '').trim(),
+      final post = await AiPostService().generatePost(
+        postType: _selectedType.displayName,
         businessName: _businessName,
         category: _category,
-        extraContext: _extraCtrl.text,
+        extraContext: _extraContext,
       );
-      setState(() => _generatedPost = post);
+      setState(() {
+        _generatedPost = post;
+        _generatedCtrl.text = post;
+      });
     } catch (e) {
       String msg;
       if (e is FirebaseFunctionsException) {
@@ -92,9 +138,67 @@ class _AiPostSheetState extends State<AiPostSheet> {
     }
   }
 
+  AiGeneratedPost get _currentPost {
+    final now = DateTime.now();
+    return AiGeneratedPost(
+      businessId: _businessId,
+      ownerId: _ownerId,
+      postType: _selectedType,
+      title: _titleCtrl.text.trim(),
+      description: _descriptionCtrl.text.trim(),
+      price: _priceCtrl.text.trim().isNotEmpty ? _priceCtrl.text.trim() : null,
+      discount:
+          _discountCtrl.text.trim().isNotEmpty ? _discountCtrl.text.trim() : null,
+      eventDate: _eventDate,
+      location:
+          _locationCtrl.text.trim().isNotEmpty ? _locationCtrl.text.trim() : null,
+      generatedContent: _generatedCtrl.text.trim(),
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
+  Future<void> _saveDraft() async {
+    if (_generatedCtrl.text.trim().isEmpty) {
+      setState(() => _error = 'Generate or enter a post before saving.');
+      return;
+    }
+    await _persist(() => AiPostStorageService().saveDraft(_currentPost), 'Draft saved');
+  }
+
+  Future<void> _publish() async {
+    if (_generatedCtrl.text.trim().isEmpty) {
+      setState(() => _error = 'Generate or enter a post before publishing.');
+      return;
+    }
+    await _persist(
+        () => AiPostStorageService().publish(_currentPost), 'Post published');
+  }
+
+  Future<void> _persist(Future<String> Function() action, String success) async {
+    setState(() {
+      _saving = true;
+      _error = null;
+      _successMessage = null;
+    });
+    try {
+      await action();
+      if (mounted) {
+        setState(() => _successMessage = '✓ $success');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   void _copy() {
-    if (_generatedPost == null) return;
-    Clipboard.setData(ClipboardData(text: _generatedPost!));
+    final text = _generatedCtrl.text.trim();
+    if (text.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('✓ Copied to clipboard'),
@@ -202,7 +306,9 @@ class _AiPostSheetState extends State<AiPostSheet> {
                   onTap: () => setState(() {
                     _selectedType = type;
                     _generatedPost = null;
+                    _generatedCtrl.clear();
                     _error = null;
+                    _successMessage = null;
                   }),
                   child: Container(
                     padding:
@@ -216,7 +322,7 @@ class _AiPostSheetState extends State<AiPostSheet> {
                           : Border.all(
                               color: Colors.white.withValues(alpha: 0.1)),
                     ),
-                    child: Text(type,
+                    child: Text(type.displayName,
                         style: TextStyle(
                             color: selected
                                 ? Colors.white
@@ -231,34 +337,50 @@ class _AiPostSheetState extends State<AiPostSheet> {
             ),
             const SizedBox(height: 16),
 
-            // Extra context
-            const Text('Extra details (optional)',
-                style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500)),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _extraCtrl,
-              maxLines: 2,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-              decoration: InputDecoration(
-                hintText: 'e.g. "Friday night live music 7-10pm, free entry"',
-                hintStyle:
-                    const TextStyle(color: Color(0xFF8B8FA8), fontSize: 12),
-                filled: true,
-                fillColor: const Color(0xFF2A2A3E),
-                contentPadding: const EdgeInsets.all(12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppPalette.ochre),
-                ),
-              ),
+            // Structured input form
+            _buildTextField(
+              controller: _titleCtrl,
+              label: _titleLabel,
+              hint: _titleHint,
+              maxLines: 1,
             ),
+            const SizedBox(height: 12),
+            _buildTextField(
+              controller: _descriptionCtrl,
+              label: 'Description',
+              hint: 'Add a short description or notes for the AI',
+              maxLines: 3,
+            ),
+            if (_selectedType == AiPostType.promotion ||
+                _selectedType == AiPostType.menuItem) ...[
+              const SizedBox(height: 12),
+              _buildTextField(
+                controller: _priceCtrl,
+                label: 'Price (optional)',
+                hint: r'e.g. $24 or $15 per person',
+                maxLines: 1,
+              ),
+            ],
+            if (_selectedType == AiPostType.promotion) ...[
+              const SizedBox(height: 12),
+              _buildTextField(
+                controller: _discountCtrl,
+                label: 'Discount (optional)',
+                hint: 'e.g. 20% off or buy-one-get-one-free',
+                maxLines: 1,
+              ),
+            ],
+            if (_selectedType == AiPostType.businessEvent) ...[
+              const SizedBox(height: 12),
+              _buildDatePicker(),
+              const SizedBox(height: 12),
+              _buildTextField(
+                controller: _locationCtrl,
+                label: 'Location (optional)',
+                hint: 'e.g. 123 Queen St, Brisbane',
+                maxLines: 1,
+              ),
+            ],
             const SizedBox(height: 16),
 
             // Generate button
@@ -266,7 +388,7 @@ class _AiPostSheetState extends State<AiPostSheet> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton.icon(
-                onPressed: _generating ? null : _generate,
+                onPressed: _generating || _saving ? null : _generate,
                 icon: _generating
                     ? const SizedBox(
                         width: 18,
@@ -312,6 +434,31 @@ class _AiPostSheetState extends State<AiPostSheet> {
               ),
             ],
 
+            // Success
+            if (_successMessage != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_outline_rounded,
+                        color: Colors.green, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(_successMessage!,
+                          style: const TextStyle(
+                              color: Colors.green, fontSize: 12)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             // Generated post
             if (_generatedPost != null) ...[
               const SizedBox(height: 20),
@@ -326,7 +473,7 @@ class _AiPostSheetState extends State<AiPostSheet> {
                   Row(
                     children: [
                       TextButton.icon(
-                        onPressed: _generate,
+                        onPressed: _generating || _saving ? null : _generate,
                         icon: const Icon(Icons.refresh_rounded, size: 14),
                         label: const Text('Regenerate',
                             style: TextStyle(fontSize: 12)),
@@ -355,25 +502,200 @@ class _AiPostSheetState extends State<AiPostSheet> {
                 ],
               ),
               const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2A2A3E),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                      color: AppPalette.ochre.withValues(alpha: 0.3)),
+              TextField(
+                controller: _generatedCtrl,
+                maxLines: 8,
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 14, height: 1.55),
+                decoration: InputDecoration(
+                  hintText: 'Edit your generated post here...',
+                  hintStyle:
+                      const TextStyle(color: Color(0xFF8B8FA8), fontSize: 13),
+                  filled: true,
+                  fillColor: const Color(0xFF2A2A3E),
+                  contentPadding: const EdgeInsets.all(16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide:
+                        const BorderSide(color: AppPalette.ochre, width: 1.5),
+                  ),
                 ),
-                child: Text(
-                  _generatedPost!,
-                  style: const TextStyle(
-                      color: Colors.white, fontSize: 14, height: 1.55),
-                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _saving ? null : _saveDraft,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF8B8FA8),
+                        side: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.15)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: _saving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFF8B8FA8)))
+                          : const Text('Save Draft'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _saving ? null : _publish,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppPalette.ochre,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: _saving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white))
+                          : const Text('Publish'),
+                    ),
+                  ),
+                ],
               ),
             ],
           ],
         ),
       ),
+    );
+  }
+
+  String get _titleLabel {
+    switch (_selectedType) {
+      case AiPostType.menuItem:
+        return 'Menu Item Name';
+      case AiPostType.businessEvent:
+        return 'Event Title';
+      case AiPostType.promotion:
+      case AiPostType.announcement:
+      case AiPostType.reviewHighlight:
+        return 'Title';
+    }
+  }
+
+  String get _titleHint {
+    switch (_selectedType) {
+      case AiPostType.menuItem:
+        return 'e.g. Truffle Mushroom Risotto';
+      case AiPostType.businessEvent:
+        return 'e.g. Friday Night Live Music';
+      case AiPostType.promotion:
+        return 'e.g. Midweek Special';
+      case AiPostType.announcement:
+        return 'e.g. New Opening Hours';
+      case AiPostType.reviewHighlight:
+        return 'e.g. Customer Favourite';
+    }
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required int maxLines,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.w500)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          maxLines: maxLines,
+          style: const TextStyle(color: Colors.white, fontSize: 13),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle:
+                const TextStyle(color: Color(0xFF8B8FA8), fontSize: 12),
+            filled: true,
+            fillColor: const Color(0xFF2A2A3E),
+            contentPadding: const EdgeInsets.all(12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppPalette.ochre),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDatePicker() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Event Date (optional)',
+            style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.w500)),
+        const SizedBox(height: 6),
+        GestureDetector(
+          onTap: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: _eventDate ?? DateTime.now(),
+              firstDate: DateTime.now(),
+              lastDate: DateTime.now().add(const Duration(days: 365)),
+            );
+            if (picked != null) {
+              setState(() => _eventDate = picked);
+            }
+          },
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2A2A3E),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.calendar_today_rounded,
+                    color: AppPalette.ochre, size: 16),
+                const SizedBox(width: 10),
+                Text(
+                  _eventDate == null
+                      ? 'Tap to select a date'
+                      : '${_eventDate!.day}/${_eventDate!.month}/${_eventDate!.year}',
+                  style: TextStyle(
+                    color: _eventDate == null
+                        ? const Color(0xFF8B8FA8)
+                        : Colors.white,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
