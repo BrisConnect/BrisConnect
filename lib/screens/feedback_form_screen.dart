@@ -129,7 +129,7 @@ class _FeedbackFormScreenState extends State<FeedbackFormScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Feedback submitted. Thank you for helping improve BrisConnect.'),
+          content: Text('Feedback submitted. Thank you for helping improve BrisConnect+.'),
         ),
       );
       Navigator.of(context).pop(true);

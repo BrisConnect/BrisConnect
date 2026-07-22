@@ -17,10 +17,10 @@ class VisitorEmailNotificationService {
     ).set({
       'to': recipientEmail,
       'message': {
-        'subject': 'Welcome to BrisConnect',
-        'html': '<p>Hello $visitorName,</p>'
-            '<p>Your BrisConnect visitor account has been created successfully.</p>'
-            '<p>You can now sign in and explore events, attractions, and notifications.</p>',
+        'subject': 'Welcome to BrisConnect+',
+        'html': _wrapEmail('<p>Hello $visitorName,</p>'
+            '<p>Your BrisConnect+ visitor account has been created successfully.</p>'
+            '<p>You can now sign in and explore events, attractions, and notifications.</p>'),
       },
       'meta': {
         'type': 'visitor_registration_received',
@@ -46,11 +46,11 @@ class VisitorEmailNotificationService {
     ).set({
       'to': recipientEmail,
       'message': {
-        'subject': 'BrisConnect: You saved "${_escapeHtml(eventTitle)}"',
-        'html': '<p>Hello $visitorName,</p>'
+        'subject': 'BrisConnect+: You saved "${_escapeHtml(eventTitle)}"',
+        'html': _wrapEmail('<p>Hello $visitorName,</p>'
             '<p>You saved <strong>${_escapeHtml(eventTitle)}</strong> to your events.</p>'
             '${schedule.isNotEmpty ? '<p>Details: $schedule</p>' : ''}'
-            '<p>Open BrisConnect to view your saved events.</p>',
+            '<p>Open BrisConnect+ to view your saved events.</p>'),
       },
       'meta': {
         'type': 'visitor_event_saved',
@@ -58,6 +58,32 @@ class VisitorEmailNotificationService {
       },
       'createdAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  static String _emailHeader() {
+    return '''
+      <div style="background-color:#E8820C;padding:20px 24px;border-radius:8px 8px 0 0;text-align:center;">
+        <span style="font-size:24px;font-weight:900;color:#ffffff;letter-spacing:1px;">BrisConnect+</span>
+      </div>
+      <div style="background-color:#ffffff;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e0e0e0;border-top:none;">
+    ''';
+  }
+
+  static String _emailFooter() {
+    return '''
+      </div>
+      <p style="text-align:center;font-size:11px;color:#999999;margin-top:16px;">&copy; 2026 BrisConnect+. All rights reserved.</p>
+    ''';
+  }
+
+  static String _wrapEmail(String body) {
+    return '''
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+        ${_emailHeader()}
+        $body
+        ${_emailFooter()}
+      </div>
+    ''';
   }
 
   static String _escapeHtml(String input) {

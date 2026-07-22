@@ -5,8 +5,6 @@ import 'package:brisconnect/services/event_document_id_service.dart';
 import 'package:brisconnect/services/local_email_notification_service.dart';
 import 'package:brisconnect/services/sms_notification_service.dart';
 
-import 'package:brisconnect/utils/narration_builder.dart';
-
 class AdminEventService {
   AdminEventService({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -130,55 +128,17 @@ class AdminEventService {
           'badge': _statusBadgeValue(reviewStatus),
           'isApproved': reviewStatus == EventReviewStatus.approved,
         },
-        'imageUrl': imageUrl,
-        'imageStoragePath': imageStoragePath,
-        'videoUrl': videoUrl,
-        'videoStoragePath': videoStoragePath,
-        'audioUrl': audioUrl,
-        'audioStoragePath': audioStoragePath,
+        if (imageUrl != null) 'imageUrl': imageUrl,
+        if (imageStoragePath != null) 'imageStoragePath': imageStoragePath,
+        if (videoUrl != null) 'videoUrl': videoUrl,
+        if (videoStoragePath != null) 'videoStoragePath': videoStoragePath,
+        if (audioUrl != null) 'audioUrl': audioUrl,
+        if (audioStoragePath != null) 'audioStoragePath': audioStoragePath,
         if (aiNarration != null) 'aiNarration': aiNarration.trim(),
         'dateTime': _composeDateTime(normalizedDate, time),
         'updatedAt': FieldValue.serverTimestamp(),
       });
     });
-
-    // Sync approved events to discover_items so visitors can see them.
-    if (reviewStatus == EventReviewStatus.approved) {
-      final eventSnapshot = await eventRef.get();
-      final eventData = eventSnapshot.data() ?? const <String, dynamic>{};
-      final narration = aiNarration ??
-          (eventData['aiNarration'] as String? ?? '') .trim();
-      final generatedNarration = narration.isNotEmpty
-          ? narration
-          : buildEventNarration(
-              title: title.trim(),
-              dateTime: eventData['dateTime'] as String? ?? '',
-              location: location.trim(),
-              description: description.trim(),
-            );
-
-      await _firestore.collection('discover_items').doc(eventId).set({
-        'id': eventId,
-        'title': title.trim(),
-        'date': date.trim(),
-        'dateTime': eventData['dateTime'] as String? ?? '',
-        'category': category?.trim() ?? eventData['category'] as String? ?? '',
-        'location': location.trim(),
-        'description': description.trim(),
-        'section': 'events',
-        'approvalStatus': 'approved',
-        'imageUrl': imageUrl ?? eventData['imageUrl'],
-        'imageStoragePath': imageStoragePath ?? eventData['imageStoragePath'],
-        'videoUrl': videoUrl ?? eventData['videoUrl'],
-        'videoStoragePath': videoStoragePath ?? eventData['videoStoragePath'],
-        'audioUrl': audioUrl ?? eventData['audioUrl'],
-        'audioStoragePath': audioStoragePath ?? eventData['audioStoragePath'],
-        'aiNarration': generatedNarration,
-        'source': eventData['source'] as String? ?? 'local_submission',
-        'createdByLocalEmail': createdByLocalEmail,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    }
 
     if (reviewStatus != null &&
         previousReviewStatus != null &&

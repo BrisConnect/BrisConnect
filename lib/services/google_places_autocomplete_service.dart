@@ -2,6 +2,19 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:brisconnect/config/app_config.dart';
 
+/// Result of a Google Places Details call.
+class PlaceDetails {
+  final double lat;
+  final double lng;
+  final String? formattedAddress;
+
+  const PlaceDetails({
+    required this.lat,
+    required this.lng,
+    this.formattedAddress,
+  });
+}
+
 class GooglePlacesAutocompleteService {
   GooglePlacesAutocompleteService({FirebaseFunctions? functions})
       : _functions = functions ??
@@ -60,6 +73,57 @@ class GooglePlacesAutocompleteService {
 
   void resetSession() {
     _sessionToken = _newSessionToken();
+  }
+
+  /// Fetch the first Place ID matching the given address string.
+  /// Returns null if no match is found or the cloud function fails.
+  Future<String?> fetchPlaceId(String address) async {
+    final trimmed = address.trim();
+    if (trimmed.length < 3) return null;
+
+    try {
+      final callable = _functions.httpsCallable('findPlaceByText');
+      final response = await callable.call<Map<String, dynamic>>({
+        'query': trimmed,
+        'sessionToken': _sessionToken,
+      }).timeout(const Duration(seconds: 10));
+
+      final data = response.data;
+      final placeId = data['placeId'] as String?;
+      debugPrint('[PlacesAutocomplete] placeId=$placeId');
+      return placeId;
+    } catch (error) {
+      debugPrint('[PlacesAutocomplete] fetchPlaceId error=$error');
+      return null;
+    }
+  }
+
+  /// Fetch detailed place information (including lat/lng) for a Place ID.
+  /// Returns null if the cloud function fails.
+  Future<PlaceDetails?> fetchPlaceDetails(String placeId) async {
+    try {
+      final callable = _functions.httpsCallable('getPlaceDetails');
+      final response = await callable.call<Map<String, dynamic>>({
+        'placeId': placeId,
+        'sessionToken': _sessionToken,
+      }).timeout(const Duration(seconds: 10));
+
+      final data = response.data;
+      final lat = data['lat'] as num?;
+      final lng = data['lng'] as num?;
+      final formattedAddress = data['formattedAddress'] as String?;
+
+      if (lat == null || lng == null) return null;
+
+      return PlaceDetails(
+        lat: lat.toDouble(),
+        lng: lng.toDouble(),
+        formattedAddress: formattedAddress,
+      );
+    } catch (error) {
+      debugPrint('[PlacesAutocomplete] fetchPlaceDetails error=$error');
+      return null;
+    }
   }
 
   List<String> _fallbackSuggestions(String query, {int limit = 8}) {

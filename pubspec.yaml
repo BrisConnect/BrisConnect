@@ -27,6 +27,7 @@ dependencies:
   google_maps_flutter: ^2.5.0
   geolocator: ^13.0.2
   url_launcher: ^6.3.2
+  connectivity_plus: ^6.1.3
 
   # Media / camera
   image_picker: ^1.2.1
@@ -43,30 +44,47 @@ dependencies:
   # Permissions
   permission_handler: ^11.4.0
 
+  # Biometric authentication
+  local_auth: ^2.3.0
+
   # Audio / TTS
   flutter_tts: ^4.2.5
   just_audio: ^0.9.42
 
   # Crypto
   crypto: ^3.0.7
-  firebase_app_check: ^0.4.2
 
   # Calendar
   table_calendar: ^3.1.3
+  google_fonts: ^8.1.0
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
   fake_cloud_firestore: ^4.0.2
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo_new.png"
+  ios_content_mode: scaleAspectFit
+  background_color: "#1E3A5F"
 
 flutter:
   uses-material-design: true
   assets:
-    - assets/logo.png
+    - "assets/logo.png"
+    - "assets/Brisconnect New.jpg"
+    - "assets/brisconnect_icon.svg"
+    - "assets/images/brisconnect_logo.png"
     - assets/Kangaroo1.png
     - assets/Kangaroo2.png
     - assets/Kangaroo3.png
     - assets/Kangaroo4.png
     - assets/Kookaburra1.png
     - assets/Koala1.png
+    - assets/Elder.png
+    - assets/AB.png

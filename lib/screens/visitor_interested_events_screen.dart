@@ -2,20 +2,16 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
-import 'package:brisconnect/screens/visitor_event_detail_screen.dart';
-import 'package:brisconnect/services/discover_data_service.dart';
+import 'package:brisconnect/models/event_item.dart';
+import 'package:brisconnect/screens/event_detail_screen.dart';
+import 'package:brisconnect/services/admin_event_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/utils/error_messages.dart';
 import 'package:brisconnect/widgets/inline_status_message.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 
 class VisitorInterestedEventsScreen extends StatefulWidget {
-  final DiscoverDataService? discoverDataService;
-
-  const VisitorInterestedEventsScreen({
-    super.key,
-    this.discoverDataService,
-  });
+  const VisitorInterestedEventsScreen({super.key});
 
   @override
   State<VisitorInterestedEventsScreen> createState() =>
@@ -24,14 +20,14 @@ class VisitorInterestedEventsScreen extends StatefulWidget {
 
 class _VisitorInterestedEventsScreenState
     extends State<VisitorInterestedEventsScreen> {
-  late final DiscoverDataService _discoverDataService;
+  late final AdminEventService _eventService;
   DateTime _loadStartedAt = DateTime.now();
   Timer? _loadingHintTimer;
 
   @override
   void initState() {
     super.initState();
-    _discoverDataService = widget.discoverDataService ?? DiscoverDataService();
+    _eventService = AdminEventService();
     _loadStartedAt = DateTime.now();
     _loadingHintTimer = Timer(const Duration(seconds: 2), () {
       if (mounted) {
@@ -63,8 +59,8 @@ class _VisitorInterestedEventsScreenState
     );
   }
 
-  List<Map<String, dynamic>> _filterInterestedEvents(
-    List<Map<String, dynamic>> events,
+  List<EventItem> _filterInterestedEvents(
+    List<EventItem> events,
   ) {
     final interestedIds = VisitorAuth.getInterestedEventIds();
     if (interestedIds.isEmpty) {
@@ -72,12 +68,11 @@ class _VisitorInterestedEventsScreenState
     }
 
     return events.where((event) {
-      final section = (event['section'] as String? ?? '').trim().toLowerCase();
-      if (section != 'events') {
+      // Only include approved events
+      if (!event.isApproved) {
         return false;
       }
-      final eventId = (event['id'] as String?)?.trim() ?? '';
-      return eventId.isNotEmpty && interestedIds.contains(eventId);
+      return event.id.isNotEmpty && interestedIds.contains(event.id);
     }).toList();
   }
 
@@ -88,8 +83,8 @@ class _VisitorInterestedEventsScreenState
       appBar: AppBar(
         title: const LogoAppBarTitle('Interested Events'),
       ),
-      body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _discoverDataService.watchApprovedDiscoverItems(),
+      body: StreamBuilder<List<EventItem>>(
+        stream: _eventService.watchAllEvents(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             final elapsed = DateTime.now().difference(_loadStartedAt);
@@ -152,10 +147,10 @@ class _VisitorInterestedEventsScreenState
             separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
               final event = interestedEvents[index];
-              final eventId = (event['id'] as String?) ?? '';
-              final title = (event['title'] as String?) ?? 'Event';
-              final dateTime = (event['dateTime'] as String?) ?? 'Date TBA';
-              final location = (event['location'] as String?) ?? 'Location TBA';
+              final eventId = event.id;
+              final title = event.title;
+              final dateTime = '${event.date} ${event.time}';
+              final location = event.location;
 
               return Card(
                 color: AppPalette.surface,
@@ -164,7 +159,7 @@ class _VisitorInterestedEventsScreenState
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => VisitorEventDetailScreen(event: event),
+                        builder: (_) => EventDetailScreen(event: event),
                       ),
                     );
                   },

@@ -1,0 +1,32 @@
+=== FIRESTORE RULES DEPLOYMENT OPTIONS ===
+
+The firestore.rules file has been updated with food_businesses collection rule.
+
+OPTION 1: Browser Console (Recommended - 30 seconds)
+================================================
+1. Go to: https://console.firebase.google.com/project/brisconnect-68b78/firestore/rules
+2. Click "Edit Rules" button (top right)
+3. Select all existing rules (Cmd+A)
+4. Paste content from: firestore.rules
+5. Click "Publish"
+6. Run: cd functions && node seed_brisbane_cbd_rest.js
+
+OPTION 2: Install gcloud CLI
+=============================
+1. brew install google-cloud-sdk
+2. gcloud auth login
+3. gcloud firestore:rules:deploy --project=brisconnect-68b78
+4. Run: cd functions && node seed_brisbane_cbd_rest.js
+
+OPTION 3: Docker (if installed)
+================================
+1. docker pull google/cloud-sdk
+2. docker run --rm -v ~/.config/gcloud:/root/.gcloud google/cloud-sdk:latest \
+   gcloud firestore:rules:deploy --project=brisconnect-68b78
+3. Run: cd functions && node seed_brisbane_cbd_rest.js
+
+Current state:
+- firestore.rules updated locally with food_businesses rule ✓
+- seed_brisbane_cbd_rest.js ready to deploy 27 food businesses ✓
+- Waiting for rules deployment ⏳
+

@@ -70,6 +70,18 @@ class _AiNarrationWidgetState extends State<AiNarrationWidget> {
       await _tts.setPitch(0.92);
       await _tts.setSpeechRate(0.45);
       await _tts.setVolume(1.0);
+      // iOS: play audio even when the device is on silent/ring switch
+      await _tts.setSharedInstance(true);
+      await _tts.setIosAudioCategory(
+        IosTextToSpeechAudioCategory.playback,
+        [
+          IosTextToSpeechAudioCategoryOptions.allowBluetooth,
+          IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
+          IosTextToSpeechAudioCategoryOptions.mixWithOthers,
+          IosTextToSpeechAudioCategoryOptions.defaultToSpeaker,
+        ],
+        IosTextToSpeechAudioMode.defaultMode,
+      );
       _ttsInitialized = true;
     } catch (_) {
       _ttsInitialized = true;

@@ -1,11 +1,39 @@
 {
-  "functions": {
-    "source": "functions"
-  },
-  "firestore": {
-    "rules": "firestore.rules"
-  },
-  "storage": {
-    "rules": "storage.rules"
-  }
+	"functions": { "source": "functions" },
+	"firestore": { "rules": "firestore.rules" },
+	"storage": { "rules": "storage.rules" },
+	"flutter": {
+		"platforms": {
+			"android": {
+				"default": {
+					"projectId": "brisconnect-68b78",
+					"appId": "1:2073694703:android:78082838113cac65fa261a",
+					"fileOutput": "android/app/google-services.json"
+				}
+			},
+			"ios": {
+				"default": {
+					"projectId": "brisconnect-68b78",
+					"appId": "1:2073694703:ios:28fa782e5fe1479cfa261a",
+					"uploadDebugSymbols": false,
+					"fileOutput": "ios/Runner/GoogleService-Info.plist"
+				}
+			},
+			"dart": {
+				"lib/firebase_options.dart": {
+					"projectId": "brisconnect-68b78",
+					"configurations": {
+						"android": "1:2073694703:android:78082838113cac65fa261a",
+						"ios": "1:2073694703:ios:28fa782e5fe1479cfa261a",
+						"web": "1:2073694703:web:72dea72558f80bcbfa261a"
+					}
+				}
+			}
+		}
+	},
+	"hosting": {
+		"public": "build/web",
+		"ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+		"cleanUrls": true
+	}
 }

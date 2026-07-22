@@ -5,6 +5,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
+import 'package:brisconnect/config/app_config.dart';
 import 'package:brisconnect/services/local_email_notification_service.dart';
 import 'package:brisconnect/services/sms_notification_service.dart';
 import 'package:brisconnect/services/app_display_settings_controller.dart';
@@ -165,7 +166,7 @@ class LocalAuth {
     }
 
     try {
-      final callable = FirebaseFunctions.instanceFor(region: 'australia-southeast1')
+        final callable = FirebaseFunctions.instanceFor(region: AppConfig.firebaseFunctionsRegion)
           .httpsCallable('resolveUsername');
       final result = await callable.call<Map<String, dynamic>>({
         'username': normalized,
@@ -584,6 +585,55 @@ class LocalAuth {
       return false;
     } catch (_) {
       _lastErrorMessage = 'Could not load Local profile. Please try again.';
+      return false;
+    }
+  }
+
+  static Future<bool> sendPasswordReset({required String emailOrUsername}) async {
+    debugPrint('[LocalAuth] sendPasswordReset called with: $emailOrUsername');
+    _lastErrorMessage = null;
+
+    final normalized = emailOrUsername.trim().toLowerCase();
+    debugPrint('[LocalAuth] normalized email: $normalized');
+    if (normalized.isEmpty) {
+      _lastErrorMessage = 'Please enter your email address.';
+      debugPrint('[LocalAuth] email is empty');
+      return false;
+    }
+
+    if (!normalized.contains('@')) {
+      _lastErrorMessage = 'Please enter your email address (not your username) to reset your password.';
+      debugPrint('[LocalAuth] email does not contain @');
+      return false;
+    }
+
+    try {
+      debugPrint('[LocalAuth] calling Firebase sendPasswordResetEmail for: $normalized');
+      await fb_auth.FirebaseAuth.instance.sendPasswordResetEmail(
+        email: normalized,
+      );
+      debugPrint('[LocalAuth] password reset email sent successfully');
+      return true;
+    } on fb_auth.FirebaseAuthException catch (error) {
+      debugPrint('[LocalAuth] Firebase error: code=${error.code}, message=${error.message}');
+      switch (error.code) {
+        case 'invalid-email':
+          _lastErrorMessage = 'Please enter a valid email address.';
+          break;
+        case 'too-many-requests':
+          _lastErrorMessage = 'Too many reset attempts. Please try again later.';
+          break;
+        case 'network-request-failed':
+          _lastErrorMessage = 'No internet connection. Please try again.';
+          break;
+        default:
+          _lastErrorMessage = 'Could not send reset email. Please try again.';
+      }
+      debugPrint('[LocalAuth] error message set to: $_lastErrorMessage');
+      return false;
+    } catch (e) {
+      debugPrint('[LocalAuth] Unexpected error: $e');
+      _lastErrorMessage = 'Could not send reset email. Please try again.';
       return false;
     }
   }

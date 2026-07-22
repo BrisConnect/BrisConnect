@@ -5,6 +5,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
+import 'package:brisconnect/config/app_config.dart';
 import 'package:brisconnect/services/sms_notification_service.dart';
 import 'package:brisconnect/services/visitor_email_notification_service.dart';
 import 'package:brisconnect/services/app_display_settings_controller.dart';
@@ -152,7 +153,7 @@ class VisitorAuth {
     }
 
     try {
-      final callable = FirebaseFunctions.instanceFor(region: 'australia-southeast1')
+        final callable = FirebaseFunctions.instanceFor(region: AppConfig.firebaseFunctionsRegion)
           .httpsCallable('resolveUsername');
       final result = await callable.call<Map<String, dynamic>>({
         'username': normalized,
@@ -228,23 +229,27 @@ class VisitorAuth {
         'createdAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      VisitorEmailNotificationService()
-          .queueRegistrationReceivedEmail(
-            recipientEmail: normalizedEmail,
-            visitorName: name.trim(),
-          )
-          .catchError((error) {
-        debugPrint('[VisitorAuth] Failed to queue visitor welcome email: $error');
-      });
+      try {
+        await VisitorEmailNotificationService().queueRegistrationReceivedEmail(
+          recipientEmail: normalizedEmail,
+          visitorName: name.trim(),
+        );
+      } catch (error) {
+        debugPrint(
+          '[VisitorAuth] Failed to queue visitor welcome email: $error',
+        );
+      }
 
-      SmsNotificationService()
-          .queueVisitorRegistrationReceivedSms(
+      if (phone.trim().isNotEmpty) {
+        try {
+          await SmsNotificationService().queueVisitorRegistrationReceivedSms(
             recipientPhone: phone.trim(),
             visitorName: name.trim(),
-          )
-          .catchError((error) {
-        debugPrint('[VisitorAuth] Failed to queue visitor welcome SMS: $error');
-      });
+          );
+        } catch (error) {
+          debugPrint('[VisitorAuth] Failed to queue visitor welcome SMS: $error');
+        }
+      }
 
       await fb_auth.FirebaseAuth.instance.signOut();
     } on fb_auth.FirebaseAuthException catch (error) {
@@ -448,6 +453,55 @@ class VisitorAuth {
       return false;
     } catch (_) {
       _lastErrorMessage = 'Visitor login failed due to an unexpected error.';
+      return false;
+    }
+  }
+
+  static Future<bool> sendPasswordReset({required String emailOrUsername}) async {
+    debugPrint('[VisitorAuth] sendPasswordReset called with: $emailOrUsername');
+    _lastErrorMessage = null;
+
+    final normalized = emailOrUsername.trim().toLowerCase();
+    debugPrint('[VisitorAuth] normalized email: $normalized');
+    if (normalized.isEmpty) {
+      _lastErrorMessage = 'Please enter your email address.';
+      debugPrint('[VisitorAuth] email is empty');
+      return false;
+    }
+
+    if (!normalized.contains('@')) {
+      _lastErrorMessage = 'Please enter your email address (not your username) to reset your password.';
+      debugPrint('[VisitorAuth] email does not contain @');
+      return false;
+    }
+
+    try {
+      debugPrint('[VisitorAuth] calling Firebase sendPasswordResetEmail for: $normalized');
+      await fb_auth.FirebaseAuth.instance.sendPasswordResetEmail(
+        email: normalized,
+      );
+      debugPrint('[VisitorAuth] password reset email sent successfully');
+      return true;
+    } on fb_auth.FirebaseAuthException catch (error) {
+      debugPrint('[VisitorAuth] Firebase error: code=${error.code}, message=${error.message}');
+      switch (error.code) {
+        case 'invalid-email':
+          _lastErrorMessage = 'Please enter a valid email address.';
+          break;
+        case 'too-many-requests':
+          _lastErrorMessage = 'Too many reset attempts. Please try again later.';
+          break;
+        case 'network-request-failed':
+          _lastErrorMessage = 'No internet connection. Please try again.';
+          break;
+        default:
+          _lastErrorMessage = 'Could not send reset email. Please try again.';
+      }
+      debugPrint('[VisitorAuth] error message set to: $_lastErrorMessage');
+      return false;
+    } catch (e) {
+      debugPrint('[VisitorAuth] Unexpected error: $e');
+      _lastErrorMessage = 'Could not send reset email. Please try again.';
       return false;
     }
   }

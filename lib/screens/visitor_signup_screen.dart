@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
-import 'package:brisconnect/screens/login_selection_screen.dart';
 import 'package:brisconnect/screens/visitor_login_screen.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/utils/auth_validation.dart';
@@ -126,60 +125,67 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          const AboriginalDotArtBackground(),
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xFF0F0804).withValues(alpha: 0.45),
-              ),
-            ),
-          ),
-          SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  child: Column(
-                    children: [
-                      // Logo
-                      GestureDetector(
-                        onTap: () => Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(builder: (_) => const LoginSelectionScreen()),
-                          (_) => false,
-                        ),
-                        child: Image.asset('assets/logo.png', height: 120),
-                      ),
-                      const SizedBox(height: 20),
+      backgroundColor: const Color(0xFF0D1B3F),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: Column(
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      onPressed: () => Navigator.maybePop(context),
+                      icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                      style: IconButton.styleFrom(backgroundColor: Colors.white24),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
 
-                      // Card
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
-                        decoration: BoxDecoration(
-                          color: AppPalette.surface.withValues(alpha: 0.95),
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: AppPalette.cardShadow,
-                              blurRadius: 24,
-                              offset: Offset(0, 12),
-                            ),
-                          ],
+                  Image.asset('assets/Brisconnect New.jpg', height: 120),
+                  const SizedBox(height: 20),
+
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+                    decoration: BoxDecoration(
+                      color: AppPalette.surface.withValues(alpha: 0.95),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: AppPalette.ochre.withValues(alpha: 0.35),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppPalette.ochre.withValues(alpha: 0.18),
+                          blurRadius: 28,
+                          offset: const Offset(0, 10),
                         ),
-                        child: Form(
+                      ],
+                    ),
+                    child: Form(
                           key: _formKey,
                           autovalidateMode: AutovalidateMode.onUserInteraction,
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               const Text(
-                                'Create Your Account',
+                                'Visitor Registration',
+                                textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.bold,
                                   color: AppPalette.charcoal,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'Create your visitor account',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppPalette.mutedText,
                                 ),
                               ),
                               const SizedBox(height: 22),
@@ -198,8 +204,13 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
                               TextFormField(
                                 controller: _nameController,
                                 textCapitalization: TextCapitalization.words,
+                                key: const Key('visitor-signup-name-field'),
+                                style: const TextStyle(
+                                  color: AppPalette.charcoal,
+                                  fontWeight: FontWeight.w500,
+                                ),
                                 decoration: _fieldDecoration(
-                                  hintText: 'Full Name',
+                                  hintText: 'Name',
                                   prefixIcon: Icons.person_outline,
                                 ),
                                 validator: (v) =>
@@ -211,8 +222,13 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
                               TextFormField(
                                 controller: _phoneController,
                                 keyboardType: TextInputType.phone,
+                                key: const Key('visitor-signup-phone-field'),
+                                style: const TextStyle(
+                                  color: AppPalette.charcoal,
+                                  fontWeight: FontWeight.w500,
+                                ),
                                 decoration: _fieldDecoration(
-                                  hintText: 'Phone Number (e.g. 04XX XXX XXX)',
+                                  hintText: 'Phone Number (e.g. 0412 345 678)',
                                   prefixIcon: Icons.phone_outlined,
                                 ),
                                 validator: (v) {
@@ -226,12 +242,28 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
                                   return null;
                                 },
                               ),
+                              const SizedBox(height: 6),
+                              const Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  'Used for SMS. Must be a valid AU number (+61 / E.164).',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppPalette.mutedText,
+                                  ),
+                                ),
+                              ),
                               const SizedBox(height: 14),
 
                               // Email
                               TextFormField(
                                 controller: _emailController,
                                 keyboardType: TextInputType.emailAddress,
+                                key: const Key('visitor-signup-email-field'),
+                                style: const TextStyle(
+                                  color: AppPalette.charcoal,
+                                  fontWeight: FontWeight.w500,
+                                ),
                                 decoration: _fieldDecoration(
                                   hintText: 'Email',
                                   prefixIcon: Icons.mail_outline,
@@ -244,6 +276,11 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
                               TextFormField(
                                 controller: _passwordController,
                                 obscureText: _obscurePassword,
+                                key: const Key('visitor-signup-password-field'),
+                                style: const TextStyle(
+                                  color: AppPalette.charcoal,
+                                  fontWeight: FontWeight.w500,
+                                ),
                                 decoration: _fieldDecoration(
                                   hintText: 'Password',
                                   prefixIcon: Icons.lock_outline,
@@ -252,8 +289,8 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
                                         () => _obscurePassword = !_obscurePassword),
                                     icon: Icon(
                                       _obscurePassword
-                                          ? Icons.visibility_outlined
-                                          : Icons.visibility_off_outlined,
+                                          ? Icons.visibility
+                                          : Icons.visibility_off,
                                       color: AppPalette.mutedText,
                                       size: 20,
                                     ),
@@ -267,6 +304,11 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
                               TextFormField(
                                 controller: _confirmPasswordController,
                                 obscureText: _obscureConfirm,
+                                key: const Key('visitor-signup-confirm-password-field'),
+                                style: const TextStyle(
+                                  color: AppPalette.charcoal,
+                                  fontWeight: FontWeight.w500,
+                                ),
                                 decoration: _fieldDecoration(
                                   hintText: 'Confirm Password',
                                   prefixIcon: Icons.lock_outline,
@@ -335,10 +377,12 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppPalette.ochre,
                                     foregroundColor: Colors.white,
+                                    shadowColor:
+                                        AppPalette.ochre.withValues(alpha: 0.5),
+                                    elevation: 4,
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(30),
+                                      borderRadius: BorderRadius.circular(14),
                                     ),
-                                    elevation: 2,
                                   ),
                                   child: _isSubmitting
                                       ? const SizedBox(
@@ -354,7 +398,7 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
                                               MainAxisAlignment.center,
                                           children: [
                                             Text(
-                                              'Sign Up',
+                                              'Create Account',
                                               style: TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w600,
@@ -369,8 +413,11 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
                               const SizedBox(height: 14),
 
                               // Already have account
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                              Wrap(
+                                alignment: WrapAlignment.center,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 4,
+                                runSpacing: 4,
                                 children: [
                                   const Text(
                                     'Already have an account?',
@@ -379,7 +426,6 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
                                       color: AppPalette.mutedText,
                                     ),
                                   ),
-                                  const SizedBox(width: 4),
                                   GestureDetector(
                                     onTap: () {
                                       Navigator.pushReplacement(
@@ -405,14 +451,12 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 24),
-                    ],
-                  ),
-                ),
+                  const SizedBox(height: 24),
+                ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

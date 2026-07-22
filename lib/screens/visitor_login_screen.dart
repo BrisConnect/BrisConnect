@@ -4,6 +4,7 @@ import 'package:brisconnect/screens/visitor_signup_screen.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/utils/auth_validation.dart';
 import 'package:brisconnect/widgets/inline_status_message.dart';
+import 'package:brisconnect/widgets/enhanced_button_styles.dart';
 
 class VisitorLoginScreen extends StatefulWidget {
   final String? initialEmail;
@@ -20,7 +21,8 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isSubmitting = false;
-  String? _errorMessage;
+  String? _statusMessage;
+  InlineStatusType _statusType = InlineStatusType.error;
 
   @override
   void initState() {
@@ -42,7 +44,7 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
 
     setState(() {
       _isSubmitting = true;
-      _errorMessage = null;
+      _statusMessage = null;
     });
 
     final success = await VisitorAuth.login(
@@ -60,13 +62,71 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
 
     if (!success) {
       setState(() {
-        _errorMessage =
+        _statusMessage =
             VisitorAuth.lastErrorMessage ?? 'Login failed. Please try again.';
+        _statusType = InlineStatusType.error;
       });
       return;
     }
 
     Navigator.pushReplacementNamed(context, '/visitor/portal');
+  }
+
+  Future<void> _showForgotPasswordDialog() async {
+    final emailController = TextEditingController(
+      text: _identifierController.text.contains('@')
+          ? _identifierController.text.trim()
+          : '',
+    );
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reset your password'),
+        content: TextField(
+          controller: emailController,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(
+            hintText: 'Enter your email',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final email = emailController.text.trim();
+              if (email.isEmpty) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('Please enter your email')),
+                );
+                return;
+              }
+              Navigator.pop(ctx);
+              final result = await VisitorAuth.sendPasswordReset(
+                emailOrUsername: email,
+              );
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      result
+                          ? 'Reset email sent! Check your inbox.'
+                          : (VisitorAuth.lastErrorMessage ?? 'Failed to send reset email'),
+                    ),
+                    duration: const Duration(seconds: 4),
+                  ),
+                );
+              }
+            },
+            child: const Text('Send Reset Link'),
+          ),
+        ],
+      ),
+    );
   }
 
   InputDecoration _fieldDecoration({
@@ -108,9 +168,21 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0D1B3F),
       body: Stack(
         children: [
-          const AboriginalDotArtBackground(),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: BackButton(
+                  color: Colors.white,
+                  onPressed: () => Navigator.maybePop(context),
+                ),
+              ),
+            ),
+          ),
           SafeArea(
             child: Center(
               child: ConstrainedBox(
@@ -120,7 +192,7 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
                   child: Column(
                     children: [
                       // Logo
-                      Image.asset('assets/logo.png', height: 120),
+                      Image.asset('assets/Brisconnect New.jpg', height: 120),
                       const SizedBox(height: 20),
 
                       // Card
@@ -151,12 +223,16 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
                               ),
                               const SizedBox(height: 22),
 
-                              if (_errorMessage != null) ...[
+                              if (_statusMessage != null) ...[
                                 InlineStatusMessage(
-                                  message: _errorMessage!,
-                                  type: InlineStatusType.error,
-                                  actionLabel: 'Retry',
-                                  onAction: _isSubmitting ? null : _login,
+                                  message: _statusMessage!,
+                                  type: _statusType,
+                                  actionLabel: _statusType == InlineStatusType.error
+                                      ? 'Retry'
+                                      : null,
+                                  onAction: _statusType == InlineStatusType.error
+                                      ? (_isSubmitting ? null : _login)
+                                      : null,
                                 ),
                                 const SizedBox(height: 10),
                               ],
@@ -197,6 +273,19 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
                                 validator: (v) =>
                                     AuthValidation.requiredField(v, 'Password'),
                               ),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: _isSubmitting ? null : _showForgotPasswordDialog,
+                                  child: const Text(
+                                    'Forgot password?',
+                                    style: TextStyle(
+                                      color: AppPalette.ochre,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
                               const SizedBox(height: 24),
 
                               // Log In button
@@ -205,14 +294,7 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
                                 height: 52,
                                 child: ElevatedButton(
                                   onPressed: _isSubmitting ? null : _login,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppPalette.ochre,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(30),
-                                    ),
-                                    elevation: 2,
-                                  ),
+                                  style: EnhancedButtonStyles.fullWidthPrimaryButton(),
                                   child: _isSubmitting
                                       ? const SizedBox(
                                           height: 20,

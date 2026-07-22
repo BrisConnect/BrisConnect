@@ -83,6 +83,7 @@ class FirestoreService {
       'id': (data['id'] as String?)?.trim().isNotEmpty == true
           ? data['id']
           : docId,
+      'section': 'events',
       'title': ((data['title'] as String?) ?? 'Untitled Event').trim(),
       'date': date.isNotEmpty ? date : 'Date TBA',
       'time': time.isNotEmpty ? time : 'Time TBA',

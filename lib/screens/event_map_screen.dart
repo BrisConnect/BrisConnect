@@ -82,6 +82,8 @@ class _EventMapScreenState extends State<EventMapScreen> {
       backgroundColor: AppPalette.background,
       appBar: AppBar(
         title: const LogoAppBarTitle('Event Locations'),
+        backgroundColor: AppPalette.ochre,
+        foregroundColor: Colors.white,
       ),
       body: Stack(
         children: [

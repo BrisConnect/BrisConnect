@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 
 class VisitorRegistrationScreen extends StatefulWidget {
@@ -140,7 +141,7 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: Colors.blue),
+          Icon(icon, size: 18, color: AppPalette.ochre),
           const SizedBox(width: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -169,12 +170,12 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: AppPalette.surfaceAlt,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.person_add, color: Colors.blue, size: 32),
+                  Icon(Icons.person_add, color: AppPalette.ochre, size: 32),
                   SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

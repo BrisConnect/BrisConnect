@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/local_auth.dart';
-import 'package:brisconnect/screens/login_selection_screen.dart';
 import 'package:brisconnect/screens/local_login_screen.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/utils/auth_validation.dart';
@@ -17,7 +16,7 @@ class _LocalSignUpScreenState extends State<LocalSignUpScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _suburbController = TextEditingController();
+  String? _selectedSuburb;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -25,6 +24,18 @@ class _LocalSignUpScreenState extends State<LocalSignUpScreen> {
   bool _obscureConfirm = true;
   bool _isSubmitting = false;
   String? _errorMessage;
+
+  void _handleBackPressed() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+
+    navigator.pushReplacement(
+      MaterialPageRoute(builder: (_) => const LocalLoginScreen()),
+    );
+  }
 
   String _toE164Au(String value) {
     var digits = value.replaceAll(RegExp(r'\D'), '');
@@ -41,7 +52,6 @@ class _LocalSignUpScreenState extends State<LocalSignUpScreen> {
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
-    _suburbController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -61,7 +71,7 @@ class _LocalSignUpScreenState extends State<LocalSignUpScreen> {
       email: _emailController.text,
       password: _passwordController.text,
       phone: _toE164Au(_phoneController.text),
-      suburb: _suburbController.text,
+      suburb: _selectedSuburb ?? '',
     );
 
     if (!mounted) {
@@ -128,49 +138,54 @@ class _LocalSignUpScreenState extends State<LocalSignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          const AboriginalDotArtBackground(),
-          SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  child: Column(
-                    children: [
-                      // Logo
-                      GestureDetector(
-                        onTap: () => Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(builder: (_) => const LoginSelectionScreen()),
-                          (_) => false,
-                        ),
-                        child: Image.asset('assets/logo.png', height: 120),
-                      ),
-                      const SizedBox(height: 20),
+      backgroundColor: const Color(0xFF0D1B3F),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: Column(
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      onPressed: _handleBackPressed,
+                      icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                      style: IconButton.styleFrom(backgroundColor: Colors.white24),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
 
-                      // Card
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
-                        decoration: BoxDecoration(
-                          color: AppPalette.surface.withValues(alpha: 0.95),
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: AppPalette.cardShadow,
-                              blurRadius: 24,
-                              offset: Offset(0, 12),
-                            ),
-                          ],
+                  Image.asset('assets/Brisconnect New.jpg', height: 120),
+                  const SizedBox(height: 20),
+
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+                    decoration: BoxDecoration(
+                      color: AppPalette.surface.withValues(alpha: 0.95),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: AppPalette.ochre.withValues(alpha: 0.35),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppPalette.ochre.withValues(alpha: 0.18),
+                          blurRadius: 28,
+                          offset: const Offset(0, 10),
                         ),
-                        child: Form(
+                      ],
+                    ),
+                    child: Form(
                           key: _formKey,
                           autovalidateMode: AutovalidateMode.onUserInteraction,
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               const Text(
-                                'Create Your Account',
+                                'Local Registration',
+                                textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.bold,
@@ -178,6 +193,15 @@ class _LocalSignUpScreenState extends State<LocalSignUpScreen> {
                                 ),
                               ),
                               const SizedBox(height: 6),
+                              const Text(
+                                'Create your local account',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppPalette.mutedText,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
 
                               // Local badge
                               Container(
@@ -221,6 +245,10 @@ class _LocalSignUpScreenState extends State<LocalSignUpScreen> {
                               TextFormField(
                                 controller: _nameController,
                                 textCapitalization: TextCapitalization.words,
+                                style: const TextStyle(
+                                  color: AppPalette.charcoal,
+                                  fontWeight: FontWeight.w500,
+                                ),
                                 decoration: _fieldDecoration(
                                   hintText: 'Full Name',
                                   prefixIcon: Icons.person_outline,
@@ -230,16 +258,97 @@ class _LocalSignUpScreenState extends State<LocalSignUpScreen> {
                               ),
                               const SizedBox(height: 14),
 
-                              // Suburb
-                              TextFormField(
-                                controller: _suburbController,
-                                textCapitalization: TextCapitalization.words,
+                              // Suburb dropdown
+                              DropdownButtonFormField<String>(
+                                initialValue: _selectedSuburb,
                                 decoration: _fieldDecoration(
-                                  hintText: 'Suburb',
+                                  hintText: 'Select Suburb',
                                   prefixIcon: Icons.location_city_outlined,
                                 ),
-                                validator: (v) =>
-                                    AuthValidation.requiredField(v, 'Suburb'),
+                                style: const TextStyle(
+                                  color: AppPalette.charcoal,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                dropdownColor: AppPalette.surfaceAlt,
+                                isExpanded: true,
+                                items: const [
+                                  'Acacia Ridge', 'Albion', 'Alderley', 'Algester',
+                                  'Annerley', 'Anstead', 'Archerfield', 'Ascot',
+                                  'Ashgrove', 'Aspley', 'Auchenflower',
+                                  'Balmoral', 'Banyo', 'Bardon', 'Bellbowrie',
+                                  'Belmont', 'Boondall', 'Bowen Hills', 'Bracken Ridge',
+                                  'Bridgeman Downs', 'Brighton', 'Brisbane City',
+                                  'Brookfield', 'Bulimba', 'Bundamba',
+                                  'Calamvale', 'Camp Hill', 'Cannon Hill',
+                                  'Capalaba', 'Carindale', 'Carseldine',
+                                  'Chandler', 'Chapel Hill', 'Chermside',
+                                  'Chermside West', 'Clayfield', 'Cleveland',
+                                  'Coorparoo', 'Corinda',
+                                  'Darra', 'Deagon', 'Doolandella', 'Drewvale',
+                                  'Durack',
+                                  'Eagle Farm', 'East Brisbane', 'Eight Mile Plains',
+                                  'Ekibin', 'Ellen Grove', 'Enoggera', 'Everton Hills',
+                                  'Everton Park',
+                                  'Fairfield', 'Fig Tree Pocket', 'Fitzgibbon',
+                                  'Forest Lake', 'Fortitude Valley',
+                                  'Gaythorne', 'Geebung', 'Gordon Park',
+                                  'Graceville', 'Greenslopes', 'Gumdale',
+                                  'Hamilton', 'Hawthorne', 'Hemmant',
+                                  'Hendra', 'Holland Park', 'Holland Park West',
+                                  'Inala', 'Indooroopilly', 'Ipswich',
+                                  'Jamboree Heights', 'Jindalee',
+                                  'Karana Downs', 'Kedron', 'Kelvin Grove',
+                                  'Kenmore', 'Kenmore Hills', 'Keperra',
+                                  'Kuraby',
+                                  'Lota',
+                                  'Macgregor', 'Mackenzie', 'Manly',
+                                  'Manly West', 'Mansfield', 'McDowall',
+                                  'Middle Park', 'Milton', 'Mitchelton',
+                                  'Moggill', 'Moorooka', 'Morningside',
+                                  'Mount Coot-tha', 'Mount Gravatt',
+                                  'Mount Gravatt East', 'Mount Ommaney',
+                                  'Murarrie',
+                                  'Nathan', 'New Farm', 'Newmarket',
+                                  'Newstead', 'Norman Park', 'Northgate',
+                                  'Nudgee', 'Nudgee Beach', 'Nundah',
+                                  'Oxley',
+                                  'Paddington', 'Pallara', 'Parkinson',
+                                  'Petrie Terrace', 'Pinkenba',
+                                  'Rainbow', 'Raceview', 'Ransome',
+                                  'Red Hill', 'Richlands', 'Robertson',
+                                  'Rocklea', 'Runcorn',
+                                  'Salisbury', 'Seventeen Mile Rocks',
+                                  'Sherwood', 'Shorncliffe', 'Sinnamon Park',
+                                  'South Brisbane', 'Spring Hill',
+                                  'Stafford', 'Stafford Heights',
+                                  'Stretton', 'Sumner', 'Sunnybank',
+                                  'Sunnybank Hills',
+                                  'Taigum', 'Tarragindi', 'Tennyson',
+                                  'The Gap', 'Tingalpa', 'Toowong',
+                                  'Torwood', 'Turrella',
+                                  'Upper Kedron', 'Upper Mount Gravatt',
+                                  'Virginia',
+                                  'Wakerley', 'Wavell Heights', 'West End',
+                                  'Westlake', 'Willawong', 'Wilston',
+                                  'Windsor', 'Wishart', 'Woolloongabba',
+                                  'Wooloowin', 'Wynn Vale',
+                                  'Wynnum', 'Wynnum West',
+                                  'Yeerongpilly', 'Yeronga',
+                                  'Zillmere',
+                                ].map((suburb) => DropdownMenuItem(
+                                  value: suburb,
+                                  child: Text(
+                                    suburb,
+                                    style: const TextStyle(
+                                      color: AppPalette.charcoal,
+                                    ),
+                                  ),
+                                )).toList(),
+                                onChanged: (value) =>
+                                    setState(() => _selectedSuburb = value),
+                                validator: (v) => v == null
+                                    ? 'Please select your suburb'
+                                    : null,
                               ),
                               const SizedBox(height: 14),
 
@@ -247,8 +356,12 @@ class _LocalSignUpScreenState extends State<LocalSignUpScreen> {
                               TextFormField(
                                 controller: _phoneController,
                                 keyboardType: TextInputType.phone,
+                                style: const TextStyle(
+                                  color: AppPalette.charcoal,
+                                  fontWeight: FontWeight.w500,
+                                ),
                                 decoration: _fieldDecoration(
-                                  hintText: 'Phone Number (e.g. 04XX XXX XXX)',
+                                  hintText: 'Phone Number (e.g. 0412 345 678)',
                                   prefixIcon: Icons.phone_outlined,
                                 ),
                                 validator: (v) {
@@ -262,12 +375,27 @@ class _LocalSignUpScreenState extends State<LocalSignUpScreen> {
                                   return null;
                                 },
                               ),
+                              const SizedBox(height: 6),
+                              const Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  'Used for SMS. Must be a valid AU number (+61 / E.164).',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppPalette.mutedText,
+                                  ),
+                                ),
+                              ),
                               const SizedBox(height: 14),
 
                               // Email
                               TextFormField(
                                 controller: _emailController,
                                 keyboardType: TextInputType.emailAddress,
+                                style: const TextStyle(
+                                  color: AppPalette.charcoal,
+                                  fontWeight: FontWeight.w500,
+                                ),
                                 decoration: _fieldDecoration(
                                   hintText: 'Email',
                                   prefixIcon: Icons.mail_outline,
@@ -280,6 +408,10 @@ class _LocalSignUpScreenState extends State<LocalSignUpScreen> {
                               TextFormField(
                                 controller: _passwordController,
                                 obscureText: _obscurePassword,
+                                style: const TextStyle(
+                                  color: AppPalette.charcoal,
+                                  fontWeight: FontWeight.w500,
+                                ),
                                 decoration: _fieldDecoration(
                                   hintText: 'Password',
                                   prefixIcon: Icons.lock_outline,
@@ -303,6 +435,10 @@ class _LocalSignUpScreenState extends State<LocalSignUpScreen> {
                               TextFormField(
                                 controller: _confirmPasswordController,
                                 obscureText: _obscureConfirm,
+                                style: const TextStyle(
+                                  color: AppPalette.charcoal,
+                                  fontWeight: FontWeight.w500,
+                                ),
                                 decoration: _fieldDecoration(
                                   hintText: 'Confirm Password',
                                   prefixIcon: Icons.lock_outline,
@@ -371,10 +507,12 @@ class _LocalSignUpScreenState extends State<LocalSignUpScreen> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppPalette.ochre,
                                     foregroundColor: Colors.white,
+                                    shadowColor:
+                                        AppPalette.ochre.withValues(alpha: 0.5),
+                                    elevation: 4,
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(30),
+                                      borderRadius: BorderRadius.circular(14),
                                     ),
-                                    elevation: 2,
                                   ),
                                   child: _isSubmitting
                                       ? const SizedBox(
@@ -441,15 +579,14 @@ class _LocalSignUpScreenState extends State<LocalSignUpScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 24),
-                    ],
-                  ),
-                ),
+                  const SizedBox(height: 24),
+                ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 }
+

@@ -1,24 +1,23 @@
+// ignore_for_file: unused_element, unused_field, unused_local_variable
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:brisconnect/screens/attraction_detail_screen.dart';
-import 'package:brisconnect/screens/brisbane_stories_screen.dart';
+
 import 'package:brisconnect/screens/food_detail_screen.dart';
 import 'package:brisconnect/screens/stadium_detail_screen.dart';
 import 'package:brisconnect/screens/visitor_event_detail_screen.dart';
-import 'package:brisconnect/screens/visitor_saved_events_calendar_screen.dart';
 import 'package:brisconnect/widgets/report_event_dialog.dart';
+import 'package:brisconnect/widgets/food_review_dialog.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/utils/venue_image_fallback.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
-import 'package:brisconnect/services/approved_attraction_service.dart';
-import 'package:brisconnect/services/discover_data_service.dart';
+
 import 'package:brisconnect/services/firestore_service.dart';
 import 'package:brisconnect/services/location_utilities.dart';
 import 'package:brisconnect/services/olympic_event_email_service.dart';
@@ -27,24 +26,21 @@ import 'package:brisconnect/screens/welcome_screen.dart';
 import 'package:brisconnect/services/firebase_media_service.dart';
 import 'package:brisconnect/utils/error_messages.dart';
 import 'package:brisconnect/utils/profile_image_utils.dart';
-import 'visitor_notifications_screen.dart';
-import 'notification_settings_screen.dart';
-import 'interest_categories_screen.dart';
+import 'package:brisconnect/screens/food_business_discovery_screen.dart';
 import 'visitor_settings_screen.dart';
 import 'appearance_settings_screen.dart';
 import 'my_feedback_screen.dart';
 import 'map_events_screen.dart';
+import 'business_search_screen.dart';
 import '../widgets/inline_status_message.dart';
 import '../widgets/reusable_event_card.dart';
 import '../widgets/logo_app_bar_title.dart';
+import '../widgets/help_support_sheet.dart';
 
 class VisitorPortalScreen extends StatefulWidget {
   const VisitorPortalScreen({
     super.key,
-    this.discoverItemsStreamOverride,
   });
-
-  final Stream<List<Map<String, dynamic>>>? discoverItemsStreamOverride;
 
   @override
   State<VisitorPortalScreen> createState() => _VisitorPortalScreenState();
@@ -58,10 +54,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   int _selectedIndex = 0;
   bool _isNavVisible = true;
   DateTime? _selectedEventDate;
-  DiscoverDataService? _discoverDataService;
   FirestoreService? _firestoreService;
-  ApprovedAttractionService? _approvedAttractionService;
-  Stream<List<Map<String, dynamic>>>? _discoverItemsStreamCache;
   Stream<List<Map<String, dynamic>>>? _discoverRadiusStreamCache;
   Stream<List<Map<String, dynamic>>>? _approvedEventsStreamCache;
   late double _userLatitude;
@@ -70,10 +63,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   late bool _isUsingRadius;
 
   final Set<_VisitorFilterSection> _selectedSections = {
-    _VisitorFilterSection.events,
-    _VisitorFilterSection.historical,
     _VisitorFilterSection.food,
-    _VisitorFilterSection.stadiums,
   };
   final Set<_VisitorPriceFilter> _selectedPriceFilters = {
     _VisitorPriceFilter.free,
@@ -120,29 +110,6 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
-  }
-
-  Stream<List<Map<String, dynamic>>> _discoverItemsStream() {
-    _discoverItemsStreamCache ??=
-        (widget.discoverItemsStreamOverride ??
-            (_discoverDataService ??= DiscoverDataService())
-                .watchApprovedDiscoverItems())
-        .asBroadcastStream();
-
-    // Apply radius filtering if enabled
-    if (_isUsingRadius) {
-      return _discoverRadiusStreamCache ??=
-          _discoverItemsStreamCache!.map((items) {
-        return (_discoverDataService ??= DiscoverDataService()).filterByRadius(
-          items: items,
-          userLatitude: _userLatitude,
-          userLongitude: _userLongitude,
-          radiusKm: _radiusKm,
-        );
-      }).asBroadcastStream();
-    }
-
-    return _discoverItemsStreamCache!;
   }
 
   Stream<List<Map<String, dynamic>>> _approvedEventsStream() {
@@ -526,18 +493,6 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                                 color: AppPalette.charcoal,
                               ),
                             ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Sections',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: AppPalette.charcoal,
-                              ),
-                            ),
-                            buildSectionTile(_VisitorFilterSection.events),
-                            buildSectionTile(_VisitorFilterSection.historical),
-                            buildSectionTile(_VisitorFilterSection.food),
-                            buildSectionTile(_VisitorFilterSection.stadiums),
                             const SizedBox(height: 8),
                             const Text(
                               'Price',
@@ -659,7 +614,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   }
 
   bool get _hasCustomFilters {
-    return _selectedSections.length != _VisitorFilterSection.values.length ||
+    return _selectedPriceFilters.length != _VisitorPriceFilter.values.length ||
         _selectedPriceFilters.length != _VisitorPriceFilter.values.length ||
         _selectedEventDate != null;
   }
@@ -670,13 +625,6 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     }
 
     final chips = <Widget>[
-      ..._selectedSections.map(
-        (section) => Chip(
-          label: Text(_sectionLabel(section)),
-          backgroundColor: AppPalette.surfaceAlt,
-          side: const BorderSide(color: AppPalette.border),
-        ),
-      ),
       ..._selectedPriceFilters.map(
         (filter) => Chip(
           label: Text(_priceLabel(filter)),
@@ -698,7 +646,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           setState(() {
             _selectedSections
               ..clear()
-              ..addAll(_VisitorFilterSection.values);
+              ..add(_VisitorFilterSection.food);
             _selectedPriceFilters
               ..clear()
               ..addAll(_VisitorPriceFilter.values);
@@ -797,6 +745,42 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     }
 
     setState(() {});
+  }
+
+  void _showFoodReviewDialog(Map<String, dynamic> item) {
+    final foodTitle = item['title'] as String? ?? 'Food Place';
+    final foodId = item['id'] as String? ?? '';
+    
+    showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => FoodReviewDialog(
+        foodTitle: foodTitle,
+        existingReview: null,
+        existingRating: null,
+        existingBuzzRating: null,
+      ),
+    ).then((result) {
+      if (result != null && mounted) {
+        final review = result['review'] as String? ?? '';
+        final rating = result['rating'] as double? ?? 0;
+        final buzzRating = result['buzzRating'] as double? ?? 0;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Review submitted! ⭐ ${rating.toInt()} / Buzz ⚡ ${buzzRating.toInt()}',
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+
+        // TODO: Save review data to Firestore
+        // Future implementation:
+        // - Store review with foodId, visitorEmail, timestamp
+        // - Update food item's aggregate rating
+        // - Track buzz rating trend
+      }
+    });
   }
 
   Future<void> _openWebLink(String link) async {
@@ -910,47 +894,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   Future<bool> _openAttractionDetailsIfAvailable(
     Map<String, dynamic> item,
   ) async {
-    final section = (item['section'] as String? ?? '').trim().toLowerCase();
-    if (section == 'events') {
-      return false;
-    }
-
-    final title = (item['title'] as String? ?? '').trim().toLowerCase();
-    final location = (item['location'] as String? ?? '').trim().toLowerCase();
-    final attractions = await (_approvedAttractionService ??=
-            ApprovedAttractionService())
-        .fetchApprovedAttractions();
-    if (!mounted) return true;
-
-    ApprovedAttraction? matched;
-    for (final attraction in attractions) {
-      final attractionName = attraction.name.trim().toLowerCase();
-      final attractionLocation = attraction.location.trim().toLowerCase();
-      if (attractionName == title || attractionLocation == location) {
-        matched = attraction;
-        break;
-      }
-      if (title.isNotEmpty &&
-          (attractionName.contains(title) || title.contains(attractionName))) {
-        matched = attraction;
-        break;
-      }
-    }
-
-    if (matched == null) {
-      return false;
-    }
-
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AttractionDetailScreen(
-          attraction: matched!,
-          allAttractions: attractions,
-        ),
-      ),
-    );
-    return true;
+    // Attractions have been removed; always return false
+    return false;
   }
 
   Future<void> _openFoodDetails(Map<String, dynamic> item) async {
@@ -1030,7 +975,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               onSubmitted: (_) => FocusScope.of(context).unfocus(),
               decoration: const InputDecoration(
                 border: InputBorder.none,
-                hintText: 'Search events, places & more...',
+                hintText: 'Search local food businesses...',
                 hintStyle: TextStyle(color: AppPalette.mutedText),
               ),
             ),
@@ -1049,78 +994,6 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildStoriesBanner() {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const BrisbaneStoriesScreen(),
-          ),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppPalette.ochre, Color(0xFFD4A017)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: const [
-            BoxShadow(
-              color: AppPalette.cardShadow,
-              blurRadius: 12,
-              offset: Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.auto_stories_rounded,
-                  color: Colors.white, size: 24),
-            ),
-            const SizedBox(width: 14),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Brisbane Stories',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
-                    ),
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    'Explore culture, history, and people',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.arrow_forward_ios_rounded,
-                color: Colors.white70, size: 16),
-          ],
-        ),
       ),
     );
   }
@@ -1217,6 +1090,18 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               return;
             }
             _openWebLink(link);
+          },
+          onReviewTap: () {
+            final section = (item['section'] as String? ?? '').trim();
+            if (section == 'food') {
+              _showFoodReviewDialog(item);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Reviews are only available for food items'),
+                ),
+              );
+            }
           },
           onFavoriteTap: () => _toggleSavedItem(id, itemData: item),
         ),
@@ -1469,34 +1354,6 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           child: Row(
             children: [
               _CategoryChip(
-                label: 'Events',
-                emoji: '🎪',
-                isSelected: _selectedSections
-                    .contains(_VisitorFilterSection.events),
-                onTap: () {
-                  setState(() {
-                    _selectedSections
-                      ..clear()
-                      ..add(_VisitorFilterSection.events);
-                  });
-                },
-              ),
-              const SizedBox(width: 10),
-              _CategoryChip(
-                label: 'Attractions',
-                emoji: '🏛️',
-                isSelected: _selectedSections
-                    .contains(_VisitorFilterSection.historical),
-                onTap: () {
-                  setState(() {
-                    _selectedSections
-                      ..clear()
-                      ..add(_VisitorFilterSection.historical);
-                  });
-                },
-              ),
-              const SizedBox(width: 10),
-              _CategoryChip(
                 label: 'Food',
                 emoji: '🍴',
                 isSelected: _selectedSections
@@ -1506,34 +1363,6 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                     _selectedSections
                       ..clear()
                       ..add(_VisitorFilterSection.food);
-                  });
-                },
-              ),
-              const SizedBox(width: 10),
-              _CategoryChip(
-                label: 'Venues',
-                emoji: '🏟️',
-                isSelected: _selectedSections
-                    .contains(_VisitorFilterSection.stadiums),
-                onTap: () {
-                  setState(() {
-                    _selectedSections
-                      ..clear()
-                      ..add(_VisitorFilterSection.stadiums);
-                  });
-                },
-              ),
-              const SizedBox(width: 10),
-              _CategoryChip(
-                label: 'All',
-                emoji: '✨',
-                isSelected: _selectedSections.length ==
-                    _VisitorFilterSection.values.length,
-                onTap: () {
-                  setState(() {
-                    _selectedSections
-                      ..clear()
-                      ..addAll(_VisitorFilterSection.values);
                   });
                 },
               ),
@@ -1671,7 +1500,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
 
   Widget _buildDiscoverBody() {
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _discoverItemsStream(),
+      stream: Stream.value([]),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -1700,40 +1529,12 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           valueListenable: VisitorAuth.interestedEventsVersion,
           builder: (context, _, __) {
             final items = snapshot.data ?? const <Map<String, dynamic>>[];
-            final eventItems = _filterItems(
-              items,
-              section: _VisitorFilterSection.events,
-            );
-            final historicalItems = _filterItems(
-              items,
-              section: _VisitorFilterSection.historical,
-            );
             final foodItems = _filterItems(
               items,
               section: _VisitorFilterSection.food,
             );
-            final stadiumItems = _filterItems(
-              items,
-              section: _VisitorFilterSection.stadiums,
-            );
-            final recommendedItems = _recommendedItems(items);
 
-            // Remove recommended events from the main events list to
-            // avoid showing the same card twice.
-            final recommendedIds = recommendedItems
-                .map((item) => (item['id'] as String? ?? '').trim())
-                .where((id) => id.isNotEmpty)
-                .toSet();
-            final deduplicatedEventItems = eventItems
-                .where((item) =>
-                    !recommendedIds.contains(
-                        (item['id'] as String? ?? '').trim()))
-                .toList();
-
-            final hasAnyVisibleItems = deduplicatedEventItems.isNotEmpty ||
-                historicalItems.isNotEmpty ||
-                foodItems.isNotEmpty ||
-                stadiumItems.isNotEmpty;
+            final hasAnyVisibleItems = foodItems.isNotEmpty;
 
             final visitorName =
                 VisitorAuth.currentVisitor?.name.split(' ').first ?? 'Visitor';
@@ -1742,33 +1543,9 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
 
             return Stack(
               children: [
-                // Full-screen kangaroo background
-                Positioned.fill(
-                  child: Image.asset('assets/Kangaroo1.png', fit: BoxFit.cover),
-                ),
-                // Gradient overlay (darker)
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        stops: const [0.0, 0.35, 1.0],
-                        colors: [
-                          const Color(0xFF3E1C0A).withValues(alpha: 0.50),
-                          const Color(0xFF3E1C0A).withValues(alpha: 0.55),
-                          const Color(0xFFF8F3EA).withValues(alpha: 0.80),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                // Slight blur
-                Positioned.fill(
-                  child: BackdropFilter(
-                    filter: ui.ImageFilter.blur(sigmaX: 1.5, sigmaY: 1.5),
-                    child: const SizedBox.expand(),
-                  ),
+                // Dark navy background
+                const Positioned.fill(
+                  child: ColoredBox(color: Color(0xFF0D1117)),
                 ),
                 CustomScrollView(
               slivers: [
@@ -1786,10 +1563,17 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                       children: [
                             Row(
                               children: [
-                                Image.asset('assets/logo.png', height: 48),
+                                ClipOval(
+                                  child: Container(
+                                    width: 60,
+                                    height: 60,
+                                    color: Colors.white.withValues(alpha: 0.1),
+                                    child: Image.asset('assets/Brisconnect New.jpg', fit: BoxFit.cover),
+                                  ),
+                                ),
                                 const SizedBox(width: 10),
                                 const Text(
-                                  'BrisConnect',
+                                  'BrisConnect+',
                                   style: TextStyle(
                                     fontSize: 22,
                                     fontWeight: FontWeight.w800,
@@ -1819,11 +1603,11 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                                       ],
                                     ),
                                     child: CircleAvatar(
-                                      radius: 38,
+                                      radius: 52,
                                       backgroundColor: AppPalette.deepBlue,
                                       backgroundImage: heroProfileImage,
                                       child: heroProfileImage == null
-                                          ? const Icon(Icons.person_rounded, color: Colors.white, size: 36)
+                                          ? const Icon(Icons.person_rounded, color: Colors.white, size: 48)
                                           : null,
                                     ),
                                   ),
@@ -1848,7 +1632,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                             ),
                             const SizedBox(height: 4),
                             const Text(
-                              'Discover Brisbane',
+                              'Discover Local Food',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
@@ -1874,39 +1658,15 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                   child: Transform.translate(
                     offset: const Offset(0, -24),
                     child: Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8F3EA).withValues(alpha: 0.55),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF1C1C2E),
                         borderRadius:
-                            const BorderRadius.vertical(top: Radius.circular(28)),
+                            BorderRadius.vertical(top: Radius.circular(28)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SizedBox(height: 22),
-
-                          // Recommended horizontal carousel
-                          _buildRecommendedCarousel(
-                            recommendedItems.isNotEmpty
-                                ? recommendedItems
-                                : items.take(6).toList(),
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Category chips
-                          _buildCategoryChips(),
-                          const SizedBox(height: 20),
-
-                          // Nearby section
-                          _buildNearbySection(items),
-                          const SizedBox(height: 16),
-
-                          // Stories banner
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 20),
-                            child: _buildStoriesBanner(),
-                          ),
-                          const SizedBox(height: 16),
 
                           // Active filter chips
                           Padding(
@@ -1915,62 +1675,16 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                             child: _buildActiveFilterChips(),
                           ),
 
-                          // Full event cards
+                          // Food items
                           if (!hasAnyVisibleItems)
                             const Padding(
                               padding: EdgeInsets.fromLTRB(20, 8, 20, 0),
                               child: _EmptyState(
-                                title: 'No matching items',
+                                title: 'No food places found',
                                 subtitle:
                                     'Try changing your search or filter selections.',
                               ),
                             ),
-                          if (deduplicatedEventItems.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 20),
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  const _SectionHeader(
-                                    title: 'Events',
-                                    subtitle:
-                                        'Upcoming events in Brisbane',
-                                  ),
-                                  ...deduplicatedEventItems.map(
-                                    (item) => KeyedSubtree(
-                                      key: Key(
-                                        'discover-event-card-${(item['id'] as String? ?? '').trim()}',
-                                      ),
-                                      child: _buildEventCard(item),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                          if (historicalItems.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 20),
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  const _SectionHeader(
-                                    title: 'Attractions',
-                                    subtitle:
-                                        'Brisbane cultural and historical highlights',
-                                  ),
-                                  ...historicalItems
-                                      .map(_buildEventCard),
-                                ],
-                              ),
-                            ),
-                          ],
                           if (foodItems.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             Padding(
@@ -1981,34 +1695,48 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                                     CrossAxisAlignment.start,
                                 children: [
                                   const _SectionHeader(
-                                    title: 'Food',
+                                    title: 'Local Food Businesses',
                                     subtitle:
-                                        'Discover local dining experiences',
+                                        'Support small & medium Brisbane food enterprises',
                                   ),
                                   ...foodItems.map(_buildEventCard),
                                 ],
                               ),
                             ),
                           ],
-                          if (stadiumItems.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 20),
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  const _SectionHeader(
-                                    title: 'Stadiums',
-                                    subtitle:
-                                        'Explore iconic sporting venues',
+                          // Businesses section
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const _SectionHeader(
+                                  title: 'Local Food Businesses',
+                                  subtitle: 'Support & review small Brisbane food enterprises',
+                                ),
+                                const SizedBox(height: 12),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const BusinessSearchScreen(),
+                                      ),
+                                    ),
+                                    icon: const Icon(Icons.storefront_rounded),
+                                    label: const Text('Explore & Review Food Businesses'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppPalette.ochre,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                    ),
                                   ),
-                                  ...stadiumItems.map(_buildEventCard),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                           const SizedBox(height: 24),
                         ],
                       ),
@@ -2037,13 +1765,13 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
             child: _EmptyState(
               title: 'No saved items yet',
               subtitle:
-                  'Tap the heart icon on discover cards to save events and attractions here.',
+                  'Tap the heart icon on food business cards to save them here.',
             ),
           );
         }
 
         return StreamBuilder<List<Map<String, dynamic>>>(
-          stream: _discoverItemsStream(),
+          stream: Stream.value([]),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -2486,6 +2214,15 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     );
   }
 
+  void _showHelpSupport(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const HelpSupportSheet(),
+    );
+  }
+
   Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -2530,15 +2267,6 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 36),
           children: [
-            const Text(
-              'Profile',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                color: AppPalette.charcoal,
-              ),
-            ),
-            const SizedBox(height: 16),
             _buildSectionLabel('Profile Info'),
             Card(
               color: AppPalette.surface.withValues(alpha: 0.88),
@@ -2553,14 +2281,14 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                 child: Row(
                   children: [
                     CircleAvatar(
-                      radius: 48,
+                      radius: 40,
                       backgroundColor: AppPalette.deepBlue,
                       backgroundImage: profileImage,
                       child: profileImage == null
                           ? const Icon(
                               Icons.person_rounded,
                               color: Colors.white,
-                              size: 48,
+                              size: 40,
                             )
                           : null,
                     ),
@@ -2628,47 +2356,6 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            _buildSectionLabel('Notifications'),
-            Card(
-              color: AppPalette.surface.withValues(alpha: 0.88),
-              elevation: 4,
-              shadowColor: AppPalette.cardShadow,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
-              ),
-              child: ListTile(
-                leading: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: AppPalette.deepBlue.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.notifications_none_rounded,
-                    color: AppPalette.deepBlue,
-                    size: 20,
-                  ),
-                ),
-                title: const Text(
-                  'Event Reminders & History',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: const Text('View reminder status and notifications'),
-                trailing: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppPalette.mutedText,
-                ),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const VisitorNotificationsScreen(),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
             _buildSectionLabel('Preferences'),
             Card(
               color: AppPalette.surface.withValues(alpha: 0.88),
@@ -2680,29 +2367,6 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               ),
               child: Column(
                 children: [
-                  ListTile(
-                    leading: const Icon(
-                      Icons.interests_rounded,
-                      color: AppPalette.deepBlue,
-                    ),
-                    title: const Text(
-                      'Interest Categories',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: const Text('Choose what you want to discover'),
-                    trailing: const Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppPalette.mutedText,
-                    ),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            const InterestCategoriesScreen.visitor(),
-                      ),
-                    ),
-                  ),
-                  const Divider(height: 1, indent: 16, endIndent: 16),
                   ListTile(
                     leading: const Icon(
                       Icons.pin_drop_outlined,
@@ -2721,29 +2385,6 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (_) => const VisitorSettingsScreen(),
-                      ),
-                    ),
-                  ),
-                  const Divider(height: 1, indent: 16, endIndent: 16),
-                  ListTile(
-                    leading: const Icon(
-                      Icons.notifications_active_outlined,
-                      color: AppPalette.deepBlue,
-                    ),
-                    title: const Text(
-                      'Notification Settings',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: const Text('Manage event reminder preferences'),
-                    trailing: const Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppPalette.mutedText,
-                    ),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            const NotificationSettingsScreen.visitor(),
                       ),
                     ),
                   ),
@@ -2819,6 +2460,36 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               ),
             ),
             const SizedBox(height: 24),
+_buildSectionLabel('Help & Support'),
+            Card(
+              color: AppPalette.surface.withValues(alpha: 0.88),
+              elevation: 4,
+              shadowColor: AppPalette.cardShadow,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
+              ),
+              child: ListTile(
+                leading: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppPalette.ochre.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.help_outline_rounded,
+                      color: AppPalette.ochre, size: 20),
+                ),
+                title: const Text(
+                  'Help & Support',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text('FAQs, contact us & app info'),
+                trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+                onTap: () => _showHelpSupport(context),
+              ),
+            ),
+            const SizedBox(height: 24),
             _buildSectionLabel('Sign Out'),
             Card(
               color: AppPalette.surface.withValues(alpha: 0.88),
@@ -2864,10 +2535,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
       case 1:
         return 'Map';
       case 2:
-        return 'Calendar';
-      case 3:
         return 'Saved';
-      case 4:
+      case 3:
         return 'Profile';
       default:
         return '';
@@ -2877,89 +2546,11 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   Widget _kangarooBackground(String assetPath, Widget child) {
     return Stack(
       children: [
-        Positioned.fill(
-          child: Image.asset(assetPath, fit: BoxFit.cover),
-        ),
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A0E05).withValues(alpha: 0.40),
-            ),
-          ),
-        ),
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: const Color(0xFFF7F4ED).withValues(alpha: 0.72),
-            ),
-          ),
+        const Positioned.fill(
+          child: ColoredBox(color: Color(0xFF0D1117)),
         ),
         Positioned.fill(child: SafeArea(child: child)),
       ],
-    );
-  }
-
-  Widget _buildCalendarTab() {
-    return ValueListenableBuilder<int>(
-      valueListenable: VisitorAuth.interestedEventsVersion,
-      builder: (context, _, __) {
-        final savedEventIds = VisitorAuth.getInterestedEventIds();
-        final savedAttractionIds = VisitorAuth.getSavedAttractionIds();
-
-        return StreamBuilder<List<Map<String, dynamic>>>(
-          stream: _discoverItemsStream(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            final allItems = snapshot.data ?? const <Map<String, dynamic>>[];
-            final savedDiscoverEvents = allItems.where((item) {
-              final id = (item['id'] as String? ?? '').trim();
-              final section = (item['section'] as String? ?? '').trim();
-              return id.isNotEmpty &&
-                  section == 'events' &&
-                  savedEventIds.contains(id);
-            }).toList();
-            final savedAttractions = allItems.where((item) {
-              final id = (item['id'] as String? ?? '').trim();
-              final section = (item['section'] as String? ?? '').trim();
-              return id.isNotEmpty &&
-                  section != 'events' &&
-                  savedAttractionIds.contains(id);
-            }).toList();
-
-            return StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _approvedEventsStream(),
-              builder: (context, approvedSnapshot) {
-                final approvedEvents =
-                    approvedSnapshot.data ?? const <Map<String, dynamic>>[];
-                final savedFirestoreEvents = approvedEvents
-                    .where((event) {
-                      final id = (event['id'] as String? ?? '').trim();
-                      return id.isNotEmpty && savedEventIds.contains(id);
-                    })
-                    .where(
-                      (event) => !savedDiscoverEvents.any(
-                        (item) => ((item['id'] as String? ?? '').trim() ==
-                            (event['id'] as String? ?? '').trim()),
-                      ),
-                    )
-                    .map(_toSavedEventCardItem)
-                    .toList(growable: false);
-
-                return VisitorSavedEventsCalendarScreen(
-                  savedItems: [
-                    ...savedDiscoverEvents,
-                    ...savedFirestoreEvents,
-                    ...savedAttractions,
-                  ],
-                  embedded: true,
-                );
-              },
-            );
-          },
-        );
-      },
     );
   }
 
@@ -2968,7 +2559,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     final bool isDiscover = _selectedIndex == 0;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: const Color(0xFF0D1117),
       extendBodyBehindAppBar: true,
       extendBody: true,
       appBar: isDiscover
@@ -2980,7 +2571,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                 onPressed: () => setState(() => _selectedIndex = 0),
               ),
               title: LogoAppBarTitle(_appBarTitleForIndex(_selectedIndex)),
-              backgroundColor: Colors.transparent,
+              backgroundColor: const Color(0xFF1C1C2E),
+              foregroundColor: Colors.white,
               elevation: 0,
             ),
       body: NotificationListener<ScrollNotification>(
@@ -3006,10 +2598,6 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               onBackPressed: () => setState(() => _selectedIndex = 0),
             )),
             _kangarooBackground(
-              'assets/Kangaroo3.png',
-              _buildCalendarTab(),
-            ),
-            _kangarooBackground(
               'assets/Kangaroo2.png',
               _buildSavedBody(),
             ),
@@ -3017,6 +2605,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               'assets/Kangaroo4.png',
               _buildProfileBody(),
             ),
+            SafeArea(child: const FoodBusinessDiscoveryScreen()),
           ],
         ),
       ),
@@ -3032,9 +2621,9 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
         child: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white70,
-        backgroundColor: AppPalette.ochre.withValues(alpha: 0.92),
+        selectedItemColor: AppPalette.ochre,
+        unselectedItemColor: AppPalette.mutedText,
+        backgroundColor: const Color(0xFF1C1C2E),
         type: BottomNavigationBarType.fixed,
         elevation: 12,
         selectedFontSize: 13,
@@ -3074,21 +2663,6 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           BottomNavigationBarItem(
             icon: const Padding(
               padding: EdgeInsets.only(bottom: 4),
-              child: Icon(Icons.calendar_month_outlined),
-            ),
-            activeIcon: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Icon(Icons.calendar_month_rounded),
-            ),
-            label: 'Calendar',
-          ),
-          BottomNavigationBarItem(
-            icon: const Padding(
-              padding: EdgeInsets.only(bottom: 4),
               child: Icon(Icons.favorite_border_rounded),
             ),
             activeIcon: Container(
@@ -3115,6 +2689,21 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               child: const Icon(Icons.person_rounded),
             ),
             label: 'Profile',
+          ),
+          BottomNavigationBarItem(
+            icon: const Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Icon(Icons.restaurant_outlined),
+            ),
+            activeIcon: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.restaurant_rounded),
+            ),
+            label: 'Food',
           ),
         ],
       ),

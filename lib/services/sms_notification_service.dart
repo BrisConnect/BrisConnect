@@ -1,10 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SmsNotificationService {
-  SmsNotificationService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  SmsNotificationService({
+    FirebaseFirestore? firestore,
+    String senderName = 'BrisConnect+',
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _senderName = senderName;
 
   final FirebaseFirestore _firestore;
+  final String _senderName;
 
   Future<int> queueAdminBroadcastSms({
     required String audience,
@@ -74,6 +78,7 @@ class SmsNotificationService {
       );
       batch.set(ref, {
         'to': phone,
+        'from': _senderName,
         'message': normalizedMessage,
         'meta': {
           'type': 'admin_broadcast_sms',
@@ -86,6 +91,47 @@ class SmsNotificationService {
 
     await batch.commit();
     return recipients.length;
+  }
+
+  Future<int> queueSingleLocalSms({
+    required String email,
+    required String message,
+  }) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    final normalizedMessage = message.trim();
+    if (normalizedEmail.isEmpty) throw ArgumentError('Email cannot be empty.');
+    if (normalizedMessage.isEmpty) throw ArgumentError('Message cannot be empty.');
+
+    final snap = await _firestore
+        .collection('local_users')
+        .where('email', isEqualTo: normalizedEmail)
+        .limit(1)
+        .get();
+
+    if (snap.docs.isEmpty) return 0;
+
+    final data = snap.docs.first.data();
+    final phone = _normalizePhone(
+      (data['phone'] as String?) ??
+          (data['phoneNumber'] as String?) ??
+          (data['mobile'] as String?) ??
+          '',
+    );
+    if (phone == null) return 0;
+
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    await _firestore.collection('sms_queue').doc('direct-local-$ts').set({
+      'to': phone,
+      'from': _senderName,
+      'message': normalizedMessage,
+      'meta': {
+        'type': 'admin_direct_sms',
+        'targetEmail': normalizedEmail,
+      },
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    return 1;
   }
 
   Future<void> queueLocalAccountRegistrationReceivedSms({
@@ -103,8 +149,9 @@ class SmsNotificationService {
       'local-reg-received-$slug-$ts',
     ).set({
       'to': to,
+      'from': _senderName,
       'message':
-          'Hi $businessName, your BrisConnect local account registration was received and is pending verification.',
+          'Hi $businessName, your BrisConnect+ local account registration was received and is pending verification.',
       'meta': {
         'type': 'local_account_registration_received_sms',
       },
@@ -127,8 +174,9 @@ class SmsNotificationService {
       'visitor-reg-received-$slug-$ts',
     ).set({
       'to': to,
+      'from': _senderName,
       'message':
-          'Hi $visitorName, welcome to BrisConnect. Your visitor account has been created successfully.',
+          'Hi $visitorName, welcome to BrisConnect+. Your visitor account has been created successfully.',
       'meta': {
         'type': 'visitor_registration_received_sms',
       },
@@ -153,9 +201,10 @@ class SmsNotificationService {
       'local-review-$verdict-$slug-$ts',
     ).set({
       'to': to,
+      'from': _senderName,
       'message': approved
-          ? 'Hi $businessName, your BrisConnect local account is approved.'
-          : 'Hi $businessName, your BrisConnect local account was reviewed and is not approved.',
+          ? 'Hi $businessName, your BrisConnect+ local account is approved.'
+          : 'Hi $businessName, your BrisConnect+ local account was reviewed and is not approved.',
       'meta': {
         'type': 'local_account_review_sms',
         'approved': approved,
@@ -180,7 +229,8 @@ class SmsNotificationService {
       'event-review-${reviewStatus.toLowerCase()}-$slug-$ts',
     ).set({
       'to': to,
-      'message': 'Your event "$eventTitle" is now ${reviewStatus.toUpperCase()} on BrisConnect.',
+      'from': _senderName,
+      'message': 'Your event "$eventTitle" is now ${reviewStatus.toUpperCase()} on BrisConnect+.',
       'meta': {
         'type': 'local_event_review_sms',
         'reviewStatus': reviewStatus,
@@ -225,9 +275,10 @@ class SmsNotificationService {
 
     await _firestore.collection('sms_queue').doc(smsId).set({
       'to': to,
+      'from': _senderName,
       'message': schedule.isEmpty
-          ? 'BrisConnect reminder: "$title" was saved to your events.'
-          : 'BrisConnect reminder: "$title" was saved to your events. Schedule: $schedule',
+          ? 'BrisConnect+ reminder: "$title" was saved to your events.'
+          : 'BrisConnect+ reminder: "$title" was saved to your events. Schedule: $schedule',
       'meta': {
         'type': 'visitor_saved_event_sms',
         'visitorEmail': normalizedEmail,
@@ -275,9 +326,10 @@ class SmsNotificationService {
 
     await _firestore.collection('sms_queue').doc(smsId).set({
       'to': to,
+      'from': _senderName,
       'message': schedule.isEmpty
-          ? 'BrisConnect reminder: "$title" was saved to your events.'
-          : 'BrisConnect reminder: "$title" was saved to your events. Schedule: $schedule',
+          ? 'BrisConnect+ reminder: "$title" was saved to your events.'
+          : 'BrisConnect+ reminder: "$title" was saved to your events. Schedule: $schedule',
       'meta': {
         'type': 'local_saved_event_sms',
         'localEmail': normalizedEmail,

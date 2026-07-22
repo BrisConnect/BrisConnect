@@ -277,7 +277,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
               ),
               child: Row(
                 children: [
-                  Image.asset('assets/logo.png', height: 44),
+                  Image.asset('assets/Brisconnect New.jpg', height: 44),
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Column(

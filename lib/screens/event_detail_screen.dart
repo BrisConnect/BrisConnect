@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:brisconnect/models/event_item.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/audio_guide_widget.dart';
+import 'package:brisconnect/widgets/crowd_report_widget.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 
 class EventDetailScreen extends StatelessWidget {
@@ -36,89 +37,242 @@ class EventDetailScreen extends StatelessWidget {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: Card(
-          color: AppPalette.surface,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppPalette.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border(
+              top: BorderSide(
+                color: AppPalette.ochre.withValues(alpha: 0.4),
+                width: 3,
+              ),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0x14000000),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+              BoxShadow(
+                color: AppPalette.ochre.withValues(alpha: 0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (event.imageAsset != null) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: event.imageAsset!.startsWith('http')
-                        ? CachedNetworkImage(
-                            imageUrl: event.imageAsset!,
-                            width: double.infinity,
-                            height: 180,
-                            fit: BoxFit.cover,
-                          )
-                        : Image.asset(
-                            event.imageAsset!,
-                            width: double.infinity,
-                            height: 180,
-                            fit: BoxFit.cover,
+                  Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: event.imageAsset!.startsWith('http')
+                            ? CachedNetworkImage(
+                                imageUrl: event.imageAsset!,
+                                width: double.infinity,
+                                height: 200,
+                                fit: BoxFit.cover,
+                              )
+                            : Image.asset(
+                                event.imageAsset!,
+                                width: double.infinity,
+                                height: 200,
+                                fit: BoxFit.cover,
+                              ),
+                      ),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: Container(
+                          width: double.infinity,
+                          height: 200,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                AppPalette.ochre.withValues(alpha: 0.2),
+                              ],
+                            ),
                           ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 18),
                 ],
                 Text(
                   event.title,
                   style: const TextStyle(
-                    fontSize: 22,
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: AppPalette.charcoal,
+                    color: AppPalette.deepBlue,
+                    height: 1.2,
                   ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    const Icon(Icons.calendar_today,
-                        size: 18, color: AppPalette.deepBlue),
-                    const SizedBox(width: 8),
-                    Text('Date & Time: ${event.date} • ${event.time}'),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    const Icon(Icons.place, size: 18, color: AppPalette.ochre),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(event.location)),
-                  ],
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'About this event',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppPalette.charcoal,
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppPalette.surfaceAlt,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppPalette.gold.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.calendar_today,
+                              size: 18,
+                              color: AppPalette.ochre.withValues(alpha: 0.8)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Date & Time',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppPalette.mutedText,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  '${event.date} • ${event.time}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: AppPalette.charcoal,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Icon(Icons.location_on,
+                              size: 18,
+                              color: AppPalette.gold.withValues(alpha: 0.8)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Location',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppPalette.mutedText,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  event.location,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: AppPalette.charcoal,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: AppPalette.ochre,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'About this event',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppPalette.charcoal,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
                 Text(
                   event.description,
                   style: const TextStyle(
-                    height: 1.4,
+                    height: 1.6,
+                    fontSize: 15,
                     color: AppPalette.charcoal,
+                    letterSpacing: 0.3,
                   ),
                 ),
+                const SizedBox(height: 20),
+                // Crowd reporting
+                CrowdReportWidget(eventId: event.id),
                 if (narrationText.isNotEmpty) ...[
-                  const SizedBox(height: 18),
-                  const Text(
-                    'AI Narration',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppPalette.charcoal,
+                  const SizedBox(height: 24),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppPalette.surfaceAlt,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border(
+                        left: BorderSide(
+                          color: AppPalette.gold,
+                          width: 4,
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  AiNarrationWidget(
-                    narrationText: narrationText,
-                    helperText:
-                        'Tap play to hear your AI tour guide walk you through this event.',
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.headphones,
+                              color: AppPalette.gold,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'AI Narration',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: AppPalette.deepBlue,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        AiNarrationWidget(
+                          narrationText: narrationText,
+                          helperText:
+                              'Tap play to hear your AI tour guide walk you through this event.',
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ],

@@ -7,8 +7,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
-import 'package:brisconnect/services/approved_attraction_service.dart';
-import 'package:brisconnect/services/discover_data_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 
@@ -54,15 +52,7 @@ class MapEventsScreen extends StatefulWidget {
 class _MapEventsScreenState extends State<MapEventsScreen>
     with TickerProviderStateMixin {
   GoogleMapController? _mapController;
-  final DiscoverDataService _discoverDataService = DiscoverDataService();
-  final ApprovedAttractionService _approvedAttractionService =
-      ApprovedAttractionService();
   final TextEditingController _searchController = TextEditingController();
-
-  late final Stream<List<Map<String, dynamic>>> _discoverStream =
-      _discoverDataService.watchApprovedDiscoverItems();
-  late final Stream<List<ApprovedAttraction>> _attractionsStream =
-      _approvedAttractionService.watchApprovedAttractions();
 
   Timer? _searchDebounce;
   StreamSubscription<Position>? _positionSubscription;
@@ -82,6 +72,7 @@ class _MapEventsScreenState extends State<MapEventsScreen>
   bool _followUser = true;
   bool _showResultsSheet = false;
   bool _useVibrantMap = true;
+  bool _use3dMode = false;
   String? _locationStatus;
   String _searchQuery = '';
   _MapPinType? _selectedType;
@@ -100,6 +91,7 @@ class _MapEventsScreenState extends State<MapEventsScreen>
   void initState() {
     super.initState();
     _radiusKm = _profileRadiusKm();
+    _selectedType = _MapPinType.food; // Default to food items only
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
@@ -234,7 +226,7 @@ class _MapEventsScreenState extends State<MapEventsScreen>
 
   String _buildDataSignature({
     required List<Map<String, dynamic>> discoverItems,
-    required List<ApprovedAttraction> attractions,
+    required List<dynamic> attractions,
   }) {
     return '${identityHashCode(discoverItems)}:${discoverItems.length}:${identityHashCode(attractions)}:${attractions.length}:${_radiusKm.toStringAsFixed(2)}';
   }
@@ -257,7 +249,7 @@ class _MapEventsScreenState extends State<MapEventsScreen>
 
   List<_MapPin> _getAllPins({
     required List<Map<String, dynamic>> discoverItems,
-    required List<ApprovedAttraction> attractions,
+    required List<dynamic> attractions,
   }) {
     final signature = _buildDataSignature(
       discoverItems: discoverItems,
@@ -281,8 +273,9 @@ class _MapEventsScreenState extends State<MapEventsScreen>
   }
 
   List<_MapPin> _getFilteredPins(List<_MapPin> allPins) {
+    final selectedTypeName = _selectedType?.name ?? 'all';
     final signature =
-        '${_cachedAllPinsSignature ?? 'none'}:${_searchQuery}:${_selectedType?.name ?? 'all'}';
+        '${_cachedAllPinsSignature ?? 'none'}:$_searchQuery:$selectedTypeName';
     if (_cachedFilteredPins != null && _cachedFilteredPinsSignature == signature) {
       return _cachedFilteredPins!;
     }
@@ -381,7 +374,7 @@ class _MapEventsScreenState extends State<MapEventsScreen>
           latitude: lat,
           longitude: lng,
           type: type,
-          source: 'discover_items',
+          source: 'events',
         ),
       );
     }
@@ -389,46 +382,14 @@ class _MapEventsScreenState extends State<MapEventsScreen>
     return pins;
   }
 
-  List<_MapPin> _attractionPins(List<ApprovedAttraction> attractions) {
-    return attractions.map((item) {
-      final blob = [
-        item.name,
-        item.location,
-        item.category ?? '',
-        item.description,
-      ].join(' ').toLowerCase();
-
-      final isOlympicVenue = blob.contains('olympic') ||
-          blob.contains('brisbane 2032') ||
-          (blob.contains('venue') && blob.contains('sport'));
-      final isCulturalVenue = blob.contains('cultur') ||
-          blob.contains('museum') ||
-          blob.contains('gallery') ||
-          blob.contains('heritage');
-
-      final type = isOlympicVenue
-          ? _MapPinType.olympicVenue
-          : (isCulturalVenue ? _MapPinType.culturalVenue : _MapPinType.attraction);
-
-      return _MapPin(
-        id: item.id,
-        title: item.name,
-        location: item.location,
-        latitude: item.latitude,
-        longitude: item.longitude,
-        type: type,
-        source: 'attractions',
-      );
-    }).toList(growable: false);
-  }
 
   List<_MapPin> _buildPins({
     required List<Map<String, dynamic>> discoverItems,
-    required List<ApprovedAttraction> attractions,
+    required List<dynamic> attractions,
   }) {
+    // Only show food items - filter out events, historical, stadiums, and attractions
     final combined = <_MapPin>[
-      ..._discoverPins(discoverItems),
-      ..._attractionPins(attractions),
+      ..._discoverPins(discoverItems).where((pin) => pin.type == _MapPinType.food),
     ];
 
     final deduped = <String, _MapPin>{};
@@ -561,24 +522,60 @@ class _MapEventsScreenState extends State<MapEventsScreen>
   }
 
   Future<void> _launchNavigation(_MapPin pin) async {
-    final googleMapsUri = Uri.parse(
-      'google.navigation:q=${pin.latitude},${pin.longitude}&mode=d',
+    // Show travel mode picker
+    final mode = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _NavModeSheet(name: pin.title),
     );
-    final fallbackUri = Uri.parse(
+    if (mode == null) return;
+
+    final lat = pin.latitude;
+    final lng = pin.longitude;
+
+    // Google Maps native app (driving, walking, transit, bicycling)
+    final googleNativeUri = Uri.parse(
+      'google.navigation:q=$lat,$lng&mode=$mode',
+    );
+    // Google Maps web fallback
+    final googleWebUri = Uri.parse(
       'https://www.google.com/maps/dir/?api=1'
-      '&destination=${pin.latitude},${pin.longitude}'
-      '&travelmode=driving',
+      '&destination=$lat,$lng'
+      '&travelmode=${_googleWebMode(mode)}',
+    );
+    // Apple Maps fallback (iOS)
+    final appleUri = Uri.parse(
+      'maps://?daddr=$lat,$lng&dirflg=${_appleDirFlag(mode)}',
     );
 
-    if (await canLaunchUrl(googleMapsUri)) {
-      await launchUrl(googleMapsUri);
-    } else if (await canLaunchUrl(fallbackUri)) {
-      await launchUrl(fallbackUri, mode: LaunchMode.externalApplication);
+    if (await canLaunchUrl(googleNativeUri)) {
+      await launchUrl(googleNativeUri);
+    } else if (await canLaunchUrl(appleUri)) {
+      await launchUrl(appleUri);
+    } else if (await canLaunchUrl(googleWebUri)) {
+      await launchUrl(googleWebUri, mode: LaunchMode.externalApplication);
     } else {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Unable to open navigation.')),
       );
+    }
+  }
+
+  String _googleWebMode(String mode) {
+    switch (mode) {
+      case 'w': return 'walking';
+      case 'r': return 'transit';
+      case 'b': return 'bicycling';
+      default:  return 'driving';
+    }
+  }
+
+  String _appleDirFlag(String mode) {
+    switch (mode) {
+      case 'w': return 'w';
+      case 'r': return 'r';
+      default:  return 'd';
     }
   }
 
@@ -631,82 +628,40 @@ class _MapEventsScreenState extends State<MapEventsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final body = StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _discoverStream,
-        builder: (context, discoverSnapshot) {
-          if (discoverSnapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+    // Only show events for now
+    final allPins = _getAllPins(
+      discoverItems: const <Map<String, dynamic>>[],
+      attractions: const <dynamic>[],
+    );
+    final pins = _getFilteredPins(allPins);
+    final markers = _getMarkers(pins);
+
+    if (pins.isEmpty && _showResultsSheet) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() => _showResultsSheet = false);
+        }
+      });
+    }
+
+    if (_selectedPin != null) {
+      final selectedExists = pins.any(
+        (pin) => pin.id == _selectedPin!.id &&
+            pin.source == _selectedPin!.source &&
+            pin.type == _selectedPin!.type,
+      );
+      if (!selectedExists) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _selectedPin = null);
           }
+        });
+      }
+    }
 
-          if (discoverSnapshot.hasError) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'Unable to load map locations right now.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AppPalette.mutedText),
-                ),
-              ),
-            );
-          }
+    final mapCenter = _userLocation ?? _defaultCenter;
 
-          return StreamBuilder<List<ApprovedAttraction>>(
-            stream: _attractionsStream,
-            builder: (context, attractionSnapshot) {
-              if (attractionSnapshot.connectionState ==
-                  ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              if (attractionSnapshot.hasError) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text(
-                      'Unable to load attraction locations right now.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppPalette.mutedText),
-                    ),
-                  ),
-                );
-              }
-
-                final allPins = _getAllPins(
-                discoverItems:
-                    discoverSnapshot.data ?? const <Map<String, dynamic>>[],
-                attractions:
-                    attractionSnapshot.data ?? const <ApprovedAttraction>[],
-              );
-                final pins = _getFilteredPins(allPins);
-                final markers = _getMarkers(pins);
-
-              if (pins.isEmpty && _showResultsSheet) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    setState(() => _showResultsSheet = false);
-                  }
-                });
-              }
-
-              if (_selectedPin != null) {
-                final selectedExists = pins.any(
-                  (pin) => pin.id == _selectedPin!.id &&
-                      pin.source == _selectedPin!.source &&
-                      pin.type == _selectedPin!.type,
-                );
-                if (!selectedExists) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) {
-                      setState(() => _selectedPin = null);
-                    }
-                  });
-                }
-              }
-
-              final mapCenter = _userLocation ?? _defaultCenter;
-
-              return Stack(
+    final body = Stack(
                 children: [
                   GoogleMap(
                     initialCameraPosition: CameraPosition(
@@ -721,9 +676,11 @@ class _MapEventsScreenState extends State<MapEventsScreen>
                       _followUser = false;
                     }),
                     markers: markers,
-                    myLocationButtonEnabled: true,
+                    myLocationButtonEnabled: false,
                     myLocationEnabled: _userLocation != null,
                     zoomControlsEnabled: true,
+                    buildingsEnabled: _use3dMode,
+                    tiltGesturesEnabled: true,
                     mapType: _useVibrantMap
                         ? MapType.normal
                         : MapType.terrain,
@@ -816,114 +773,39 @@ class _MapEventsScreenState extends State<MapEventsScreen>
                           padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                           child: SizedBox(
                             height: 34,
-                            child: ListView(
-                              scrollDirection: Axis.horizontal,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: ChoiceChip(
-                                    selected: _selectedType == null,
-                                    onSelected: (_) => setState(
-                                        () => _selectedType = null),
-                                    label: const Text('All'),
-                                    selectedColor:
-                                        const Color(0xFFDDE8F4),
-                                    backgroundColor:
-                                        const Color(0xFFF8FAFC),
-                                    side: BorderSide(
-                                      color: _selectedType == null
-                                          ? AppPalette.deepBlue
-                                              .withValues(alpha: 0.35)
-                                          : const Color(0xFFD8DDE4),
-                                    ),
-                                    labelStyle: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 12,
-                                      color: _selectedType == null
-                                          ? AppPalette.deepBlue
-                                          : AppPalette.charcoal,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(20),
-                                    ),
-                                    materialTapTargetSize:
-                                        MaterialTapTargetSize
-                                            .shrinkWrap,
-                                    visualDensity:
-                                        VisualDensity.compact,
-                                    showCheckmark: false,
-                                  ),
+                            child: Center(
+                              child: ChoiceChip(
+                                selected: _selectedType == _MapPinType.food,
+                                onSelected: (value) => setState(() =>
+                                    _selectedType = value ? _MapPinType.food : null),
+                                label: const Text('🍽️ Food Places'),
+                                avatar: const Icon(
+                                  Icons.restaurant_rounded,
+                                  size: 14,
+                                  color: AppPalette.deepBlue,
                                 ),
-                                ..._MapPinType.values
-                                    .map((type) => Padding(
-                                          padding:
-                                              const EdgeInsets.only(
-                                                  right: 8),
-                                          child: ChoiceChip(
-                                            selected:
-                                                _selectedType == type,
-                                            onSelected: (value) => setState(() =>
-                                                _selectedType =
-                                                    value ? type : null),
-                                            label: Text(
-                                                _pinTypeLabel(
-                                                    type)),
-                                            avatar: Icon(
-                                              _pinIcon(type),
-                                              size: 14,
-                                              color: _selectedType ==
-                                                      type
-                                                  ? AppPalette
-                                                      .deepBlue
-                                                  : AppPalette
-                                                      .mutedText,
-                                            ),
-                                            selectedColor:
-                                                const Color(
-                                                    0xFFDDE8F4),
-                                            side: BorderSide(
-                                              color: _selectedType ==
-                                                      type
-                                                  ? AppPalette
-                                                      .deepBlue
-                                                      .withValues(
-                                                          alpha:
-                                                              0.35)
-                                                  : const Color(
-                                                      0xFFD8DDE4),
-                                            ),
-                                            labelStyle: TextStyle(
-                                              fontWeight:
-                                                  FontWeight.w600,
-                                              fontSize: 12,
-                                              color: _selectedType ==
-                                                      type
-                                                  ? AppPalette
-                                                      .deepBlue
-                                                  : AppPalette
-                                                      .charcoal,
-                                            ),
-                                            backgroundColor:
-                                                const Color(
-                                                    0xFFF8FAFC),
-                                            shape:
-                                                RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius
-                                                      .circular(
-                                                          20),
-                                            ),
-                                            materialTapTargetSize:
-                                                MaterialTapTargetSize
-                                                    .shrinkWrap,
-                                            visualDensity:
-                                                VisualDensity
-                                                    .compact,
-                                            showCheckmark: false,
-                                          ),
-                                        ))
-                              ],
+                                selectedColor: const Color(0xFFDDE8F4),
+                                side: BorderSide(
+                                  color: _selectedType == _MapPinType.food
+                                      ? AppPalette.deepBlue.withValues(alpha: 0.35)
+                                      : const Color(0xFFD8DDE4),
+                                ),
+                                labelStyle: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                  color: _selectedType == _MapPinType.food
+                                      ? AppPalette.deepBlue
+                                      : AppPalette.charcoal,
+                                ),
+                                backgroundColor: const Color(0xFFF8FAFC),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                visualDensity: VisualDensity.compact,
+                                showCheckmark: false,
+                              ),
                             ),
                           ),
                         ),
@@ -968,11 +850,11 @@ class _MapEventsScreenState extends State<MapEventsScreen>
                     )
                   else if (_showResultsSheet)
                     DraggableScrollableSheet(
-                      minChildSize: 0.09,
-                      initialChildSize: 0.09,
+                      minChildSize: 0.1,
+                      initialChildSize: 0.1,
                       maxChildSize: 0.55,
                       snap: true,
-                      snapSizes: const [0.09, 0.3, 0.55],
+                      snapSizes: const [0.1, 0.3, 0.55],
                       builder: (context, controller) {
                         return Container(
                           decoration: const BoxDecoration(
@@ -987,6 +869,7 @@ class _MapEventsScreenState extends State<MapEventsScreen>
                               ),
                             ],
                           ),
+                          clipBehavior: Clip.hardEdge,
                           child: Column(
                             children: [
                               const SizedBox(height: 8),
@@ -1276,6 +1159,64 @@ class _MapEventsScreenState extends State<MapEventsScreen>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // 3D toggle
+                        Material(
+                          color: Colors.transparent,
+                          child: Ink(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.97),
+                                  Colors.white.withValues(alpha: 0.9),
+                                ],
+                              ),
+                              border: Border.all(
+                                color: _use3dMode
+                                    ? AppPalette.ochre.withValues(alpha: 0.6)
+                                    : const Color(0xFFD4DAE2),
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x24000000),
+                                  blurRadius: 10,
+                                  offset: Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: IconButton(
+                              tooltip: _use3dMode ? 'Flat view' : '3D buildings',
+                              onPressed: () {
+                                setState(() => _use3dMode = !_use3dMode);
+                                final center = _userLocation ?? _defaultCenter;
+                                _mapController?.animateCamera(
+                                  CameraUpdate.newCameraPosition(
+                                    CameraPosition(
+                                      target: center,
+                                      zoom: _use3dMode ? 17 : 14,
+                                      tilt: _use3dMode ? 45 : 0,
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: Icon(
+                                _use3dMode
+                                    ? Icons.view_in_ar_rounded
+                                    : Icons.view_in_ar_outlined,
+                                color: _use3dMode
+                                    ? AppPalette.ochre
+                                    : AppPalette.charcoal,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        // Map style toggle
                         Material(
                           color: Colors.transparent,
                           child: Ink(
@@ -1483,10 +1424,6 @@ class _MapEventsScreenState extends State<MapEventsScreen>
                   ),
                 ],
               );
-            },
-          );
-        },
-      );
 
     if (widget.embedded) return body;
 
@@ -1494,8 +1431,93 @@ class _MapEventsScreenState extends State<MapEventsScreen>
       backgroundColor: AppPalette.background,
       appBar: AppBar(
         title: const LogoAppBarTitle('Map Explorer'),
+        backgroundColor: AppPalette.ochre,
+        foregroundColor: Colors.white,
       ),
       body: body,
+    );
+  }
+}
+
+class _NavModeSheet extends StatelessWidget {
+  const _NavModeSheet({required this.name});
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    const modes = [
+      (icon: Icons.directions_car_rounded,  label: 'Drive',    mode: 'd'),
+      (icon: Icons.directions_walk_rounded, label: 'Walk',     mode: 'w'),
+      (icon: Icons.directions_bus_rounded,  label: 'Transit',  mode: 'r'),
+      (icon: Icons.directions_bike_rounded, label: 'Bicycle',  mode: 'b'),
+    ];
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppPalette.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Navigate to $name',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: AppPalette.deepBlue,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text('Choose travel mode', style: TextStyle(color: Colors.grey)),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: modes.map((m) => _ModeButton(
+              icon: m.icon,
+              label: m.label,
+              onTap: () => Navigator.pop(context, m.mode),
+            )).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModeButton extends StatelessWidget {
+  const _ModeButton({required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppPalette.ochre,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: Colors.white, size: 26),
+          ),
+          const SizedBox(height: 6),
+          Text(label, style: const TextStyle(fontSize: 12, color: AppPalette.deepBlue)),
+        ],
+      ),
     );
   }
 }

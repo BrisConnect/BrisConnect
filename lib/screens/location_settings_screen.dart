@@ -223,7 +223,7 @@ class _LocationSettingsScreenState extends State<LocationSettingsScreen> {
 
                 // Info section
                 Card(
-                  color: AppPalette.surface.withOpacity(0.5),
+                  color: AppPalette.surface.withValues(alpha: 0.5),
                   child: Padding(
                     padding: const EdgeInsets.all(14),
                     child: Column(

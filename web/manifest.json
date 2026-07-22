@@ -1,11 +1,11 @@
 {
-    "name": "BrisConnect",
-    "short_name": "BrisConnect",
+    "name": "BrisConnect+",
+    "short_name": "BrisConnect+",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "BrisConnect+ brings Brisbane visitors and locals a smart city guide for events, attractions, and local experiences.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

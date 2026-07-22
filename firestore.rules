@@ -40,18 +40,18 @@ service cloud.firestore {
 
     // ── Events ──
     match /events/{eventId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
+      allow read: if true; // Allow public read
+      allow create: if isSignedIn() || request.auth == null; // Dev: allow unauthenticated
       allow update: if isSignedIn()
         && (resource.data.createdByLocalEmail == authEmail() || isAdmin());
       allow delete: if isSignedIn()
         && (resource.data.createdByLocalEmail == authEmail() || isAdmin());
     }
 
-    // ── Attractions ──
-    match /attractions/{docId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+    // ── Approved Attractions (for web app) ──
+    match /approved_attractions/{docId} {
+      allow read: if true; // Allow public read
+      allow write: if isAdmin() || request.auth == null; // Dev: allow unauthenticated
     }
 
     // ── Attraction details ──
@@ -124,13 +124,47 @@ service cloud.firestore {
 
     // ── Config (event categories etc.) ──
     match /config/{docId} {
-      allow read: if isSignedIn();
+      allow read: if true; // Allow public read
       allow write: if isAdmin();
+    }
+    
+    // ── Event categories (for web app) ──
+    match /event_categories/{docId} {
+      allow read: if true; // Allow public read
+      allow write: if isAdmin() || request.auth == null; // Dev: allow unauthenticated
     }
 
     // ── Connectivity probe ──
     match /_connectivity_probe/{docId} {
       allow read: if isSignedIn();
+    }
+
+    // ── Business profiles (local business owner management) ──
+    match /businesses/{businessId} {
+      allow read: if true; // Allow public read (all businesses visible)
+      allow create: if isSignedIn() && request.resource.data.ownerId == authEmail();
+      allow update: if isSignedIn() && (
+        resource.data.ownerId == authEmail() || isAdmin()
+      );
+      allow delete: if isSignedIn() && (
+        resource.data.ownerId == authEmail() || isAdmin()
+      );
+    }
+
+    // ── Reviews (visitor feedback on businesses) ──
+    match /reviews/{reviewId} {
+      allow read: if resource.data.isReported != true; // Show non-reported reviews to all
+      allow create: if isSignedIn() && request.resource.data.visitorId == request.auth.uid;
+      allow update: if isAdmin(); // Only admins can update (mark as reported)
+      allow delete: if isAdmin() || (
+        isSignedIn() && resource.data.visitorId == request.auth.uid
+      );
+    }
+
+    // ── Food businesses (public read, seeding allows unauthenticated write) ──
+    match /food_businesses/{businessId} {
+      allow read: if true; // Allow public read
+      allow write: if isAdmin() || request.auth == null; // Dev: allow unauthenticated for seeding
     }
   }
 }

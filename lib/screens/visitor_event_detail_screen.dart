@@ -7,6 +7,7 @@ import 'package:brisconnect/services/visitor_notification_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/utils/venue_image_fallback.dart';
 import 'package:brisconnect/widgets/audio_guide_widget.dart';
+import 'package:brisconnect/widgets/crowd_report_widget.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 
 /// Full-page event detail screen shown when a Visitor taps an event card.
@@ -332,6 +333,14 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
                           height: 1.55,
                           fontSize: 15,
                         ),
+                      ),
+                      const SizedBox(height: 22),
+                    ],
+
+                    // Crowd level reporting
+                    if ((widget.event['id'] as String? ?? '').isNotEmpty) ...[
+                      CrowdReportWidget(
+                        eventId: widget.event['id'] as String,
                       ),
                       const SizedBox(height: 22),
                     ],

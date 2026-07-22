@@ -1,24 +1,22 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:brisconnect/auth/app_user_role.dart';
 import 'package:brisconnect/auth/admin_auth.dart';
-import 'package:brisconnect/screens/admin_attraction_management_screen.dart';
 import 'package:brisconnect/screens/admin_event_review_screen.dart';
 import 'package:brisconnect/screens/admin_feedback_review_screen.dart';
+import 'package:brisconnect/screens/admin_email_broadcast_screen.dart';
 import 'package:brisconnect/screens/admin_sms_broadcast_screen.dart';
 import 'package:brisconnect/screens/admin_user_management_screen.dart';
 import 'package:brisconnect/screens/admin_reported_events_screen.dart';
 import 'package:brisconnect/screens/welcome_screen.dart';
 import 'package:brisconnect/services/admin_dashboard_service.dart';
 import 'package:brisconnect/services/admin_event_service.dart';
-import 'package:brisconnect/services/discover_data_service.dart';
 import 'package:brisconnect/services/event_category_service.dart';
 import 'package:brisconnect/services/firebase_media_service.dart';
-import 'package:brisconnect/services/google_places_import_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/utils/profile_image_utils.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
@@ -27,14 +25,12 @@ class AdminDashboardScreen extends StatefulWidget {
   AdminDashboardScreen({
     super.key,
     AdminDashboardService? dashboardService,
-    this.discoverDataService,
     this.enforceRoleGuard = true,
     this.eventsScreenBuilder,
     this.usersScreenBuilder,
   }) : dashboardService = dashboardService ?? AdminDashboardService();
 
   final AdminDashboardService dashboardService;
-  final DiscoverDataService? discoverDataService;
   final bool enforceRoleGuard;
   final WidgetBuilder? eventsScreenBuilder;
   final WidgetBuilder? usersScreenBuilder;
@@ -44,13 +40,12 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  final GooglePlacesImportService _googlePlacesImportService =
-      GooglePlacesImportService();
   final FirebaseMediaService _mediaService = FirebaseMediaService();
   final EventCategoryService _categoryService = EventCategoryService();
   final AdminEventService _adminEventService = AdminEventService();
   Uint8List? _pendingProfileImageBytes;
   bool _isNavVisible = true;
+  Timer? _navRestoreTimer;
 
   @override
   void initState() {
@@ -58,6 +53,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _runLegacyEventIdMigration();
     });
+  }
+
+  @override
+  void dispose() {
+    _navRestoreTimer?.cancel();
+    super.dispose();
   }
 
   ImageProvider<Object>? _profileImageProvider() {
@@ -208,15 +209,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     setState(() => _selectedNavIndex = 2);
   }
 
-  void _openAttractionsManagement() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AdminAttractionManagementScreen(),
-      ),
-    );
-  }
-
   void _openReportedEvents() {
     Navigator.push(
       context,
@@ -244,162 +236,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Future<void> _seedDiscoverCatalog() async {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-
-    final result =
-        await (widget.discoverDataService ?? DiscoverDataService()).ensureSeeded();
-    if (!mounted) {
-      return;
-    }
-
-    switch (result) {
-      case DiscoverSeedResult.seeded:
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Discovery catalog seeded to Firestore.'),
-          ),
-        );
-      case DiscoverSeedResult.alreadySeeded:
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Discovery catalog is already present in Firestore.'),
-          ),
-        );
-      case DiscoverSeedResult.permissionDenied:
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Seed denied by Firestore rules. Ensure updated rules are deployed and you are signed in as an active admin.'),
-          ),
-        );
-      case DiscoverSeedResult.failed:
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Unable to seed discovery catalog right now.'),
-          ),
-        );
-    }
-  }
-
-  Future<void> _importGooglePlacesWithin30Km() async {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      const SnackBar(content: Text('Importing Google Places data...')),
-    );
-
-    try {
-      final summary = await _googlePlacesImportService.importWithinBrisbaneRadius();
-      if (!mounted) {
-        return;
-      }
-
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            'Imported ${summary.attractionCount} attractions and ${summary.eventCount} event venues within ${summary.radiusKm}km (${summary.writeCount} writes).',
-          ),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Google Places import failed: $error'),
-        ),
-      );
-    }
-  }
-
-  Future<void> _testSmsSend() async {
-    final messenger = ScaffoldMessenger.of(context);
-    final phoneController = TextEditingController();
-    final phone = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Test SMS'),
-        content: TextField(
-          controller: phoneController,
-          decoration: const InputDecoration(
-            labelText: 'Phone (E.164 e.g. +61412345678)',
-            hintText: '+61...',
-          ),
-          keyboardType: TextInputType.phone,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, phoneController.text.trim()),
-            child: const Text('Send'),
-          ),
-        ],
+  void _openEmailBroadcast() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AdminEmailBroadcastScreen(),
       ),
     );
-    phoneController.dispose();
-    if (phone == null || phone.isEmpty) return;
-
-    messenger.showSnackBar(SnackBar(content: Text('Sending test SMS to $phone...')));
-    try {
-      final callable = FirebaseFunctions.instanceFor(region: 'australia-southeast1')
-          .httpsCallable('testSmsSend');
-      final result = await callable.call<dynamic>({'phone': phone});
-      final data = result.data as Map<dynamic, dynamic>? ?? {};
-      if (!mounted) return;
-      messenger.hideCurrentSnackBar();
-      if (data['success'] == true) {
-        messenger.showSnackBar(SnackBar(content: Text('SMS sent! SID: ${data['sid']}, status: ${data['status']}')));
-      } else {
-        messenger.showSnackBar(SnackBar(content: Text('SMS failed: ${data['error']}'), backgroundColor: Colors.red));
-      }
-    } catch (e) {
-      if (!mounted) return;
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(SnackBar(content: Text('Call failed: $e'), backgroundColor: Colors.red));
-    }
-  }
-
-  Future<void> _convertGooglePlacesToDiscoverItems() async {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      const SnackBar(
-        content: Text('Converting imported Google Places to discover items...'),
-      ),
-    );
-
-    try {
-      final summary =
-          await _googlePlacesImportService.convertImportedToDiscoverItems();
-      if (!mounted) {
-        return;
-      }
-
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            'Converted ${summary.itemCount} items: ${summary.discoveredAttractions} attractions, ${summary.discoveredEvents} events (${summary.writeCount} writes).',
-          ),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Discover items conversion failed: $error'),
-        ),
-      );
-    }
   }
 
   Future<void> _openCategoryManagement() async {
@@ -437,16 +280,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         extendBody: true,
         body: NotificationListener<ScrollNotification>(
           onNotification: (notification) {
+            if (_selectedNavIndex != 0) {
+              return false;
+            }
+
             if (notification is ScrollUpdateNotification) {
               final delta = notification.scrollDelta ?? 0;
               if (delta > 8 && _isNavVisible) {
+                _navRestoreTimer?.cancel();
                 setState(() => _isNavVisible = false);
               } else if (delta < -8 && !_isNavVisible) {
+                _navRestoreTimer?.cancel();
                 setState(() => _isNavVisible = true);
               }
             } else if (notification is ScrollEndNotification) {
+              _navRestoreTimer?.cancel();
               if (!_isNavVisible) {
-                Future.delayed(const Duration(seconds: 3), () {
+                _navRestoreTimer = Timer(const Duration(milliseconds: 900), () {
                   if (mounted && !_isNavVisible) {
                     setState(() => _isNavVisible = true);
                   }
@@ -476,32 +326,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
       );
 
-    // Wrap scaffold with full-screen background image
+    // Wrap scaffold with solid dark navy background
     final withBackground = Stack(
       children: [
-        // Full-screen Kangaroo background
-        Positioned.fill(
-          child: Image.asset(
-            'assets/Kangaroo1.png',
-            fit: BoxFit.cover,
-          ),
-        ),
-        // Orange-brown tinted overlay
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  const Color(0xFF0F0804).withValues(alpha: 0.40),
-                  const Color(0xFF5C3D2E).withValues(alpha: 0.55),
-                  const Color(0xFFF8F3EA).withValues(alpha: 0.80),
-                ],
-                stops: const [0.0, 0.35, 1.0],
-              ),
-            ),
-          ),
+        const Positioned.fill(
+          child: ColoredBox(color: Color(0xFF0D1117)),
         ),
         scaffold,
       ],
@@ -521,10 +350,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildBottomNav() {
     return Container(
       decoration: BoxDecoration(
-        color: AppPalette.ochre.withValues(alpha: 0.92),
+        color: const Color(0xFF1C1C2E),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black.withValues(alpha: 0.20),
             blurRadius: 12,
             offset: const Offset(0, -2),
           ),
@@ -558,12 +387,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [AppPalette.ochre, Color(0xFFD4740E)],
+                      colors: [Color(0xFF252540), Color(0xFF1C1C2E)],
                     ),
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: AppPalette.ochre.withValues(alpha: 0.35),
+                        color: Color(0xFF252540),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -617,6 +446,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             .map((s) => s.isNotEmpty ? '${s[0].toUpperCase()}${s.substring(1)}' : s)
             .join(' ')
         : 'Admin';
+    final heroAvatarRadius =
+      (MediaQuery.of(context).size.width * 0.16).clamp(56.0, 72.0).toDouble();
 
     return CustomScrollView(
       physics: const ClampingScrollPhysics(),
@@ -641,7 +472,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // BrisConnect logo
-                        Image.asset('assets/logo.png', height: 48),
+                        Image.asset('assets/Brisconnect New.jpg', height: 48),
                         const SizedBox(width: 12),
                         Expanded(
                           child: RichText(
@@ -705,12 +536,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   ],
                                 ),
                                 child: CircleAvatar(
-                                  radius: 22,
+                                  radius: heroAvatarRadius,
                                   backgroundColor: AppPalette.ochre,
                                   backgroundImage: profileImage,
                                   child: profileImage == null
-                                      ? const Icon(Icons.person_rounded,
-                                          color: Colors.white, size: 22)
+                                      ? Icon(
+                                          Icons.person_rounded,
+                                          color: Colors.white,
+                                          size: heroAvatarRadius * 0.9,
+                                        )
                                       : null,
                                 ),
                               ),
@@ -739,7 +573,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     // Search bar
                     Container(
                       decoration: BoxDecoration(
-                        color: AppPalette.surface.withValues(alpha: 0.92),
+                        color: const Color(0xFF252540),
                         borderRadius: BorderRadius.circular(30),
                         boxShadow: [
                           BoxShadow(
@@ -778,10 +612,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           child: Transform.translate(
             offset: const Offset(0, -24),
             child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8F3EA).withValues(alpha: 0.55),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1C1C2E),
                 borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(28)),
+                    BorderRadius.vertical(top: Radius.circular(28)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -993,28 +827,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
           childAspectRatio: 2.8,
-          children: [
-            _QuickActionChip(
-              icon: Icons.cloud_upload_rounded,
-              label: 'Seed Data',
-              onTap: _seedDiscoverCatalog,
-            ),
-            _QuickActionChip(
-              icon: Icons.travel_explore,
-              label: 'Import Places',
-              onTap: _importGooglePlacesWithin30Km,
-            ),
-            _QuickActionChip(
-              icon: Icons.visibility_rounded,
-              label: 'Convert Discover',
-              onTap: _convertGooglePlacesToDiscoverItems,
-            ),
-            _QuickActionChip(
-              icon: Icons.place_rounded,
-              label: 'Attractions',
-              onTap: _openAttractionsManagement,
-            ),
-          ],
+          children: const [],
         ),
       ],
     );
@@ -1174,17 +987,46 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       color: AppPalette.mutedText),
                   onTap: _openCategoryManagement,
                 ),
-                const Divider(height: 1, indent: 16, endIndent: 16),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // ── BrisConnect ──
+          _settingsSectionLabel('BrisConnect+'),
+          Card(
+            color: AppPalette.surface,
+            elevation: 4,
+            shadowColor: AppPalette.cardShadow,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
+            ),
+            child: Column(
+              children: [
                 ListTile(
                   leading: _settingsIcon(Icons.sms_outlined),
                   title: const Text('SMS Broadcast',
                       style: TextStyle(fontWeight: FontWeight.w600, color: AppPalette.charcoal)),
-                  subtitle: const Text('Send announcements to users',
+                  subtitle: const Text('Send SMS announcements to users',
                       style: TextStyle(color: AppPalette.mutedText)),
                   trailing: const Icon(Icons.chevron_right_rounded,
                       color: AppPalette.mutedText),
                   onTap: _openSmsBroadcast,
                 ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  leading: _settingsIcon(Icons.email_outlined),
+                  title: const Text('Email Broadcast',
+                      style: TextStyle(fontWeight: FontWeight.w600, color: AppPalette.charcoal)),
+                  subtitle: const Text('Send email announcements to users',
+                      style: TextStyle(color: AppPalette.mutedText)),
+                  trailing: const Icon(Icons.chevron_right_rounded,
+                      color: AppPalette.mutedText),
+                  onTap: _openEmailBroadcast,
+                ),
+
               ],
             ),
           ),
@@ -1220,7 +1062,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
                   leading: _settingsIcon(Icons.info_outline_rounded),
-                  title: const Text('About BrisConnect',
+                  title: const Text('About BrisConnect+',
                       style: TextStyle(fontWeight: FontWeight.w600, color: AppPalette.charcoal)),
                   subtitle: const Text('Version, credits & legal',
                       style: TextStyle(color: AppPalette.mutedText)),
@@ -1229,10 +1071,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   onTap: () {
                     showAboutDialog(
                       context: context,
-                      applicationName: 'BrisConnect',
+                      applicationName: 'BrisConnect+',
                       applicationVersion: '1.0.0',
-                      applicationLegalese: '© 2026 BrisConnect Team',
-                      applicationIcon: Image.asset('assets/logo.png', height: 48),
+                      applicationLegalese: '© 2026 BrisConnect+ Team',
+                      applicationIcon: Image.asset('assets/Brisconnect New.jpg', height: 48),
                     );
                   },
                 ),
@@ -1249,7 +1091,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             child: ElevatedButton.icon(
               onPressed: () async {
                 await AdminAuth.logout();
-                if (!context.mounted) return;
+                if (!mounted) return;
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(builder: (_) => const WelcomeScreen()),
                   (route) => false,
@@ -1502,65 +1344,6 @@ class _RecentUserCard extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Quick action chip ──
-class _QuickActionChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-
-  const _QuickActionChip({
-    required this.icon,
-    required this.label,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.90),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppPalette.border.withValues(alpha: 0.4)),
-          boxShadow: [
-            BoxShadow(
-              color: AppPalette.cardShadow.withValues(alpha: 0.08),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppPalette.ochre.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, size: 18, color: AppPalette.ochre),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppPalette.charcoal,
-                ),
               ),
             ),
           ],

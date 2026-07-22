@@ -405,9 +405,18 @@ class _AdminEventCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            Text('Date: ${event.date}'),
-            Text('Time: ${event.time}'),
-            Text('Location: ${event.location}'),
+            Text(
+              'Date: ${event.date}',
+              style: const TextStyle(color: AppPalette.charcoal),
+            ),
+            Text(
+              'Time: ${event.time}',
+              style: const TextStyle(color: AppPalette.charcoal),
+            ),
+            Text(
+              'Location: ${event.location}',
+              style: const TextStyle(color: AppPalette.charcoal),
+            ),
             if (ownerEmail != null && ownerEmail.isNotEmpty) ...[
               const SizedBox(height: 4),
               Text(

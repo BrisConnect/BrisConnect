@@ -2,22 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:brisconnect/models/review.dart';
 import 'package:brisconnect/services/review_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
-import 'package:intl/intl.dart';
 
 class ReviewsDisplayWidget extends StatefulWidget {
   final String businessId;
+  final String? currentVisitorId;
+  final ReviewService? reviewService;
 
   const ReviewsDisplayWidget({
-    Key? key,
+    super.key,
     required this.businessId,
-  }) : super(key: key);
+    this.currentVisitorId,
+    this.reviewService,
+  });
 
   @override
   State<ReviewsDisplayWidget> createState() => _ReviewsDisplayWidgetState();
 }
 
 class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
-  final ReviewService _reviewService = ReviewService();
+  late final ReviewService _reviewService =
+      widget.reviewService ?? ReviewService();
 
   @override
   Widget build(BuildContext context) {
@@ -206,6 +210,8 @@ class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
                   onSelected: (value) {
                     if (value == 'report') {
                       _showReportDialog(context, review.id);
+                    } else if (value == 'delete') {
+                      _confirmDeleteReview(context, review.id);
                     }
                   },
                   itemBuilder: (BuildContext context) => [
@@ -219,6 +225,18 @@ class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
                         ],
                       ),
                     ),
+                    if (widget.currentVisitorId != null &&
+                        widget.currentVisitorId == review.visitorId)
+                      const PopupMenuItem<String>(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                            SizedBox(width: 8),
+                            Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                          ],
+                        ),
+                      ),
                   ],
                   icon: const Icon(Icons.more_vert, size: 18),
                 ),
@@ -238,7 +256,7 @@ class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
 
             // Date
             Text(
-              DateFormat('MMM d, yyyy').format(review.createdAt),
+              _formatReviewDate(review.createdAt),
               style: TextStyle(
                 fontSize: 11,
                 color: AppPalette.mutedText,
@@ -327,5 +345,63 @@ class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
         ],
       ),
     );
+  }
+
+  void _confirmDeleteReview(BuildContext context, String reviewId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Review'),
+        content: const Text(
+          'Are you sure you want to delete your review? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await _reviewService.deleteReview(reviewId);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Review deleted successfully')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: $e')),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatReviewDate(DateTime date) {
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 }

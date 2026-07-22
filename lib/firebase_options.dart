@@ -44,12 +44,12 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDNu_example_web_key',
-    appId: '1:123456789:web:abcdefg1234567',
-    messagingSenderId: '123456789',
-    projectId: 'brisconnect-dev',
-    authDomain: 'brisconnect-dev.firebaseapp.com',
-    storageBucket: 'brisconnect-dev.appspot.com',
+    apiKey: 'AIzaSyBosCAp3VFaZZ01YIEyhSZLSMn8L3--NIs',
+    appId: '1:2073694703:web:72dea72558f80bcbfa261a',
+    messagingSenderId: '2073694703',
+    projectId: 'brisconnect-68b78',
+    authDomain: 'brisconnect-68b78.firebaseapp.com',
+    storageBucket: 'brisconnect-68b78.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -61,20 +61,20 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDNu_example_ios_key',
-    appId: '1:123456789:ios:abcdefg1234567',
-    messagingSenderId: '123456789',
-    projectId: 'brisconnect-dev',
-    storageBucket: 'brisconnect-dev.appspot.com',
-    iosBundleId: 'com.example.brisconnect',
+    apiKey: 'AIzaSyDh0PHiARbQM8WCeGHtppQEcIKOfyPGMhU',
+    appId: '1:2073694703:ios:28fa782e5fe1479cfa261a',
+    messagingSenderId: '2073694703',
+    projectId: 'brisconnect-68b78',
+    storageBucket: 'brisconnect-68b78.firebasestorage.app',
+    iosBundleId: 'com.june.brisconnect',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyDNu_example_macos_key',
-    appId: '1:123456789:macos:abcdefg1234567',
-    messagingSenderId: '123456789',
-    projectId: 'brisconnect-dev',
-    storageBucket: 'brisconnect-dev.appspot.com',
-    iosBundleId: 'com.example.brisconnect',
+    apiKey: 'AIzaSyDh0PHiARbQM8WCeGHtppQEcIKOfyPGMhU',
+    appId: '1:2073694703:ios:28fa782e5fe1479cfa261a',
+    messagingSenderId: '2073694703',
+    projectId: 'brisconnect-68b78',
+    storageBucket: 'brisconnect-68b78.firebasestorage.app',
+    iosBundleId: 'com.june.brisconnect',
   );
 }

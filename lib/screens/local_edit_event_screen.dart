@@ -7,6 +7,7 @@ import 'package:brisconnect/utils/narration_builder.dart';
 import 'package:brisconnect/models/event_item.dart';
 import 'package:brisconnect/services/event_category_service.dart';
 import 'package:brisconnect/services/firebase_media_service.dart';
+import 'package:brisconnect/services/google_places_autocomplete_service.dart';
 import 'package:brisconnect/services/local_event_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
@@ -28,8 +29,11 @@ class _LocalEditEventScreenState extends State<LocalEditEventScreen> {
   final LocalEventService _localEventService = LocalEventService();
   final FirebaseMediaService _mediaService = FirebaseMediaService();
   final EventCategoryService _categoryService = EventCategoryService();
+  final GooglePlacesAutocompleteService _placesAutocompleteService =
+      GooglePlacesAutocompleteService();
   late final TextEditingController _titleController;
   late final TextEditingController _locationController;
+  final _locationFocusNode = FocusNode();
   late final TextEditingController _descriptionController;
 
   List<String> _eventCategories = EventCategoryService.defaultCategories;
@@ -78,6 +82,7 @@ class _LocalEditEventScreenState extends State<LocalEditEventScreen> {
   void dispose() {
     _titleController.dispose();
     _locationController.dispose();
+    _locationFocusNode.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
@@ -149,6 +154,17 @@ class _LocalEditEventScreenState extends State<LocalEditEventScreen> {
 
     if (picked != null) {
       setState(() => _selectedDate = picked);
+    }
+  }
+
+  Future<Iterable<String>> _locationOptions(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.length < 2) return const <String>[];
+    try {
+      return await _placesAutocompleteService
+          .fetchBrisbaneAddressSuggestions(trimmed);
+    } catch (_) {
+      return const <String>[];
     }
   }
 
@@ -402,19 +418,70 @@ class _LocalEditEventScreenState extends State<LocalEditEventScreen> {
                         },
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _locationController,
-                  decoration: const InputDecoration(
-                    labelText: 'Location',
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter location';
-                    }
-                    return null;
+                RawAutocomplete<String>(
+                  textEditingController: _locationController,
+                  focusNode: _locationFocusNode,
+                  optionsBuilder: (value) => _locationOptions(value.text),
+                  onSelected: (selection) {
+                    _locationController.text = selection;
+                  },
+                  fieldViewBuilder: (
+                    context,
+                    textEditingController,
+                    focusNode,
+                    onFieldSubmitted,
+                  ) {
+                    return TextFormField(
+                      controller: textEditingController,
+                      focusNode: focusNode,
+                      style: const TextStyle(color: Colors.black),
+                      decoration: const InputDecoration(
+                        labelText: 'Location',
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(),
+                        hintText: 'Type e.g. 1 Brisbane or South Brisbane',
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter location';
+                        }
+                        return null;
+                      },
+                      onFieldSubmitted: (_) => onFieldSubmitted(),
+                    );
+                  },
+                  optionsViewBuilder: (context, onSelected, options) {
+                    return Align(
+                      alignment: Alignment.topLeft,
+                      child: Material(
+                        elevation: 4,
+                        borderRadius: BorderRadius.circular(8),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 220),
+                          child: SizedBox(
+                            width: MediaQuery.of(context).size.width - 64,
+                            child: ListView.builder(
+                              padding: EdgeInsets.zero,
+                              itemCount: options.length,
+                              itemBuilder: (context, index) {
+                                final option = options.elementAt(index);
+                                return ListTile(
+                                  dense: true,
+                                  leading: const Icon(
+                                    Icons.location_on,
+                                    color: AppPalette.ochre,
+                                    size: 18,
+                                  ),
+                                  title: Text(option),
+                                  onTap: () => onSelected(option),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
                   },
                 ),
                 const SizedBox(height: 12),

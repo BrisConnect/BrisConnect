@@ -1,5 +1,9 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/local_auth.dart';
+import 'package:brisconnect/screens/business_profile_setup_screen.dart';
 import 'package:brisconnect/screens/local_signup_screen.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/utils/auth_validation.dart';
@@ -20,7 +24,8 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isSubmitting = false;
-  String? _errorMessage;
+  String? _statusMessage;
+  InlineStatusType _statusType = InlineStatusType.error;
 
   @override
   void initState() {
@@ -40,43 +45,155 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
 
     setState(() {
       _isSubmitting = true;
-      _errorMessage = null;
+      _statusMessage = null;
     });
 
-    final success = await LocalAuth.login(
-      email: _identifierController.text,
-      password: _passwordController.text,
-    );
+    try {
+      final success = await LocalAuth.login(
+        email: _identifierController.text,
+        password: _passwordController.text,
+      ).timeout(const Duration(seconds: 20));
 
-    if (!mounted) {
-      return;
-    }
+      if (!mounted) {
+        return;
+      }
 
-    setState(() {
-      _isSubmitting = false;
-    });
+      if (!success) {
+        setState(() {
+          _statusMessage =
+              LocalAuth.lastErrorMessage ?? 'Login failed. Please try again.';
+          _statusType = InlineStatusType.error;
+        });
+        return;
+      }
 
-    if (!success) {
-      setState(() {
-        _errorMessage = LocalAuth.lastErrorMessage ?? 'Login failed. Please try again.';
-      });
-      return;
-    }
+      // Check if the logged-in user is rejected
+      final currentUser = LocalAuth.currentLocal;
+      if (currentUser != null &&
+          currentUser.approvalStatus == AccountApprovalStatus.rejected) {
+        await LocalAuth.logout();
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _statusMessage =
+              'Your account has been rejected. Please contact support.';
+          _statusType = InlineStatusType.error;
+        });
+        return;
+      }
 
-    // Check if the logged-in user is rejected
-    final currentUser = LocalAuth.currentLocal;
-    if (currentUser != null && currentUser.approvalStatus == AccountApprovalStatus.rejected) {
-      await LocalAuth.logout();
+      // Check if business profile has been completed
+      final email = LocalAuth.currentLocal?.email ?? '';
+      bool profileCompleted = false;
+      if (email.isNotEmpty) {
+        try {
+          final doc = await FirebaseFirestore.instance
+              .collection('local_users')
+              .doc(email)
+              .get();
+          profileCompleted =
+              (doc.data()?['profileCompleted'] as bool?) ?? false;
+        } catch (_) {
+          profileCompleted = false;
+        }
+      }
+
+      if (!mounted) return;
+
+      if (!profileCompleted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const BusinessProfileSetupScreen(),
+          ),
+        );
+        return;
+      }
+
+      Navigator.pushReplacementNamed(context, '/local/portal');
+    } on TimeoutException {
       if (!mounted) {
         return;
       }
       setState(() {
-        _errorMessage = 'Your account has been rejected. Please contact support.';
+        _statusMessage =
+            'Login timed out. Please check your connection and try again.';
+        _statusType = InlineStatusType.error;
       });
-      return;
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _statusMessage =
+            'Login failed due to an unexpected error. Please try again.';
+        _statusType = InlineStatusType.error;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
     }
+  }
 
-    Navigator.pushReplacementNamed(context, '/local/portal');
+  Future<void> _showForgotPasswordDialog() async {
+    final emailController = TextEditingController(
+      text: _identifierController.text.contains('@')
+          ? _identifierController.text.trim()
+          : '',
+    );
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reset your password'),
+        content: TextField(
+          controller: emailController,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(
+            hintText: 'Enter your email',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final email = emailController.text.trim();
+              if (email.isEmpty) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('Please enter your email')),
+                );
+                return;
+              }
+              Navigator.pop(ctx);
+              final result = await LocalAuth.sendPasswordReset(
+                emailOrUsername: email,
+              );
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      result
+                          ? 'Reset email sent! Check your inbox.'
+                          : (LocalAuth.lastErrorMessage ?? 'Failed to send reset email'),
+                    ),
+                    duration: const Duration(seconds: 4),
+                  ),
+                );
+              }
+            },
+            child: const Text('Send Reset Link'),
+          ),
+        ],
+      ),
+    );
   }
 
   InputDecoration _fieldDecoration({
@@ -118,9 +235,21 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0D1B3F),
       body: Stack(
         children: [
-          const AboriginalDotArtBackground(),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: BackButton(
+                  color: Colors.white,
+                  onPressed: () => Navigator.maybePop(context),
+                ),
+              ),
+            ),
+          ),
           SafeArea(
             child: Center(
               child: ConstrainedBox(
@@ -130,7 +259,7 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
                   child: Column(
                     children: [
                       // Logo
-                      Image.asset('assets/logo.png', height: 120),
+                      Image.asset('assets/Brisconnect New.jpg', height: 120),
                       const SizedBox(height: 20),
 
                       // Card
@@ -189,12 +318,16 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
                               ),
                               const SizedBox(height: 20),
 
-                              if (_errorMessage != null) ...[
+                              if (_statusMessage != null) ...[
                                 InlineStatusMessage(
-                                  message: _errorMessage!,
-                                  type: InlineStatusType.error,
-                                  actionLabel: 'Retry',
-                                  onAction: _isSubmitting ? null : _login,
+                                  message: _statusMessage!,
+                                  type: _statusType,
+                                  actionLabel: _statusType == InlineStatusType.error
+                                      ? 'Retry'
+                                      : null,
+                                  onAction: _statusType == InlineStatusType.error
+                                      ? (_isSubmitting ? null : _login)
+                                      : null,
                                 ),
                                 const SizedBox(height: 10),
                               ],
@@ -234,6 +367,19 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
                                 ),
                                 validator: (v) =>
                                     AuthValidation.requiredField(v, 'Password'),
+                              ),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: _isSubmitting ? null : _showForgotPasswordDialog,
+                                  child: const Text(
+                                    'Forgot password?',
+                                    style: TextStyle(
+                                      color: AppPalette.ochre,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
                               ),
                               const SizedBox(height: 24),
 

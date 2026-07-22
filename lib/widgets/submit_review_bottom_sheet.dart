@@ -7,14 +7,16 @@ class SubmitReviewBottomSheet extends StatefulWidget {
   final String visitorId;
   final String visitorName;
   final Function(String reviewId) onReviewSubmitted;
+  final ReviewService? reviewService;
 
   const SubmitReviewBottomSheet({
-    Key? key,
+    super.key,
     required this.businessId,
     required this.visitorId,
     required this.visitorName,
     required this.onReviewSubmitted,
-  }) : super(key: key);
+    this.reviewService,
+  });
 
   @override
   State<SubmitReviewBottomSheet> createState() =>
@@ -22,10 +24,16 @@ class SubmitReviewBottomSheet extends StatefulWidget {
 }
 
 class _SubmitReviewBottomSheetState extends State<SubmitReviewBottomSheet> {
-  final ReviewService _reviewService = ReviewService();
+  late final ReviewService _reviewService =
+      widget.reviewService ?? ReviewService();
   final TextEditingController _commentController = TextEditingController();
   int _rating = 5;
   bool _isSubmitting = false;
+  bool _privacyConsent = false;
+
+  static const String _privacyNotice =
+      'Your review, first name, and rating will be publicly visible on this business profile. '
+      'You can delete your review at any time. By submitting, you consent to this display.';
 
   @override
   void dispose() {
@@ -37,6 +45,13 @@ class _SubmitReviewBottomSheetState extends State<SubmitReviewBottomSheet> {
     if (_commentController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a comment')),
+      );
+      return;
+    }
+
+    if (!_privacyConsent) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please agree to the privacy notice')),
       );
       return;
     }
@@ -173,6 +188,39 @@ class _SubmitReviewBottomSheetState extends State<SubmitReviewBottomSheet> {
                         ),
                         contentPadding: const EdgeInsets.all(12),
                       ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Privacy consent
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Checkbox(
+                          value: _privacyConsent,
+                          onChanged: _isSubmitting
+                              ? null
+                              : (value) =>
+                                  setState(() => _privacyConsent = value ?? false),
+                          activeColor: AppPalette.ochre,
+                        ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Text(
+                              _privacyNotice,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppPalette.mutedText,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

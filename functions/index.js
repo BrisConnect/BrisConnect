@@ -266,11 +266,16 @@ exports.processSmsQueue = onDocumentCreated(
     const messagingServiceSid = twilioMessagingServiceSid.value();
 
     try {
-      const result = await client.messages.create({
-        body: String(message),
-        messagingServiceSid,
+      // Always route through the Messaging Service so the registered
+      // BrisConnect alpha sender ID in the sender pool is used automatically.
+      const rawBody = String(message);
+      const prefixedBody = rawBody.startsWith('BrisConnect') ? rawBody : `BrisConnect: ${rawBody}`;
+      const msgParams = {
+        body: prefixedBody,
         to: String(to),
-      });
+        messagingServiceSid,
+      };
+      const result = await client.messages.create(msgParams);
 
       await snapshot.ref.set(
         {
@@ -419,6 +424,168 @@ async function fetchGooglePlacesByType(type) {
   }
 
   return Array.isArray(payload.places) ? payload.places : [];
+}
+
+async function fetchBrisbaneAddressAutocomplete(input, sessionToken, limit) {
+  async function fetchFromNominatim() {
+    const nominatimEndpoint = new URL('https://nominatim.openstreetmap.org/search');
+    nominatimEndpoint.searchParams.set('q', input);
+    nominatimEndpoint.searchParams.set('format', 'jsonv2');
+    nominatimEndpoint.searchParams.set('countrycodes', 'au');
+    nominatimEndpoint.searchParams.set('addressdetails', '1');
+    nominatimEndpoint.searchParams.set('dedupe', '1');
+    nominatimEndpoint.searchParams.set('bounded', '1');
+    nominatimEndpoint.searchParams.set('viewbox', '152.6,-26.8,153.6,-28.2');
+    nominatimEndpoint.searchParams.set('limit', String(limit));
+
+    const nominatimResponse = await fetch(nominatimEndpoint.toString(), {
+      headers: {
+        'Accept-Language': 'en-AU',
+        'User-Agent': 'BrisConnect/1.0 (brisconnect-app)',
+      },
+    });
+
+    if (!nominatimResponse.ok) {
+      throw new Error(`Nominatim autocomplete failed (${nominatimResponse.status})`);
+    }
+
+    const nominatimPayload = await nominatimResponse.json();
+    const items = Array.isArray(nominatimPayload) ? nominatimPayload : [];
+    const formatted = items
+      .map((item) => String(item && item.display_name ? item.display_name : '').trim())
+      .filter((item) => item.length > 0)
+      .filter((item) => item.toLowerCase().includes('brisbane') || item.toLowerCase().includes('qld'));
+
+    const unique = [...new Set(formatted)];
+    return unique.slice(0, limit);
+  }
+
+  const key = googlePlacesApiKey.value();
+  const endpoint = 'https://places.googleapis.com/v1/places:autocomplete';
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': key,
+      'X-Goog-FieldMask': [
+        'suggestions.placePrediction.text',
+        'suggestions.placePrediction.structuredFormat',
+      ].join(','),
+    },
+    body: JSON.stringify({
+      input,
+      sessionToken,
+      includedRegionCodes: ['au'],
+      languageCode: 'en-AU',
+      locationBias: {
+        circle: {
+          center: {
+            latitude: BRISBANE_CBD.lat,
+            longitude: BRISBANE_CBD.lng,
+          },
+          radius: 35000,
+        },
+      },
+      origin: {
+        latitude: BRISBANE_CBD.lat,
+        longitude: BRISBANE_CBD.lng,
+      },
+      includeQueryPredictions: false,
+    }),
+  });
+
+  // Fallback to legacy endpoint if Places API (New) autocomplete is restricted.
+  if (!response.ok) {
+    const legacyEndpoint = new URL('https://maps.googleapis.com/maps/api/place/autocomplete/json');
+    legacyEndpoint.searchParams.set('input', input);
+    legacyEndpoint.searchParams.set('key', key);
+    legacyEndpoint.searchParams.set('sessiontoken', sessionToken);
+    legacyEndpoint.searchParams.set('language', 'en-AU');
+    legacyEndpoint.searchParams.set('components', 'country:au');
+    legacyEndpoint.searchParams.set('location', `${BRISBANE_CBD.lat},${BRISBANE_CBD.lng}`);
+    legacyEndpoint.searchParams.set('radius', '35000');
+    legacyEndpoint.searchParams.set('types', 'address');
+
+    let legacyError = null;
+    try {
+      const legacyResponse = await fetch(legacyEndpoint.toString());
+      if (!legacyResponse.ok) {
+        throw new Error(
+          `Google Places autocomplete failed (${response.status}) and legacy failed (${legacyResponse.status})`,
+        );
+      }
+
+      const legacyPayload = await legacyResponse.json();
+      const legacyStatus = String(legacyPayload.status || '');
+      if (legacyStatus !== 'OK' && legacyStatus !== 'ZERO_RESULTS') {
+        const legacyMessage = legacyPayload.error_message
+          ? `: ${legacyPayload.error_message}`
+          : '';
+        throw new Error(
+          `Google Places legacy autocomplete error (${legacyStatus || 'UNKNOWN'})${legacyMessage}`,
+        );
+      }
+
+      const predictions = Array.isArray(legacyPayload.predictions)
+        ? legacyPayload.predictions
+        : [];
+
+      const legacyFormatted = predictions
+        .map((item) => String(item && item.description ? item.description : '').trim())
+        .filter((item) => item.toLowerCase().includes('brisbane') || item.toLowerCase().includes('qld'));
+
+      const legacyUnique = [...new Set(legacyFormatted)];
+      return legacyUnique.slice(0, limit);
+    } catch (error) {
+      legacyError = error;
+    }
+
+    const fallbackSuggestions = await fetchFromNominatim();
+    if (fallbackSuggestions.length > 0) {
+      return fallbackSuggestions;
+    }
+
+    if (legacyError) {
+      throw legacyError;
+    }
+    throw new Error(`Google Places autocomplete failed (${response.status})`);
+  }
+
+  const payload = await response.json();
+  if (payload.error && payload.error.message) {
+    throw new Error(`Google Places autocomplete error: ${payload.error.message}`);
+  }
+
+  const suggestions = Array.isArray(payload.suggestions) ? payload.suggestions : [];
+  const formatted = suggestions
+    .map((item) => {
+      const placePrediction = item && item.placePrediction ? item.placePrediction : null;
+      const primary =
+        placePrediction && placePrediction.text && placePrediction.text.text
+          ? String(placePrediction.text.text).trim()
+          : '';
+      const secondary =
+        placePrediction &&
+        placePrediction.structuredFormat &&
+        placePrediction.structuredFormat.secondaryText &&
+        placePrediction.structuredFormat.secondaryText.text
+          ? String(placePrediction.structuredFormat.secondaryText.text).trim()
+          : '';
+
+      if (!primary) {
+        return '';
+      }
+
+      if (!secondary) {
+        return primary;
+      }
+
+      return `${primary}, ${secondary}`;
+    })
+    .filter(Boolean);
+
+  const unique = [...new Set(formatted)];
+  return unique.slice(0, limit);
 }
 
 function normalizePlacePhotoUrl(photoRef) {
@@ -1346,6 +1513,50 @@ exports.convertGooglePlacesToDiscoverItems = onCall(
   },
 );
 
+exports.autocompleteBrisbaneAddress = onCall(
+  {
+    region: 'australia-southeast1',
+    timeoutSeconds: 20,
+    secrets: [googlePlacesApiKey],
+  },
+  async (request) => {
+    const query = String((request.data && request.data.query) || '').trim();
+    if (query.length < 2) {
+      return { suggestions: [] };
+    }
+
+    const sessionToken = String(
+      (request.data && request.data.sessionToken) ||
+        `brisconnect-${Date.now()}`,
+    )
+      .trim()
+      .slice(0, 128);
+
+    const requestedLimit = Number((request.data && request.data.limit) || 8);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.max(1, Math.min(10, Math.floor(requestedLimit)))
+      : 8;
+
+    try {
+      const suggestions = await fetchBrisbaneAddressAutocomplete(
+        query,
+        sessionToken,
+        limit,
+      );
+      return { suggestions };
+    } catch (error) {
+      logger.error('autocompleteBrisbaneAddress failed.', {
+        error: String(error),
+        query,
+      });
+      throw new HttpsError(
+        'internal',
+        `Autocomplete failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  },
+);
+
 // ── Username → email resolution (callable without auth) ──────────────
 exports.resolveUsername = onCall(
   { region: 'australia-southeast1' },
@@ -1382,4 +1593,353 @@ exports.resolveUsername = onCall(
       return { email: null };
     }
   },
+);
+
+// ── Google Places Details / Find Place helpers ───────────────────────────────
+async function fetchPlaceIdFromText(input, key) {
+  const endpoint = new URL('https://places.googleapis.com/v1/places:searchText');
+  const response = await fetch(endpoint.toString(), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': key,
+      'X-Goog-FieldMask': 'places.id,places.formattedAddress,places.location',
+    },
+    body: JSON.stringify({
+      textQuery: input,
+      locationBias: {
+        circle: {
+          center: {
+            latitude: BRISBANE_CBD.lat,
+            longitude: BRISBANE_CBD.lng,
+          },
+          radius: 35000,
+        },
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Google Places searchText failed (${response.status})`);
+  }
+
+  const payload = await response.json();
+  const places = Array.isArray(payload.places) ? payload.places : [];
+  if (places.length === 0) {
+    return null;
+  }
+
+  const place = places[0];
+  return {
+    placeId: place.id || null,
+    formattedAddress: place.formattedAddress || null,
+    lat: place.location?.latitude ?? null,
+    lng: place.location?.longitude ?? null,
+  };
+}
+
+async function fetchPlaceDetails(placeId, key) {
+  const endpoint = new URL(`https://places.googleapis.com/v1/places/${placeId}`);
+  endpoint.searchParams.set('key', key);
+
+  const response = await fetch(endpoint.toString(), {
+    method: 'GET',
+    headers: {
+      'X-Goog-FieldMask': 'id,formattedAddress,location',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Google Places details failed (${response.status})`);
+  }
+
+  const payload = await response.json();
+  return {
+    placeId: payload.id || placeId,
+    formattedAddress: payload.formattedAddress || null,
+    lat: payload.location?.latitude ?? null,
+    lng: payload.location?.longitude ?? null,
+  };
+}
+
+exports.findPlaceByText = onCall(
+  {
+    region: 'australia-southeast1',
+    timeoutSeconds: 15,
+    secrets: [googlePlacesApiKey],
+  },
+  async (request) => {
+    const query = String((request.data && request.data.query) || '').trim();
+    if (query.length < 3) {
+      return { placeId: null };
+    }
+
+    try {
+      const key = googlePlacesApiKey.value();
+      const result = await fetchPlaceIdFromText(query, key);
+      return { placeId: result?.placeId || null };
+    } catch (error) {
+      logger.error('findPlaceByText failed.', {
+        error: String(error),
+        query,
+      });
+      throw new HttpsError(
+        'internal',
+        `Find place failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  },
+);
+
+exports.getPlaceDetails = onCall(
+  {
+    region: 'australia-southeast1',
+    timeoutSeconds: 15,
+    secrets: [googlePlacesApiKey],
+  },
+  async (request) => {
+    const placeId = String((request.data && request.data.placeId) || '').trim();
+    if (!placeId) {
+      throw new HttpsError('invalid-argument', 'placeId is required.');
+    }
+
+    try {
+      const key = googlePlacesApiKey.value();
+      const details = await fetchPlaceDetails(placeId, key);
+      if (details.lat == null || details.lng == null) {
+        throw new Error('Place details missing coordinates.');
+      }
+      return {
+        placeId: details.placeId,
+        formattedAddress: details.formattedAddress,
+        lat: details.lat,
+        lng: details.lng,
+      };
+    } catch (error) {
+      logger.error('getPlaceDetails failed.', {
+        error: String(error),
+        placeId,
+      });
+      throw new HttpsError(
+        'internal',
+        `Place details failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  },
+);
+
+// ── Trending / Buzz Score computation ────────────────────────────────────────
+const TRENDING_THRESHOLD = 70; // Minimum buzzScore to be marked as trending
+const TRENDING_DECAY_DAYS = 7; // Views/reviews older than this contribute less
+
+function calculateBuzzScore({ viewCount, reviewCount, averageRating, buzzRatings }) {
+  const ratingScore = Math.min((averageRating || 0) / 5, 1) * 30; // up to 30
+  const reviewScore = Math.min(reviewCount || 0, 50) * 0.8; // up to 40
+  const viewScore = Math.min(viewCount || 0, 500) * 0.04; // up to 20
+  const buzzRatingScore = buzzRatings.length > 0
+    ? (buzzRatings.reduce((a, b) => a + b, 0) / buzzRatings.length) * 2 // up to 10
+    : 0;
+
+  return Math.round(ratingScore + reviewScore + viewScore + buzzRatingScore);
+}
+
+async function recalculateBusinessBuzzScore(businessId) {
+  const db = admin.firestore();
+  const businessRef = db.collection('businesses').doc(businessId);
+  const businessDoc = await businessRef.get();
+  if (!businessDoc.exists) return;
+
+  const businessData = businessDoc.data() || {};
+
+  // Aggregate approved reviews
+  const reviewsSnap = await db
+    .collection('reviews')
+    .where('businessId', '==', businessId)
+    .where('isReported', '==', false)
+    .get();
+
+  const reviewCount = reviewsSnap.size;
+  const ratings = reviewsSnap.docs.map((d) => Number(d.data().rating || 0)).filter((r) => r > 0);
+  const averageRating = ratings.length > 0
+    ? ratings.reduce((a, b) => a + b, 0) / ratings.length
+    : 0;
+  const buzzRatings = reviewsSnap.docs
+    .map((d) => Number(d.data().buzzRating || 0))
+    .filter((r) => r > 0);
+
+  const viewCount = Number(businessData.viewCount || 0);
+  const buzzScore = calculateBuzzScore({
+    viewCount,
+    reviewCount,
+    averageRating,
+    buzzRatings,
+  });
+
+  await businessRef.update({
+    buzzScore,
+    isTrending: buzzScore >= TRENDING_THRESHOLD,
+    reviewCount,
+    rating: averageRating,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  logger.info('Recalculated buzz score.', { businessId, buzzScore, isTrending: buzzScore >= TRENDING_THRESHOLD });
+}
+
+// Recalculate buzz score when a review is created or updated.
+exports.onReviewChanged = onDocumentCreated(
+  {
+    region: 'australia-southeast1',
+    document: 'reviews/{reviewId}',
+  },
+  async (event) => {
+    const data = event.data?.data() || {};
+    const businessId = data.businessId;
+    if (!businessId) {
+      logger.warn('Review created without businessId.', { reviewId: event.params.reviewId });
+      return;
+    }
+    await recalculateBusinessBuzzScore(businessId);
+  },
+);
+
+// Recalculate buzz score when a business is viewed (viewCount incremented).
+exports.onBusinessViewed = onDocumentCreated(
+  {
+    region: 'australia-southeast1',
+    document: 'business_views/{viewId}',
+  },
+  async (event) => {
+    const data = event.data?.data() || {};
+    const businessId = data.businessId;
+    if (!businessId) {
+      logger.warn('Business view without businessId.', { viewId: event.params.viewId });
+      return;
+    }
+    await recalculateBusinessBuzzScore(businessId);
+  },
+);
+
+// Scheduled job to refresh trending scores every 5 minutes and catch any drift.
+exports.refreshTrendingScores = onSchedule(
+  {
+    region: 'australia-southeast1',
+    schedule: 'every 5 minutes',
+    timeoutSeconds: 300,
+  },
+  async () => {
+    const db = admin.firestore();
+    const businessesSnap = await db.collection('businesses').where('isVerified', '==', true).get();
+
+    const promises = businessesSnap.docs.map((doc) => recalculateBusinessBuzzScore(doc.id));
+    await Promise.all(promises);
+
+    logger.info('Scheduled trending refresh complete.', {
+      count: businessesSnap.size,
+    });
+  },
+);
+
+// ── AI Post Generator (callable, uses Vertex AI Gemini) ──────────────────────
+const https = require('https');
+const geminiApiKey = defineSecret('GEMINI_API_KEY');
+
+exports.generatePost = onCall(
+  {
+    region: 'australia-southeast1',
+    secrets: [geminiApiKey],
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Must be signed in to generate posts.');
+    }
+
+    const { postType = 'Post', businessName = '', category = '', extraContext = '' } = request.data || {};
+
+    if (!businessName) {
+      throw new HttpsError('invalid-argument', 'businessName is required.');
+    }
+
+    const apiKey = geminiApiKey.value();
+    if (!apiKey) {
+      throw new HttpsError('internal', 'Gemini API key not configured.');
+    }
+
+    // Sanitize and interpret the post type for a better prompt
+    const postTypeLower = postType.toLowerCase();
+    let promptPostType = 'social media post';
+    if (postTypeLower.includes('event')) {
+      promptPostType = 'social media post about a new event';
+    } else if (postTypeLower.includes('promotion')) {
+      promptPostType = 'social media post for a new promotion';
+    } else if (postTypeLower.includes('announcement')) {
+      promptPostType = 'social media post for a general announcement';
+    } else if (postTypeLower.includes('review')) {
+      promptPostType = 'social media post highlighting a positive customer review';
+    } else if (postTypeLower.includes('menu')) {
+      promptPostType = 'social media post featuring a menu item';
+    }
+
+    const contextLine = extraContext.trim() ? `\nExtra details: ${extraContext.trim()}` : '';
+    const prompt = `You are a social media marketing expert for small businesses in Brisbane, Australia.
+Write a short, engaging ${promptPostType} for a business called "${businessName}" in the ${category} category.${contextLine}
+
+Requirements:
+- 2-4 sentences max
+- Friendly, authentic Brisbane tone
+- Include 2-3 relevant emojis naturally within the text
+- Include 3-5 relevant hashtags at the end
+- Do NOT include a subject line or title — just the post body + hashtags
+- Make it ready to copy and post directly to Instagram, Facebook or TikTok`;
+
+    const payload = JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.8, maxOutputTokens: 300 },
+    });
+
+    return new Promise((resolve, reject) => {
+      const req = https.request(
+        {
+          hostname: 'generativelanguage.googleapis.com',
+          path: `/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(payload),
+          },
+        },
+        (res) => {
+          let body = '';
+          res.on('data', (chunk) => (body += chunk));
+          res.on('end', () => {
+            try {
+              const data = JSON.parse(body);
+              if (res.statusCode !== 200) {
+                const errMsg = data.error?.message || `Gemini error ${res.statusCode}`;
+                console.error('Gemini API error:', res.statusCode, errMsg);
+                reject(new HttpsError('internal', errMsg));
+                return;
+              }
+              const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              if (!text) {
+                console.error('Gemini empty response:', JSON.stringify(data));
+                reject(new HttpsError('internal', 'Gemini returned an empty response.'));
+                return;
+              }
+              resolve({ post: text.trim() });
+            } catch (e) {
+              console.error('Gemini parse error:', e.message, body.substring(0, 200));
+              reject(new HttpsError('internal', 'Failed to parse Gemini response'));
+            }
+          });
+        }
+      );
+      req.on('error', (e) => {
+        console.error('Gemini request network error:', e.message);
+        reject(new HttpsError('internal', `Network error calling Gemini: ${e.message}`));
+      });
+      req.write(payload);
+      req.end();
+    });
+  }
 );

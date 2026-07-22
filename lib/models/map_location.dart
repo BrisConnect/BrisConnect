@@ -1,4 +1,4 @@
-enum MapLocationCategory { cultural, events, historical, olympicVenue }
+enum MapLocationCategory { food }
 
 class MapLocation {
   final String id;
@@ -25,14 +25,8 @@ class MapLocation {
 
   String get categoryLabel {
     switch (category) {
-      case MapLocationCategory.cultural:
-        return 'Cultural';
-      case MapLocationCategory.events:
-        return 'Events';
-      case MapLocationCategory.historical:
-        return 'Historical';
-      case MapLocationCategory.olympicVenue:
-        return 'Olympic Venue';
+      case MapLocationCategory.food:
+        return 'Food';
     }
   }
 }

@@ -3,17 +3,17 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 class AppPalette {
-  static const Color background  = Color(0xFFF7F4ED);  // warm cream / beige
-  static const Color surface     = Color(0xFFFFFDF8);  // near-white
-  static const Color surfaceAlt  = Color(0xFFFFF8EA);  // warm gold tint
-  static const Color ochre       = Color(0xFFC1440E);  // burnt orange (primary CTA)
-  static const Color gold        = Color(0xFFD4A017);  // secondary accent
-  static const Color brown       = Color(0xFF5C3D2E);  // earthy dark brown
-  static const Color deepBlue    = Color(0xFF1E3A5F);  // headings / nav
-  static const Color charcoal    = Color(0xFF2B2B2B);  // body text
-  static const Color mutedText   = Color(0xFF6B675F);  // subtitles
-  static const Color border      = Color(0xFFE4D8C4);  // card borders
-  static const Color cardShadow  = Color(0x16000000);  // box shadows
+  static const Color background  = Color(0xFF0D1117);  // deep dark navy
+  static const Color surface     = Color(0xFF1C1C2E);  // dark card surface
+  static const Color surfaceAlt  = Color(0xFF252540);  // slightly lighter card
+  static const Color ochre       = Color(0xFFFF6B2B);  // vibrant orange (primary CTA)
+  static const Color gold        = Color(0xFFF59E0B);  // vibrant amber accent
+  static const Color brown       = Color(0xFFE2E8F0);  // light text on dark bg
+  static const Color deepBlue    = Color(0xFF60A5FA);  // bright blue accent
+  static const Color charcoal    = Color(0xFFF1F5F9);  // near-white body text
+  static const Color mutedText   = Color(0xFF94A3B8);  // muted light text
+  static const Color border      = Color(0xFF2D3748);  // dark card borders
+  static const Color cardShadow  = Color(0x40000000);  // stronger box shadows
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

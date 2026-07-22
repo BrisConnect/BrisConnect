@@ -107,6 +107,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     with TickerProviderStateMixin {
   late final AnimationController _glowCtrl;
   late final AnimationController _sparkCtrl;
+  late final AnimationController _logoIntroCtrl;
+  late final Animation<double> _logoIntroScale;
+  late final Animation<double> _logoIntroOpacity;
   final ValueNotifier<double> _elapsed = ValueNotifier(0);
 
   static const int _sparkCount = 35;
@@ -123,6 +126,18 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       vsync: this,
       duration: const Duration(milliseconds: 2400),
     )..repeat(reverse: true);
+
+    _logoIntroCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2500),
+    )..forward();
+
+    _logoIntroScale = Tween<double>(begin: 0.60, end: 1.05)
+        .chain(CurveTween(curve: Curves.easeOutBack))
+        .animate(_logoIntroCtrl);
+    _logoIntroOpacity = Tween<double>(begin: 0.0, end: 1.0)
+        .chain(CurveTween(curve: const Interval(0.18, 1.0, curve: Curves.easeOut)))
+        .animate(_logoIntroCtrl);
 
     // Spark ticker – runs ~60 fps
     _sparkCtrl = AnimationController(
@@ -160,6 +175,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     _sparkCtrl.removeListener(_tickSparks);
     _sparkCtrl.dispose();
     _glowCtrl.dispose();
+    _logoIntroCtrl.dispose();
     _elapsed.dispose();
     super.dispose();
   }
@@ -266,45 +282,57 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
           // ── L6: Content ──
           SafeArea(
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 36),
               child: Column(
                 children: [
-                  const Spacer(flex: 2),
+                  const SizedBox(height: 32),
 
-                  // ── Logo with animated fire halo ──
+                  // ── Logo with Netflix-style intro animation ──
                   AnimatedBuilder(
-                    animation: _glowCtrl,
+                    animation: _logoIntroCtrl,
                     builder: (context, child) {
-                      final t = _glowCtrl.value;
-                      final spread = 12.0 + t * 14.0;
-                      final a = 0.28 + t * 0.24;
-                      return Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFFF6D00)
-                                  .withValues(alpha: a),
-                              blurRadius: spread * 2.5,
-                              spreadRadius: spread,
-                            ),
-                            BoxShadow(
-                              color: const Color(0xFFFFAB40)
-                                  .withValues(alpha: a * 0.30),
-                              blurRadius: spread * 4,
-                              spreadRadius: spread * 1.8,
-                            ),
-                          ],
+                      return Opacity(
+                        opacity: _logoIntroOpacity.value,
+                        child: Transform.scale(
+                          scale: _logoIntroScale.value,
+                          child: child,
                         ),
-                        child: child,
                       );
                     },
-                    child: Image.asset(
-                      'assets/logo.png',
-                      width: logoSize,
-                      height: logoSize,
-                      fit: BoxFit.contain,
+                    child: AnimatedBuilder(
+                      animation: _glowCtrl,
+                      builder: (context, child) {
+                        final t = _glowCtrl.value;
+                        final spread = 12.0 + t * 14.0;
+                        final a = 0.28 + t * 0.24;
+                        return Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF6D00)
+                                    .withValues(alpha: a),
+                                blurRadius: spread * 2.5,
+                                spreadRadius: spread,
+                              ),
+                              BoxShadow(
+                                color: const Color(0xFFFFAB40)
+                                    .withValues(alpha: a * 0.30),
+                                blurRadius: spread * 4,
+                                spreadRadius: spread * 1.8,
+                              ),
+                            ],
+                          ),
+                          child: child,
+                        );
+                      },
+                      child: Image.asset(
+                        'assets/Brisconnect New.jpg',
+                        width: logoSize,
+                        height: logoSize,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
 
@@ -312,7 +340,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
                   // ── Title ──
                   Text(
-                    'BrisConnect',
+                    'BrisConnect+',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 42,
@@ -332,7 +360,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
                   // ── Subtitle (gold italic) ──
                   Text(
-                    'Connecting people, culture, and place',
+                    'Empowering local food businesses — discover, support & connect',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 17,
@@ -358,7 +386,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
                   // ── Welcome heading ──
                   Text(
-                    'Welcome to BrisConnect',
+                    'Welcome to BrisConnect+',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 22,
@@ -377,8 +405,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
                   // ── Description ──
                   Text(
-                    'Your guide to events, attractions and stories\n'
-                    'across Brisbane. Let\u2019s explore together.',
+                    'Brisbane\'s platform for local food businesses.\n'
+                    'Discover, support and connect with small & medium food enterprises.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 15,
@@ -394,7 +422,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     ),
                   ),
 
-                  const Spacer(flex: 2),
+                  const SizedBox(height: 32),
 
                   // ── Get Started (orange gradient + arrow) ──
                   SizedBox(

@@ -1,4 +1,5 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:brisconnect/config/app_config.dart';
 
 class GooglePlacesImportSummary {
   const GooglePlacesImportSummary({
@@ -60,7 +61,7 @@ class DiscoverItemsConversionSummary {
 class GooglePlacesImportService {
   GooglePlacesImportService({FirebaseFunctions? functions})
       : _functions = functions ??
-            FirebaseFunctions.instanceFor(region: 'australia-southeast1');
+            FirebaseFunctions.instanceFor(region: AppConfig.firebaseFunctionsRegion);
 
   final FirebaseFunctions _functions;
 

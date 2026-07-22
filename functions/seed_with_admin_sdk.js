@@ -1,0 +1,473 @@
+const admin = require('firebase-admin');
+const fs = require('fs');
+const path = require('path');
+
+// Initialize Firebase Admin SDK with service account
+const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+if (!serviceAccountPath || !fs.existsSync(serviceAccountPath)) {
+  console.error('❌ GOOGLE_APPLICATION_CREDENTIALS not set or file not found');
+  process.exit(1);
+}
+
+const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+
+console.log('\n╔════════════════════════════════════════════════════════════════╗');
+console.log('║  FIRESTORE SEED DEPLOYMENT - Admin SDK Direct Write           ║');
+console.log('╚════════════════════════════════════════════════════════════════╝\n');
+
+console.log('🔐 Initializing Firebase Admin SDK...');
+
+// Admin SDK can bypass rules for authenticated server operations
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  projectId: serviceAccount.project_id,
+});
+
+const db = admin.firestore();
+
+// 27 Brisbane CBD food businesses with complete data
+const businesses = [
+  {
+    id: 'aria-brisbane',
+    name: 'Aria Restaurant',
+    description: 'Fine dining with modern Australian cuisine, award-winning wine selection',
+    address: '123 Hardee Street, Brisbane CBD',
+    phone: '+61 7 3229 0111',
+    website: 'https://www.ariarestaurant.com.au',
+    cuisineTypes: ['Modern Australian', 'Fine Dining'],
+    imageUrl: 'https://images.unsplash.com/photo-1515521141207-5dca89f50e1e?w=500',
+    coordinates: { lat: -27.4737, lng: 153.0252 },
+    rating: 4.7,
+    reviewCount: 312,
+    priceRange: '$$$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'the-grill-house',
+    name: 'The Grill House',
+    description: 'Premium steakhouse with perfectly aged beef and curated wine pairings',
+    address: '45 Eagle Street, Brisbane CBD',
+    phone: '+61 7 3210 4444',
+    website: 'https://www.grillhouse.com.au',
+    cuisineTypes: ['Steakhouse', 'Australian'],
+    imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500',
+    coordinates: { lat: -27.4689, lng: 153.0296 },
+    rating: 4.6,
+    reviewCount: 287,
+    priceRange: '$$$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'scene-restaurant',
+    name: 'Scene Restaurant',
+    description: 'Contemporary fine dining with innovative European influences and local produce',
+    address: '71 Eagle Street, Brisbane CBD',
+    phone: '+61 7 3211 7788',
+    website: 'https://www.scenerestaurant.com.au',
+    cuisineTypes: ['European', 'Fine Dining'],
+    imageUrl: 'https://images.unsplash.com/photo-1504674900967-77ff325feca6?w=500',
+    coordinates: { lat: -27.4694, lng: 153.0301 },
+    rating: 4.5,
+    reviewCount: 256,
+    priceRange: '$$$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'noodle-palace',
+    name: 'Noodle Palace',
+    description: 'Authentic Chinese noodles and dumplings, family recipes from Shanghai',
+    address: '88 Queen Street, Brisbane CBD',
+    phone: '+61 7 3220 2011',
+    website: 'https://www.noodlepalace.com.au',
+    cuisineTypes: ['Chinese', 'Asian'],
+    imageUrl: 'https://images.unsplash.com/photo-1584050595876-2691907a0045?w=500',
+    coordinates: { lat: -27.4749, lng: 153.0268 },
+    rating: 4.4,
+    reviewCount: 198,
+    priceRange: '$$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'dragon-palace',
+    name: 'Dragon Palace',
+    description: 'Cantonese cuisine with dim sum service and traditional Chinese dishes',
+    address: '25 King George Square, Brisbane CBD',
+    phone: '+61 7 3229 8888',
+    website: 'https://www.dragonpalace.com.au',
+    cuisineTypes: ['Cantonese', 'Chinese'],
+    imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500',
+    coordinates: { lat: -27.4704, lng: 153.0243 },
+    rating: 4.3,
+    reviewCount: 167,
+    priceRange: '$$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'sushi-kingdom',
+    name: 'Sushi Kingdom',
+    description: 'Premium sushi and sashimi, freshly imported from Tokyo daily',
+    address: '39 Charlotte Street, Brisbane CBD',
+    phone: '+61 7 3210 5555',
+    website: 'https://www.sushikingdom.com.au',
+    cuisineTypes: ['Japanese', 'Sushi'],
+    imageUrl: 'https://images.unsplash.com/photo-1632694872502-e02a924b5f2d?w=500',
+    coordinates: { lat: -27.4732, lng: 153.0271 },
+    rating: 4.6,
+    reviewCount: 289,
+    priceRange: '$$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'thai-orchid',
+    name: 'Thai Orchid',
+    description: 'Authentic Thai cuisine with bold flavours and traditional recipes',
+    address: '56 Albert Street, Brisbane CBD',
+    phone: '+61 7 3220 1122',
+    website: 'https://www.thaiorchid.com.au',
+    cuisineTypes: ['Thai', 'Asian'],
+    imageUrl: 'https://images.unsplash.com/photo-1455619452474-d2be8b1e4e31?w=500',
+    coordinates: { lat: -27.4719, lng: 153.0287 },
+    rating: 4.5,
+    reviewCount: 211,
+    priceRange: '$$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'vietnamese-street-kitchen',
+    name: 'Vietnamese Street Kitchen',
+    description: 'Vibrant Vietnamese street food with fresh herbs and traditional flavours',
+    address: '12 Creek Street, Brisbane CBD',
+    phone: '+61 7 3229 3344',
+    website: 'https://www.vietnamesestreet.com.au',
+    cuisineTypes: ['Vietnamese', 'Asian'],
+    imageUrl: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=500',
+    coordinates: { lat: -27.4745, lng: 153.0256 },
+    rating: 4.4,
+    reviewCount: 178,
+    priceRange: '$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'urban-cafe',
+    name: 'Urban Café',
+    description: 'Contemporary café serving specialty coffee and contemporary brunch',
+    address: '72 Fortitude Valley, Brisbane CBD',
+    phone: '+61 7 3221 4455',
+    website: 'https://www.urbancafe.com.au',
+    cuisineTypes: ['Café', 'Breakfast'],
+    imageUrl: 'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?w=500',
+    coordinates: { lat: -27.4619, lng: 153.0361 },
+    rating: 4.3,
+    reviewCount: 142,
+    priceRange: '$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'brew-and-co',
+    name: 'Brew & Co',
+    description: 'Artisan coffee roastery with rotating single-origin beans and pastries',
+    address: '88 Fortitude Valley, Brisbane CBD',
+    phone: '+61 7 3210 6666',
+    website: 'https://www.brewandco.com.au',
+    cuisineTypes: ['Café', 'Coffee'],
+    imageUrl: 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?w=500',
+    coordinates: { lat: -27.4621, lng: 153.0365 },
+    rating: 4.7,
+    reviewCount: 201,
+    priceRange: '$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'the-egg-kitchen',
+    name: 'The Egg Kitchen',
+    description: 'Breakfast paradise featuring innovative egg dishes and fresh juices',
+    address: '101 Edward Street, Brisbane CBD',
+    phone: '+61 7 3227 7777',
+    website: 'https://www.theeggkitchen.com.au',
+    cuisineTypes: ['Breakfast', 'Café'],
+    imageUrl: 'https://images.unsplash.com/photo-1533089349391-986dd0b60efd?w=500',
+    coordinates: { lat: -27.4698, lng: 153.0289 },
+    rating: 4.6,
+    reviewCount: 189,
+    priceRange: '$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'black-star-coffee',
+    name: 'Black Star Coffee',
+    description: 'Specialty coffee house with barista competitions and brewing workshops',
+    address: '42 Woolworths Street, Brisbane CBD',
+    phone: '+61 7 3224 8888',
+    website: 'https://www.blackstarcoffee.com.au',
+    cuisineTypes: ['Coffee', 'Café'],
+    imageUrl: 'https://images.unsplash.com/photo-1459755486867-b8d1dc56914e?w=500',
+    coordinates: { lat: -27.4689, lng: 153.0305 },
+    rating: 4.8,
+    reviewCount: 223,
+    priceRange: '$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'the-olive-tree',
+    name: 'The Olive Tree',
+    description: 'Mediterranean cuisine with fresh Greek traditions and imported olive oils',
+    address: '33 Grenfell Street, Brisbane CBD',
+    phone: '+61 7 3211 9999',
+    website: 'https://www.theolive tree.com.au',
+    cuisineTypes: ['Mediterranean', 'Greek'],
+    imageUrl: 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=500',
+    coordinates: { lat: -27.4712, lng: 153.0298 },
+    rating: 4.4,
+    reviewCount: 156,
+    priceRange: '$$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'bella-napoli',
+    name: 'Bella Napoli',
+    description: 'Authentic Italian pizzeria with wood-fired oven and imported Italian ingredients',
+    address: '77 South Bank, Brisbane CBD',
+    phone: '+61 7 3842 5050',
+    website: 'https://www.bellanapoli.com.au',
+    cuisineTypes: ['Italian', 'Pizza'],
+    imageUrl: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=500',
+    coordinates: { lat: -27.4819, lng: 153.0167 },
+    rating: 4.5,
+    reviewCount: 267,
+    priceRange: '$$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'greek-taverna',
+    name: 'Greek Taverna',
+    description: 'Traditional Greek taverna with authentic recipes and Mediterranean atmosphere',
+    address: '55 Russell Street, Brisbane CBD',
+    phone: '+61 7 3210 1111',
+    website: 'https://www.greeektaverna.com.au',
+    cuisineTypes: ['Greek', 'Mediterranean'],
+    imageUrl: 'https://images.unsplash.com/photo-1585362899305-efda372109d2?w=500',
+    coordinates: { lat: -27.4721, lng: 153.0273 },
+    rating: 4.3,
+    reviewCount: 134,
+    priceRange: '$$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'spice-route',
+    name: 'Spice Route',
+    description: 'Indian cuisine with aromatic spices and traditional tandoor cooking',
+    address: '19 Wickham Street, Brisbane CBD',
+    phone: '+61 7 3216 2222',
+    website: 'https://www.spiceroute.com.au',
+    cuisineTypes: ['Indian', 'Asian'],
+    imageUrl: 'https://images.unsplash.com/photo-1565557623814-dea706ee9ded?w=500',
+    coordinates: { lat: -27.4697, lng: 153.0382 },
+    rating: 4.5,
+    reviewCount: 201,
+    priceRange: '$$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'maharaja-palace',
+    name: 'Maharaja Palace',
+    description: 'North Indian fine dining with signature curries and traditional breads',
+    address: '90 Fortitude Valley, Brisbane CBD',
+    phone: '+61 7 3218 3333',
+    website: 'https://www.maharajapalace.com.au',
+    cuisineTypes: ['Indian', 'North Indian'],
+    imageUrl: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=500',
+    coordinates: { lat: -27.4623, lng: 153.0367 },
+    rating: 4.2,
+    reviewCount: 189,
+    priceRange: '$$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'riverfront-kitchen',
+    name: 'Riverfront Kitchen',
+    description: 'Modern Australian with river views, seasonal produce and innovative techniques',
+    address: '111 Eagle Street, Brisbane CBD',
+    phone: '+61 7 3210 4444',
+    website: 'https://www.riverfrontkitchen.com.au',
+    cuisineTypes: ['Australian', 'Modern'],
+    imageUrl: 'https://images.unsplash.com/photo-1504674900967-77ff325feca6?w=500',
+    coordinates: { lat: -27.4701, lng: 153.0310 },
+    rating: 4.6,
+    reviewCount: 298,
+    priceRange: '$$$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'local-harvest',
+    name: 'Local Harvest',
+    description: 'Farm-to-table dining featuring local producers and seasonal ingredients',
+    address: '8 Tank Street, Brisbane CBD',
+    phone: '+61 7 3221 5555',
+    website: 'https://www.localharvest.com.au',
+    cuisineTypes: ['Australian', 'Farm-to-Table'],
+    imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500',
+    coordinates: { lat: -27.4737, lng: 153.0245 },
+    rating: 4.4,
+    reviewCount: 167,
+    priceRange: '$$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'the-pantry',
+    name: 'The Pantry',
+    description: 'Gourmet deli and eatery with artisan products, charcuterie and fresh salads',
+    address: '47 Queen Street, Brisbane CBD',
+    phone: '+61 7 3229 6666',
+    website: 'https://www.thepantry.com.au',
+    cuisineTypes: ['Deli', 'European'],
+    imageUrl: 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?w=500',
+    coordinates: { lat: -27.4751, lng: 153.0271 },
+    rating: 4.3,
+    reviewCount: 145,
+    priceRange: '$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'burger-bros',
+    name: 'Burger Bros',
+    description: 'Craft burgers with premium beef and creative toppings in casual setting',
+    address: '33 Fortitude Valley, Brisbane CBD',
+    phone: '+61 7 3216 7777',
+    website: 'https://www.burgerbros.com.au',
+    cuisineTypes: ['Burgers', 'Casual'],
+    imageUrl: 'https://images.unsplash.com/photo-1550547990-294a8cf33f26?w=500',
+    coordinates: { lat: -27.4612, lng: 153.0355 },
+    rating: 4.5,
+    reviewCount: 223,
+    priceRange: '$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'craft-burger-co',
+    name: 'Craft Burger Co',
+    description: 'Handmade burger patties, artisan buns and house-made sauces',
+    address: '66 Caxton Street, Brisbane CBD',
+    phone: '+61 7 3367 8888',
+    website: 'https://www.craftburgerco.com.au',
+    cuisineTypes: ['Burgers', 'American'],
+    imageUrl: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500',
+    coordinates: { lat: -27.4589, lng: 153.0392 },
+    rating: 4.4,
+    reviewCount: 198,
+    priceRange: '$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'the-fish-house',
+    name: 'The Fish House',
+    description: 'Premium seafood restaurant with fresh catch daily and elegant presentation',
+    address: '80 Riverside Expressway, Brisbane CBD',
+    phone: '+61 7 3891 9999',
+    website: 'https://www.thefishhouse.com.au',
+    cuisineTypes: ['Seafood', 'Fine Dining'],
+    imageUrl: 'https://images.unsplash.com/photo-1565958011504-98d3b431c067?w=500',
+    coordinates: { lat: -27.4842, lng: 153.0124 },
+    rating: 4.7,
+    reviewCount: 267,
+    priceRange: '$$$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'oyster-lounge',
+    name: 'Oyster Lounge',
+    description: 'Sophisticated oyster bar with daily selections and French cuisine',
+    address: '120 Paddington, Brisbane CBD',
+    phone: '+61 7 3369 1010',
+    website: 'https://www.oysterlounge.com.au',
+    cuisineTypes: ['Seafood', 'French'],
+    imageUrl: 'https://images.unsplash.com/photo-1579871494546-fbb4e7a6893d?w=500',
+    coordinates: { lat: -27.4652, lng: 153.0272 },
+    rating: 4.6,
+    reviewCount: 245,
+    priceRange: '$$$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'taco-fiesta',
+    name: 'Taco Fiesta',
+    description: 'Vibrant Mexican street food with authentic recipes and craft margaritas',
+    address: '15 Parkland Boulevard, Brisbane CBD',
+    phone: '+61 7 3848 1111',
+    website: 'https://www.tacofiesta.com.au',
+    cuisineTypes: ['Mexican', 'Street Food'],
+    imageUrl: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=500',
+    coordinates: { lat: -27.4789, lng: 153.0211 },
+    rating: 4.4,
+    reviewCount: 167,
+    priceRange: '$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'hacienda',
+    name: 'Hacienda',
+    description: 'Spanish tapas bar with imported Iberian ham, cheese and fine wines',
+    address: '25 South Bank, Brisbane CBD',
+    phone: '+61 7 3844 2222',
+    website: 'https://www.hacienda.com.au',
+    cuisineTypes: ['Spanish', 'Tapas'],
+    imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561c1f?w=500',
+    coordinates: { lat: -27.4823, lng: 153.0178 },
+    rating: 4.5,
+    reviewCount: 189,
+    priceRange: '$$',
+    createdAt: new Date(),
+  },
+  {
+    id: 'seoul-kitchen',
+    name: 'Seoul Kitchen',
+    description: 'Korean BBQ and traditional dishes cooked at your table with premium beef',
+    address: '77 Sandgate Road, Brisbane CBD',
+    phone: '+61 7 3892 3333',
+    website: 'https://www.seoulkitchen.com.au',
+    cuisineTypes: ['Korean', 'BBQ'],
+    imageUrl: 'https://images.unsplash.com/photo-1609501676725-7186f017a4b0?w=500',
+    coordinates: { lat: -27.4712, lng: 153.0289 },
+    rating: 4.3,
+    reviewCount: 145,
+    priceRange: '$$',
+    createdAt: new Date(),
+  },
+];
+
+async function seedBusinesses() {
+  console.log('✓ Firebase Admin SDK initialized');
+  console.log(`⏳ Seeding ${businesses.length} Brisbane CBD food businesses...\n`);
+
+  let successCount = 0;
+  let failureCount = 0;
+
+  for (const [index, business] of businesses.entries()) {
+    try {
+      // Use Admin SDK to write directly (bypasses Firestore rules)
+      await db.collection('food_businesses').doc(business.id).set(business);
+      successCount++;
+      console.log(`✓ [${index + 1}/${businesses.length}] ${business.name} - Seeded`);
+    } catch (error) {
+      failureCount++;
+      console.log(`❌ [${index + 1}/${businesses.length}] ${business.name} - Failed: ${error.message}`);
+    }
+
+    // Add a small delay to avoid rate limiting
+    if (index < businesses.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+
+  console.log(`\n✅ Successfully seeded: ${successCount} businesses`);
+  console.log(`❌ Failed: ${failureCount} businesses`);
+  console.log(`📊 Total: ${businesses.length} businesses\n`);
+
+  // Close the app
+  await admin.app().delete();
+  process.exit(failureCount > 0 ? 1 : 0);
+}
+
+seedBusinesses().catch((error) => {
+  console.error('Fatal error:', error);
+  process.exit(1);
+});

@@ -195,7 +195,7 @@ class _VisitorSettingsScreenState extends State<VisitorSettingsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'BrisConnect',
+                          'BrisConnect+',
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             color: AppPalette.charcoal,
@@ -204,7 +204,7 @@ class _VisitorSettingsScreenState extends State<VisitorSettingsScreen> {
                         ),
                         SizedBox(height: 8),
                         Text(
-                          'BrisConnect is a smart city guide that helps visitors and locals discover events, explore attractions, and capture their Brisbane experiences in one connected platform.',
+                          'BrisConnect+ is a smart city guide that helps visitors and locals discover events, explore attractions, and capture their Brisbane experiences in one connected platform.',
                           style: TextStyle(
                             color: AppPalette.mutedText,
                             fontSize: 13,

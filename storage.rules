@@ -57,5 +57,20 @@ service firebase.storage {
       allow read: if isSignedIn();
       allow write: if isOwner(email);
     }
+
+    match /business_logos/{userEmail}/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /business_covers/{userEmail}/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /business_photos/{userEmail}/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
   }
 }

@@ -22,6 +22,7 @@ class ReusableEventCard extends StatelessWidget {
   final VoidCallback? onShareTap;
   final VoidCallback? onWebTap;
   final VoidCallback? onFavoriteTap;
+  final VoidCallback? onReviewTap;
   final VoidCallback? onCardTap;
   final Color? cardColor;
 
@@ -44,6 +45,7 @@ class ReusableEventCard extends StatelessWidget {
     this.onShareTap,
     this.onWebTap,
     this.onFavoriteTap,
+    this.onReviewTap,
     this.onCardTap,
     this.cardColor,
   });
@@ -58,12 +60,17 @@ class ReusableEventCard extends StatelessWidget {
     final normalizedImageUrl =
         imageUrl.trim().isEmpty ? venueFallback : imageUrl.trim();
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onCardTap,
-        borderRadius: BorderRadius.circular(22),
-        child: Container(
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final cardWidth = MediaQuery.sizeOf(context).width;
+    final targetCacheWidth = (cardWidth * devicePixelRatio).round();
+
+    return RepaintBoundary(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onCardTap,
+          borderRadius: BorderRadius.circular(22),
+          child: Container(
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
             color: cardColor ?? AppPalette.surface,
@@ -91,6 +98,10 @@ class ReusableEventCard extends StatelessWidget {
                       height: 190,
                       width: double.infinity,
                       fit: BoxFit.cover,
+                      fadeInDuration: Duration.zero,
+                      fadeOutDuration: Duration.zero,
+                      memCacheWidth: targetCacheWidth,
+                      filterQuality: FilterQuality.low,
                       placeholder: (context, _) => Container(
                         height: 190,
                         color: AppPalette.surfaceAlt,
@@ -101,12 +112,16 @@ class ReusableEventCard extends StatelessWidget {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       ),
-                      errorWidget: (context, _, __) => Image.network(
-                        venueFallback,
+                      errorWidget: (context, _, __) => CachedNetworkImage(
+                        imageUrl: venueFallback,
                         height: 190,
                         width: double.infinity,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, _, __) => Container(
+                        fadeInDuration: Duration.zero,
+                        fadeOutDuration: Duration.zero,
+                        memCacheWidth: targetCacheWidth,
+                        filterQuality: FilterQuality.low,
+                        errorWidget: (context, _, __) => Container(
                           height: 190,
                           color: AppPalette.surfaceAlt,
                           alignment: Alignment.center,
@@ -249,6 +264,13 @@ class ReusableEventCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         IconButton.filledTonal(
+                          onPressed: onReviewTap,
+                          tooltip: 'Add/Edit review',
+                          icon: const Icon(Icons.rate_review_rounded),
+                          color: AppPalette.deepBlue,
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton.filledTonal(
                           onPressed: onWebTap,
                           tooltip: 'More information',
                           icon: const Icon(Icons.info_outline_rounded),
@@ -273,7 +295,7 @@ class ReusableEventCard extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 

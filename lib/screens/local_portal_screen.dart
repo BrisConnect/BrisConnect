@@ -1,3 +1,5 @@
+// ignore_for_file: unused_element, unused_field, unused_local_variable
+
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -7,21 +9,19 @@ import 'package:image_picker/image_picker.dart';
 import 'package:brisconnect/auth/app_user_role.dart';
 import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/models/event_item.dart';
-import 'package:brisconnect/screens/add_event_screen.dart';
+import 'package:brisconnect/screens/business_search_screen.dart';
+import 'package:brisconnect/screens/business_map_screen.dart';
+import 'package:brisconnect/services/business_profile_service.dart';
 import 'package:brisconnect/screens/appearance_settings_screen.dart';
-import 'package:brisconnect/screens/attraction_detail_screen.dart';
 import 'package:brisconnect/screens/local_edit_event_screen.dart';
 import 'package:brisconnect/screens/local_event_detail_screen.dart';
-import 'package:brisconnect/screens/map_events_screen.dart';
-import 'package:brisconnect/screens/local_notifications_screen.dart';
-import 'package:brisconnect/screens/notification_settings_screen.dart';
+import 'package:brisconnect/screens/vendor_feed_screen.dart';
+import 'package:brisconnect/screens/business_dashboard_screen.dart';
+import 'package:brisconnect/screens/vendor_reviews_screen.dart';
+import 'package:brisconnect/screens/business_profile_screen.dart';
 import 'package:brisconnect/screens/local_settings_screen.dart';
 import 'package:brisconnect/screens/my_feedback_screen.dart';
-import 'package:brisconnect/screens/interest_categories_screen.dart';
 import 'package:brisconnect/screens/welcome_screen.dart';
-import 'package:brisconnect/screens/visitor_saved_events_calendar_screen.dart';
-import 'package:brisconnect/services/approved_attraction_service.dart';
-import 'package:brisconnect/services/discover_data_service.dart';
 import 'package:brisconnect/services/firestore_service.dart';
 import 'package:brisconnect/services/location_utilities.dart';
 import 'package:brisconnect/services/firebase_media_service.dart';
@@ -33,24 +33,19 @@ import 'package:brisconnect/widgets/reusable_event_card.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
 import 'package:brisconnect/widgets/reusable_management_card.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
+import 'package:brisconnect/widgets/help_support_sheet.dart';
 
 class LocalPortalScreen extends StatefulWidget {
   const LocalPortalScreen({
     super.key,
     this.localEventService,
-    this.discoverDataService,
-    this.approvedAttractionService,
     this.submittedEventsStreamOverride,
-    this.discoverItemsStreamOverride,
     this.enforceRoleGuard = true,
     this.initialTabIndex = 0,
   });
 
   final LocalEventService? localEventService;
-  final DiscoverDataService? discoverDataService;
-  final ApprovedAttractionService? approvedAttractionService;
   final Stream<List<EventItem>>? submittedEventsStreamOverride;
-  final Stream<List<Map<String, dynamic>>>? discoverItemsStreamOverride;
   final bool enforceRoleGuard;
   final int initialTabIndex;
 
@@ -63,11 +58,8 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
   String? _selectedCategoryFilter;
   FirebaseMediaService? _mediaService;
   Uint8List? _pendingProfileImageBytes;
-  DiscoverDataService? _discoverDataService;
-  ApprovedAttractionService? _approvedAttractionService;
   LocalEventService? _localEventService;
   FirestoreService? _firestoreService;
-  Stream<List<Map<String, dynamic>>>? _discoverItemsStreamCache;
   Stream<List<Map<String, dynamic>>>? _approvedEventsStreamCache;
   late int _selectedIndex;
   bool _isNavVisible = true;
@@ -78,27 +70,12 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
   static const String _defaultImageUrl =
       'https://images.unsplash.com/photo-1472653431158-6364773b2a56?auto=format&fit=crop&w=1400&q=80';
 
-  DiscoverDataService get _effectiveDiscoverDataService {
-    return _discoverDataService ??= DiscoverDataService();
-  }
-
-  ApprovedAttractionService get _effectiveApprovedAttractionService {
-    return _approvedAttractionService ??= ApprovedAttractionService();
-  }
-
   LocalEventService get _effectiveLocalEventService {
     return _localEventService ??= LocalEventService();
   }
 
   FirebaseMediaService get _effectiveMediaService {
     return _mediaService ??= FirebaseMediaService();
-  }
-
-  Stream<List<Map<String, dynamic>>> _discoverItemsStream() {
-    return _discoverItemsStreamCache ??=
-        (widget.discoverItemsStreamOverride ??
-                _effectiveDiscoverDataService.watchApprovedDiscoverItems())
-            .asBroadcastStream();
   }
 
   Stream<List<Map<String, dynamic>>> _approvedEventsStream() {
@@ -136,66 +113,9 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     };
   }
 
-  Widget _buildCalendarTab() {
-    return ValueListenableBuilder<int>(
-      valueListenable: LocalAuth.profileVersion,
-      builder: (context, _, __) {
-        final savedEventIds = LocalAuth.getInterestedEventIds();
-
-        return StreamBuilder<List<Map<String, dynamic>>>(
-          stream: _discoverItemsStream(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            final allItems = snapshot.data ?? const <Map<String, dynamic>>[];
-            final savedDiscoverEvents = allItems.where((item) {
-              final id = (item['id'] as String? ?? '').trim();
-              final section = (item['section'] as String? ?? '').trim().toLowerCase();
-              return id.isNotEmpty &&
-                  section == 'events' &&
-                  savedEventIds.contains(id);
-            }).toList();
-
-            return StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _approvedEventsStream(),
-              builder: (context, approvedSnapshot) {
-                final approvedEvents =
-                    approvedSnapshot.data ?? const <Map<String, dynamic>>[];
-                final savedFirestoreEvents = approvedEvents
-                    .where((event) {
-                      final id = (event['id'] as String? ?? '').trim();
-                      return id.isNotEmpty && savedEventIds.contains(id);
-                    })
-                    .where(
-                      (event) => !savedDiscoverEvents.any(
-                        (item) => ((item['id'] as String? ?? '').trim() ==
-                            (event['id'] as String? ?? '').trim()),
-                      ),
-                    )
-                    .map(_toSavedEventCardItem)
-                    .toList(growable: false);
-
-                return VisitorSavedEventsCalendarScreen(
-                  savedItems: [
-                    ...savedDiscoverEvents,
-                    ...savedFirestoreEvents,
-                  ],
-                  embedded: true,
-                );
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-
   @override
   void initState() {
     super.initState();
-    _discoverDataService = widget.discoverDataService;
-    _approvedAttractionService = widget.approvedAttractionService;
     _localEventService = widget.localEventService;
     _selectedIndex = widget.initialTabIndex;
     _updateUserPreferences();
@@ -261,6 +181,88 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     }
   }
 
+  Future<void> _showDeleteConfirmationDialog(EventItem event) async {
+    final currentLocal = LocalAuth.currentLocal;
+    if (currentLocal == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in to delete events.')),
+        );
+      }
+      return;
+    }
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Event'),
+        content: Text(
+          'Are you sure you want to delete "${event.title}"? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: AppPalette.ochre,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true || !mounted) {
+      return;
+    }
+
+    // Show loading indicator
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Deleting event...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    try {
+      final deleted = await _effectiveLocalEventService.deleteSubmittedEvent(
+        eventId: event.id,
+        localEmail: currentLocal.email,
+      );
+
+      if (!mounted) return;
+
+      if (deleted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Event "${event.title}" has been deleted.'),
+            backgroundColor: AppPalette.deepBlue,
+          ),
+        );
+        // Stream will automatically refresh and remove the deleted event
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to delete event. Please try again.'),
+            backgroundColor: AppPalette.ochre,
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting event: $error'),
+            backgroundColor: AppPalette.ochre,
+          ),
+        );
+      }
+    }
+  }
+
   List<Map<String, dynamic>> _filterDiscoverItems(
     List<Map<String, dynamic>> items,
   ) {
@@ -270,8 +272,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     // Apply category filter
     if (_selectedCategoryFilter != null) {
       filtered = filtered.where((item) {
-        return (item['category'] as String? ?? '')
-                .toLowerCase() ==
+        return (item['category'] as String? ?? '').toLowerCase() ==
             _selectedCategoryFilter!.toLowerCase();
       }).toList();
     }
@@ -286,16 +287,6 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
             (item['location'] as String? ?? '').toLowerCase().contains(query) ||
             (item['section'] as String? ?? '').toLowerCase().contains(query);
       }).toList();
-    }
-
-    // Apply radius filter if enabled
-    if (_isUsingRadius && filtered.isNotEmpty) {
-      filtered = _effectiveDiscoverDataService.filterByRadius(
-        items: filtered,
-        userLatitude: _userLatitude,
-        userLongitude: _userLongitude,
-        radiusKm: _radiusKm,
-      );
     }
 
     return filtered;
@@ -326,7 +317,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppPalette.surface,
+      backgroundColor: const Color(0xFF1C1C2E),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -386,7 +377,8 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                     item['price'] as String? ?? 'Price TBA',
                   ),
                   if ((item['venue'] as String? ?? '').trim().isNotEmpty &&
-                      (item['venue'] as String) != (item['location'] as String? ?? '')) ...[
+                      (item['venue'] as String) !=
+                          (item['location'] as String? ?? '')) ...[
                     const SizedBox(height: 8),
                     _buildDetailLine(
                       Icons.location_city_rounded,
@@ -428,8 +420,8 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: AppPalette.deepBlue
-                                    .withValues(alpha: 0.08),
+                                color:
+                                    AppPalette.deepBlue.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -519,51 +511,6 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
         );
       },
     );
-  }
-
-  Future<bool> _openAttractionDetailsIfAvailable(
-    Map<String, dynamic> item,
-  ) async {
-    final section = (item['section'] as String? ?? '').trim().toLowerCase();
-    if (section == 'events') {
-      return false;
-    }
-
-    final title = (item['title'] as String? ?? '').trim().toLowerCase();
-    final location = (item['location'] as String? ?? '').trim().toLowerCase();
-    final attractions =
-        await _effectiveApprovedAttractionService.fetchApprovedAttractions();
-    if (!mounted) return true;
-
-    ApprovedAttraction? matched;
-    for (final attraction in attractions) {
-      final attractionName = attraction.name.trim().toLowerCase();
-      final attractionLocation = attraction.location.trim().toLowerCase();
-      if (attractionName == title || attractionLocation == location) {
-        matched = attraction;
-        break;
-      }
-      if (title.isNotEmpty &&
-          (attractionName.contains(title) || title.contains(attractionName))) {
-        matched = attraction;
-        break;
-      }
-    }
-
-    if (matched == null) {
-      return false;
-    }
-
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AttractionDetailScreen(
-          attraction: matched!,
-          allAttractions: attractions,
-        ),
-      ),
-    );
-    return true;
   }
 
   Widget _buildDetailLine(IconData icon, String text) {
@@ -682,10 +629,8 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
           );
         }
       },
-      onDeleteTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Delete: ${event.title}')),
-        );
+      onDeleteTap: () async {
+        await _showDeleteConfirmationDialog(event);
       },
       onViewDetailsTap: () {
         Navigator.push(
@@ -777,6 +722,77 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     );
   }
 
+  Widget _buildBusinessDiscoverySection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildDiscoverSectionHeader(
+          'Discover Local Food Businesses',
+          'Find and support small & medium food enterprises in Brisbane',
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const BusinessSearchScreen(),
+                    ),
+                  ),
+                  icon: const Icon(Icons.search),
+                  label: const Text('Search'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppPalette.ochre,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    try {
+                      final businesses = await BusinessProfileService()
+                          .getVerifiedBusinesses();
+                      if (mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => BusinessMapScreen(
+                              businesses: businesses,
+                            ),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error loading map: $e')),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.map),
+                  label: const Text('Map'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppPalette.ochre,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildDiscoverSectionHeader(String title, String subtitle) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
@@ -833,33 +849,15 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
         );
       },
       onCardTap: () async {
-        if (section == 'events') {
-          _showDiscoverItemDetails(item);
-          return;
-        }
-        final opened = await _openAttractionDetailsIfAvailable(item);
-        if (!opened && mounted) {
-          _showDiscoverItemDetails(item);
-        }
+        _showDiscoverItemDetails(item);
       },
       onWebTap: () async {
         final link = (item['webLink'] as String? ?? '').trim();
-        if (section == 'events') {
-          if (link.isNotEmpty) {
-            _openWebLink(link);
-          } else {
-            _showDiscoverItemDetails(item);
-          }
-          return;
+        if (link.isNotEmpty) {
+          _openWebLink(link);
+        } else {
+          _showDiscoverItemDetails(item);
         }
-        if (link.isEmpty) {
-          final opened = await _openAttractionDetailsIfAvailable(item);
-          if (!opened && mounted) {
-            _showDiscoverItemDetails(item);
-          }
-          return;
-        }
-        _openWebLink(link);
       },
       onFavoriteTap: () {
         setState(() {
@@ -874,7 +872,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     final heroProfileImage = _profileImageProvider(LocalAuth.currentLocal);
 
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _discoverItemsStream(),
+      stream: _approvedEventsStream(),
       builder: (context, snapshot) {
         final discoverItems = _filterDiscoverItems(snapshot.data ?? const []);
 
@@ -899,10 +897,18 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                       children: [
                         Row(
                           children: [
-                            Image.asset('assets/logo.png', height: 52),
+                            ClipOval(
+                              child: Container(
+                                width: 64,
+                                height: 64,
+                                color: Colors.white.withValues(alpha: 0.1),
+                                child: Image.asset('assets/Brisconnect New.jpg',
+                                    fit: BoxFit.cover),
+                              ),
+                            ),
                             const SizedBox(width: 10),
                             const Text(
-                              'BrisConnect',
+                              'BrisConnect+',
                               style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w800,
@@ -922,21 +928,24 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                               child: Container(
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 2),
+                                  border:
+                                      Border.all(color: Colors.white, width: 2),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.25),
+                                      color:
+                                          Colors.black.withValues(alpha: 0.25),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
                                   ],
                                 ),
                                 child: CircleAvatar(
-                                  radius: 38,
+                                  radius: 52,
                                   backgroundColor: AppPalette.deepBlue,
                                   backgroundImage: heroProfileImage,
                                   child: heroProfileImage == null
-                                      ? const Icon(Icons.person_rounded, color: Colors.white, size: 36)
+                                      ? const Icon(Icons.person_rounded,
+                                          color: Colors.white, size: 48)
                                       : null,
                                 ),
                               ),
@@ -989,10 +998,10 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
               child: Transform.translate(
                 offset: const Offset(0, -24),
                 child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8F3EA).withValues(alpha: 0.85),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF1C1C2E),
                     borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(28)),
+                        BorderRadius.vertical(top: Radius.circular(28)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1002,6 +1011,10 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                       // Event preview carousel
                       _buildEventPreviewSection(discoverItems, snapshot),
                       const SizedBox(height: 28),
+
+                      // Business Discovery Section
+                      _buildBusinessDiscoverySection(),
+                      const SizedBox(height: 28),
                     ],
                   ),
                 ),
@@ -1010,31 +1023,6 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
           ],
         );
       },
-    );
-  }
-
-  Widget _buildMyEventsTab(List<EventItem> mySubmittedEvents) {
-    final all = _searchItems(mySubmittedEvents);
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-      children: [
-        const Text(
-          'My Events',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w800,
-            color: AppPalette.charcoal,
-          ),
-        ),
-        const SizedBox(height: 12),
-        _buildSearchBar(),
-        const SizedBox(height: 16),
-        if (all.isEmpty)
-          const _LocalEmptyState('You have not submitted any events yet.')
-        else
-          ...all.map(_buildManagementCard),
-      ],
     );
   }
 
@@ -1227,6 +1215,15 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     );
   }
 
+  void _showHelpSupport(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const HelpSupportSheet(),
+    );
+  }
+
   Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1286,486 +1283,396 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
         return Container(
           color: const Color(0xFFF8F3EA).withValues(alpha: 0.85),
           child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 36),
-          children: [
-            const Text(
-              'Profile',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                color: AppPalette.charcoal,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildSectionLabel('Profile Info'),
-            Card(
-              color: AppPalette.surface.withValues(alpha: 0.96),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 48,
-                          backgroundColor: AppPalette.deepBlue,
-                          backgroundImage: profileImage,
-                          child: profileImage == null
-                              ? const Icon(
-                                  Icons.person_rounded,
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 36),
+            children: [
+              _buildSectionLabel('Profile Info'),
+              Card(
+                color: AppPalette.surface.withValues(alpha: 0.96),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                      color: AppPalette.border.withValues(alpha: 0.5)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    children: [
+                      Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 40,
+                            backgroundColor: AppPalette.deepBlue,
+                            backgroundImage: profileImage,
+                            child: profileImage == null
+                                ? const Icon(
+                                    Icons.person_rounded,
+                                    color: Colors.white,
+                                    size: 40,
+                                  )
+                                : null,
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 5, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: statusColor,
+                                borderRadius: BorderRadius.circular(8),
+                                border:
+                                    Border.all(color: Colors.white, width: 1.5),
+                              ),
+                              child: Text(
+                                statusLabel,
+                                style: const TextStyle(
                                   color: Colors.white,
-                                  size: 48,
-                                )
-                              : null,
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 5, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: statusColor,
-                              borderRadius: BorderRadius.circular(8),
-                              border:
-                                  Border.all(color: Colors.white, width: 1.5),
-                            ),
-                            child: Text(
-                              statusLabel,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            displayName,
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                              color: AppPalette.charcoal,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            displayEmail,
-                            style: const TextStyle(
-                                fontSize: 12, color: AppPalette.mutedText),
-                          ),
-                          if (phone.isNotEmpty) ...[
-                            const SizedBox(height: 1),
+                        ],
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Text(
-                              phone,
+                              displayName,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                color: AppPalette.charcoal,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              displayEmail,
                               style: const TextStyle(
                                   fontSize: 12, color: AppPalette.mutedText),
                             ),
+                            if (phone.isNotEmpty) ...[
+                              const SizedBox(height: 1),
+                              Text(
+                                phone,
+                                style: const TextStyle(
+                                    fontSize: 12, color: AppPalette.mutedText),
+                              ),
+                            ],
+                            if (suburb.isNotEmpty) ...[
+                              const SizedBox(height: 1),
+                              Text(
+                                suburb,
+                                style: const TextStyle(
+                                    fontSize: 12, color: AppPalette.mutedText),
+                              ),
+                            ],
                           ],
-                          if (suburb.isNotEmpty) ...[
-                            const SizedBox(height: 1),
-                            Text(
-                              suburb,
-                              style: const TextStyle(
-                                  fontSize: 12, color: AppPalette.mutedText),
+                        ),
+                      ),
+                      if (local != null)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: (local.profileImageUrl?.isNotEmpty ==
+                                          true ||
+                                      local.profileImageBase64?.isNotEmpty ==
+                                          true)
+                                  ? 'Change profile picture'
+                                  : 'Upload profile picture',
+                              onPressed: _uploadLocalProfileImage,
+                              icon: const Icon(
+                                Icons.photo_camera_outlined,
+                                color: AppPalette.deepBlue,
+                                size: 20,
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Edit profile',
+                              onPressed: () => _showEditProfileSheet(local),
+                              icon: const Icon(
+                                Icons.edit_rounded,
+                                color: AppPalette.deepBlue,
+                                size: 20,
+                              ),
                             ),
                           ],
-                        ],
-                      ),
-                    ),
-                    if (local != null)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            tooltip:
-                                (local.profileImageUrl?.isNotEmpty == true ||
-                                        local.profileImageBase64?.isNotEmpty ==
-                                            true)
-                                    ? 'Change profile picture'
-                                    : 'Upload profile picture',
-                            onPressed: _uploadLocalProfileImage,
-                            icon: const Icon(
-                              Icons.photo_camera_outlined,
-                              color: AppPalette.deepBlue,
-                              size: 20,
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: 'Edit profile',
-                            onPressed: () => _showEditProfileSheet(local),
-                            icon: const Icon(
-                              Icons.edit_rounded,
-                              color: AppPalette.deepBlue,
-                              size: 20,
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildSectionLabel('My Activity'),
-            Card(
-              color: AppPalette.surface.withValues(alpha: 0.96),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
-              ),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                      horizontal: 8,
-                    ),
-                    child: Row(
-                      children: [
-                        _StatChip(
-                          label: 'Total',
-                          count: totalEvents,
-                          color: AppPalette.deepBlue,
                         ),
-                        _StatChip(
-                          label: 'Pending',
-                          count: pendingCount,
-                          color: Colors.orange.shade700,
-                        ),
-                        _StatChip(
-                          label: 'Approved',
-                          count: approvedCount,
-                          color: Colors.green.shade700,
-                        ),
-                        _StatChip(
-                          label: 'Rejected',
-                          count: rejectedCount,
-                          color: Colors.red.shade700,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1, indent: 16, endIndent: 16),
-                  ListTile(
-                    leading: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: AppPalette.deepBlue.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.event_note_rounded,
-                        color: AppPalette.deepBlue,
-                        size: 20,
-                      ),
-                    ),
-                    title: const Text(
-                      'Submitted Events & Activity History',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: Text('$totalEvents submitted event'
-                        '${totalEvents == 1 ? '' : 's'}'),
-                    trailing: const Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppPalette.mutedText,
-                    ),
-                    onTap: () => setState(() => _selectedIndex = 2),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildSectionLabel('Notifications'),
-            Card(
-              color: AppPalette.surface.withValues(alpha: 0.96),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
-              ),
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: AppPalette.deepBlue.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.settings_outlined,
-                        color: AppPalette.deepBlue,
-                        size: 20,
-                      ),
-                    ),
-                    title: const Text('Notification Settings',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: const Text(
-                        'Enable or disable event reminder notifications'),
-                    trailing: const Icon(Icons.chevron_right_rounded,
-                        color: AppPalette.mutedText),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const NotificationSettingsScreen.local(),
-                      ),
-                    ),
-                  ),
-                  const Divider(height: 1, indent: 16, endIndent: 16),
-                  ListTile(
-                    leading: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: AppPalette.deepBlue.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.notifications_none_rounded,
-                          color: AppPalette.deepBlue, size: 20),
-                    ),
-                    title: const Text('Notifications',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle:
-                        const Text('Account status and event approval updates'),
-                    trailing: const Icon(Icons.chevron_right_rounded,
-                        color: AppPalette.mutedText),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const LocalNotificationsScreen(),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildSectionLabel('Preferences'),
-            Card(
-              color: AppPalette.surface.withValues(alpha: 0.96),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
-              ),
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: AppPalette.deepBlue.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.interests_rounded,
-                          color: AppPalette.deepBlue, size: 20),
-                    ),
-                    title: const Text('Interest Categories',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: const Text('Set focus areas for local content'),
-                    trailing: const Icon(Icons.chevron_right_rounded,
-                        color: AppPalette.mutedText),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            const InterestCategoriesScreen.local(),
-                      ),
-                    ),
-                  ),
-                  const Divider(height: 1, indent: 16, endIndent: 16),
-                  ListTile(
-                    leading: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: AppPalette.deepBlue.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.pin_drop_outlined,
-                          color: AppPalette.deepBlue, size: 20),
-                    ),
-                    title: const Text('Location Radius',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle:
-                        const Text('Control distance for nearby opportunities'),
-                    trailing: const Icon(Icons.chevron_right_rounded,
-                        color: AppPalette.mutedText),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const LocalSettingsScreen(),
-                      ),
-                    ),
-                  ),
-                  const Divider(height: 1, indent: 16, endIndent: 16),
-                  ListTile(
-                    leading: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: AppPalette.deepBlue.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.palette_outlined,
-                          color: AppPalette.deepBlue, size: 20),
-                    ),
-                    title: const Text('Appearance Settings',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle:
-                        const Text('Theme, text size & feedback'),
-                    trailing: const Icon(Icons.chevron_right_rounded,
-                        color: AppPalette.mutedText),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const AppearanceSettingsScreen.local(),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildSectionLabel('Feedback'),
-            Card(
-              color: AppPalette.surface.withValues(alpha: 0.96),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
-              ),
-              child: ListTile(
-                leading: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: AppPalette.deepBlue.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.inbox_rounded,
-                    color: AppPalette.deepBlue,
-                    size: 20,
+                    ],
                   ),
                 ),
-                title: const Text(
-                  'My Feedback',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: const Text(
-                  'View your submitted feedback and admin responses',
-                ),
-                trailing: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppPalette.mutedText,
-                ),
-                onTap: () {
-                  final email = LocalAuth.currentLocal?.email ?? '';
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => MyFeedbackScreen(
-                        reporterEmail: email,
-                      ),
-                    ),
-                  );
-                },
               ),
-            ),
-            const SizedBox(height: 24),
-            _buildSectionLabel('Sign Out'),
-            Card(
-              color: AppPalette.surface.withValues(alpha: 0.96),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
-              ),
-              child: ListTile(
-                leading: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.logout_rounded,
-                      color: Colors.red.shade700, size: 20),
+              const SizedBox(height: 24),
+              _buildSectionLabel('My Activity'),
+              Card(
+                color: AppPalette.surface.withValues(alpha: 0.96),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                      color: AppPalette.border.withValues(alpha: 0.5)),
                 ),
-                title: Text(
-                  'Sign Out',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.red.shade700,
-                  ),
-                ),
-                subtitle: const Text('Return to the welcome screen'),
-                onTap: _confirmLogout,
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildSectionLabel('About'),
-            Card(
-              color: AppPalette.surface.withValues(alpha: 0.96),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
-              ),
-              child: const Padding(
-                padding: EdgeInsets.all(16),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'BrisConnect',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: AppPalette.charcoal,
-                        fontSize: 15,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 8,
+                      ),
+                      child: Row(
+                        children: [
+                          _StatChip(
+                            label: 'Total',
+                            count: totalEvents,
+                            color: AppPalette.deepBlue,
+                          ),
+                          _StatChip(
+                            label: 'Pending',
+                            count: pendingCount,
+                            color: Colors.orange.shade700,
+                          ),
+                          _StatChip(
+                            label: 'Approved',
+                            count: approvedCount,
+                            color: Colors.green.shade700,
+                          ),
+                          _StatChip(
+                            label: 'Rejected',
+                            count: rejectedCount,
+                            color: Colors.red.shade700,
+                          ),
+                        ],
                       ),
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      'BrisConnect is a smart city guide that helps visitors and locals discover events, explore attractions, and capture their Brisbane experiences in one connected platform.',
-                      style: TextStyle(
-                        color: AppPalette.mutedText,
-                        fontSize: 13,
-                        height: 1.5,
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              _buildSectionLabel('Preferences'),
+              Card(
+                color: AppPalette.surface.withValues(alpha: 0.96),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                      color: AppPalette.border.withValues(alpha: 0.5)),
+                ),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: AppPalette.deepBlue.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.pin_drop_outlined,
+                            color: AppPalette.deepBlue, size: 20),
+                      ),
+                      title: const Text('Location Radius',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: const Text(
+                          'Control distance for nearby opportunities'),
+                      trailing: const Icon(Icons.chevron_right_rounded,
+                          color: AppPalette.mutedText),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const LocalSettingsScreen(),
+                        ),
                       ),
                     ),
-                    SizedBox(height: 12),
-                    Text(
-                      'Version 1.0.0',
-                      style: TextStyle(
-                        color: AppPalette.mutedText,
-                        fontSize: 12,
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    ListTile(
+                      leading: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: AppPalette.deepBlue.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.palette_outlined,
+                            color: AppPalette.deepBlue, size: 20),
+                      ),
+                      title: const Text('Appearance Settings',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: const Text('Theme, text size & feedback'),
+                      trailing: const Icon(Icons.chevron_right_rounded,
+                          color: AppPalette.mutedText),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const AppearanceSettingsScreen.local(),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
-        ),
+              const SizedBox(height: 24),
+              _buildSectionLabel('Feedback'),
+              Card(
+                color: AppPalette.surface.withValues(alpha: 0.96),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                      color: AppPalette.border.withValues(alpha: 0.5)),
+                ),
+                child: ListTile(
+                  leading: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AppPalette.deepBlue.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.inbox_rounded,
+                      color: AppPalette.deepBlue,
+                      size: 20,
+                    ),
+                  ),
+                  title: const Text(
+                    'My Feedback',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text(
+                    'View your submitted feedback and admin responses',
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppPalette.mutedText,
+                  ),
+                  onTap: () {
+                    final email = LocalAuth.currentLocal?.email ?? '';
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MyFeedbackScreen(
+                          reporterEmail: email,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 24),
+              _buildSectionLabel('Help & Support'),
+              Card(
+                color: AppPalette.surface.withValues(alpha: 0.96),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                      color: AppPalette.border.withValues(alpha: 0.5)),
+                ),
+                child: ListTile(
+                  leading: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AppPalette.ochre.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.help_outline_rounded,
+                        color: AppPalette.ochre, size: 20),
+                  ),
+                  title: const Text(
+                    'Help & Support',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text('FAQs, contact us & app info'),
+                  trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+                  onTap: () => _showHelpSupport(context),
+                ),
+              ),
+              const SizedBox(height: 24),
+              _buildSectionLabel('Sign Out'),
+              Card(
+                color: AppPalette.surface.withValues(alpha: 0.96),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                      color: AppPalette.border.withValues(alpha: 0.5)),
+                ),
+                child: ListTile(
+                  leading: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.logout_rounded,
+                        color: Colors.red.shade700, size: 20),
+                  ),
+                  title: Text(
+                    'Sign Out',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.red.shade700,
+                    ),
+                  ),
+                  subtitle: const Text('Return to the welcome screen'),
+                  onTap: _confirmLogout,
+                ),
+              ),
+              const SizedBox(height: 24),
+              _buildSectionLabel('About'),
+              Card(
+                color: AppPalette.surface.withValues(alpha: 0.96),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                      color: AppPalette.border.withValues(alpha: 0.5)),
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'BrisConnect+',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: AppPalette.charcoal,
+                          fontSize: 15,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'BrisConnect+ is a smart city guide that helps visitors and locals discover events, explore attractions, and capture their Brisbane experiences in one connected platform.',
+                        style: TextStyle(
+                          color: AppPalette.mutedText,
+                          fontSize: 13,
+                          height: 1.5,
+                        ),
+                      ),
+                      SizedBox(height: 12),
+                      Text(
+                        'Version 1.0.0',
+                        style: TextStyle(
+                          color: AppPalette.mutedText,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -1788,15 +1695,10 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                 onPressed: () => setState(() => _selectedIndex = 0),
               ),
               title: LogoAppBarTitle(
-                _selectedIndex == 1
-                    ? 'Map'
-                    : _selectedIndex == 2
-                        ? 'Calendar'
-                        : _selectedIndex == 3
-                            ? 'My Events'
-                            : 'Profile',
+                _selectedIndex == 1 ? 'Map' : 'Profile',
               ),
-              backgroundColor: Colors.transparent,
+              backgroundColor: AppPalette.ochre,
+              foregroundColor: Colors.white,
               elevation: 0,
             ),
       body: NotificationListener<ScrollNotification>(
@@ -1813,24 +1715,14 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
           }
           return false;
         },
-        child: StreamBuilder<List<EventItem>>(
-          stream: _mySubmittedEventsStream(),
-          builder: (context, snapshot) {
-            final mySubmittedEvents = snapshot.data ?? const <EventItem>[];
-            return IndexedStack(
-              index: _selectedIndex,
-              children: [
-                _buildDashboard(mySubmittedEvents),
-                SafeArea(child: MapEventsScreen(
-                  embedded: true,
-                  onBackPressed: () => setState(() => _selectedIndex = 0),
-                )),
-                SafeArea(child: _buildCalendarTab()),
-                SafeArea(child: _buildMyEventsTab(mySubmittedEvents)),
-                SafeArea(child: _buildProfileTab(mySubmittedEvents)),
-              ],
-            );
-          },
+        child: IndexedStack(
+          index: _selectedIndex,
+          children: [
+            BusinessDashboardScreen(),
+            VendorFeedScreen(),
+            VendorReviewsScreen(),
+            BusinessProfileScreen(),
+          ],
         ),
       ),
       bottomNavigationBar: AnimatedSlide(
@@ -1841,32 +1733,12 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
       ),
     );
 
-    // Wrap scaffold with full-screen background image
+    // Wrap scaffold with solid dark navy background
     final withBackground = Stack(
       children: [
-        // Full-screen kookaburra background
-        Positioned.fill(
-          child: Image.asset(
-            'assets/Kookaburra1.png',
-            fit: BoxFit.cover,
-          ),
-        ),
-        // Orange-brown tinted overlay
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  const Color(0xFFC1440E).withValues(alpha: 0.55),
-                  const Color(0xFF5C3D2E).withValues(alpha: 0.60),
-                  const Color(0xFFF8F3EA).withValues(alpha: 0.88),
-                ],
-                stops: const [0.0, 0.35, 1.0],
-              ),
-            ),
-          ),
+        // Dark navy background
+        const Positioned.fill(
+          child: ColoredBox(color: Color(0xFF0D1117)),
         ),
         scaffold,
       ],
@@ -1886,10 +1758,10 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
   Widget _buildLocalBottomNav() {
     return Container(
       decoration: BoxDecoration(
-        color: AppPalette.ochre.withValues(alpha: 0.92),
+        color: const Color(0xFF1C1C2E),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black.withValues(alpha: 0.20),
             blurRadius: 12,
             offset: const Offset(0, -2),
           ),
@@ -1902,77 +1774,28 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _LocalNavItem(
-                icon: Icons.home_rounded,
-                label: 'Home',
+                icon: Icons.dashboard_rounded,
+                label: 'Dashboard',
                 isSelected: _selectedIndex == 0,
                 onTap: () => setState(() => _selectedIndex = 0),
               ),
               _LocalNavItem(
-                icon: Icons.map_rounded,
-                label: 'Map',
+                icon: Icons.dynamic_feed_rounded,
+                label: 'Feed',
                 isSelected: _selectedIndex == 1,
                 onTap: () => setState(() => _selectedIndex = 1),
               ),
-              // Center Add Event button
-              GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AddEventScreen(),
-                  ),
-                ),
-                child: Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [AppPalette.ochre, Color(0xFFD4740E)],
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppPalette.ochre.withValues(alpha: 0.35),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.add_rounded,
-                          color: Colors.white, size: 24),
-                      Text(
-                        'Add Event',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
               _LocalNavItem(
-                icon: Icons.calendar_month_rounded,
-                label: 'Calendar',
+                icon: Icons.reviews_rounded,
+                label: 'Reviews',
                 isSelected: _selectedIndex == 2,
                 onTap: () => setState(() => _selectedIndex = 2),
               ),
               _LocalNavItem(
-                icon: Icons.event_note_rounded,
-                label: 'My Events',
+                icon: Icons.business_center_rounded,
+                label: 'Business',
                 isSelected: _selectedIndex == 3,
                 onTap: () => setState(() => _selectedIndex = 3),
-              ),
-              _LocalNavItem(
-                icon: Icons.person_outline_rounded,
-                label: 'Profile',
-                isSelected: _selectedIndex == 4,
-                onTap: () => setState(() => _selectedIndex = 4),
               ),
             ],
           ),
@@ -2235,7 +2058,7 @@ class _LocalNavItem extends StatelessWidget {
             Icon(
               icon,
               size: 24,
-              color: isSelected ? Colors.white : Colors.white70,
+              color: isSelected ? AppPalette.ochre : AppPalette.mutedText,
             ),
             const SizedBox(height: 2),
             Text(
@@ -2243,7 +2066,7 @@ class _LocalNavItem extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? Colors.white : Colors.white70,
+                color: isSelected ? AppPalette.ochre : AppPalette.mutedText,
               ),
             ),
           ],

@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
+	<false/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>BrisConnect</string>
+	<string>BrisConnect+</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>BrisConnect</string>
+	<string>BrisConnect+</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -24,8 +24,16 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>GMSApiKey</key>
+	<string>AIzaSyD8zZ0I4E6cCJYZbdnP_P9CthyDqauLTak</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>BrisConnect+ needs camera access to take your profile photo.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>BrisConnect uses your live location to track you on the map and show nearby events and venues.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>BrisConnect needs photo library access to choose your profile photo.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -41,26 +49,14 @@
 					<string>flutter</string>
 					<key>UISceneDelegateClassName</key>
 					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
-					<key>UISceneStoryboardFile</key>
-					<string>Main</string>
 				</dict>
 			</array>
 		</dict>
 	</dict>
-	<key>NSCameraUsageDescription</key>
-	<string>BrisConnect needs camera access to take your profile photo.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>BrisConnect needs photo library access to choose your profile photo.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>BrisConnect uses your live location to track you on the map and show nearby events and venues.</string>
-	<key>GMSApiKey</key>
-	<string></string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
-	<key>UIMainStoryboardFile</key>
-	<string>Main</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -74,5 +70,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>BrisConnect+ uses Face ID to securely authenticate your account and protect your data.</string>
+	<key>NSBiometricUsageDescription</key>
+	<string>BrisConnect+ uses biometric authentication (fingerprint/face) to securely verify your identity.</string>
 </dict>
 </plist>

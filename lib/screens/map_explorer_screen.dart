@@ -3,10 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:brisconnect/services/approved_attraction_service.dart';
-import 'package:brisconnect/services/discover_data_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
-import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 
 enum _MapPinType {
   event,
@@ -15,6 +12,13 @@ enum _MapPinType {
   olympicVenue,
   culturalVenue,
   food,
+  building,
+}
+
+enum _FloorLevel {
+  ground,
+  level1,
+  level2,
 }
 
 class _MapPin {
@@ -26,6 +30,7 @@ class _MapPin {
     required this.longitude,
     required this.type,
     required this.source,
+    this.keywords = const <String>[],
   });
 
   final String id;
@@ -35,6 +40,19 @@ class _MapPin {
   final double longitude;
   final _MapPinType type;
   final String source;
+  final List<String> keywords;
+}
+
+class _SearchSuggestion {
+  const _SearchSuggestion({
+    required this.pin,
+    required this.matchedText,
+    required this.matchType,
+  });
+
+  final _MapPin pin;
+  final String matchedText;
+  final String matchType;
 }
 
 class MapExplorerScreen extends StatefulWidget {
@@ -47,15 +65,7 @@ class MapExplorerScreen extends StatefulWidget {
 class _MapExplorerScreenState extends State<MapExplorerScreen>
     with TickerProviderStateMixin {
   GoogleMapController? _mapController;
-  final DiscoverDataService _discoverDataService = DiscoverDataService();
-  final ApprovedAttractionService _approvedAttractionService =
-      ApprovedAttractionService();
   final TextEditingController _searchController = TextEditingController();
-
-  late final Stream<List<Map<String, dynamic>>> _discoverStream =
-      _discoverDataService.watchApprovedDiscoverItems();
-  late final Stream<List<ApprovedAttraction>> _attractionsStream =
-      _approvedAttractionService.watchApprovedAttractions();
 
   Timer? _searchDebounce;
   StreamSubscription<Position>? _positionSubscription;
@@ -72,14 +82,26 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
   
   _MapPin? _selectedPin;
   LatLng? _userLocation;
+  List<LatLng> _campusRoutePoints = const <LatLng>[];
   bool _followUser = true;
   bool _showResultsSheet = false;
   bool _useVibrantMap = true;
+  bool _use3dMode = false;
+  bool _showSearchSuggestions = false;
   String? _locationStatus;
+  double _headingDegrees = 0;
+  double? _locationAccuracyMeters;
+  double? _speedMps;
+  double _cameraZoom = 16;
+  double _cameraTilt = 0;
+  bool _isProgrammaticCameraMove = false;
   String _searchQuery = '';
   _MapPinType? _selectedType;
+  _FloorLevel _selectedFloor = _FloorLevel.ground;
 
   static const LatLng _defaultCenter = LatLng(-27.4698, 153.0251);
+  static const LatLng _campusCenter = LatLng(-27.4583, 153.0197);
+  static const LatLng _campusMainGate = LatLng(-27.4583, 153.0197);
   static const Duration _markerThrottleWindow = Duration(milliseconds: 140);
 
   @override
@@ -102,6 +124,11 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
     _positionSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _buildMapBody();
   }
 
   Future<void> _startLiveTracking() async {
@@ -134,6 +161,11 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
       if (mounted) {
         setState(() {
           _userLocation = LatLng(current.latitude, current.longitude);
+          if (current.heading >= 0) {
+            _headingDegrees = current.heading;
+          }
+          _locationAccuracyMeters = current.accuracy;
+          _speedMps = current.speed;
           _locationStatus = null;
         });
       }
@@ -154,12 +186,25 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
       if (!mounted) return;
       setState(() {
         _userLocation = LatLng(position.latitude, position.longitude);
+        if (position.heading >= 0) {
+          _headingDegrees = position.heading;
+        }
+        _locationAccuracyMeters = position.accuracy;
+        _speedMps = position.speed;
         _locationStatus = null;
       });
 
       if (_followUser) {
+        _isProgrammaticCameraMove = true;
         _mapController?.animateCamera(
-          CameraUpdate.newLatLng(_userLocation!),
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: _userLocation!,
+              zoom: _cameraZoom,
+              tilt: _cameraTilt,
+              bearing: _headingDegrees,
+            ),
+          ),
         );
       }
     });
@@ -173,9 +218,15 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
     }
 
     setState(() => _followUser = true);
+    _isProgrammaticCameraMove = true;
     _mapController?.animateCamera(
       CameraUpdate.newCameraPosition(
-        CameraPosition(target: user, zoom: 14),
+        CameraPosition(
+          target: user,
+          zoom: _cameraZoom,
+          tilt: _cameraTilt,
+          bearing: _headingDegrees,
+        ),
       ),
     );
   }
@@ -184,6 +235,11 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
     setState(() {
       _selectedPin = pin;
       _followUser = false;
+      if (pin.source == 'campus_buildings') {
+        _campusRoutePoints = _buildCampusRouteTo(pin);
+      } else {
+        _campusRoutePoints = const <LatLng>[];
+      }
     });
 
     _mapController?.animateCamera(
@@ -204,17 +260,22 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
       final nextQuery = value.trim().toLowerCase();
       if (nextQuery == _searchQuery) return;
 
-      setState(() => _searchQuery = nextQuery);
+      setState(() {
+        _searchQuery = nextQuery;
+        _showSearchSuggestions = nextQuery.isNotEmpty;
+        if (nextQuery.isNotEmpty) {
+          _showResultsSheet = true;
+        }
+      });
     });
   }
 
   String _buildDataSignature({
     required List<Map<String, dynamic>> discoverItems,
-    required List<ApprovedAttraction> attractions,
   }) {
     // Stream snapshots usually keep list identity stable across local setState
     // calls, so this avoids recomputing expensive pin and marker sets.
-    return '${identityHashCode(discoverItems)}:${discoverItems.length}:${identityHashCode(attractions)}:${attractions.length}';
+    return '${identityHashCode(discoverItems)}:${discoverItems.length}';
   }
 
   String _selectedPinSignature() {
@@ -227,11 +288,9 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
 
   List<_MapPin> _getAllPins({
     required List<Map<String, dynamic>> discoverItems,
-    required List<ApprovedAttraction> attractions,
   }) {
     final signature = _buildDataSignature(
       discoverItems: discoverItems,
-      attractions: attractions,
     );
 
     if (_cachedAllPins != null && _cachedAllPinsSignature == signature) {
@@ -240,7 +299,6 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
 
     final rebuilt = _buildPins(
       discoverItems: discoverItems,
-      attractions: attractions,
     );
     _cachedAllPins = rebuilt;
     _cachedAllPinsSignature = signature;
@@ -252,7 +310,8 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
   }
 
   List<_MapPin> _getFilteredPins(List<_MapPin> allPins) {
-    final signature = '${_cachedAllPinsSignature ?? 'none'}:${_searchQuery}:${_selectedType?.name ?? 'all'}';
+    final selectedTypeName = _selectedType?.name ?? 'all';
+    final signature = '${_cachedAllPinsSignature ?? 'none'}:$_searchQuery:$selectedTypeName';
     if (_cachedFilteredPins != null && _cachedFilteredPinsSignature == signature) {
       return _cachedFilteredPins!;
     }
@@ -350,7 +409,7 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
           latitude: lat,
           longitude: lng,
           type: type,
-          source: 'discover_items',
+          source: 'events',
         ),
       );
     }
@@ -358,46 +417,255 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
     return pins;
   }
 
-  List<_MapPin> _attractionPins(List<ApprovedAttraction> attractions) {
-    return attractions.map((item) {
-      final blob = [
-        item.name,
-        item.location,
-        item.category ?? '',
-        item.description,
-      ].join(' ').toLowerCase();
 
-      final isOlympicVenue = blob.contains('olympic') ||
-          blob.contains('brisbane 2032') ||
-          (blob.contains('venue') && blob.contains('sport'));
-      final isCulturalVenue = blob.contains('cultur') ||
-          blob.contains('museum') ||
-          blob.contains('gallery') ||
-          blob.contains('heritage');
+  List<_MapPin> _campusBuildingPins() {
+    return const <_MapPin>[
+      _MapPin(
+        id: 'campus_main_gate',
+        title: 'Main Gate',
+        location: 'Main Campus, Gregory Terrace',
+        latitude: -27.4583,
+        longitude: 153.0197,
+        type: _MapPinType.building,
+        source: 'campus_buildings',
+        keywords: <String>[
+          'main campus',
+          'gregory terrace',
+          'spring hill',
+          'beanland house',
+          'england house',
+          'gibson house',
+          'griffith house',
+          'hirschfeld house',
+          'lilley house',
+          'mackay house',
+          'oconnor house',
+          'woolcock house',
+          'reception',
+          'security',
+          'entrance',
+          'visitor desk',
+          'gate',
+        ],
+      ),
+      _MapPin(
+        id: 'campus_library',
+        title: 'Beanland Memorial Library',
+        location: 'Elizabeth Jameson Research Learning Centre',
+        latitude: -27.4690,
+        longitude: 153.0183,
+        type: _MapPinType.building,
+        source: 'campus_buildings',
+        keywords: <String>[
+          'library',
+          'beanland',
+          'research learning centre',
+          'elizabeth jameson',
+          'l101',
+          'l201',
+          'study room',
+          'printing',
+          'computer lab',
+        ],
+      ),
+      _MapPin(
+        id: 'campus_science_block',
+        title: 'Science Building',
+        location: 'Main Campus Science Precinct',
+        latitude: -27.4695,
+        longitude: 153.0189,
+        type: _MapPinType.building,
+        source: 'campus_buildings',
+        keywords: <String>[
+          's101',
+          's102',
+          'chemistry lab',
+          'physics lab',
+          'science',
+        ],
+      ),
+      _MapPin(
+        id: 'campus_admin',
+        title: 'Student Services',
+        location: 'Central Campus',
+        latitude: -27.4691,
+        longitude: 153.0175,
+        type: _MapPinType.building,
+        source: 'campus_buildings',
+        keywords: <String>[
+          'a101',
+          'a102',
+          'student services',
+          'floreamus centre',
+          'health centre',
+          'school shop',
+          'junior school building',
+          'fees',
+          'enrolment',
+          'admin office',
+        ],
+      ),
+      _MapPin(
+        id: 'campus_sports_hall',
+        title: 'Rangakarra Recreation Centre',
+        location: 'Rangakarra Campus',
+        latitude: -27.4698,
+        longitude: 153.0172,
+        type: _MapPinType.building,
+        source: 'campus_buildings',
+        keywords: <String>[
+          'rangakarra',
+          'recreational and environmental education centre',
+          'playing fields',
+          'clubhouse',
+          'gym',
+          'court',
+          'basketball',
+          'locker room',
+          'sports',
+          'toilet',
+        ],
+      ),
+      _MapPin(
+        id: 'campus_marrapatta',
+        title: 'Marrapatta Memorial Outdoor Education Centre',
+        location: 'Marrapatta Campus',
+        latitude: -27.4689,
+        longitude: 153.0179,
+        type: _MapPinType.building,
+        source: 'campus_buildings',
+        keywords: <String>[
+          'marrapatta',
+          'outdoor education',
+          'dorothy hill observatory',
+          'observatory',
+          'astronomy club',
+        ],
+      ),
+    ];
+  }
 
-      final type = isOlympicVenue
-          ? _MapPinType.olympicVenue
-          : (isCulturalVenue ? _MapPinType.culturalVenue : _MapPinType.attraction);
+  List<_SearchSuggestion> _searchSuggestions(List<_MapPin> allPins) {
+    final query = _searchQuery;
+    if (!_showSearchSuggestions || query.isEmpty) {
+      return const <_SearchSuggestion>[];
+    }
 
-      return _MapPin(
-        id: item.id,
-        title: item.name,
-        location: item.location,
-        latitude: item.latitude,
-        longitude: item.longitude,
-        type: type,
-        source: 'attractions',
+    final startsWith = <_SearchSuggestion>[];
+    final contains = <_SearchSuggestion>[];
+
+    for (final pin in allPins) {
+      final baseTokens = <String>[
+        pin.title,
+        pin.location,
+        _pinTypeLabel(pin.type),
+      ];
+      final allTokens = <String>[...baseTokens, ...pin.keywords];
+
+      String? firstMatch;
+      for (final token in allTokens) {
+        final normalized = token.trim().toLowerCase();
+        if (normalized.isEmpty || !normalized.contains(query)) {
+          continue;
+        }
+        firstMatch = token;
+        break;
+      }
+
+      if (firstMatch == null) {
+        continue;
+      }
+
+      final matchType = pin.keywords.any(
+        (keyword) => keyword.toLowerCase() == firstMatch!.toLowerCase(),
+      )
+          ? 'Room/Facility'
+          : 'Building';
+
+      final suggestion = _SearchSuggestion(
+        pin: pin,
+        matchedText: firstMatch,
+        matchType: matchType,
       );
-    }).toList(growable: false);
+
+      if (firstMatch.toLowerCase().startsWith(query) ||
+          pin.title.toLowerCase().startsWith(query)) {
+        startsWith.add(suggestion);
+      } else {
+        contains.add(suggestion);
+      }
+    }
+
+    final ordered = <_SearchSuggestion>[...startsWith, ...contains];
+    return ordered.take(8).toList(growable: false);
+  }
+
+  void _selectSuggestion(_SearchSuggestion suggestion) {
+    final text = suggestion.pin.title;
+    _searchController.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+
+    setState(() {
+      _searchQuery = text.toLowerCase();
+      _showSearchSuggestions = false;
+      _showResultsSheet = true;
+      _selectedType = suggestion.pin.type;
+    });
+
+    _focusPin(suggestion.pin);
+  }
+
+  List<LatLng> _buildCampusRouteTo(_MapPin destination) {
+    final destinationLatLng = LatLng(destination.latitude, destination.longitude);
+    LatLng start = _userLocation ?? _campusMainGate;
+    final distanceToDestination = Geolocator.distanceBetween(
+      start.latitude,
+      start.longitude,
+      destination.latitude,
+      destination.longitude,
+    );
+
+    // Keep route drawing scoped to campus when user GPS is far away.
+    if (distanceToDestination > 1200) {
+      start = _campusMainGate;
+    }
+
+    final corridorLongitude = (start.longitude + destination.longitude) / 2;
+    return <LatLng>[
+      start,
+      LatLng(start.latitude, corridorLongitude),
+      LatLng(destination.latitude, corridorLongitude),
+      destinationLatLng,
+    ];
+  }
+
+  Set<Polyline> _buildPolylines() {
+    if (_campusRoutePoints.length < 2) {
+      return const <Polyline>{};
+    }
+
+    return <Polyline>{
+      Polyline(
+        polylineId: const PolylineId('campus-route'),
+        points: _campusRoutePoints,
+        color: AppPalette.deepBlue,
+        width: 5,
+        patterns: <PatternItem>[
+          PatternItem.dot,
+          PatternItem.gap(10),
+        ],
+      ),
+    };
   }
 
   List<_MapPin> _buildPins({
     required List<Map<String, dynamic>> discoverItems,
-    required List<ApprovedAttraction> attractions,
   }) {
     final combined = <_MapPin>[
       ..._discoverPins(discoverItems),
-      ..._attractionPins(attractions),
+      ..._campusBuildingPins(),
     ];
 
     final deduped = <String, _MapPin>{};
@@ -424,6 +692,7 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
 
       return pin.title.toLowerCase().contains(query) ||
           pin.location.toLowerCase().contains(query) ||
+          pin.keywords.any((keyword) => keyword.toLowerCase().contains(query)) ||
           _pinTypeLabel(pin.type).toLowerCase().contains(query);
     }).toList(growable: false);
   }
@@ -434,6 +703,8 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
         return const Color(0xFFF2994A);
       case _MapPinType.food:
         return const Color(0xFFEB5757);
+      case _MapPinType.building:
+        return AppPalette.deepBlue;
       case _MapPinType.stadium:
       case _MapPinType.olympicVenue:
         return const Color(0xFF9B51E0);
@@ -465,6 +736,8 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
         return Icons.account_balance;
       case _MapPinType.food:
         return Icons.local_dining;
+      case _MapPinType.building:
+        return Icons.apartment_rounded;
     }
   }
 
@@ -482,6 +755,8 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
         return 'Cultural Venue';
       case _MapPinType.food:
         return 'Food';
+      case _MapPinType.building:
+        return 'Building';
     }
   }
 
@@ -510,7 +785,7 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
         _selectedPin!.type == pin.type;
 
     return Marker(
-      markerId: MarkerId('${pin.source}-${pin.id}'),
+      markerId: MarkerId('${pin.source}-${pin.id}-${pin.type.name}'),
       position: LatLng(pin.latitude, pin.longitude),
       infoWindow: InfoWindow(
         title: pin.title,
@@ -533,6 +808,8 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
         return BitmapDescriptor.hueOrange;
       case _MapPinType.food:
         return BitmapDescriptor.hueRed;
+      case _MapPinType.building:
+        return BitmapDescriptor.hueAzure;
       case _MapPinType.stadium:
       case _MapPinType.olympicVenue:
         return BitmapDescriptor.hueMagenta;
@@ -542,89 +819,84 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppPalette.background,
-      appBar: AppBar(
-        title: const LogoAppBarTitle('Map Explorer'),
+  String _floorLabel(_FloorLevel floor) {
+    switch (floor) {
+      case _FloorLevel.ground:
+        return 'G';
+      case _FloorLevel.level1:
+        return '1';
+      case _FloorLevel.level2:
+        return '2';
+    }
+  }
+
+  Widget _statusChip({
+    required IconData icon,
+    required String label,
+    Color color = AppPalette.deepBlue,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppPalette.border),
       ),
-      body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _discoverStream,
-        builder: (context, discoverSnapshot) {
-          if (discoverSnapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMapBody() {
+    // TODO: Replace this with StreamBuilder for discover items when service is available
+    final discoverItems = <Map<String, dynamic>>[];
+    final allPins = _getAllPins(discoverItems: discoverItems);
+    final pins = _getFilteredPins(allPins);
+    final markers = _getMarkers(pins);
+    final suggestions = _searchSuggestions(allPins);
+
+    if (pins.isEmpty && _showResultsSheet) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() => _showResultsSheet = false);
+        }
+      });
+    }
+
+    if (_selectedPin != null) {
+      final selectedExists = pins.any(
+        (pin) => pin.id == _selectedPin!.id &&
+            pin.source == _selectedPin!.source &&
+            pin.type == _selectedPin!.type,
+      );
+      if (!selectedExists) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _selectedPin = null;
+              _campusRoutePoints = const <LatLng>[];
+            });
           }
+        });
+      }
+    }
 
-          if (discoverSnapshot.hasError) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'Unable to load map locations right now.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AppPalette.mutedText),
-                ),
-              ),
-            );
-          }
+    final mapCenter = _userLocation ?? _defaultCenter;
 
-          return StreamBuilder<List<ApprovedAttraction>>(
-            stream: _attractionsStream,
-            builder: (context, attractionSnapshot) {
-              if (attractionSnapshot.connectionState ==
-                  ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              if (attractionSnapshot.hasError) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text(
-                      'Unable to load attraction locations right now.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppPalette.mutedText),
-                    ),
-                  ),
-                );
-              }
-
-                final allPins = _getAllPins(
-                discoverItems:
-                    discoverSnapshot.data ?? const <Map<String, dynamic>>[],
-                attractions:
-                    attractionSnapshot.data ?? const <ApprovedAttraction>[],
-              );
-                final pins = _getFilteredPins(allPins);
-                final markers = _getMarkers(pins);
-
-              if (pins.isEmpty && _showResultsSheet) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    setState(() => _showResultsSheet = false);
-                  }
-                });
-              }
-
-              if (_selectedPin != null) {
-                final selectedExists = pins.any(
-                  (pin) => pin.id == _selectedPin!.id &&
-                      pin.source == _selectedPin!.source &&
-                      pin.type == _selectedPin!.type,
-                );
-                if (!selectedExists) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) {
-                      setState(() => _selectedPin = null);
-                    }
-                  });
-                }
-              }
-
-              final mapCenter = _userLocation ?? _defaultCenter;
-
-              return Stack(
+    return Stack(
                 children: [
                   GoogleMap(
                     initialCameraPosition: CameraPosition(
@@ -636,12 +908,32 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
                     },
                     onTap: (_) => setState(() {
                       _selectedPin = null;
-                      _followUser = false;
+                      _campusRoutePoints = const <LatLng>[];
+                      _showSearchSuggestions = false;
                     }),
+                    onCameraMoveStarted: () {
+                      if (_isProgrammaticCameraMove || !_followUser) {
+                        return;
+                      }
+                      setState(() => _followUser = false);
+                    },
+                    onCameraMove: (position) {
+                      _cameraZoom = position.zoom;
+                      _cameraTilt = position.tilt;
+                    },
+                    onCameraIdle: () {
+                      if (_isProgrammaticCameraMove) {
+                        _isProgrammaticCameraMove = false;
+                      }
+                    },
                     markers: markers,
-                    myLocationButtonEnabled: true,
+                    polylines: _buildPolylines(),
+                    myLocationButtonEnabled: false,
                     myLocationEnabled: _userLocation != null,
+                    compassEnabled: true,
                     zoomControlsEnabled: true,
+                    buildingsEnabled: _use3dMode,
+                    tiltGesturesEnabled: true,
                     mapType: _useVibrantMap
                         ? MapType.normal
                         : MapType.terrain,
@@ -694,9 +986,14 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
                                 child: TextField(
                                   controller: _searchController,
                                   onChanged: _handleSearchChanged,
+                                  onTap: () {
+                                    if (_searchQuery.isNotEmpty) {
+                                      setState(() => _showSearchSuggestions = true);
+                                    }
+                                  },
                                   decoration: const InputDecoration(
                                     hintText:
-                                        'Search places, categories, locations',
+                                        'Search buildings, rooms, facilities',
                                     border: InputBorder.none,
                                     isDense: true,
                                     hintStyle: TextStyle(
@@ -712,6 +1009,7 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
                                   icon: const Icon(Icons.close_rounded, size: 18, color: AppPalette.mutedText),
                                   onPressed: () {
                                     _searchController.clear();
+                                    setState(() => _showSearchSuggestions = false);
                                     _handleSearchChanged('');
                                   },
                                   padding: EdgeInsets.zero,
@@ -720,6 +1018,62 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
                             ],
                           ),
                         ),
+                        if (suggestions.isNotEmpty)
+                          Container(
+                            margin: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.97),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: AppPalette.border),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x18000000),
+                                  blurRadius: 12,
+                                  offset: Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: ListView.separated(
+                              padding: EdgeInsets.zero,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: suggestions.length,
+                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                final suggestion = suggestions[index];
+                                return ListTile(
+                                  dense: true,
+                                  leading: CircleAvatar(
+                                    radius: 14,
+                                    backgroundColor:
+                                        _pinColor(suggestion.pin.type).withValues(alpha: 0.16),
+                                    child: Icon(
+                                      _pinIcon(suggestion.pin.type),
+                                      size: 14,
+                                      color: _pinColor(suggestion.pin.type),
+                                    ),
+                                  ),
+                                  title: Text(
+                                    suggestion.pin.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppPalette.charcoal,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    '${suggestion.matchType} • ${suggestion.matchedText}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 11.5),
+                                  ),
+                                  onTap: () => _selectSuggestion(suggestion),
+                                );
+                              },
+                            ),
+                          ),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                           child: SizedBox(
@@ -859,6 +1213,49 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
                               ),
                             ),
                           ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _statusChip(
+                                icon: _userLocation != null
+                                    ? Icons.gps_fixed_rounded
+                                    : Icons.gps_off_rounded,
+                                label: _userLocation != null ? 'GPS live' : 'GPS idle',
+                                color: _userLocation != null
+                                    ? AppPalette.deepBlue
+                                    : AppPalette.mutedText,
+                              ),
+                              _statusChip(
+                                icon: Icons.explore_rounded,
+                                label: 'Heading ${_headingDegrees.toStringAsFixed(0)}°',
+                              ),
+                              _statusChip(
+                                icon: _followUser
+                                    ? Icons.my_location_rounded
+                                    : Icons.pan_tool_alt_rounded,
+                                label: _followUser ? 'Follow mode' : 'Manual mode',
+                                color: _followUser
+                                    ? AppPalette.deepBlue
+                                    : AppPalette.mutedText,
+                              ),
+                              if (_locationAccuracyMeters != null)
+                                _statusChip(
+                                  icon: Icons.track_changes_rounded,
+                                  label: '±${_locationAccuracyMeters!.toStringAsFixed(0)}m',
+                                  color: AppPalette.charcoal,
+                                ),
+                              if (_speedMps != null)
+                                _statusChip(
+                                  icon: Icons.speed_rounded,
+                                  label: '${(_speedMps! * 3.6).toStringAsFixed(1)} km/h',
+                                  color: AppPalette.charcoal,
+                                ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -1155,9 +1552,11 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
                                   tooltip:
                                       'Clear selection',
                                   onPressed: () =>
-                                      setState(() =>
-                                          _selectedPin =
-                                              null),
+                                      setState(() {
+                                      _selectedPin = null;
+                                      _campusRoutePoints = const <LatLng>[];
+                                        _showSearchSuggestions = false;
+                                      }),
                                   icon: const Icon(
                                       Icons
                                           .close_rounded,
@@ -1179,6 +1578,222 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.95),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppPalette.border),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x24000000),
+                                blurRadius: 10,
+                                offset: Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: _FloorLevel.values.map((floor) {
+                              final selected = floor == _selectedFloor;
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 2),
+                                child: GestureDetector(
+                                  onTap: () => setState(() => _selectedFloor = floor),
+                                  child: Container(
+                                    width: 28,
+                                    height: 28,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: selected
+                                          ? AppPalette.deepBlue.withValues(alpha: 0.14)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: selected
+                                            ? AppPalette.deepBlue.withValues(alpha: 0.45)
+                                            : Colors.transparent,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      _floorLabel(floor),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: selected
+                                            ? AppPalette.deepBlue
+                                            : AppPalette.mutedText,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(growable: false),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Material(
+                          color: Colors.transparent,
+                          child: Ink(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.97),
+                                  Colors.white.withValues(alpha: 0.9),
+                                ],
+                              ),
+                              border: Border.all(
+                                color: _selectedType == _MapPinType.building
+                                    ? AppPalette.deepBlue.withValues(alpha: 0.34)
+                                    : const Color(0xFFD4DAE2),
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x24000000),
+                                  blurRadius: 10,
+                                  offset: Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: IconButton(
+                              tooltip: 'Go to campus buildings',
+                              onPressed: () {
+                                setState(() {
+                                  _selectedType = _MapPinType.building;
+                                  _showResultsSheet = true;
+                                });
+                                _mapController?.animateCamera(
+                                  CameraUpdate.newCameraPosition(
+                                    CameraPosition(
+                                      target: _campusCenter,
+                                      zoom: 17,
+                                      tilt: _use3dMode ? 45 : 0,
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: Icon(
+                                Icons.school_rounded,
+                                color: _selectedType == _MapPinType.building
+                                    ? AppPalette.deepBlue
+                                    : AppPalette.charcoal,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Material(
+                          color: Colors.transparent,
+                          child: Ink(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.97),
+                                  Colors.white.withValues(alpha: 0.9),
+                                ],
+                              ),
+                              border: Border.all(
+                                color: _showResultsSheet
+                                    ? AppPalette.deepBlue.withValues(alpha: 0.34)
+                                    : const Color(0xFFD4DAE2),
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x24000000),
+                                  blurRadius: 10,
+                                  offset: Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: IconButton(
+                              tooltip: _showResultsSheet
+                                  ? 'Hide place list'
+                                  : 'Show place list',
+                              onPressed: () => setState(
+                                () => _showResultsSheet = !_showResultsSheet,
+                              ),
+                              icon: Icon(
+                                _showResultsSheet
+                                    ? Icons.list_alt_rounded
+                                    : Icons.list_rounded,
+                                color: _showResultsSheet
+                                    ? AppPalette.deepBlue
+                                    : AppPalette.charcoal,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        // 3D toggle
+                        Material(
+                          color: Colors.transparent,
+                          child: Ink(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.97),
+                                  Colors.white.withValues(alpha: 0.9),
+                                ],
+                              ),
+                              border: Border.all(
+                                color: _use3dMode
+                                    ? AppPalette.ochre.withValues(alpha: 0.6)
+                                    : const Color(0xFFD4DAE2),
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x24000000),
+                                  blurRadius: 10,
+                                  offset: Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: IconButton(
+                              tooltip: _use3dMode ? 'Flat view' : '3D buildings',
+                              onPressed: () {
+                                setState(() => _use3dMode = !_use3dMode);
+                                final center = _userLocation ?? _defaultCenter;
+                                _mapController?.animateCamera(
+                                  CameraUpdate.newCameraPosition(
+                                    CameraPosition(
+                                      target: center,
+                                      zoom: _use3dMode ? 17 : 14,
+                                      tilt: _use3dMode ? 45 : 0,
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: Icon(
+                                _use3dMode
+                                    ? Icons.view_in_ar_rounded
+                                    : Icons.view_in_ar_outlined,
+                                color: _use3dMode
+                                    ? AppPalette.ochre
+                                    : AppPalette.charcoal,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        // Map style toggle
                         Material(
                           color: Colors.transparent,
                           child: Ink(
@@ -1308,88 +1923,11 @@ class _MapExplorerScreenState extends State<MapExplorerScreen>
                             ),
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        Material(
-                          color: Colors.transparent,
-                          child: Ink(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: LinearGradient(
-                                begin:
-                                    Alignment.topCenter,
-                                end: Alignment
-                                    .bottomCenter,
-                                colors: [
-                                  Colors.white
-                                      .withValues(
-                                          alpha: 0.97),
-                                  Colors.white
-                                      .withValues(
-                                          alpha: 0.9),
-                                ],
-                              ),
-                              border: Border.all(
-                                color: _showResultsSheet
-                                    ? AppPalette
-                                        .deepBlue
-                                        .withValues(
-                                            alpha:
-                                                0.34)
-                                    : const Color(
-                                        0xFFD4DAE2),
-                              ),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color:
-                                      Color(0x24000000),
-                                  blurRadius: 10,
-                                  offset:
-                                      Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: IconButton(
-                              tooltip:
-                                  _showResultsSheet
-                                      ? 'Hide results'
-                                      : 'Show results (${pins.length})',
-                              onPressed: () {
-                                if (pins
-                                    .isEmpty) {
-                                  return;
-                                }
-                                setState(
-                                    () =>
-                                        _showResultsSheet =
-                                            !_showResultsSheet);
-                              },
-                              icon: Icon(
-                                _showResultsSheet
-                                    ? Icons
-                                        .expand_more
-                                    : Icons
-                                        .list_alt_rounded,
-                                color: _showResultsSheet
-                                    ? AppPalette
-                                        .deepBlue
-                                    : AppPalette
-                                        .charcoal,
-                                size: 20,
-                              ),
-                            ),
-                          ),
-                        ),
+
                       ],
                     ),
                   ),
                 ],
               );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
+            }
+          }
