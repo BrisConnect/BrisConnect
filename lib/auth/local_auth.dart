@@ -455,6 +455,9 @@ class LocalAuth {
       return false;
     }
 
+    // On unsigned macOS builds Firebase Auth may fail with keychain-error.
+    // Firestore rules are relaxed for local development so we can validate
+    // credentials and load the profile without a signed-in Firebase user.
     try {
       final doc = await FirebaseFirestore.instance
           .collection('local_users')

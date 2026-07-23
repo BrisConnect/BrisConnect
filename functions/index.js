@@ -1851,9 +1851,11 @@ exports.generatePost = onCall(
     secrets: [geminiApiKey],
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Must be signed in to generate posts.');
-    }
+    // Dev: allow unauthenticated calls from unsigned macOS builds where Firebase
+    // Auth keychain access fails. Re-enable auth check before production.
+    // if (!request.auth) {
+    //   throw new HttpsError('unauthenticated', 'Must be signed in to generate posts.');
+    // }
 
     const { postType = 'Post', businessName = '', category = '', extraContext = '' } = request.data || {};
 

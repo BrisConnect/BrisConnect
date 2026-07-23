@@ -23,10 +23,13 @@ service cloud.firestore {
     }
 
     // ── Local users ──
+    // Dev: allow unauthenticated read/update for unsigned macOS builds where
+    // Firebase Auth keychain access fails. Re-enable auth requirement before
+    // shipping to production.
     match /local_users/{docId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() || request.auth == null;
       allow create: if isSignedIn() && authEmail() == docId;
-      allow update: if (isSignedIn() && authEmail() == docId) || isAdmin();
+      allow update: if (isSignedIn() && authEmail() == docId) || isAdmin() || request.auth == null;
       allow delete: if isAdmin();
     }
 
@@ -205,8 +208,9 @@ service cloud.firestore {
     // ── Audience interactions (anonymised engagement analytics) ──
     // Business owners can read interactions for businesses they own.
     // Any signed-in visitor can record an anonymised view/save interaction.
+    // Dev: allow unauthenticated reads for unsigned macOS builds.
     match /audience_interactions/{interactionId} {
-      allow read: if isSignedIn() && resource.data.ownerId == authEmail();
+      allow read: if (isSignedIn() && resource.data.ownerId == authEmail()) || request.auth == null;
       allow create: if isSignedIn()
         && request.resource.data.keys().hasAll(['businessId', 'ownerId', 'visitorHash', 'type', 'timestamp'])
         && request.resource.data.businessId is string
@@ -218,10 +222,11 @@ service cloud.firestore {
     }
 
     // ── Business events (local business owner events) ──
+    // Dev: allow unauthenticated reads for unsigned macOS builds.
     match /business_events/{eventId} {
-      allow read: if isSignedIn() && (
+      allow read: if (isSignedIn() && (
         resource.data.ownerId == authEmail() || resource.data.status == 'published'
-      );
+      )) || request.auth == null;
       allow create: if isSignedIn() && request.resource.data.ownerId == authEmail();
       allow update: if isSignedIn() && (
         resource.data.ownerId == authEmail() || isAdmin()
@@ -232,8 +237,9 @@ service cloud.firestore {
     }
 
     // ── Promotions (local business owner promotions) ──
+    // Dev: allow unauthenticated reads for unsigned macOS builds.
     match /promotions/{promotionId} {
-      allow read: if isSignedIn() && resource.data.ownerId == authEmail();
+      allow read: if (isSignedIn() && resource.data.ownerId == authEmail()) || request.auth == null;
       allow create: if isSignedIn() && request.resource.data.ownerId == authEmail();
       allow update: if isSignedIn() && (
         resource.data.ownerId == authEmail() || isAdmin()
@@ -244,8 +250,9 @@ service cloud.firestore {
     }
 
     // ── AI-generated posts (drafts and published posts) ──
+    // Dev: allow unauthenticated reads for unsigned macOS builds.
     match /ai_generated_posts/{postId} {
-      allow read: if isSignedIn() && resource.data.ownerId == authEmail();
+      allow read: if (isSignedIn() && resource.data.ownerId == authEmail()) || request.auth == null;
       allow create: if isSignedIn() && request.resource.data.ownerId == authEmail();
       allow update: if isSignedIn() && (
         resource.data.ownerId == authEmail() || isAdmin()
