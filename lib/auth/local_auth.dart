@@ -445,7 +445,8 @@ class LocalAuth {
           _lastErrorMessage = 'Login failed (${error.code}).';
       }
       _useFirestoreAuthFallback =
-          error.code == 'operation-not-allowed' || error.code == 'keychain-error';
+          error.code == 'operation-not-allowed' ||
+          error.code == 'keychain-error';
       if (!_useFirestoreAuthFallback) {
         return false;
       }
