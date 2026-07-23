@@ -1851,11 +1851,9 @@ exports.generatePost = onCall(
     secrets: [geminiApiKey],
   },
   async (request) => {
-    // Dev: allow unauthenticated calls from unsigned macOS builds where Firebase
-    // Auth keychain access fails. Re-enable auth check before production.
-    // if (!request.auth) {
-    //   throw new HttpsError('unauthenticated', 'Must be signed in to generate posts.');
-    // }
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Must be signed in to generate posts.');
+    }
 
     const { postType = 'Post', businessName = '', category = '', extraContext = '' } = request.data || {};
 
@@ -1920,19 +1918,6 @@ Requirements:
               if (res.statusCode !== 200) {
                 const errMsg = data.error?.message || `Gemini error ${res.statusCode}`;
                 console.error('Gemini API error:', res.statusCode, errMsg);
-
-                // Dev fallback: if the API key is invalid/expired, return a
-                // mock post so unsigned macOS builds can still test the UI.
-                // Remove this block once GEMINI_API_KEY is rotated.
-                if (res.statusCode === 401) {
-                  console.warn('Gemini API key invalid. Returning dev mock post.');
-                  resolve({
-                    post: `🎉 Exciting news from ${businessName}!\n\nWe've got something special coming up in the ${category} world and we can't wait to share it with you. Stay tuned for more details!\n\n#Brisbane #${category.replace(/\s+/g, '')} #LocalBusiness #ComingSoon`,
-                    devMock: true,
-                  });
-                  return;
-                }
-
                 reject(new HttpsError('internal', errMsg));
                 return;
               }
