@@ -31,15 +31,9 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
       GooglePlacesAutocompleteService();
   final AddressGeocodingService _geocodingService = AddressGeocodingService();
 
-  static const List<String> _categories = [
-    'Restaurant & Cafe',
-    'Retail',
-    'Service',
-    'Entertainment',
-    'Other',
-  ];
+  final List<String> _categories = businessCategories;
 
-  String _selectedCategory = 'Restaurant & Cafe';
+  String _selectedCategory = businessCategories.first;
   XFile? _selectedLogo;
   bool _isSaving = false;
 

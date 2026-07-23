@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/models/business.dart';
 import 'package:brisconnect/screens/business_map_screen.dart';
 import 'package:brisconnect/services/business_profile_service.dart';
@@ -35,6 +36,17 @@ class _BusinessProfileDetailScreenState
   void initState() {
     super.initState();
     _loadBusinessProfile();
+    VisitorAuth.savedAttractionsVersion.addListener(_onSavedChanged);
+  }
+
+  @override
+  void dispose() {
+    VisitorAuth.savedAttractionsVersion.removeListener(_onSavedChanged);
+    super.dispose();
+  }
+
+  void _onSavedChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadBusinessProfile() async {
@@ -100,6 +112,35 @@ class _BusinessProfileDetailScreenState
         );
       }
     }
+  }
+
+  Future<void> _toggleSaved() async {
+    final business = _business;
+    if (business == null) return;
+    final businessId = business.id ?? widget.businessId;
+
+    final didUpdate = VisitorAuth.toggleSavedBusiness(businessId);
+    if (!didUpdate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in as a Visitor to save businesses.')),
+      );
+      return;
+    }
+
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+
+    final isSaved = VisitorAuth.isBusinessSaved(businessId);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          isSaved
+              ? '${business.businessName} saved to Saved Businesses.'
+              : '${business.businessName} removed from Saved Businesses.',
+        ),
+      ),
+    );
+    setState(() {});
   }
 
   Future<void> _callBusiness() async {
@@ -170,6 +211,18 @@ class _BusinessProfileDetailScreenState
         backgroundColor: AppPalette.ochre,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: Icon(
+              _business != null &&
+                      VisitorAuth.isBusinessSaved(
+                        _business!.id ?? widget.businessId,
+                      )
+                  ? Icons.bookmark
+                  : Icons.bookmark_outline,
+            ),
+            tooltip: 'Save business',
+            onPressed: _business == null ? null : _toggleSaved,
+          ),
           IconButton(
             icon: const Icon(Icons.rate_review_outlined),
             tooltip: 'Recommend this Business',

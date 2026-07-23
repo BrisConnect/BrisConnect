@@ -28,6 +28,7 @@ class _SubmitReviewBottomSheetState extends State<SubmitReviewBottomSheet> {
       widget.reviewService ?? ReviewService();
   final TextEditingController _commentController = TextEditingController();
   int _rating = 5;
+  int _buzzRating = 0;
   bool _isSubmitting = false;
   bool _privacyConsent = false;
 
@@ -64,6 +65,7 @@ class _SubmitReviewBottomSheetState extends State<SubmitReviewBottomSheet> {
         visitorId: widget.visitorId,
         visitorName: widget.visitorName,
         rating: _rating,
+        buzzRating: _buzzRating,
         comment: _commentController.text.trim(),
       );
 
@@ -154,6 +156,57 @@ class _SubmitReviewBottomSheetState extends State<SubmitReviewBottomSheet> {
                     const SizedBox(height: 4),
                     Text(
                       '$_rating out of 5 stars',
+                      style: TextStyle(
+                        color: AppPalette.mutedText,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Buzz Rating
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Buzz Rating',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'How much buzz is this business generating?',
+                      style: TextStyle(
+                        color: AppPalette.mutedText,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: List.generate(5, (index) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: GestureDetector(
+                            onTap: () => setState(() => _buzzRating = index + 1),
+                            child: Icon(
+                              index < _buzzRating
+                                  ? Icons.flash_on
+                                  : Icons.flash_on_outlined,
+                              color: AppPalette.ochre,
+                              size: 32,
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _buzzRating > 0
+                          ? '$_buzzRating out of 5 lightning bolts'
+                          : 'Tap a lightning bolt to rate the buzz',
                       style: TextStyle(
                         color: AppPalette.mutedText,
                         fontSize: 12,

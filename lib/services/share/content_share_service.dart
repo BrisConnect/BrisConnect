@@ -30,8 +30,8 @@ enum ShareContentType { business, event, food, stadium }
 /// served by the web landing page for the shared URL. This service builds
 /// the same canonical URLs that those crawlers will fetch.
 class ContentShareService {
-  static const Duration shareTimeout = Duration(seconds: 2);
-  static const String _baseUrl = 'https://www.brisconnect.com.au';
+  static const Duration shareTimeout = Duration(seconds: 5);
+  static const String _baseUrl = 'https://brisconnect-68b78.web.app';
 
   final ClipboardWriter _clipboardWriter;
 
@@ -122,36 +122,67 @@ class ContentShareService {
     );
 
     Future<ShareResult> operation() async {
+      // Always copy first so the user has a fallback even if the native
+      // share sheet or launcher fails.
+      await _clipboardWriter(shareText);
+
       switch (platform) {
         case 'facebook':
           final fbUrl =
               'https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(url)}';
-          if (await canLaunchUrl(Uri.parse(fbUrl))) {
-            await launchUrl(
-              Uri.parse(fbUrl),
-              mode: LaunchMode.externalApplication,
-            );
-          } else {
-            await SharePlus.instance.share(ShareParams(text: shareText));
+          try {
+            if (await canLaunchUrl(Uri.parse(fbUrl))) {
+              await launchUrl(
+                Uri.parse(fbUrl),
+                mode: LaunchMode.externalApplication,
+              );
+              return ShareResult.shared;
+            }
+          } catch (_) {
+            // Fall through to native share if launcher fails.
           }
-          return ShareResult.shared;
+          try {
+            await SharePlus.instance.share(ShareParams(text: shareText));
+            return ShareResult.shared;
+          } catch (_) {
+            return ShareResult.copied;
+          }
         case 'instagram':
+          // Instagram does not expose a public share URL. On mobile the best
+          // UX is to present the native share sheet so the user can pick the
+          // Instagram app (Story/Post/DM) if it accepts the content, with the
+          // link already copied to the clipboard as a reliable fallback.
+          try {
+            await SharePlus.instance.share(
+              ShareParams(
+                text: shareText,
+                subject: 'Check out $title on BrisConnect+',
+              ),
+            );
+            return ShareResult.shared;
+          } catch (_) {
+            // The native share sheet may fail when Instagram is selected or
+            // when running under certain iOS conditions. The link is already
+            // on the clipboard, so report success with the copy fallback.
+            return ShareResult.copied;
+          }
         case 'tiktok':
-          await _clipboardWriter(shareText);
           return ShareResult.copied;
         case 'native':
-          await SharePlus.instance.share(
-            ShareParams(
-              text: shareText,
-              subject: 'Check out $title on BrisConnect+',
-            ),
-          );
-          return ShareResult.shared;
+          try {
+            await SharePlus.instance.share(
+              ShareParams(
+                text: shareText,
+                subject: 'Check out $title on BrisConnect+',
+              ),
+            );
+            return ShareResult.shared;
+          } catch (_) {
+            return ShareResult.copied;
+          }
         case 'copy':
-          await _clipboardWriter(shareText);
           return ShareResult.copied;
         default:
-          await _clipboardWriter(shareText);
           return ShareResult.copied;
       }
     }
@@ -163,7 +194,13 @@ class ContentShareService {
         return ShareResult.timedOut;
       });
     } catch (_) {
-      return ShareResult.failed;
+      // Last resort: try to copy the link even if everything else failed.
+      try {
+        await _clipboardWriter(shareText);
+        return ShareResult.copied;
+      } catch (_) {
+        return ShareResult.failed;
+      }
     }
   }
 }

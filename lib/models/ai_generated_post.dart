@@ -54,6 +54,7 @@ enum AiPostType {
 class AiGeneratedPost {
   final String? id;
   final String businessId;
+  final String businessName;
   final String ownerId;
   final AiPostType postType;
   final String title;
@@ -63,6 +64,7 @@ class AiGeneratedPost {
   final DateTime? eventDate;
   final String? location;
   final String generatedContent;
+  final String? imageUrl;
   final AiPostStatus status;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -70,6 +72,7 @@ class AiGeneratedPost {
   const AiGeneratedPost({
     this.id,
     required this.businessId,
+    this.businessName = '',
     required this.ownerId,
     required this.postType,
     required this.title,
@@ -79,6 +82,7 @@ class AiGeneratedPost {
     this.eventDate,
     this.location,
     required this.generatedContent,
+    this.imageUrl,
     this.status = AiPostStatus.draft,
     required this.createdAt,
     required this.updatedAt,
@@ -87,6 +91,7 @@ class AiGeneratedPost {
   Map<String, dynamic> toFirestore() {
     return {
       'businessId': businessId,
+      'businessName': businessName,
       'ownerId': ownerId,
       'postType': postType.name,
       'title': title,
@@ -96,6 +101,7 @@ class AiGeneratedPost {
       'eventDate': eventDate == null ? null : Timestamp.fromDate(eventDate!),
       'location': location,
       'generatedContent': generatedContent,
+      'imageUrl': imageUrl,
       'status': status.name,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
@@ -107,6 +113,7 @@ class AiGeneratedPost {
     return AiGeneratedPost(
       id: doc.id,
       businessId: data['businessId'] ?? '',
+      businessName: data['businessName'] as String? ?? '',
       ownerId: data['ownerId'] ?? '',
       postType: AiPostType.fromString(data['postType'] as String? ?? ''),
       title: data['title'] ?? '',
@@ -116,6 +123,7 @@ class AiGeneratedPost {
       eventDate: (data['eventDate'] as Timestamp?)?.toDate(),
       location: data['location'] as String?,
       generatedContent: data['generatedContent'] ?? '',
+      imageUrl: data['imageUrl'] as String?,
       status: _parseStatus(data['status'] as String?),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -129,6 +137,7 @@ class AiGeneratedPost {
   AiGeneratedPost copyWith({
     String? id,
     String? businessId,
+    String? businessName,
     String? ownerId,
     AiPostType? postType,
     String? title,
@@ -138,6 +147,7 @@ class AiGeneratedPost {
     DateTime? eventDate,
     String? location,
     String? generatedContent,
+    String? imageUrl,
     AiPostStatus? status,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -145,6 +155,7 @@ class AiGeneratedPost {
     return AiGeneratedPost(
       id: id ?? this.id,
       businessId: businessId ?? this.businessId,
+      businessName: businessName ?? this.businessName,
       ownerId: ownerId ?? this.ownerId,
       postType: postType ?? this.postType,
       title: title ?? this.title,
@@ -154,6 +165,7 @@ class AiGeneratedPost {
       eventDate: eventDate ?? this.eventDate,
       location: location ?? this.location,
       generatedContent: generatedContent ?? this.generatedContent,
+      imageUrl: imageUrl ?? this.imageUrl,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

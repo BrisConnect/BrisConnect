@@ -258,7 +258,8 @@ class BusinessDashboardService {
     final day = d.day.toString().padLeft(2, '0');
     final month = d.month.toString().padLeft(2, '0');
     final year = d.year;
-    return '$day/$month/$year';
+    // Use hyphen separators because Firestore field paths cannot contain '/'.
+    return '$day-$month-$year';
   }
 
   /// Records a profile view for [businessId] and updates daily view history.

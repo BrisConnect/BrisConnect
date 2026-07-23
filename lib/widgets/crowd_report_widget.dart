@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/services/crowd_report_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:intl/intl.dart';
@@ -27,7 +28,11 @@ class _CrowdReportWidgetState extends State<CrowdReportWidget> {
   @override
   void initState() {
     super.initState();
-    _service = widget.crowdReportService ?? CrowdReportService();
+    _service = widget.crowdReportService ??
+        CrowdReportService(
+          currentUserId: VisitorAuth.currentVisitor?.email,
+          useFirebaseAuth: false,
+        );
     _checkCooldown();
   }
 
@@ -38,6 +43,18 @@ class _CrowdReportWidgetState extends State<CrowdReportWidget> {
 
   Future<void> _submit() async {
     if (_selected == null || _submitting) return;
+
+    // Guests must sign in before reporting crowd levels.
+    if (!VisitorAuth.isVisitorLoggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please sign in to report crowd levels.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     setState(() => _submitting = true);
     try {
       await _service.submitReport(widget.eventId, _selected!);

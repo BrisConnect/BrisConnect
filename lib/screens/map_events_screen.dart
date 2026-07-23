@@ -1,12 +1,17 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
+import 'package:brisconnect/models/business.dart';
+import 'package:brisconnect/services/business_profile_service.dart';
+import 'package:brisconnect/services/firestore_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 
@@ -66,7 +71,17 @@ class _MapEventsScreenState extends State<MapEventsScreen>
   Timer? _markerThrottleTimer;
   DateTime _lastMarkerRebuildAt = DateTime.fromMillisecondsSinceEpoch(0);
   String? _pendingMarkerSignature;
-  
+
+  // Live data sources for the map pins.
+  final BusinessProfileService _businessService = BusinessProfileService();
+  final FirestoreService _firestoreService = FirestoreService();
+  final StreamController<List<Map<String, dynamic>>> _discoverItemsController =
+      StreamController<List<Map<String, dynamic>>>.broadcast();
+  List<Business>? _latestBusinesses;
+  List<Map<String, dynamic>>? _latestEvents;
+  StreamSubscription<List<Business>>? _businessSub;
+  StreamSubscription<List<Map<String, dynamic>>>? _eventsSub;
+
   _MapPin? _selectedPin;
   LatLng? _userLocation;
   bool _followUser = true;
@@ -98,15 +113,71 @@ class _MapEventsScreenState extends State<MapEventsScreen>
     )..repeat(reverse: true);
     // Don't auto-track GPS on emulator — start at Brisbane default.
     // Live tracking can be triggered by the user tapping the recenter button.
+
+    // Listen to live Firestore data and rebuild pins as it changes.
+    // For development, fall back to all businesses if none are verified so the
+    // map is usable before admin verification is complete.
+    _businessSub = _businessService.getVerifiedBusinessesStream().listen(
+      (businesses) {
+        debugPrint('[MapEventsScreen] Received ${businesses.length} verified businesses');
+        if (businesses.isEmpty) {
+          debugPrint('[MapEventsScreen] Falling back to all businesses');
+          _loadAllBusinessesForDev();
+          return;
+        }
+        for (final b in businesses) {
+          debugPrint('  biz=${b.businessName} lat=${b.lat} lng=${b.lng} verified=${b.isVerified}');
+        }
+        _latestBusinesses = businesses;
+        _emitDiscoverItems();
+      },
+      onError: (Object e) {
+        debugPrint('[MapEventsScreen] Businesses stream error: $e');
+        _loadAllBusinessesForDev();
+      },
+    );
+    _eventsSub = _firestoreService.getEvents().listen(
+      (events) {
+        debugPrint('[MapEventsScreen] Received ${events.length} events');
+        _latestEvents = events;
+        _emitDiscoverItems();
+      },
+      onError: (Object e) {
+        debugPrint('[MapEventsScreen] Events stream error: $e');
+        _latestEvents ??= <Map<String, dynamic>>[];
+        _emitDiscoverItems();
+      },
+    );
   }
 
   /// Read the user's profile locationRadiusKm (local or visitor).
+  /// For development on macOS we cap the minimum at the default so the map
+  /// is not accidentally filtered to an empty result.
   static double _profileRadiusKm() {
     final local = LocalAuth.currentLocal;
-    if (local != null) return local.locationRadiusKm.toDouble();
+    if (local != null) return math.max(local.locationRadiusKm.toDouble(), _defaultRadiusKm);
     final visitor = VisitorAuth.currentVisitor;
-    if (visitor != null) return visitor.locationRadiusKm.toDouble();
+    if (visitor != null) return math.max(visitor.locationRadiusKm.toDouble(), _defaultRadiusKm);
     return _defaultRadiusKm;
+  }
+
+  void _loadAllBusinessesForDev() {
+    _businessSub?.cancel();
+    _businessSub = _businessService.getAllBusinessesStream().listen(
+      (businesses) {
+        debugPrint('[MapEventsScreen] Received ${businesses.length} all businesses (dev fallback)');
+        for (final b in businesses) {
+          debugPrint('  biz=${b.businessName} lat=${b.lat} lng=${b.lng} verified=${b.isVerified}');
+        }
+        _latestBusinesses = businesses;
+        _emitDiscoverItems();
+      },
+      onError: (Object e) {
+        debugPrint('[MapEventsScreen] All businesses stream error: $e');
+        _latestBusinesses ??= <Business>[];
+        _emitDiscoverItems();
+      },
+    );
   }
 
   @override
@@ -116,6 +187,9 @@ class _MapEventsScreenState extends State<MapEventsScreen>
     _searchDebounce?.cancel();
     _markerThrottleTimer?.cancel();
     _positionSubscription?.cancel();
+    _businessSub?.cancel();
+    _eventsSub?.cancel();
+    _discoverItemsController.close();
     _searchController.dispose();
     super.dispose();
   }
@@ -272,6 +346,62 @@ class _MapEventsScreenState extends State<MapEventsScreen>
     return rebuilt;
   }
 
+  /// Rebuild the discover-items stream whenever businesses or events update.
+  void _emitDiscoverItems() {
+    final businesses = _latestBusinesses;
+    final events = _latestEvents;
+    if (businesses == null || events == null) return;
+    final items = _buildDiscoverItems(businesses, events);
+    debugPrint('[MapEventsScreen] Built ${items.length} discover items (radiusKm=$_radiusKm)');
+    _discoverItemsController.add(items);
+  }
+
+  /// Convert verified businesses and approved events into the discover-item
+  /// shape expected by [_discoverPins].
+  List<Map<String, dynamic>> _buildDiscoverItems(
+    List<Business> businesses,
+    List<Map<String, dynamic>> events,
+  ) {
+    final items = <Map<String, dynamic>>[];
+
+    for (final business in businesses) {
+      var lat = business.lat;
+      var lng = business.lng;
+      // Dev fallback: businesses saved before geocoding fixes get a default
+      // Brisbane CBD coordinate with deterministic jitter based on name.
+      if (lat == null || lng == null) {
+        final jitter = (business.businessName.hashCode % 1000) / 10000 - 0.05;
+        final jitterLng = (business.businessName.hashCode % 997) / 10000 - 0.05;
+        lat = _brisbaneLat + jitter;
+        lng = _brisbaneLng + jitterLng;
+      }
+      items.add({
+        'section': 'food',
+        'id': business.id ?? business.ownerId,
+        'title': business.businessName.trim(),
+        'latitude': lat,
+        'longitude': lng,
+        'location': business.address.trim(),
+        'badge': business.category.trim(),
+        'description': business.description.trim(),
+      });
+    }
+
+    for (final event in events) {
+      final lat = _toDouble(event['latitude']) ?? _toDouble(event['lat']);
+      final lng = _toDouble(event['longitude']) ?? _toDouble(event['lng']);
+      if (lat == null || lng == null) continue;
+      items.add({
+        ...event,
+        'section': 'events',
+        'latitude': lat,
+        'longitude': lng,
+      });
+    }
+
+    return items;
+  }
+
   List<_MapPin> _getFilteredPins(List<_MapPin> allPins) {
     final selectedTypeName = _selectedType?.name ?? 'all';
     final signature =
@@ -387,10 +517,8 @@ class _MapEventsScreenState extends State<MapEventsScreen>
     required List<Map<String, dynamic>> discoverItems,
     required List<dynamic> attractions,
   }) {
-    // Only show food items - filter out events, historical, stadiums, and attractions
-    final combined = <_MapPin>[
-      ..._discoverPins(discoverItems).where((pin) => pin.type == _MapPinType.food),
-    ];
+    // Include all discover pins so the type filter can show food, events, etc.
+    final combined = _discoverPins(discoverItems);
 
     final deduped = <String, _MapPin>{};
     for (final pin in combined) {
@@ -402,6 +530,7 @@ class _MapEventsScreenState extends State<MapEventsScreen>
         .where((pin) => _isWithinRadius(pin.latitude, pin.longitude))
         .toList(growable: false);
     pins.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    debugPrint('[MapEventsScreen] _buildPins returned ${pins.length} pins within radius');
     return pins;
   }
 
@@ -628,11 +757,14 @@ class _MapEventsScreenState extends State<MapEventsScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Only show events for now
-    final allPins = _getAllPins(
-      discoverItems: const <Map<String, dynamic>>[],
-      attractions: const <dynamic>[],
-    );
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _discoverItemsController.stream,
+      builder: (context, snapshot) {
+        final discoverItems = snapshot.data ?? const <Map<String, dynamic>>[];
+        final allPins = _getAllPins(
+          discoverItems: discoverItems,
+          attractions: const <dynamic>[],
+        );
     final pins = _getFilteredPins(allPins);
     final markers = _getMarkers(pins);
 
@@ -661,30 +793,42 @@ class _MapEventsScreenState extends State<MapEventsScreen>
 
     final mapCenter = _userLocation ?? _defaultCenter;
 
+    // Google Maps is not supported on macOS. Show a fallback list view so
+    // development on macOS still allows testing the rest of the feature.
+    final isMacOS = !kIsWeb && Platform.isMacOS;
+
     final body = Stack(
                 children: [
-                  GoogleMap(
-                    initialCameraPosition: CameraPosition(
-                      target: mapCenter,
-                      zoom: 11.6,
+                  if (isMacOS)
+                    _MacOSFallbackMap(
+                      pins: pins,
+                      userLocation: _userLocation,
+                      selectedPin: _selectedPin,
+                      onPinTap: (pin) => setState(() => _selectedPin = pin),
+                    )
+                  else
+                    GoogleMap(
+                      initialCameraPosition: CameraPosition(
+                        target: mapCenter,
+                        zoom: 11.6,
+                      ),
+                      onMapCreated: (controller) {
+                        _mapController = controller;
+                      },
+                      onTap: (_) => setState(() {
+                        _selectedPin = null;
+                        _followUser = false;
+                      }),
+                      markers: markers,
+                      myLocationButtonEnabled: false,
+                      myLocationEnabled: _userLocation != null,
+                      zoomControlsEnabled: true,
+                      buildingsEnabled: _use3dMode,
+                      tiltGesturesEnabled: true,
+                      mapType: _useVibrantMap
+                          ? MapType.normal
+                          : MapType.terrain,
                     ),
-                    onMapCreated: (controller) {
-                      _mapController = controller;
-                    },
-                    onTap: (_) => setState(() {
-                      _selectedPin = null;
-                      _followUser = false;
-                    }),
-                    markers: markers,
-                    myLocationButtonEnabled: false,
-                    myLocationEnabled: _userLocation != null,
-                    zoomControlsEnabled: true,
-                    buildingsEnabled: _use3dMode,
-                    tiltGesturesEnabled: true,
-                    mapType: _useVibrantMap
-                        ? MapType.normal
-                        : MapType.terrain,
-                  ),
                   Positioned.fill(
                     child: IgnorePointer(
                       child: DecoratedBox(
@@ -1425,16 +1569,18 @@ class _MapEventsScreenState extends State<MapEventsScreen>
                 ],
               );
 
-    if (widget.embedded) return body;
+        if (widget.embedded) return body;
 
-    return Scaffold(
-      backgroundColor: AppPalette.background,
-      appBar: AppBar(
-        title: const LogoAppBarTitle('Map Explorer'),
-        backgroundColor: AppPalette.ochre,
-        foregroundColor: Colors.white,
-      ),
-      body: body,
+        return Scaffold(
+          backgroundColor: AppPalette.background,
+          appBar: AppBar(
+            title: const LogoAppBarTitle('Map Explorer'),
+            backgroundColor: AppPalette.ochre,
+            foregroundColor: Colors.white,
+          ),
+          body: body,
+        );
+      },
     );
   }
 }
@@ -1516,6 +1662,120 @@ class _ModeButton extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(label, style: const TextStyle(fontSize: 12, color: AppPalette.deepBlue)),
+        ],
+      ),
+    );
+  }
+}
+
+/// macOS fallback for Google Maps, which is not supported on desktop.
+/// Displays the same pins in a scrollable list with approximate distance
+/// from the user (or Brisbane CBD if no location).
+class _MacOSFallbackMap extends StatelessWidget {
+  const _MacOSFallbackMap({
+    required this.pins,
+    this.userLocation,
+    this.selectedPin,
+    required this.onPinTap,
+  });
+
+  final List<_MapPin> pins;
+  final LatLng? userLocation;
+  final _MapPin? selectedPin;
+  final ValueChanged<_MapPin> onPinTap;
+
+  double _distanceKm(_MapPin pin) {
+    final from = userLocation ?? const LatLng(-27.4698, 153.0251);
+    const r = 6371.0;
+    final dLat = _toRad(pin.latitude - from.latitude);
+    final dLng = _toRad(pin.longitude - from.longitude);
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_toRad(from.latitude)) *
+            math.cos(_toRad(pin.latitude)) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return r * c;
+  }
+
+  double _toRad(double deg) => deg * math.pi / 180;
+
+  IconData _iconForType(_MapPinType type) {
+    return switch (type) {
+      _MapPinType.food => Icons.restaurant_rounded,
+      _MapPinType.event => Icons.event_rounded,
+      _MapPinType.attraction => Icons.attractions_rounded,
+      _MapPinType.culturalVenue => Icons.museum_rounded,
+      _MapPinType.stadium => Icons.stadium_rounded,
+      _MapPinType.olympicVenue => Icons.sports_rounded,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = List<_MapPin>.from(pins)
+      ..sort((a, b) => _distanceKm(a).compareTo(_distanceKm(b)));
+
+    return Container(
+      color: AppPalette.background,
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            color: AppPalette.ochre,
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+            child: const Text(
+              'Map view is not available on macOS. Showing nearby places.',
+              style: TextStyle(color: Colors.white, fontSize: 12),
+            ),
+          ),
+          Expanded(
+            child: sorted.isEmpty
+                ? Center(
+                    child: Text(
+                      'No places found',
+                      style: TextStyle(color: AppPalette.mutedText),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: sorted.length,
+                    itemBuilder: (context, index) {
+                      final pin = sorted[index];
+                      final isSelected = selectedPin?.id == pin.id;
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: isSelected
+                              ? AppPalette.ochre
+                              : AppPalette.deepBlue.withValues(alpha: 0.12),
+                          child: Icon(
+                            _iconForType(pin.type),
+                            color: isSelected
+                                ? Colors.white
+                                : AppPalette.deepBlue,
+                            size: 18,
+                          ),
+                        ),
+                        title: Text(
+                          pin.title,
+                          style: TextStyle(
+                            color: AppPalette.charcoal,
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${pin.location} · ${_distanceKm(pin).toStringAsFixed(1)} km',
+                          style: TextStyle(color: AppPalette.mutedText),
+                        ),
+                        tileColor: isSelected
+                            ? AppPalette.ochre.withValues(alpha: 0.08)
+                            : Colors.transparent,
+                        onTap: () => onPinTap(pin),
+                      );
+                    },
+                  ),
+          ),
         ],
       ),
     );

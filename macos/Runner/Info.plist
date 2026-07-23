@@ -28,5 +28,9 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSLocationUsageDescription</key>
+	<string>BrisConnect needs your location to show nearby places on the map.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>BrisConnect needs your location to show nearby places on the map.</string>
 </dict>
 </plist>

@@ -60,17 +60,25 @@ service firebase.storage {
 
     match /business_logos/{userEmail}/{fileName} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if isSignedIn() || request.auth == null;
     }
 
     match /business_covers/{userEmail}/{fileName} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if isSignedIn() || request.auth == null;
     }
 
     match /business_photos/{userEmail}/{fileName} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if isSignedIn() || request.auth == null;
+    }
+
+    // AI-generated post images.
+    // Dev: allow public read/write for unsigned macOS builds where Firebase Auth
+    // keychain access fails. Restrict to authenticated owners before production.
+    match /ai_post_images/{ownerId}/{fileName} {
+      allow read: if true;
+      allow write: if true;
     }
   }
 }

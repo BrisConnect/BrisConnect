@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
 import 'package:brisconnect/config/app_config.dart';
 import 'package:brisconnect/services/business_dashboard_service.dart';
+import 'package:brisconnect/services/email_code_auth_service.dart';
 import 'package:brisconnect/services/local_email_notification_service.dart';
 import 'package:brisconnect/services/sms_notification_service.dart';
 import 'package:brisconnect/services/app_display_settings_controller.dart';
@@ -123,7 +124,6 @@ class LocalAuth {
 
   static LocalUser? _currentLocal;
   static String? _lastErrorMessage;
-  static bool _useFirestoreAuthFallback = false;
   static final ValueNotifier<int> _profileVersion = ValueNotifier<int>(0);
 
   static LocalUser? get currentLocal => _currentLocal;
@@ -368,8 +368,6 @@ class LocalAuth {
       return false;
     }
 
-    _useFirestoreAuthFallback = false;
-
     final localUser = LocalUser(
       name: name.trim(),
       email: normalizedEmail,
@@ -409,7 +407,11 @@ class LocalAuth {
     return true;
   }
 
-  static Future<bool> login({required String email, required String password}) async {
+  static Future<bool> login({
+    required String email,
+    String? password,
+    String? code,
+  }) async {
     _lastErrorMessage = null;
     final normalizedEmail = await _resolveLoginEmail(email);
     if (normalizedEmail == null || normalizedEmail.isEmpty) {
@@ -417,47 +419,52 @@ class LocalAuth {
       return false;
     }
 
-    try {
-      if (!_useFirestoreAuthFallback) {
+    // Prefer email + code login when a code is provided.
+    if (code != null && code.trim().isNotEmpty) {
+      final verified = await EmailCodeAuthService.verifyCode(
+        email: normalizedEmail,
+        code: code,
+        userType: 'local',
+      );
+      if (!verified) {
+        _lastErrorMessage = EmailCodeAuthService.lastErrorMessage ??
+            'Invalid or expired code. Please try again.';
+        return false;
+      }
+    } else if (password != null && password.isNotEmpty) {
+      // Legacy password login is still supported for testing and migration.
+      try {
         await fb_auth.FirebaseAuth.instance.signInWithEmailAndPassword(
           email: normalizedEmail,
           password: password,
         );
-      }
-    } on fb_auth.FirebaseAuthException catch (error) {
-      debugPrint('[LocalAuth] Firebase Auth login failed: ${error.code}');
-      switch (error.code) {
-        case 'user-not-found':
-        case 'wrong-password':
-        case 'invalid-credential':
-          _lastErrorMessage = 'Invalid email or password.';
-          break;
-        case 'invalid-email':
-          _lastErrorMessage = 'Please enter a valid email address.';
-          break;
-        case 'network-request-failed':
-          _lastErrorMessage = 'No internet connection. Please try again.';
-          break;
-        case 'keychain-error':
-          _lastErrorMessage = 'Keychain access failed. Retrying with secure fallback.';
-          break;
-        default:
-          _lastErrorMessage = 'Login failed (${error.code}).';
-      }
-      _useFirestoreAuthFallback =
-          error.code == 'operation-not-allowed' ||
-          error.code == 'keychain-error';
-      if (!_useFirestoreAuthFallback) {
+      } on fb_auth.FirebaseAuthException catch (error) {
+        debugPrint('[LocalAuth] Firebase Auth login failed: ${error.code}');
+        switch (error.code) {
+          case 'user-not-found':
+          case 'wrong-password':
+          case 'invalid-credential':
+            _lastErrorMessage = 'Invalid email or password.';
+            break;
+          case 'invalid-email':
+            _lastErrorMessage = 'Please enter a valid email address.';
+            break;
+          case 'network-request-failed':
+            _lastErrorMessage = 'No internet connection. Please try again.';
+            break;
+          default:
+            _lastErrorMessage = 'Login failed (${error.code}).';
+        }
+        return false;
+      } catch (_) {
+        _lastErrorMessage = 'Login failed due to an unexpected error.';
         return false;
       }
-    } catch (_) {
-      _lastErrorMessage = 'Login failed due to an unexpected error.';
+    } else {
+      _lastErrorMessage = 'Please enter a code or password.';
       return false;
     }
 
-    // On unsigned macOS builds Firebase Auth may fail with keychain-error.
-    // Firestore rules are relaxed for local development so we can validate
-    // credentials and load the profile without a signed-in Firebase user.
     try {
       final doc = await FirebaseFirestore.instance
           .collection('local_users')
@@ -486,23 +493,12 @@ class LocalAuth {
         return false;
       }
 
-          final approvalStatus = _approvalFromString(
-            (data['approvalStatus'] as String?) ?? 'pending',
-          );
-          if (!isApprovalAuthorized(approvalStatus)) {
-            await fb_auth.FirebaseAuth.instance.signOut();
-            _lastErrorMessage = approvalDeniedMessage(approvalStatus);
-            return false;
-          }
-
-      final storedPasswordHash = (data['passwordHash'] as String?) ?? '';
-      final storedLegacyPassword = (data['password'] as String?) ?? '';
-      final matchesHashedPassword =
-          storedPasswordHash.isNotEmpty && storedPasswordHash == _passwordHash(password);
-      final matchesLegacyPassword =
-          storedLegacyPassword.isNotEmpty && storedLegacyPassword == password;
-      if (_useFirestoreAuthFallback && !matchesHashedPassword && !matchesLegacyPassword) {
-        _lastErrorMessage = 'Invalid email or password.';
+      final approvalStatus = _approvalFromString(
+        (data['approvalStatus'] as String?) ?? 'pending',
+      );
+      if (!isApprovalAuthorized(approvalStatus)) {
+        await fb_auth.FirebaseAuth.instance.signOut();
+        _lastErrorMessage = approvalDeniedMessage(approvalStatus);
         return false;
       }
 
@@ -515,8 +511,10 @@ class LocalAuth {
           'accountType': 'local',
           'email': normalizedEmail,
           'username': _deriveUsername(normalizedEmail),
-          'passwordHash': _passwordHash(password),
-          'passwordUpdatedAt': FieldValue.serverTimestamp(),
+          if (password != null && password.isNotEmpty)
+            'passwordHash': _passwordHash(password),
+          if (password != null && password.isNotEmpty)
+            'passwordUpdatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       } catch (_) {
         // Non-critical: login can continue if role metadata update fails.
@@ -527,7 +525,7 @@ class LocalAuth {
             ? data['name'] as String
             : normalizedEmail.split('@').first,
         email: normalizedEmail,
-        password: password,
+        password: password ?? '',
         phone: (data['phone'] as String?) ?? '',
         suburb: (data['suburb'] as String?) ?? '',
         interestedEventIds: ((data['interestedEventIds'] as List?) ?? const [])

@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/models/business.dart';
 import 'package:brisconnect/services/business_dashboard_service.dart';
 import 'package:brisconnect/services/business_profile_service.dart';
@@ -35,10 +36,53 @@ class _BusinessProfileViewScreenState extends State<BusinessProfileViewScreen> {
       BusinessDashboardService();
   bool _viewTracked = false;
 
+  Future<void> _toggleSaved(Business business) async {
+    final businessId = business.id ?? widget.businessId;
+    final wasSaved = VisitorAuth.isBusinessSaved(businessId);
+
+    // Optimistically update UI.
+    setState(() {});
+
+    final didUpdate = VisitorAuth.toggleSavedBusiness(businessId);
+    if (!didUpdate) {
+      _showSnackBar('Please log in as a Visitor to save businesses.');
+      return;
+    }
+
+    // Wait briefly for Firestore to persist so the user sees feedback after
+    // the write completes (or fails).
+    await Future.delayed(const Duration(milliseconds: 600));
+
+    if (!mounted) return;
+
+    final isSaved = VisitorAuth.isBusinessSaved(businessId);
+    _showSnackBar(
+      isSaved
+          ? '${business.businessName} saved to Saved Businesses.'
+          : '${business.businessName} removed from Saved Businesses.',
+    );
+
+    // If the handshake/network caused the write to silently fail, revert UI.
+    if (isSaved == wasSaved) {
+      setState(() {});
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _trackView();
+    VisitorAuth.savedAttractionsVersion.addListener(_onSavedChanged);
+  }
+
+  @override
+  void dispose() {
+    VisitorAuth.savedAttractionsVersion.removeListener(_onSavedChanged);
+    super.dispose();
+  }
+
+  void _onSavedChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _trackView() async {
@@ -170,7 +214,7 @@ class _BusinessProfileViewScreenState extends State<BusinessProfileViewScreen> {
                     icon: Icons.camera_alt,
                     label: 'Instagram',
                     color: const Color(0xFFE1306C),
-                    badge: 'Copy link',
+                    badge: 'Open share',
                     onTap: () {
                       Navigator.pop(ctx);
                       _shareToPlatform('instagram', businessId, businessName);
@@ -340,10 +384,27 @@ class _BusinessProfileViewScreenState extends State<BusinessProfileViewScreen> {
             builder: (context, snapshot) {
               if (!snapshot.hasData || snapshot.data == null) return const SizedBox.shrink();
               final business = snapshot.data!;
-              return IconButton(
-                icon: const Icon(Icons.share_rounded),
-                tooltip: 'Share this business',
-                onPressed: () => _showShareSheet(business.id ?? widget.businessId, business.businessName),
+              final isSaved = VisitorAuth.isBusinessSaved(
+                business.id ?? widget.businessId,
+              );
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      isSaved ? Icons.bookmark : Icons.bookmark_border,
+                    ),
+                    tooltip: isSaved
+                        ? 'Remove from saved businesses'
+                        : 'Save business',
+                    onPressed: () => _toggleSaved(business),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.share_rounded),
+                    tooltip: 'Share this business',
+                    onPressed: () => _showShareSheet(business.id ?? widget.businessId, business.businessName),
+                  ),
+                ],
               );
             },
           ),
@@ -372,6 +433,12 @@ class _BusinessProfileViewScreenState extends State<BusinessProfileViewScreen> {
                     height: 250,
                     width: double.infinity,
                     fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 250,
+                      width: double.infinity,
+                      color: AppPalette.background,
+                      child: const Icon(Icons.image_not_supported_rounded, size: 48),
+                    ),
                   )
                 else
                   Container(
@@ -396,14 +463,21 @@ class _BusinessProfileViewScreenState extends State<BusinessProfileViewScreen> {
                             children: [
                               // Logo
                               if (business.logoUrl != null)
-                                Container(
-                                  width: 120,
-                                  height: 120,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    image: DecorationImage(
-                                      image: NetworkImage(business.logoUrl!),
-                                      fit: BoxFit.cover,
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(
+                                    business.logoUrl!,
+                                    width: 120,
+                                    height: 120,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      width: 120,
+                                      height: 120,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(12),
+                                        color: AppPalette.background,
+                                      ),
+                                      child: const Icon(Icons.business_rounded, size: 48),
                                     ),
                                   ),
                                 )
@@ -521,22 +595,53 @@ class _BusinessProfileViewScreenState extends State<BusinessProfileViewScreen> {
 
                           const SizedBox(height: 24),
 
-                          // Share This Business button (always visible)
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: () => _showShareSheet(business.id ?? widget.businessId, business.businessName),
-                              icon: const Icon(Icons.share_rounded),
-                              label: const Text('Share This Business'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFFF7A1A),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                          // Save and Share buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _toggleSaved(business),
+                                  icon: Icon(
+                                    VisitorAuth.isBusinessSaved(
+                                      business.id ?? widget.businessId,
+                                    )
+                                        ? Icons.bookmark
+                                        : Icons.bookmark_border,
+                                  ),
+                                  label: Text(
+                                    VisitorAuth.isBusinessSaved(
+                                      business.id ?? widget.businessId,
+                                    )
+                                        ? 'Saved'
+                                        : 'Save Business',
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF2A2F3F),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _showShareSheet(business.id ?? widget.businessId, business.businessName),
+                                  icon: const Icon(Icons.share_rounded),
+                                  label: const Text('Share'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFFF7A1A),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
 
                           // Edit Button (if own profile)

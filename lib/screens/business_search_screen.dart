@@ -22,13 +22,9 @@ class _BusinessSearchScreenState extends State<BusinessSearchScreen> {
   bool _isLoading = true;
   String _selectedCategory = 'All Categories';
   
-  static const List<String> _categories = [
+  static final List<String> _categories = [
     'All Categories',
-    'Restaurant & Cafe',
-    'Retail',
-    'Service',
-    'Entertainment',
-    'Other',
+    ...businessCategories,
   ];
 
   @override

@@ -112,7 +112,7 @@ class Business {
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
       isVerified: data['isVerified'] ?? false,
-      rating: data['rating'],
+      rating: (data['rating'] as num?)?.toInt(),
       buzzScore: (data['buzzScore'] as num?)?.toDouble() ?? 0.0,
       isTrending: data['isTrending'] ?? false,
       viewCount: (data['viewCount'] as num?)?.toInt() ?? 0,
@@ -237,19 +237,28 @@ class DayHours {
   }
 }
 
-/// List of predefined business categories
+/// List of predefined business categories (food / cuisine only).
 const List<String> businessCategories = [
-  'Restaurant & Cafe',
-  'Retail & Shopping',
-  'Entertainment & Events',
-  'Health & Wellness',
-  'Professional Services',
-  'Education',
-  'Accommodation',
-  'Transportation',
-  'Arts & Culture',
-  'Sports & Recreation',
-  'Other',
+  'Italian',
+  'Caribbean',
+  'Mexican',
+  'Chinese',
+  'Indian',
+  'Japanese',
+  'Thai',
+  'Mediterranean',
+  'French',
+  'American',
+  'BBQ',
+  'Seafood',
+  'Vegan / Plant-Based',
+  'Bakery & Cafe',
+  'Desserts',
+  'Coffee & Tea',
+  'Fast Food',
+  'Fine Dining',
+  'Food Truck',
+  'Other Food',
 ];
 
 /// Predefined social media platforms

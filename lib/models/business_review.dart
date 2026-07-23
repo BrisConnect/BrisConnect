@@ -6,6 +6,7 @@ class BusinessReview {
   final String userId;
   final String? userName;
   final double rating; // 1-5 stars
+  final double buzzRating; // 1-5 buzz score
   final String comment;
   final DateTime createdAt;
   final int? helpfulCount;
@@ -16,6 +17,7 @@ class BusinessReview {
     required this.userId,
     this.userName,
     required this.rating,
+    this.buzzRating = 0.0,
     required this.comment,
     required this.createdAt,
     this.helpfulCount,
@@ -29,6 +31,7 @@ class BusinessReview {
       userId: data['userId'] ?? '',
       userName: data['userName'],
       rating: (data['rating'] as num?)?.toDouble() ?? 0.0,
+      buzzRating: (data['buzzRating'] as num?)?.toDouble() ?? 0.0,
       comment: data['comment'] ?? '',
       createdAt: data['createdAt'] != null
           ? (data['createdAt'] as Timestamp).toDate()
@@ -43,6 +46,7 @@ class BusinessReview {
       'userId': userId,
       'userName': userName,
       'rating': rating,
+      'buzzRating': buzzRating,
       'comment': comment,
       'createdAt': createdAt,
       'helpfulCount': helpfulCount,

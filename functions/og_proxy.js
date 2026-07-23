@@ -12,8 +12,8 @@ const DEFAULT_OG = {
   title: 'BrisConnect+ — Discover Brisbane',
   description:
     'Discover local food events, businesses and experiences in Brisbane with BrisConnect+',
-  image: 'https://www.brisconnect.com.au/assets/assets/brisconnect_icon.png',
-  url: 'https://www.brisconnect.com.au',
+  image: 'https://brisconnect-68b78.web.app/assets/assets/brisconnect_icon.png',
+  url: 'https://brisconnect-68b78.web.app',
 };
 
 /**
@@ -54,22 +54,25 @@ async function _resolveOgTags(type, id, query) {
   }
 
   const slugName = String(query.name || '').trim();
-  const baseUrl = `https://www.brisconnect.com.au/${type}/${id}`;
+  const baseUrl = `https://brisconnect-68b78.web.app/${type}/${id}`;
 
   if (type === 'event') {
-    const doc = await db.collection('business_events').doc(id).get();
-    if (doc.exists) {
-      const data = doc.data() || {};
-      return {
-        title: _firstNonEmpty(data.title, slugName, DEFAULT_OG.title),
-        description: _firstNonEmpty(
-          data.description,
-          data.shortDescription,
-          DEFAULT_OG.description,
-        ),
-        image: _firstNonEmpty(data.imageUrl, DEFAULT_OG.image),
-        url: baseUrl,
-      };
+    const collections = ['events', 'business_events'];
+    for (const collection of collections) {
+      const doc = await db.collection(collection).doc(id).get();
+      if (doc.exists) {
+        const data = doc.data() || {};
+        return {
+          title: _firstNonEmpty(data.title, slugName, DEFAULT_OG.title),
+          description: _firstNonEmpty(
+            data.description,
+            data.shortDescription,
+            DEFAULT_OG.description,
+          ),
+          image: _firstNonEmpty(data.imageUrl, DEFAULT_OG.image),
+          url: baseUrl,
+        };
+      }
     }
   }
 
@@ -146,7 +149,7 @@ function _renderHtml(og, requestUrl) {
   <script>
     // Human visitors: redirect into the Flutter web app while preserving the path.
     (function () {
-      var appUrl = 'https://www.brisconnect.com.au' + window.location.pathname + window.location.search;
+      var appUrl = 'https://brisconnect-68b78.web.app' + window.location.pathname + window.location.search;
       if (window.location.href !== appUrl) {
         window.location.replace(appUrl);
       }

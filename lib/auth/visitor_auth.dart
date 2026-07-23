@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
 import 'package:brisconnect/config/app_config.dart';
 import 'package:brisconnect/services/business_dashboard_service.dart';
+import 'package:brisconnect/services/email_code_auth_service.dart';
 import 'package:brisconnect/services/sms_notification_service.dart';
 import 'package:brisconnect/services/visitor_email_notification_service.dart';
 import 'package:brisconnect/services/app_display_settings_controller.dart';
@@ -125,6 +126,7 @@ class VisitorAuth {
   static VisitorUser? _currentVisitor;
   static final ValueNotifier<int> _interestedEventsVersion = ValueNotifier<int>(0);
   static final ValueNotifier<int> _profileVersion = ValueNotifier<int>(0);
+  static final ValueNotifier<int> _savedAttractionsVersion = ValueNotifier<int>(0);
   static String? _lastErrorMessage;
   static bool _isEmailUnverified = false;
 
@@ -133,6 +135,7 @@ class VisitorAuth {
   static bool get isEmailUnverified => _isEmailUnverified;
   static ValueListenable<int> get interestedEventsVersion => _interestedEventsVersion;
   static ValueListenable<int> get profileVersion => _profileVersion;
+  static ValueListenable<int> get savedAttractionsVersion => _savedAttractionsVersion;
   static String? get lastErrorMessage => _lastErrorMessage;
 
   static String _passwordHash(String password) {
@@ -303,7 +306,8 @@ class VisitorAuth {
 
   static Future<bool> login({
     required String email,
-    required String password,
+    String? password,
+    String? code,
   }) async {
     _lastErrorMessage = null;
     final normalizedEmail = await _resolveLoginEmail(email);
@@ -312,17 +316,27 @@ class VisitorAuth {
       return false;
     }
 
-    bool useFirestoreFallback = false;
-    try {
-      await fb_auth.FirebaseAuth.instance.signInWithEmailAndPassword(
+    // Prefer email + code login when a code is provided.
+    if (code != null && code.trim().isNotEmpty) {
+      final verified = await EmailCodeAuthService.verifyCode(
         email: normalizedEmail,
-        password: password,
+        code: code,
+        userType: 'visitor',
       );
-    } on fb_auth.FirebaseAuthException catch (error) {
-      debugPrint('[VisitorAuth] Firebase Auth login failed: ${error.code}');
-      if (error.code == 'keychain-error' || error.code == 'operation-not-allowed') {
-        useFirestoreFallback = true;
-      } else {
+      if (!verified) {
+        _lastErrorMessage = EmailCodeAuthService.lastErrorMessage ??
+            'Invalid or expired code. Please try again.';
+        return false;
+      }
+    } else if (password != null && password.isNotEmpty) {
+      // Legacy password login is still supported for testing and migration.
+      try {
+        await fb_auth.FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: normalizedEmail,
+          password: password,
+        );
+      } on fb_auth.FirebaseAuthException catch (error) {
+        debugPrint('[VisitorAuth] Firebase Auth login failed: ${error.code}');
         switch (error.code) {
           case 'user-not-found':
           case 'wrong-password':
@@ -339,9 +353,12 @@ class VisitorAuth {
             _lastErrorMessage = 'Visitor login failed (${error.code}).';
         }
         return false;
+      } catch (_) {
+        _lastErrorMessage = 'Visitor login failed due to an unexpected error.';
+        return false;
       }
-    } catch (_) {
-      _lastErrorMessage = 'Visitor login failed due to an unexpected error.';
+    } else {
+      _lastErrorMessage = 'Please enter a code or password.';
       return false;
     }
 
@@ -352,21 +369,6 @@ class VisitorAuth {
           .get();
 
       final data = doc.data() ?? const <String, dynamic>{};
-
-      // When using the Firestore fallback (unsigned macOS builds), validate the
-      // password hash locally because Firebase Auth sign-in failed.
-      if (useFirestoreFallback) {
-        final storedPasswordHash = (data['passwordHash'] as String?) ?? '';
-        final storedLegacyPassword = (data['password'] as String?) ?? '';
-        final matchesHashedPassword =
-            storedPasswordHash.isNotEmpty && storedPasswordHash == _passwordHash(password);
-        final matchesLegacyPassword =
-            storedLegacyPassword.isNotEmpty && storedLegacyPassword == password;
-        if (!matchesHashedPassword && !matchesLegacyPassword) {
-          _lastErrorMessage = 'Invalid email or password.';
-          return false;
-        }
-      }
 
       final role = (data['role'] as String?)?.toLowerCase();
       if (role != null && role.isNotEmpty && role != 'visitor') {
@@ -392,8 +394,10 @@ class VisitorAuth {
           'role': 'visitor',
           'email': normalizedEmail,
           'username': _deriveUsername(normalizedEmail),
-          'passwordHash': _passwordHash(password),
-          'passwordUpdatedAt': FieldValue.serverTimestamp(),
+          if (password != null && password.isNotEmpty)
+            'passwordHash': _passwordHash(password),
+          if (password != null && password.isNotEmpty)
+            'passwordUpdatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       } catch (_) {
         // Non-critical: login can continue if role metadata update fails.
@@ -404,7 +408,7 @@ class VisitorAuth {
             ? data['name'] as String
             : normalizedEmail.split('@').first,
         email: normalizedEmail,
-        password: password,
+        password: password ?? '',
         phone: (data['phone'] as String?) ?? '',
         interestedEventIds: ((data['interestedEventIds'] as List?) ?? const [])
             .map((item) => '$item')
@@ -938,6 +942,7 @@ class VisitorAuth {
 
     final updated = current.copyWith(savedAttractionIds: updatedIds);
     _replaceCurrentVisitor(updated);
+    _savedAttractionsVersion.value += 1;
 
     FirebaseFirestore.instance
         .collection('visitor_users')
@@ -948,6 +953,20 @@ class VisitorAuth {
     });
 
     return true;
+  }
+
+  // Business save helpers reuse the same saved list. Keeping separate names
+  // makes the call sites in business profiles self-documenting.
+  static bool isBusinessSaved(String businessId) {
+    return isAttractionSaved(businessId);
+  }
+
+  static bool toggleSavedBusiness(String businessId) {
+    return toggleSavedAttraction(businessId);
+  }
+
+  static Set<String> getSavedBusinessIds() {
+    return getSavedAttractionIds();
   }
 
   static Future<bool> setLocationSettings({

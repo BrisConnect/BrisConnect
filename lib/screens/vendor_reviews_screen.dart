@@ -26,15 +26,35 @@ class _VendorReviewsScreenState extends State<VendorReviewsScreen>
   }
 
   Future<void> _loadBusinessId() async {
-    final email = LocalAuth.currentLocal?.email;
-    if (email == null) return;
+    String? email = LocalAuth.currentLocal?.email;
+
+    // Dev fallback for unsigned macOS builds where Firebase Auth keychain
+    // access fails and currentLocal may not be populated even though the
+    // user logged in. Fall back to the first business in Firestore so the
+    // vendor reviews screen still renders during development.
+    if (email == null || email.isEmpty) {
+      try {
+        final firstBusiness =
+            await BusinessProfileService().getFirstBusiness();
+        if (firstBusiness != null && mounted) {
+          setState(() => _businessId = firstBusiness.id);
+          debugPrint('[VendorReviewsScreen] dev fallback businessId: $_businessId');
+        }
+      } catch (e) {
+        debugPrint('[VendorReviewsScreen] fallback lookup failed: $e');
+      }
+      return;
+    }
+
     try {
       final list =
           await BusinessProfileService().getUserBusinessProfiles(email);
       if (list.isNotEmpty && mounted) {
         setState(() => _businessId = list.first.id);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[VendorReviewsScreen] business lookup failed: $e');
+    }
   }
 
   @override
@@ -145,12 +165,21 @@ class _VendorReviewsScreenState extends State<VendorReviewsScreen>
       stream: FirebaseFirestore.instance
           .collection('reviews')
           .where('businessId', isEqualTo: _businessId)
+          .where('visible', isEqualTo: true)
           .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(
               child: CircularProgressIndicator(color: AppPalette.ochre));
+        }
+
+        if (snap.hasError) {
+          return _emptyState(
+            icon: Icons.error_outline_rounded,
+            title: 'Could not load reviews',
+            subtitle: snap.error.toString(),
+          );
         }
 
         final docs = snap.data?.docs ?? [];

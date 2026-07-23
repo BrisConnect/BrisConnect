@@ -1,11 +1,15 @@
+import 'dart:io';
+
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/models/ai_generated_post.dart';
 import 'package:brisconnect/services/ai_post_service.dart';
 import 'package:brisconnect/services/ai_post_storage_service.dart';
 import 'package:brisconnect/services/business_profile_service.dart';
+import 'package:brisconnect/services/firebase_media_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 
 /// Bottom sheet for AI-powered social media post generation.
@@ -39,8 +43,14 @@ class _AiPostSheetState extends State<AiPostSheet> {
   String? _generatedPost;
   bool _generating = false;
   bool _saving = false;
+  bool _uploadingImage = false;
   String? _error;
   String? _successMessage;
+  File? _selectedImage;
+  String? _uploadedImageUrl;
+
+  final _picker = ImagePicker();
+  final _mediaService = FirebaseMediaService();
 
   String _businessId = '';
   String _businessName = '';
@@ -115,6 +125,19 @@ class _AiPostSheetState extends State<AiPostSheet> {
                       ],
                     ),
                     const SizedBox(height: 8),
+                    if (post.imageUrl != null && post.imageUrl!.isNotEmpty) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          post.imageUrl!,
+                          height: 120,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     Text(
                       post.generatedContent,
                       maxLines: 3,
@@ -219,6 +242,7 @@ class _AiPostSheetState extends State<AiPostSheet> {
     final now = DateTime.now();
     return AiGeneratedPost(
       businessId: _businessId,
+      businessName: _businessName,
       ownerId: _ownerId,
       postType: _selectedType,
       title: _titleCtrl.text.trim(),
@@ -230,9 +254,57 @@ class _AiPostSheetState extends State<AiPostSheet> {
       location:
           _locationCtrl.text.trim().isNotEmpty ? _locationCtrl.text.trim() : null,
       generatedContent: _generatedCtrl.text.trim(),
+      imageUrl: _uploadedImageUrl,
       createdAt: now,
       updatedAt: now,
     );
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1200,
+      );
+      if (picked == null) return;
+      setState(() {
+        _selectedImage = File(picked.path);
+        _uploadedImageUrl = null;
+      });
+      await _uploadImage();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = 'Could not pick image: $e');
+      }
+    }
+  }
+
+  Future<void> _uploadImage() async {
+    final file = _selectedImage;
+    if (file == null) return;
+
+    setState(() => _uploadingImage = true);
+    try {
+      final bytes = await file.readAsBytes();
+      final ext = file.path.split('.').last.toLowerCase();
+      final contentType = ext == 'png' ? 'image/png' : 'image/jpeg';
+      final path = 'ai_post_images/$_ownerId/${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final url = await _mediaService.uploadBytes(
+        path: path,
+        bytes: bytes,
+        contentType: contentType,
+      );
+      if (mounted) {
+        setState(() => _uploadedImageUrl = url);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = 'Image upload failed: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingImage = false);
+    }
   }
 
   Future<void> _saveDraft() async {
@@ -464,6 +536,10 @@ class _AiPostSheetState extends State<AiPostSheet> {
             ],
             const SizedBox(height: 16),
 
+            // Image picker
+            _buildImagePicker(),
+            const SizedBox(height: 16),
+
             // Generate button
             SizedBox(
               width: double.infinity,
@@ -685,6 +761,82 @@ class _AiPostSheetState extends State<AiPostSheet> {
       case AiPostType.reviewHighlight:
         return 'e.g. Customer Favourite';
     }
+  }
+
+  Widget _buildImagePicker() {
+    final hasImage = _uploadedImageUrl != null && _uploadedImageUrl!.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Image (optional)',
+            style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.w500)),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: _uploadingImage ? null : _pickImage,
+          child: Container(
+            height: 160,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: const Color(0xFF2A2A3E),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              image: hasImage
+                  ? DecorationImage(
+                      image: NetworkImage(_uploadedImageUrl!),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+            ),
+            child: hasImage
+                ? Align(
+                    alignment: Alignment.topRight,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.close_rounded,
+                              color: Colors.white, size: 18),
+                          onPressed: () => setState(() {
+                            _selectedImage = null;
+                            _uploadedImageUrl = null;
+                          }),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                              minWidth: 32, minHeight: 32),
+                        ),
+                      ),
+                    ),
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _uploadingImage
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: AppPalette.ochre))
+                          : const Icon(Icons.add_photo_alternate_rounded,
+                              color: Color(0xFF8B8FA8), size: 32),
+                      const SizedBox(height: 8),
+                      Text(
+                        _uploadingImage ? 'Uploading…' : 'Tap to add an image',
+                        style: const TextStyle(
+                            color: Color(0xFF8B8FA8), fontSize: 12),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildTextField({

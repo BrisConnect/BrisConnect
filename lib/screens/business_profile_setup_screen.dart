@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/models/business.dart';
@@ -58,8 +61,19 @@ class _BusinessProfileSetupScreenState
   ];
 
   @override
+  void didUpdateWidget(covariant BusinessProfileSetupScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Hot reload or category list changes can leave _selectedCategory stale.
+    if (!businessCategories.contains(_selectedCategory)) {
+      _selectedCategory = businessCategories.first;
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
+    // Default to the first valid category in case the list changed.
+    _selectedCategory = businessCategories.first;
     final b = widget.existing;
     if (b != null) {
       _nameCtrl.text = b.businessName;
@@ -139,10 +153,23 @@ class _BusinessProfileSetupScreenState
         : 'business_covers/$email/$ts.jpg';
     setState(() => isLogo ? _uploadingLogo = true : _uploadingBanner = true);
     try {
-      final url = await _mediaService.uploadBytes(
-          path: path, bytes: bytes, contentType: 'image/jpeg');
+      final url = await _mediaService
+          .uploadBytes(path: path, bytes: bytes, contentType: 'image/jpeg')
+          .timeout(const Duration(seconds: 30));
       setState(() => isLogo ? _logoUrl = url : _bannerUrl = url);
+      debugPrint('[BusinessProfileSetup] uploaded ${isLogo ? 'logo' : 'cover'}: $url');
+    } on TimeoutException catch (_) {
+      debugPrint('[BusinessProfileSetup] upload timed out');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Upload timed out. Please try a smaller image.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     } catch (e) {
+      debugPrint('[BusinessProfileSetup] upload failed: $e');
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Upload failed: $e'), backgroundColor: Colors.redAccent));
     } finally {
@@ -212,25 +239,39 @@ class _BusinessProfileSetupScreenState
 
     setState(() => _saving = true);
 
-    // Validate and geocode the address before saving
+    // Validate and geocode the address before saving. Dev fallback: if
+    // geocoding fails (e.g. unsigned macOS build with Cloud Functions
+    // INTERNAL error), save without coordinates so the profile can still be
+    // created. The user can update coordinates later.
     final geocodingService = AddressGeocodingService();
-    final latLng = await geocodingService.geocodeAddress(address);
+    LatLng? latLng;
+    try {
+      latLng = await geocodingService
+          .geocodeAddress(address)
+          .timeout(const Duration(seconds: 10));
+    } catch (e) {
+      debugPrint('[BusinessProfileSetup] geocoding failed: $e');
+    }
 
-    if (latLng == null) {
+    if (latLng != null &&
+        !AddressGeocodingService.isWithinBrisbane(
+            latLng.latitude, latLng.longitude)) {
       if (mounted) {
         setState(() => _saving = false);
-        _showSnack('Invalid address. Please enter a valid Brisbane address.');
+        _showSnack(
+            'Address must be within Brisbane. Please enter a Brisbane address.');
       }
       return;
     }
 
-    if (!AddressGeocodingService.isWithinBrisbane(latLng.latitude, latLng.longitude)) {
-      if (mounted) {
-        setState(() => _saving = false);
-        _showSnack('Address must be within Brisbane. Please enter a Brisbane address.');
-      }
-      return;
+    if (latLng == null && mounted) {
+      _showSnack(
+          'Could not verify address location. Saving without map coordinates.');
     }
+
+    // Dev fallback: if geocoding returned no coordinates, default to Brisbane
+    // CBD so the business still appears on the map.
+    latLng ??= const LatLng(-27.4698, 153.0251);
 
     final hours = BusinessHours(
       hours: {

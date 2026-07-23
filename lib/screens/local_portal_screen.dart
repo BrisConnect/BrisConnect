@@ -22,7 +22,7 @@ import 'package:brisconnect/screens/vendor_reviews_screen.dart';
 import 'package:brisconnect/screens/business_profile_screen.dart';
 import 'package:brisconnect/screens/local_settings_screen.dart';
 import 'package:brisconnect/screens/my_feedback_screen.dart';
-import 'package:brisconnect/screens/welcome_screen.dart';
+import 'package:brisconnect/screens/welcome_screen_new.dart';
 import 'package:brisconnect/services/firestore_service.dart';
 import 'package:brisconnect/services/location_utilities.dart';
 import 'package:brisconnect/services/firebase_media_service.dart';
@@ -1251,7 +1251,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     await LocalAuth.logout();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+      MaterialPageRoute(builder: (_) => const AnimatedWelcomeScreen()),
       (route) => false,
     );
   }

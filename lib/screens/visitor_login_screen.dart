@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/screens/visitor_signup_screen.dart';
+import 'package:brisconnect/services/email_code_auth_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/utils/auth_validation.dart';
 import 'package:brisconnect/widgets/inline_status_message.dart';
@@ -18,9 +19,10 @@ class VisitorLoginScreen extends StatefulWidget {
 class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _identifierController;
-  final TextEditingController _passwordController = TextEditingController();
-  bool _obscurePassword = true;
+  final TextEditingController _codeController = TextEditingController();
   bool _isSubmitting = false;
+  bool _isSendingCode = false;
+  bool _codeSent = false;
   String? _statusMessage;
   InlineStatusType _statusType = InlineStatusType.error;
 
@@ -33,8 +35,55 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
   @override
   void dispose() {
     _identifierController.dispose();
-    _passwordController.dispose();
+    _codeController.dispose();
     super.dispose();
+  }
+
+  Future<void> _sendCode() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSendingCode = true;
+      _statusMessage = null;
+    });
+
+    final result = await EmailCodeAuthService.sendCode(
+      email: _identifierController.text,
+      userType: 'visitor',
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isSendingCode = false;
+    });
+
+    switch (result) {
+      case SendCodeResult.sent:
+        setState(() {
+          _codeSent = true;
+          _statusMessage = 'Code sent! Check your email.';
+          _statusType = InlineStatusType.success;
+        });
+      case SendCodeResult.invalidEmail:
+        setState(() {
+          _statusMessage = EmailCodeAuthService.lastErrorMessage;
+          _statusType = InlineStatusType.error;
+        });
+      case SendCodeResult.tooManyRequests:
+        setState(() {
+          _statusMessage = EmailCodeAuthService.lastErrorMessage ??
+              'Please wait before requesting another code.';
+          _statusType = InlineStatusType.info;
+        });
+      case SendCodeResult.networkError:
+      case SendCodeResult.unknownError:
+        setState(() {
+          _statusMessage = EmailCodeAuthService.lastErrorMessage ??
+              'Could not send code. Please try again.';
+          _statusType = InlineStatusType.error;
+        });
+    }
   }
 
   Future<void> _login() async {
@@ -49,7 +98,7 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
 
     final success = await VisitorAuth.login(
       email: _identifierController.text,
-      password: _passwordController.text,
+      code: _codeController.text,
     );
 
     if (!mounted) {
@@ -70,63 +119,6 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
     }
 
     Navigator.pushReplacementNamed(context, '/visitor/portal');
-  }
-
-  Future<void> _showForgotPasswordDialog() async {
-    final emailController = TextEditingController(
-      text: _identifierController.text.contains('@')
-          ? _identifierController.text.trim()
-          : '',
-    );
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Reset your password'),
-        content: TextField(
-          controller: emailController,
-          keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(
-            hintText: 'Enter your email',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              final email = emailController.text.trim();
-              if (email.isEmpty) {
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(content: Text('Please enter your email')),
-                );
-                return;
-              }
-              Navigator.pop(ctx);
-              final result = await VisitorAuth.sendPasswordReset(
-                emailOrUsername: email,
-              );
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      result
-                          ? 'Reset email sent! Check your inbox.'
-                          : (VisitorAuth.lastErrorMessage ?? 'Failed to send reset email'),
-                    ),
-                    duration: const Duration(seconds: 4),
-                  ),
-                );
-              }
-            },
-            child: const Text('Send Reset Link'),
-          ),
-        ],
-      ),
-    );
   }
 
   InputDecoration _fieldDecoration({
@@ -237,65 +229,42 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
                                 const SizedBox(height: 10),
                               ],
 
-                              // Email or Username
+                              // Email
                               TextFormField(
                                 controller: _identifierController,
                                 keyboardType: TextInputType.emailAddress,
                                 style: const TextStyle(color: AppPalette.charcoal),
                                 decoration: _fieldDecoration(
-                                  hintText: 'Email or Username',
+                                  hintText: 'Email',
                                   prefixIcon: Icons.mail_outline,
                                 ),
-                                validator: AuthValidation.emailOrUsername,
+                                validator: AuthValidation.email,
                               ),
                               const SizedBox(height: 14),
 
-                              // Password
+                              // Code
                               TextFormField(
-                                controller: _passwordController,
-                                obscureText: _obscurePassword,
+                                controller: _codeController,
+                                keyboardType: TextInputType.number,
+                                textInputAction: TextInputAction.done,
                                 style: const TextStyle(color: AppPalette.charcoal),
                                 decoration: _fieldDecoration(
-                                  hintText: 'Password',
-                                  prefixIcon: Icons.lock_outline,
-                                  suffixIcon: IconButton(
-                                    onPressed: () => setState(
-                                        () => _obscurePassword = !_obscurePassword),
-                                    icon: Icon(
-                                      _obscurePassword
-                                          ? Icons.visibility_outlined
-                                          : Icons.visibility_off_outlined,
-                                      color: AppPalette.mutedText,
-                                      size: 20,
-                                    ),
-                                  ),
+                                  hintText: 'Enter 6-digit code',
+                                  prefixIcon: Icons.vpn_key_outlined,
                                 ),
                                 validator: (v) =>
-                                    AuthValidation.requiredField(v, 'Password'),
+                                    AuthValidation.requiredField(v, 'Code'),
                               ),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: TextButton(
-                                  onPressed: _isSubmitting ? null : _showForgotPasswordDialog,
-                                  child: const Text(
-                                    'Forgot password?',
-                                    style: TextStyle(
-                                      color: AppPalette.ochre,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 24),
+                              const SizedBox(height: 12),
 
-                              // Log In button
+                              // Send code / Log In buttons
                               SizedBox(
                                 width: double.infinity,
                                 height: 52,
                                 child: ElevatedButton(
-                                  onPressed: _isSubmitting ? null : _login,
+                                  onPressed: _isSendingCode ? null : _sendCode,
                                   style: EnhancedButtonStyles.fullWidthPrimaryButton(),
-                                  child: _isSubmitting
+                                  child: _isSendingCode
                                       ? const SizedBox(
                                           height: 20,
                                           width: 20,
@@ -304,12 +273,46 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
                                             color: Colors.white,
                                           ),
                                         )
+                                      : Text(
+                                          _codeSent ? 'Resend Code' : 'Send Code',
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 52,
+                                child: ElevatedButton(
+                                  onPressed: _isSubmitting ? null : _login,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppPalette.surfaceAlt,
+                                    foregroundColor: AppPalette.ochre,
+                                    disabledBackgroundColor:
+                                        AppPalette.surfaceAlt.withValues(alpha: 0.5),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      side: const BorderSide(color: AppPalette.ochre),
+                                    ),
+                                  ),
+                                  child: _isSubmitting
+                                      ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: AppPalette.ochre,
+                                          ),
+                                        )
                                       : const Row(
                                           mainAxisAlignment:
                                               MainAxisAlignment.center,
                                           children: [
                                             Text(
-                                              'Log In',
+                                              'Verify & Log In',
                                               style: TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w600,

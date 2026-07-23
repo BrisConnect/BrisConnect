@@ -12,7 +12,7 @@ import 'package:brisconnect/screens/admin_email_broadcast_screen.dart';
 import 'package:brisconnect/screens/admin_sms_broadcast_screen.dart';
 import 'package:brisconnect/screens/admin_user_management_screen.dart';
 import 'package:brisconnect/screens/admin_reported_events_screen.dart';
-import 'package:brisconnect/screens/welcome_screen.dart';
+import 'package:brisconnect/screens/welcome_screen_new.dart';
 import 'package:brisconnect/services/admin_dashboard_service.dart';
 import 'package:brisconnect/services/admin_event_service.dart';
 import 'package:brisconnect/services/event_category_service.dart';
@@ -1093,7 +1093,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 await AdminAuth.logout();
                 if (!mounted) return;
                 Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                  MaterialPageRoute(builder: (_) => const AnimatedWelcomeScreen()),
                   (route) => false,
                 );
               },

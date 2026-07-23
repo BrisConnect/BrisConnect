@@ -5,10 +5,12 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:brisconnect/screens/business_profile_view_screen.dart';
 import 'package:brisconnect/screens/food_detail_screen.dart';
 import 'package:brisconnect/screens/stadium_detail_screen.dart';
 import 'package:brisconnect/screens/visitor_event_detail_screen.dart';
@@ -22,7 +24,7 @@ import 'package:brisconnect/services/firestore_service.dart';
 import 'package:brisconnect/services/location_utilities.dart';
 import 'package:brisconnect/services/olympic_event_email_service.dart';
 import 'package:brisconnect/services/visitor_notification_service.dart';
-import 'package:brisconnect/screens/welcome_screen.dart';
+import 'package:brisconnect/screens/welcome_screen_new.dart';
 import 'package:brisconnect/services/firebase_media_service.dart';
 import 'package:brisconnect/utils/error_messages.dart';
 import 'package:brisconnect/utils/profile_image_utils.dart';
@@ -749,9 +751,20 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   }
 
   void _showFoodReviewDialog(Map<String, dynamic> item) {
+    // Guests must sign in before writing a review or submitting a BuzzVote.
+    if (!VisitorAuth.isVisitorLoggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please sign in to write a review or BuzzVote.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     final foodTitle = item['title'] as String? ?? 'Food Place';
     final foodId = item['id'] as String? ?? '';
-    
+
     showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => FoodReviewDialog(
@@ -1758,17 +1771,20 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
 
   Widget _buildSavedBody() {
     return ValueListenableBuilder<int>(
-      valueListenable: VisitorAuth.interestedEventsVersion,
+      valueListenable: VisitorAuth.savedAttractionsVersion,
       builder: (context, _, __) {
         final savedEventIds = VisitorAuth.getInterestedEventIds();
         final savedAttractionIds = VisitorAuth.getSavedAttractionIds();
+        final savedBusinessIds = VisitorAuth.getSavedBusinessIds();
 
-        if (savedEventIds.isEmpty && savedAttractionIds.isEmpty) {
+        if (savedEventIds.isEmpty &&
+            savedAttractionIds.isEmpty &&
+            savedBusinessIds.isEmpty) {
           return const Center(
             child: _EmptyState(
               title: 'No saved items yet',
               subtitle:
-                  'Tap the heart icon on food business cards to save them here.',
+                  'Tap the heart icon on food business cards or the bookmark on a business profile to save them here.',
             ),
           );
         }
@@ -1846,7 +1862,9 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                   ...savedFirestoreEvents,
                 ];
 
-                if (savedEvents.isEmpty && savedAttractions.isEmpty) {
+                if (savedEvents.isEmpty &&
+                    savedAttractions.isEmpty &&
+                    savedBusinessIds.isEmpty) {
                   return const Center(
                     child: _EmptyState(
                       title: 'Saved items unavailable',
@@ -1888,11 +1906,114 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                         ),
                       ),
                     ],
+                    if (savedBusinessIds.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      const _SectionHeader(
+                        title: 'Saved Businesses',
+                        subtitle: 'Business profiles you have bookmarked',
+                      ),
+                      ...savedBusinessIds.map(
+                        (id) => KeyedSubtree(
+                          key: Key('saved-business-card-$id'),
+                          child: _buildSavedBusinessCard(id),
+                        ),
+                      ),
+                    ],
                   ],
                 );
               },
             );
           },
+        );
+      },
+    );
+  }
+
+  Widget _buildSavedBusinessCard(String businessId) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('businesses')
+          .doc(businessId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const SizedBox.shrink();
+        }
+        final data = snapshot.data!.data() as Map<String, dynamic>?;
+        if (data == null) return const SizedBox.shrink();
+
+        final name = data['businessName'] as String? ?? 'Business';
+        final imageUrl = data['logoImageUrl'] as String? ??
+            data['coverImageUrl'] as String? ??
+            '';
+        final category = data['category'] as String? ?? '';
+
+        return Card(
+          color: AppPalette.surface,
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.all(12),
+            leading: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: imageUrl.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      width: 60,
+                      height: 60,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(
+                        width: 60,
+                        height: 60,
+                        color: AppPalette.surfaceAlt,
+                      ),
+                      errorWidget: (_, __, ___) => Container(
+                        width: 60,
+                        height: 60,
+                        color: AppPalette.surfaceAlt,
+                        child: const Icon(Icons.business, color: Colors.white54),
+                      ),
+                    )
+                  : Container(
+                      width: 60,
+                      height: 60,
+                      color: AppPalette.surfaceAlt,
+                      child: const Icon(Icons.business, color: Colors.white54),
+                    ),
+            ),
+            title: Text(
+              name,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            subtitle: category.isNotEmpty
+                ? Text(
+                    category,
+                    style: TextStyle(color: AppPalette.mutedText),
+                  )
+                : null,
+            trailing: IconButton(
+              icon: const Icon(Icons.bookmark, color: AppPalette.ochre),
+              onPressed: () {
+                VisitorAuth.toggleSavedBusiness(businessId);
+                setState(() {});
+              },
+            ),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => BusinessProfileViewScreen(
+                    businessId: businessId,
+                    isOwnProfile: false,
+                  ),
+                ),
+              );
+            },
+          ),
         );
       },
     );
@@ -2252,7 +2373,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     await VisitorAuth.logout();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+      MaterialPageRoute(builder: (_) => const AnimatedWelcomeScreen()),
       (route) => false,
     );
   }

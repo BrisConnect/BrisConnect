@@ -1841,9 +1841,100 @@ exports.refreshTrendingScores = onSchedule(
   },
 );
 
-// ── AI Post Generator (callable, uses Vertex AI Gemini) ──────────────────────
-const https = require('https');
+// ── AI Post Generator (callable, uses Google Gemini API) ─────────────────────
 const geminiApiKey = defineSecret('GEMINI_API_KEY');
+
+async function callGemini(prompt) {
+  const apiKey = geminiApiKey.value();
+  if (!apiKey || apiKey.length < 10) {
+    throw new Error('GEMINI_API_KEY is not configured.');
+  }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const body = JSON.stringify({
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: prompt }],
+      },
+    ],
+    generationConfig: {
+      temperature: 0.85,
+      maxOutputTokens: 400,
+      topP: 0.95,
+      topK: 40,
+    },
+  });
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini API error ${response.status}: ${errorText}`);
+  }
+
+  const json = await response.json();
+  const candidates = json.candidates || [];
+  if (candidates.length === 0) {
+    throw new Error('Gemini returned no candidates.');
+  }
+
+  const parts = candidates[0].content?.parts || [];
+  const text = parts.map((part) => part.text || '').join('').trim();
+  if (!text) {
+    throw new Error('Gemini returned empty content.');
+  }
+  return text;
+}
+
+function buildPrompt(postType, businessName, category, extraContext) {
+  const base = `You are a witty, energetic social media marketer for local Brisbane businesses.
+Write ONE short, exciting, fun Facebook/Instagram post for "${businessName}"${category ? ` (${category})` : ''}.
+Use emojis, keep it under 280 words, and make locals feel FOMO.
+Tone: friendly, punchy, and authentically Brisbane.
+Do not include markdown or bullet lists. Return only the post text.`;
+
+  const typeGuidance = {
+    Promotion: 'Focus on the deal, why it is irresistible, and urgency.',
+    'Menu Item': 'Make the dish sound mouth-watering and worth visiting for.',
+    'Business Event': 'Hype the event, who should come, and what to expect.',
+    Announcement: 'Make the news feel personal and celebratory.',
+    'Review Highlight': 'Turn a great customer moment into a humble brag.',
+  };
+
+  const lines = [base];
+  const guidance = typeGuidance[postType] || 'Make it engaging and shareable.';
+  lines.push(`Post type guidance: ${guidance}`);
+
+  if (extraContext && extraContext.trim().length > 0) {
+    lines.push(`Use these details naturally in the post:\n${extraContext.trim()}`);
+  }
+
+  lines.push('Include 3-5 relevant hashtags at the end.');
+  return lines.join('\n\n');
+}
+
+function fallbackPost(postType, businessName, category, extraContext) {
+  const details = extraContext.trim().split('\n').filter(Boolean);
+  const detailSentence = details.length > 0
+    ? ` ${details[0].replace(/^(Title|Description|Price|Discount|Date|Location):\s*/i, '')}.`
+    : '';
+  const safeCategory = (category || 'Brisbane').replace(/\s+/g, '');
+
+  const openers = {
+    Promotion: `🔥 Don\'t miss out, Brisbane! ${businessName} has a deal you\'ll love.${detailSentence} Grab it before it\'s gone!`,
+    'Menu Item': `🤤 Craving something delicious? ${businessName} has you covered.${detailSentence} Come taste what everyone\'s talking about!`,
+    'Business Event': `🎉 Something exciting is happening at ${businessName}!${detailSentence} Bring your crew and make it a night to remember.`,
+    Announcement: `📣 Big news from ${businessName}!${detailSentence} We can\'t wait to share it with you.`,
+    'Review Highlight': `⭐ Our customers said it best! ${businessName} is all about great vibes and even better experiences.${detailSentence}`,
+  };
+
+  return `${openers[postType] || openers.Announcement}\n\nFollow us for more updates and tag a friend who needs to see this!\n\n#Brisbane #${safeCategory} #LocalBusiness #BrisConnect`;
+}
 
 exports.generatePost = onCall(
   {
@@ -1863,16 +1954,276 @@ exports.generatePost = onCall(
       throw new HttpsError('invalid-argument', 'businessName is required.');
     }
 
-    // Dev: return a mock post so unsigned macOS builds can test the UI without
-    // a valid Gemini API key. Replace this with a real API call before production.
-    const contextPreview = extraContext.trim().length > 0
-      ? ` ${extraContext.trim().split('\n')[0]}...`
-      : '';
-    const safeCategory = category.replace(/\s+/g, '');
-    return {
-      post: `🎉 ${businessName} has something exciting coming up!${contextPreview}\n\nStay tuned for more details and be the first to know what's happening in the ${category} scene.\n\n#Brisbane #${safeCategory} #LocalBusiness #ComingSoon`,
-    };
+    try {
+      const prompt = buildPrompt(postType, businessName, category, extraContext);
+      const post = await callGemini(prompt);
+      return { post };
+    } catch (error) {
+      logger.warn('Gemini generation failed, using fallback.', { error: error.message, businessName });
+      return { post: fallbackPost(postType, businessName, category, extraContext) };
+    }
   }
+);
+
+// ── One-time backfill: mirror business/{id}/reviews to top-level reviews ─────
+exports.backfillBusinessReviews = onCall(
+  {
+    region: 'australia-southeast1',
+  },
+  async (request) => {
+    // Dev: allow unauthenticated calls from unsigned macOS builds.
+    // Restrict to admin before running in production.
+    // if (!request.auth || !request.auth.token.admin) {
+    //   throw new HttpsError('permission-denied', 'Admin only');
+    // }
+
+    const db = admin.firestore();
+    const businessesSnap = await db.collection('businesses').get();
+    let mirrored = 0;
+    let skipped = 0;
+
+    for (const businessDoc of businessesSnap.docs) {
+      const businessId = businessDoc.id;
+      const reviewsSnap = await businessDoc.ref.collection('reviews').get();
+
+      for (const reviewDoc of reviewsSnap.docs) {
+        const data = reviewDoc.data();
+        const createdAt = data.createdAt;
+
+        // Avoid duplicates by checking for an existing review with the same
+        // businessId, userId, rating, comment, and createdAt.
+        const existing = await db
+          .collection('reviews')
+          .where('businessId', '==', businessId)
+          .where('visitorId', '==', data.userId)
+          .where('rating', '==', Math.round(data.rating || 0))
+          .where('comment', '==', data.comment || '')
+          .limit(1)
+          .get();
+
+        if (!existing.empty) {
+          skipped += 1;
+          continue;
+        }
+
+        await db.collection('reviews').add({
+          businessId: businessId,
+          visitorId: data.userId || 'unknown',
+          visitorName: data.userName || 'Anonymous',
+          rating: Math.round(data.rating || 0),
+          comment: data.comment || '',
+          createdAt: createdAt || admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: null,
+          deletedAt: null,
+          isReported: false,
+          reportReason: null,
+          reportedBy: null,
+          deletedBy: null,
+          helpfulCount: data.helpfulCount || 0,
+          isFlagged: false,
+          visible: true,
+        });
+        mirrored += 1;
+      }
+    }
+
+    logger.info('Backfill complete', { mirrored, skipped });
+    return { mirrored, skipped };
+  }
+);
+
+// ── Email + code login ──────────────────────────────────────────────────────
+
+const LOGIN_CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const LOGIN_CODE_MAX_ATTEMPTS = 5;
+
+function generateCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function hashCode(code) {
+  return crypto.createHash('sha256').update(code).digest('hex');
+}
+
+function loginCodeDocId(email) {
+  return email.trim().toLowerCase();
+}
+
+function getLoginEmailHtml(code, userType) {
+  const title = userType === 'local' ? 'Local Account' : 'Visitor Account';
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+      <div style="background-color:#E8820C;padding:20px 24px;border-radius:8px 8px 0 0;text-align:center;">
+        <span style="font-size:24px;font-weight:900;color:#ffffff;letter-spacing:1px;">BrisConnect+</span>
+      </div>
+      <div style="background-color:#ffffff;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e0e0e0;border-top:none;">
+        <p style="font-size:16px;color:#333333;">Hello,</p>
+        <p style="font-size:16px;color:#333333;">Use the code below to sign in to your BrisConnect+ ${title}:</p>
+        <div style="text-align:center;margin:24px 0;">
+          <span style="font-size:32px;font-weight:700;letter-spacing:8px;color:#E8820C;padding:12px 24px;background-color:#FFF5EB;border-radius:8px;">${code}</span>
+        </div>
+        <p style="font-size:14px;color:#666666;">This code expires in 10 minutes. If you didn't request it, you can safely ignore this email.</p>
+      </div>
+      <p style="text-align:center;font-size:11px;color:#999999;margin-top:16px;">&copy; 2026 BrisConnect+. All rights reserved.</p>
+    </div>
+  `;
+}
+
+exports.sendEmailLoginCode = onCall(
+  {
+    region: 'australia-southeast1',
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    const email = String(request.data.email || '').trim().toLowerCase();
+    const userType = String(request.data.userType || '').trim().toLowerCase();
+
+    if (!email || !email.includes('@')) {
+      throw new HttpsError('invalid-argument', 'A valid email address is required.');
+    }
+    if (!['visitor', 'local'].includes(userType)) {
+      throw new HttpsError('invalid-argument', 'userType must be visitor or local.');
+    }
+
+    const code = generateCode();
+    const codeHash = hashCode(code);
+    const now = Date.now();
+    const docId = loginCodeDocId(email);
+
+    const codesRef = admin.firestore().collection('login_codes').doc(docId);
+    const existing = await codesRef.get();
+    if (existing.exists) {
+      const data = existing.data() || {};
+      const sentAt = data.sentAt ? data.sentAt.toMillis() : 0;
+      if (now - sentAt < 60000) {
+        throw new HttpsError('resource-exhausted', 'Please wait before requesting another code.');
+      }
+    }
+
+    await codesRef.set({
+      email,
+      userType,
+      codeHash,
+      attempts: 0,
+      sentAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt: admin.firestore.Timestamp.fromMillis(now + LOGIN_CODE_TTL_MS),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Queue the email in the existing mail collection.
+    await admin.firestore().collection('mail').doc(`login-code-${email}-${now}`).set({
+      to: email,
+      message: {
+        subject: 'Your BrisConnect+ sign-in code',
+        html: getLoginEmailHtml(code, userType),
+      },
+      meta: {
+        type: 'login_code',
+        userType,
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    logger.info('Login code queued', { email, userType });
+    return { sent: true };
+  },
+);
+
+exports.verifyEmailLoginCode = onCall(
+  {
+    region: 'australia-southeast1',
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    const email = String(request.data.email || '').trim().toLowerCase();
+    const code = String(request.data.code || '').trim();
+    const userType = String(request.data.userType || '').trim().toLowerCase();
+
+    if (!email || !email.includes('@')) {
+      throw new HttpsError('invalid-argument', 'A valid email address is required.');
+    }
+    if (!code || code.length < 4) {
+      throw new HttpsError('invalid-argument', 'A valid code is required.');
+    }
+    if (!['visitor', 'local'].includes(userType)) {
+      throw new HttpsError('invalid-argument', 'userType must be visitor or local.');
+    }
+
+    const docId = loginCodeDocId(email);
+    const codesRef = admin.firestore().collection('login_codes').doc(docId);
+    const snap = await codesRef.get();
+
+    if (!snap.exists) {
+      throw new HttpsError('not-found', 'Code not found or expired.');
+    }
+
+    const data = snap.data() || {};
+    const expiresAt = data.expiresAt ? data.expiresAt.toMillis() : 0;
+    const now = Date.now();
+
+    if (now > expiresAt) {
+      await codesRef.delete();
+      throw new HttpsError('deadline-exceeded', 'Code has expired. Please request a new one.');
+    }
+
+    if ((data.attempts || 0) >= LOGIN_CODE_MAX_ATTEMPTS) {
+      await codesRef.delete();
+      throw new HttpsError('resource-exhausted', 'Too many failed attempts. Please request a new code.');
+    }
+
+    const codeHash = hashCode(code);
+    if (codeHash !== data.codeHash) {
+      await codesRef.update({ attempts: admin.firestore.FieldValue.increment(1) });
+      throw new HttpsError('permission-denied', 'Invalid code.');
+    }
+
+    // Code is valid. Ensure a Firebase Auth user exists for this email.
+    let authUser;
+    try {
+      authUser = await admin.auth().getUserByEmail(email);
+    } catch (error) {
+      if (error.code === 'auth/user-not-found') {
+        authUser = await admin.auth().createUser({ email });
+      } else {
+        throw error;
+      }
+    }
+
+    // Ensure the Firestore profile document exists with basic defaults.
+    const collection = userType === 'visitor' ? 'visitor_users' : 'local_users';
+    const profileRef = admin.firestore().collection(collection).doc(email);
+    const profileSnap = await profileRef.get();
+    if (!profileSnap.exists) {
+      const username = email.split('@')[0];
+      const baseProfile = {
+        email,
+        username,
+        role: userType,
+        accountType: userType,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        active: true,
+        notificationsEnabled: true,
+        emailNotificationsEnabled: true,
+      };
+      if (userType === 'local') {
+        baseProfile.approvalStatus = 'pending';
+      }
+      await profileRef.set(baseProfile);
+    }
+
+    // Clean up the used code.
+    await codesRef.delete();
+
+    // Create a custom token so the Flutter client can sign in.
+    const token = await admin.auth().createCustomToken(authUser.uid, {
+      email,
+      userType,
+    });
+
+    logger.info('Login code verified', { email, userType });
+    return { token };
+  },
 );
 
 // ── Social sharing Open Graph proxy ─────────────────────────────────────────

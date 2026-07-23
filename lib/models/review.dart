@@ -6,6 +6,7 @@ class Review {
   final String visitorId;
   final String visitorName;
   final int rating; // 1-5 stars
+  final int buzzRating; // 1-5 buzz score
   final String comment;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -22,6 +23,7 @@ class Review {
     required this.visitorId,
     required this.visitorName,
     required this.rating,
+    this.buzzRating = 0,
     required this.comment,
     required this.createdAt,
     this.updatedAt,
@@ -42,6 +44,7 @@ class Review {
       'visitorId': visitorId,
       'visitorName': visitorName,
       'rating': rating,
+      'buzzRating': buzzRating,
       'comment': comment,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
@@ -63,6 +66,7 @@ class Review {
       visitorId: data['visitorId'] ?? '',
       visitorName: data['visitorName'] ?? 'Anonymous',
       rating: data['rating'] ?? 5,
+      buzzRating: data['buzzRating'] ?? 0,
       comment: data['comment'] ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
@@ -82,6 +86,7 @@ class Review {
     String? visitorId,
     String? visitorName,
     int? rating,
+    int? buzzRating,
     String? comment,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -98,6 +103,7 @@ class Review {
       visitorId: visitorId ?? this.visitorId,
       visitorName: visitorName ?? this.visitorName,
       rating: rating ?? this.rating,
+      buzzRating: buzzRating ?? this.buzzRating,
       comment: comment ?? this.comment,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

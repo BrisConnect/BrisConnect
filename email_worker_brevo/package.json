@@ -1,7 +1,7 @@
 {
 	"name": "brisconnect-brevo-email-worker",
 	"version": "1.0.0",
-	"description": "Local Firestore worker that consumes sms_queue jobs and sends SMS.",
+	"description": "Local Firestore worker that consumes sms_queue and mail jobs and sends SMS/email.",
 	"main": "index.js",
 	"type": "commonjs",
 	"engines": {

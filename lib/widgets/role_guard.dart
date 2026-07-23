@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/app_user_role.dart';
-import 'package:brisconnect/screens/welcome_screen.dart';
+import 'package:brisconnect/screens/welcome_screen_new.dart';
 import 'package:brisconnect/services/role_access_service.dart';
 
 class RoleGuard extends StatefulWidget {
@@ -50,7 +50,7 @@ class _RoleGuardState extends State<RoleGuard> {
               SnackBar(content: Text(widget.deniedMessage)),
             );
             Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+              MaterialPageRoute(builder: (_) => const AnimatedWelcomeScreen()),
               (route) => false,
             );
           });

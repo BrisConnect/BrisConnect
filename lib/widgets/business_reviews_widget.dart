@@ -23,6 +23,7 @@ class _BusinessReviewsWidgetState extends State<BusinessReviewsWidget> {
   final _ratingsService = BusinessRatingsService();
   final _ratingController = TextEditingController();
   double _selectedRating = 3.0;
+  double _selectedBuzzRating = 0.0;
 
   @override
   void dispose() {
@@ -42,6 +43,7 @@ class _BusinessReviewsWidgetState extends State<BusinessReviewsWidget> {
         .submitReview(
           businessId: widget.businessId,
           rating: _selectedRating,
+          buzzRating: _selectedBuzzRating,
           comment: _ratingController.text,
         )
         .then((_) {
@@ -52,7 +54,10 @@ class _BusinessReviewsWidgetState extends State<BusinessReviewsWidget> {
             ),
           );
           _ratingController.clear();
-          setState(() => _selectedRating = 3.0);
+          setState(() {
+            _selectedRating = 3.0;
+            _selectedBuzzRating = 0.0;
+          });
         })
         .catchError((e) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -143,6 +148,25 @@ class _BusinessReviewsWidgetState extends State<BusinessReviewsWidget> {
                     ),
                   ),
                   Text(_selectedRating.toStringAsFixed(1)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Buzz Rating Slider
+              Row(
+                children: [
+                  const Text('Buzz: '),
+                  Expanded(
+                    child: Slider(
+                      value: _selectedBuzzRating,
+                      onChanged: (value) =>
+                          setState(() => _selectedBuzzRating = value),
+                      min: 0,
+                      max: 5,
+                      divisions: 5,
+                      label: _selectedBuzzRating.toStringAsFixed(1),
+                    ),
+                  ),
+                  Text(_selectedBuzzRating.toStringAsFixed(1)),
                 ],
               ),
               const SizedBox(height: 12),

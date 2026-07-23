@@ -10,6 +10,7 @@ class BusinessRatingsService {
   Future<void> submitReview({
     required String businessId,
     required double rating,
+    double buzzRating = 0,
     required String comment,
   }) async {
     try {
@@ -18,19 +19,46 @@ class BusinessRatingsService {
       // access fails and currentUser is null.
       final userId = user?.uid ?? 'dev-anonymous-user';
       final userName = user?.displayName ?? 'Anonymous';
+      final now = FieldValue.serverTimestamp();
 
-      final reviewRef =
-          _firestore.collection('businesses').doc(businessId).collection('reviews');
-
-      // Add the review
-      await reviewRef.add({
+      final reviewData = {
         'businessId': businessId,
         'userId': userId,
         'userName': userName,
         'rating': rating,
+        'buzzRating': buzzRating,
         'comment': comment,
-        'createdAt': FieldValue.serverTimestamp(),
+        'createdAt': now,
         'helpfulCount': 0,
+      };
+
+      // Add the review to the business-specific subcollection for the
+      // public business profile.
+      await _firestore
+          .collection('businesses')
+          .doc(businessId)
+          .collection('reviews')
+          .add(reviewData);
+
+      // Also mirror the review to the top-level reviews collection so it
+      // appears on the local Vendor Reviews screen and business dashboard.
+      await _firestore.collection('reviews').add({
+        'businessId': businessId,
+        'visitorId': userId,
+        'visitorName': userName,
+        'rating': rating.round(),
+        'buzzRating': buzzRating.round(),
+        'comment': comment,
+        'createdAt': now,
+        'updatedAt': null,
+        'deletedAt': null,
+        'isReported': false,
+        'reportReason': null,
+        'reportedBy': null,
+        'deletedBy': null,
+        'helpfulCount': 0,
+        'isFlagged': false,
+        'visible': true,
       });
 
       // Update business average rating and review count
@@ -96,15 +124,19 @@ class BusinessRatingsService {
       }
 
       double totalRating = 0;
+      double totalBuzz = 0;
       for (var doc in snapshot.docs) {
         final data = doc.data();
         totalRating += (data['rating'] as num).toDouble();
+        totalBuzz += (data['buzzRating'] as num?)?.toDouble() ?? 0.0;
       }
 
       final averageRating = totalRating / snapshot.docs.length;
+      final averageBuzz = totalBuzz / snapshot.docs.length;
 
       await _firestore.collection('businesses').doc(businessId).update({
         'averageRating': averageRating,
+        'buzzRating': averageBuzz,
         'reviewCount': snapshot.docs.length,
         'updatedAt': FieldValue.serverTimestamp(),
       });

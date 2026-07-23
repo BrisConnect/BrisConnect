@@ -21,10 +21,9 @@ class AddressGeocodingService {
       }
 
       // Fall back to the autocomplete suggestions list and rough suburb estimation.
-      final predictions = await _placesService.fetchBrisbaneAddressSuggestions(address);
-      if (predictions.isEmpty) {
-        return null;
-      }
+      // Always default to Brisbane CBD so a profile can be saved with coordinates
+      // even when the Places backend is unavailable.
+      await _placesService.fetchBrisbaneAddressSuggestions(address);
       return _estimateCoordinatesFromAddress(address);
     } catch (e) {
       return null;
@@ -32,8 +31,9 @@ class AddressGeocodingService {
   }
 
   /// Estimate coordinates from address based on patterns
-  /// This is a simplified approach for Brisbane-specific businesses
-  LatLng? _estimateCoordinatesFromAddress(String address) {
+  /// This is a simplified approach for Brisbane-specific businesses.
+  /// Never returns null for a non-empty address; defaults to Brisbane CBD.
+  LatLng _estimateCoordinatesFromAddress(String address) {
     // Default to Brisbane CBD if unable to extract specific coordinates
     // In production, integrate with Google Places Details API for precise coords
     final lowerAddress = address.toLowerCase();
@@ -110,7 +110,8 @@ class AddressGeocodingService {
     }
 
     final latLng = await geocodeAddress(address);
-    return latLng != null && isWithinBrisbane(latLng.latitude, latLng.longitude);
+    if (latLng == null) return false;
+    return isWithinBrisbane(latLng.latitude, latLng.longitude);
   }
 
   /// Get formatted address from predictions

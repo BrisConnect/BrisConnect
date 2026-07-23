@@ -90,6 +90,22 @@ class BusinessProfileService {
         .map((snapshot) => snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
   }
 
+  /// Dev fallback: returns the first business document found. Used on
+  /// unsigned macOS builds where Firebase Auth keychain access fails and the
+  /// current user's email may not be available.
+  Future<Business?> getFirstBusiness() async {
+    try {
+      final query = await _firestore
+          .collection(_collection)
+          .limit(1)
+          .get();
+      if (query.docs.isEmpty) return null;
+      return Business.fromFirestore(query.docs.first);
+    } catch (e) {
+      throw Exception('Failed to fetch first business: $e');
+    }
+  }
+
   /// Search businesses by name or category
   Future<List<Business>> searchBusinesses(String query) async {
     try {
@@ -223,6 +239,15 @@ class BusinessProfileService {
     return _firestore
         .collection(_collection)
         .where('isVerified', isEqualTo: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
+  }
+
+  /// Stream of all businesses regardless of verification status.
+  /// Useful for development/testing when no profiles have been verified yet.
+  Stream<List<Business>> getAllBusinessesStream() {
+    return _firestore
+        .collection(_collection)
         .snapshots()
         .map((snapshot) => snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
   }

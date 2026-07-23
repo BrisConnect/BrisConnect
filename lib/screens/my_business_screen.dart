@@ -311,34 +311,31 @@ class _MyBusinessScreenState extends State<MyBusinessScreen> {
                           ),
                         ),
                       ),
-                      if (business.category == 'Restaurant & Cafe')
-                        ...[
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        BusinessEventsManagementScreen(
-                                          business: business,
-                                        ),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.event_rounded, size: 18),
-                              label: const Text('Events'),
-                              style: OutlinedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 8),
-                                foregroundColor: AppPalette.ochre,
-                                side: const BorderSide(
-                                  color: AppPalette.ochre,
-                                ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    BusinessEventsManagementScreen(
+                                      business: business,
+                                    ),
                               ),
+                            );
+                          },
+                          icon: const Icon(Icons.event_rounded, size: 18),
+                          label: const Text('Events'),
+                          style: OutlinedButton.styleFrom(
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 8),
+                            foregroundColor: AppPalette.ochre,
+                            side: const BorderSide(
+                              color: AppPalette.ochre,
                             ),
                           ),
-                        ],
+                        ),
+                      ),
                       const SizedBox(width: 8),
                       OutlinedButton.icon(
                         onPressed: () => _deleteBusiness(business.id!),

@@ -102,9 +102,16 @@ class ReviewService {
     }
   }
 
-  void _validateInputs({required int rating, required String comment}) {
+  void _validateInputs({
+    required int rating,
+    required int buzzRating,
+    required String comment,
+  }) {
     if (rating < 1 || rating > 5) {
       throw Exception('Rating must be between 1 and 5');
+    }
+    if (buzzRating < 0 || buzzRating > 5) {
+      throw Exception('Buzz rating must be between 0 and 5');
     }
     final trimmed = comment.trim();
     if (trimmed.isEmpty) {
@@ -180,11 +187,12 @@ class ReviewService {
     String? visitorId,
     required String visitorName,
     required int rating,
+    int buzzRating = 0,
     required String comment,
   }) async {
     try {
       final effectiveVisitorId = _requireVisitorId(visitorId);
-      _validateInputs(rating: rating, comment: comment);
+      _validateInputs(rating: rating, buzzRating: buzzRating, comment: comment);
 
       await _assertOnline();
 
@@ -205,6 +213,7 @@ class ReviewService {
           'visitorId': effectiveVisitorId,
           'visitorName': visitorName.trim().isEmpty ? 'Anonymous' : visitorName,
           'rating': rating,
+          'buzzRating': buzzRating,
           'comment': comment.trim(),
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': null,
@@ -509,12 +518,18 @@ class ReviewService {
         0,
         (sum, doc) => sum + (doc['rating'] as int? ?? 0),
       );
+      final totalBuzz = snapshot.docs.fold<int>(
+        0,
+        (sum, doc) => sum + (doc['buzzRating'] as int? ?? 0),
+      );
       final count = snapshot.docs.length;
       final averageRating = count > 0 ? totalRating / count : 0.0;
+      final averageBuzz = count > 0 ? totalBuzz / count : 0.0;
 
       await firestore.collection('businesses').doc(businessId).update({
         'reviewCount': count,
         'rating': averageRating,
+        'buzzRating': averageBuzz,
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
