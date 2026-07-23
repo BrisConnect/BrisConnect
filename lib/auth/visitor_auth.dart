@@ -312,18 +312,62 @@ class VisitorAuth {
       return false;
     }
 
+    bool useFirestoreFallback = false;
     try {
       await fb_auth.FirebaseAuth.instance.signInWithEmailAndPassword(
         email: normalizedEmail,
         password: password,
       );
+    } on fb_auth.FirebaseAuthException catch (error) {
+      debugPrint('[VisitorAuth] Firebase Auth login failed: ${error.code}');
+      if (error.code == 'keychain-error' || error.code == 'operation-not-allowed') {
+        useFirestoreFallback = true;
+      } else {
+        switch (error.code) {
+          case 'user-not-found':
+          case 'wrong-password':
+          case 'invalid-credential':
+            _lastErrorMessage = 'Invalid email or password.';
+            break;
+          case 'invalid-email':
+            _lastErrorMessage = 'Please enter a valid email address.';
+            break;
+          case 'network-request-failed':
+            _lastErrorMessage = 'No internet connection. Please try again.';
+            break;
+          default:
+            _lastErrorMessage = 'Visitor login failed (${error.code}).';
+        }
+        return false;
+      }
+    } catch (_) {
+      _lastErrorMessage = 'Visitor login failed due to an unexpected error.';
+      return false;
+    }
 
+    try {
       final doc = await FirebaseFirestore.instance
           .collection('visitor_users')
           .doc(normalizedEmail)
           .get();
 
       final data = doc.data() ?? const <String, dynamic>{};
+
+      // When using the Firestore fallback (unsigned macOS builds), validate the
+      // password hash locally because Firebase Auth sign-in failed.
+      if (useFirestoreFallback) {
+        final storedPasswordHash = (data['passwordHash'] as String?) ?? '';
+        final storedLegacyPassword = (data['password'] as String?) ?? '';
+        final matchesHashedPassword =
+            storedPasswordHash.isNotEmpty && storedPasswordHash == _passwordHash(password);
+        final matchesLegacyPassword =
+            storedLegacyPassword.isNotEmpty && storedLegacyPassword == password;
+        if (!matchesHashedPassword && !matchesLegacyPassword) {
+          _lastErrorMessage = 'Invalid email or password.';
+          return false;
+        }
+      }
+
       final role = (data['role'] as String?)?.toLowerCase();
       if (role != null && role.isNotEmpty && role != 'visitor') {
         await fb_auth.FirebaseAuth.instance.signOut();

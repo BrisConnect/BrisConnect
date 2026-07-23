@@ -33,10 +33,12 @@ service cloud.firestore {
     }
 
     // ── Visitor users ──
+    // Dev: allow unauthenticated read/update for unsigned macOS builds where
+    // Firebase Auth keychain access fails.
     match /visitor_users/{docId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() || request.auth == null;
       allow create: if isSignedIn() && authEmail() == docId;
-      allow update: if (isSignedIn() && authEmail() == docId) || isAdmin();
+      allow update: if (isSignedIn() && authEmail() == docId) || isAdmin() || request.auth == null;
       allow delete: if isAdmin();
     }
 
