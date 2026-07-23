@@ -438,10 +438,14 @@ class LocalAuth {
         case 'network-request-failed':
           _lastErrorMessage = 'No internet connection. Please try again.';
           break;
+        case 'keychain-error':
+          _lastErrorMessage = 'Keychain access failed. Retrying with secure fallback.';
+          break;
         default:
           _lastErrorMessage = 'Login failed (${error.code}).';
       }
-      _useFirestoreAuthFallback = error.code == 'operation-not-allowed';
+      _useFirestoreAuthFallback =
+          error.code == 'operation-not-allowed' || error.code == 'keychain-error';
       if (!_useFirestoreAuthFallback) {
         return false;
       }
