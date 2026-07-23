@@ -55,6 +55,83 @@ class _AiPostSheetState extends State<AiPostSheet> {
     _loadBusiness();
   }
 
+  Widget _buildRecentPostsPreview() {
+    if (_ownerId.isEmpty) return const SizedBox.shrink();
+    return StreamBuilder<List<AiGeneratedPost>>(
+      stream: AiPostStorageService().getPostsForOwner(_ownerId),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
+          return const SizedBox.shrink();
+        }
+        final posts = snap.data ?? [];
+        if (posts.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Your generated posts',
+                style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            ...posts.take(3).map((post) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2A2A3E),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppPalette.ochre.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            post.postType.displayName,
+                            style: const TextStyle(
+                                color: AppPalette.ochre, fontSize: 10),
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          post.status == AiPostStatus.published
+                              ? 'Published'
+                              : 'Draft',
+                          style: TextStyle(
+                            color: post.status == AiPostStatus.published
+                                ? const Color(0xFF2ECC71)
+                                : const Color(0xFF8B8FA8),
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      post.generatedContent,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 13),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _loadBusiness() async {
     if (_ownerId.isEmpty) return;
     try {
@@ -264,6 +341,10 @@ class _AiPostSheetState extends State<AiPostSheet> {
                 ),
               ],
             ),
+            const SizedBox(height: 20),
+
+            // Generated posts preview
+            _buildRecentPostsPreview(),
             const SizedBox(height: 20),
 
             // Business info chip
