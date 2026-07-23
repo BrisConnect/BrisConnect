@@ -149,10 +149,17 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.resource.data.ownerId == authEmail();
       allow update: if isSignedIn() && (
         resource.data.ownerId == authEmail() || isAdmin()
-      );
+      ) || request.auth == null; // Dev: allow unauthenticated for unsigned macOS
       allow delete: if isSignedIn() && (
         resource.data.ownerId == authEmail() || isAdmin()
       );
+
+      // Dev: nested reviews subcollection for unsigned macOS builds.
+      match /reviews/{reviewId} {
+        allow read: if true;
+        allow create: if request.auth == null || isSignedIn();
+        allow update, delete: if isSignedIn() || request.auth == null;
+      }
     }
 
     // ── Reviews / Recommendations (visitor feedback on businesses) ──
