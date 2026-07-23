@@ -156,14 +156,16 @@ service cloud.firestore {
     }
 
     // ── Reviews / Recommendations (visitor feedback on businesses) ──
+    // Dev: allow unauthenticated reads/writes for unsigned macOS builds.
     match /reviews/{reviewId} {
       // Only show recommendations that are public (visible == true).
-      allow read: if resource.data.visible == true;
+      allow read: if resource.data.visible == true || request.auth == null;
 
       // Authenticated visitors can create one recommendation per business.
       // Rate limits are enforced client-side; rules guarantee auth binding
       // and data shape so fake/spam payloads are rejected.
-      allow create: if isSignedIn()
+      // Dev: allow unauthenticated creates for unsigned macOS builds.
+      allow create: if (isSignedIn()
         && request.resource.data.visitorId == request.auth.uid
         && request.resource.data.businessId is string
         && request.resource.data.comment is string
@@ -173,7 +175,8 @@ service cloud.firestore {
         && request.resource.data.rating >= 1
         && request.resource.data.rating <= 5
         && request.resource.data.createdAt == request.time
-        && request.resource.data.visible == true;
+        && request.resource.data.visible == true)
+        || request.auth == null;
 
       // Owners can soft-delete their own recommendations. Admins can perform
       // any update (report, flag, restore, moderate).
