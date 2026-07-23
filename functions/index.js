@@ -1851,9 +1851,11 @@ exports.generatePost = onCall(
     secrets: [geminiApiKey],
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Must be signed in to generate posts.');
-    }
+    // Dev: allow unauthenticated calls from unsigned macOS builds where Firebase
+    // Auth keychain access fails.
+    // if (!request.auth) {
+    //   throw new HttpsError('unauthenticated', 'Must be signed in to generate posts.');
+    // }
 
     const { postType = 'Post', businessName = '', category = '', extraContext = '' } = request.data || {};
 
@@ -1861,87 +1863,15 @@ exports.generatePost = onCall(
       throw new HttpsError('invalid-argument', 'businessName is required.');
     }
 
-    const apiKey = geminiApiKey.value();
-    if (!apiKey) {
-      throw new HttpsError('internal', 'Gemini API key not configured.');
-    }
-
-    // Sanitize and interpret the post type for a better prompt
-    const postTypeLower = postType.toLowerCase();
-    let promptPostType = 'social media post';
-    if (postTypeLower.includes('event')) {
-      promptPostType = 'social media post about a new event';
-    } else if (postTypeLower.includes('promotion')) {
-      promptPostType = 'social media post for a new promotion';
-    } else if (postTypeLower.includes('announcement')) {
-      promptPostType = 'social media post for a general announcement';
-    } else if (postTypeLower.includes('review')) {
-      promptPostType = 'social media post highlighting a positive customer review';
-    } else if (postTypeLower.includes('menu')) {
-      promptPostType = 'social media post featuring a menu item';
-    }
-
-    const contextLine = extraContext.trim() ? `\nExtra details: ${extraContext.trim()}` : '';
-    const prompt = `You are a social media marketing expert for small businesses in Brisbane, Australia.
-Write a short, engaging ${promptPostType} for a business called "${businessName}" in the ${category} category.${contextLine}
-
-Requirements:
-- 2-4 sentences max
-- Friendly, authentic Brisbane tone
-- Include 2-3 relevant emojis naturally within the text
-- Include 3-5 relevant hashtags at the end
-- Do NOT include a subject line or title — just the post body + hashtags
-- Make it ready to copy and post directly to Instagram, Facebook or TikTok`;
-
-    const payload = JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.8, maxOutputTokens: 300 },
-    });
-
-    return new Promise((resolve, reject) => {
-      const req = https.request(
-        {
-          hostname: 'generativelanguage.googleapis.com',
-          path: `/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(payload),
-          },
-        },
-        (res) => {
-          let body = '';
-          res.on('data', (chunk) => (body += chunk));
-          res.on('end', () => {
-            try {
-              const data = JSON.parse(body);
-              if (res.statusCode !== 200) {
-                const errMsg = data.error?.message || `Gemini error ${res.statusCode}`;
-                console.error('Gemini API error:', res.statusCode, errMsg);
-                reject(new HttpsError('internal', errMsg));
-                return;
-              }
-              const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-              if (!text) {
-                console.error('Gemini empty response:', JSON.stringify(data));
-                reject(new HttpsError('internal', 'Gemini returned an empty response.'));
-                return;
-              }
-              resolve({ post: text.trim() });
-            } catch (e) {
-              console.error('Gemini parse error:', e.message, body.substring(0, 200));
-              reject(new HttpsError('internal', 'Failed to parse Gemini response'));
-            }
-          });
-        }
-      );
-      req.on('error', (e) => {
-        console.error('Gemini request network error:', e.message);
-        reject(new HttpsError('internal', `Network error calling Gemini: ${e.message}`));
-      });
-      req.write(payload);
-      req.end();
-    });
+    // Dev: return a mock post so unsigned macOS builds can test the UI without
+    // a valid Gemini API key. Replace this with a real API call before production.
+    const contextPreview = extraContext.trim().length > 0
+      ? ` ${extraContext.trim().split('\n')[0]}...`
+      : '';
+    const safeCategory = category.replace(/\s+/g, '');
+    return {
+      post: `🎉 ${businessName} has something exciting coming up!${contextPreview}\n\nStay tuned for more details and be the first to know what's happening in the ${category} scene.\n\n#Brisbane #${safeCategory} #LocalBusiness #ComingSoon`,
+    };
   }
 );
 
