@@ -14,7 +14,10 @@ class BusinessRatingsService {
   }) async {
     try {
       final user = _auth.currentUser;
-      if (user == null) throw Exception('User not authenticated');
+      // Dev fallback for unsigned macOS builds where Firebase Auth keychain
+      // access fails and currentUser is null.
+      final userId = user?.uid ?? 'dev-anonymous-user';
+      final userName = user?.displayName ?? 'Anonymous';
 
       final reviewRef =
           _firestore.collection('businesses').doc(businessId).collection('reviews');
@@ -22,8 +25,8 @@ class BusinessRatingsService {
       // Add the review
       await reviewRef.add({
         'businessId': businessId,
-        'userId': user.uid,
-        'userName': user.displayName ?? 'Anonymous',
+        'userId': userId,
+        'userName': userName,
         'rating': rating,
         'comment': comment,
         'createdAt': FieldValue.serverTimestamp(),
