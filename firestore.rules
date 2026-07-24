@@ -30,6 +30,20 @@ service cloud.firestore {
       allow create: if isSignedIn() && authEmail() == docId;
       allow update: if (isSignedIn() && authEmail() == docId) || isAdmin() || request.auth == null;
       allow delete: if isAdmin();
+
+      // FCM device tokens for push notifications. Users may only manage their
+      // own tokens; admins (Cloud Functions) may write tokens server-side.
+      match /fcmTokens/{token} {
+        allow read: if isSignedIn() && authEmail() == docId;
+        allow create, update: if (isSignedIn() && authEmail() == docId) || isAdmin();
+        allow delete: if (isSignedIn() && authEmail() == docId) || isAdmin();
+      }
+
+      // In-app notification log for business owners.
+      match /notifications/{notificationId} {
+        allow read: if isSignedIn() && authEmail() == docId;
+        allow create, update, delete: if isAdmin();
+      }
     }
 
     // ── Visitor users ──

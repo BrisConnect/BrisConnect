@@ -8,6 +8,7 @@ import 'package:crypto/crypto.dart';
 import 'package:brisconnect/config/app_config.dart';
 import 'package:brisconnect/services/business_dashboard_service.dart';
 import 'package:brisconnect/services/email_code_auth_service.dart';
+import 'package:brisconnect/services/fcm_service.dart';
 import 'package:brisconnect/services/local_email_notification_service.dart';
 import 'package:brisconnect/services/sms_notification_service.dart';
 import 'package:brisconnect/services/app_display_settings_controller.dart';
@@ -39,6 +40,12 @@ class LocalUser {
   final String accountType = 'local';
   final AccountApprovalStatus approvalStatus;
 
+  // Business-owner push notification preferences.
+  final bool notifyTrendingPromotion;
+  final bool notifyOfferExpiry;
+  final bool notifyNewReview;
+  final bool notifyBusinessUpdates;
+
   const LocalUser({
     required this.name,
     required this.email,
@@ -62,6 +69,10 @@ class LocalUser {
     this.profileImageUrl,
     this.profileImageStoragePath,
     this.approvalStatus = AccountApprovalStatus.pending,
+    this.notifyTrendingPromotion = true,
+    this.notifyOfferExpiry = true,
+    this.notifyNewReview = true,
+    this.notifyBusinessUpdates = true,
   });
 
   LocalUser copyWith({
@@ -87,6 +98,10 @@ class LocalUser {
     String? profileImageUrl,
     String? profileImageStoragePath,
     AccountApprovalStatus? approvalStatus,
+    bool? notifyTrendingPromotion,
+    bool? notifyOfferExpiry,
+    bool? notifyNewReview,
+    bool? notifyBusinessUpdates,
   }) {
     return LocalUser(
       name: name ?? this.name,
@@ -115,6 +130,12 @@ class LocalUser {
         profileImageStoragePath:
           profileImageStoragePath ?? this.profileImageStoragePath,
       approvalStatus: approvalStatus ?? this.approvalStatus,
+      notifyTrendingPromotion:
+          notifyTrendingPromotion ?? this.notifyTrendingPromotion,
+      notifyOfferExpiry: notifyOfferExpiry ?? this.notifyOfferExpiry,
+      notifyNewReview: notifyNewReview ?? this.notifyNewReview,
+      notifyBusinessUpdates:
+          notifyBusinessUpdates ?? this.notifyBusinessUpdates,
     );
   }
 }
@@ -238,6 +259,11 @@ class LocalAuth {
       'passwordUpdatedAt': FieldValue.serverTimestamp(),
       'authFallback': authFallback,
       'createdAt': FieldValue.serverTimestamp(),
+      // Business-owner push notification defaults.
+      'notifyTrendingPromotion': true,
+      'notifyOfferExpiry': true,
+      'notifyNewReview': true,
+      'notifyBusinessUpdates': true,
     };
   }
 
@@ -561,6 +587,12 @@ class LocalAuth {
         approvalStatus: _approvalFromString(
           (data['approvalStatus'] as String?) ?? 'pending',
         ),
+        notifyTrendingPromotion:
+            (data['notifyTrendingPromotion'] as bool?) ?? true,
+        notifyOfferExpiry: (data['notifyOfferExpiry'] as bool?) ?? true,
+        notifyNewReview: (data['notifyNewReview'] as bool?) ?? true,
+        notifyBusinessUpdates:
+            (data['notifyBusinessUpdates'] as bool?) ?? true,
       );
 
       final userIndex = _users.indexWhere(
@@ -580,6 +612,14 @@ class LocalAuth {
         themePreference: user.themePreference,
         textScaleFactor: user.textScaleFactor,
       );
+
+      // Associate the device FCM token with the signed-in local account.
+      try {
+        await FcmService.instance.refreshToken();
+      } catch (e) {
+        debugPrint('[LocalAuth] FCM token refresh failed: $e');
+      }
+
       return true;
     } on FirebaseException catch (error) {
       if (error.code == 'permission-denied') {
@@ -665,6 +705,63 @@ class LocalAuth {
       }
     }
     _profileVersion.value++;
+  }
+
+  /// Updates push notification preferences for the currently logged-in
+  /// Local user (typically a business owner).
+  static Future<bool> updateNotificationPreferences({
+    bool? notifyTrendingPromotion,
+    bool? notifyOfferExpiry,
+    bool? notifyNewReview,
+    bool? notifyBusinessUpdates,
+  }) async {
+    final current = _currentLocal;
+    if (current == null) return false;
+
+    final updates = <String, dynamic>{};
+    if (notifyTrendingPromotion != null) {
+      updates['notifyTrendingPromotion'] = notifyTrendingPromotion;
+    }
+    if (notifyOfferExpiry != null) {
+      updates['notifyOfferExpiry'] = notifyOfferExpiry;
+    }
+    if (notifyNewReview != null) {
+      updates['notifyNewReview'] = notifyNewReview;
+    }
+    if (notifyBusinessUpdates != null) {
+      updates['notifyBusinessUpdates'] = notifyBusinessUpdates;
+    }
+    if (updates.isEmpty) return true;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('local_users')
+          .doc(current.email)
+          .update(updates);
+
+      final updated = current.copyWith(
+        notifyTrendingPromotion:
+            notifyTrendingPromotion ?? current.notifyTrendingPromotion,
+        notifyOfferExpiry: notifyOfferExpiry ?? current.notifyOfferExpiry,
+        notifyNewReview: notifyNewReview ?? current.notifyNewReview,
+        notifyBusinessUpdates:
+            notifyBusinessUpdates ?? current.notifyBusinessUpdates,
+      );
+      _currentLocal = updated;
+      final idx = _users.indexWhere(
+        (u) => u.email.toLowerCase() == current.email.toLowerCase(),
+      );
+      if (idx != -1) _users[idx] = updated;
+      _profileVersion.value++;
+      return true;
+    } on FirebaseException catch (e) {
+      debugPrint('[LocalAuth] updateNotificationPreferences failed: ${e.code}');
+      _lastErrorMessage = 'Could not update notification preferences (${e.code}).';
+      return false;
+    } catch (_) {
+      _lastErrorMessage = 'Could not update notification preferences.';
+      return false;
+    }
   }
 
   /// Updates name, phone and suburb for the currently logged-in Local user.
@@ -758,6 +855,12 @@ class LocalAuth {
       approvalStatus: _approvalFromString(
         (data['approvalStatus'] as String?) ?? 'pending',
       ),
+      notifyTrendingPromotion:
+          (data['notifyTrendingPromotion'] as bool?) ?? true,
+      notifyOfferExpiry: (data['notifyOfferExpiry'] as bool?) ?? true,
+      notifyNewReview: (data['notifyNewReview'] as bool?) ?? true,
+      notifyBusinessUpdates:
+          (data['notifyBusinessUpdates'] as bool?) ?? true,
     );
   }
 

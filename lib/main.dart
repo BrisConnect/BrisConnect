@@ -11,6 +11,7 @@ import 'package:brisconnect/screens/admin_dashboard_screen.dart';
 import 'package:brisconnect/screens/business_profile_form_screen.dart';
 import 'package:brisconnect/screens/business_profile_view_screen.dart';
 import 'package:brisconnect/models/business.dart';
+import 'package:brisconnect/services/fcm_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +19,7 @@ Future<void> main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    await FcmService.instance.initialize();
   } catch (e) {
     debugPrint('Firebase init error: $e');
   }
@@ -30,6 +32,7 @@ class BrisConnectApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'BrisConnect+',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

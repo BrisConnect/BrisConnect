@@ -1,6 +1,6 @@
 const admin = require('firebase-admin');
 const crypto = require('node:crypto');
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret, defineString } = require('firebase-functions/params');
@@ -1837,6 +1837,307 @@ exports.refreshTrendingScores = onSchedule(
 
     logger.info('Scheduled trending refresh complete.', {
       count: businessesSnap.size,
+    });
+  },
+);
+
+// ── Business-owner push notifications ───────────────────────────────────────
+
+/**
+ * Sends an FCM message to all tokens registered for a business owner,
+ * logs the notification in the owner's `notifications` subcollection, and
+ * records the outcome in `user_notifications` for admin observability.
+ */
+async function sendOwnerNotification({ ownerId, title, body, data = {}, type }) {
+  const db = admin.firestore();
+  const messaging = admin.messaging();
+
+  if (!ownerId) {
+    logger.warn('sendOwnerNotification called without ownerId.', { type });
+    return { success: false, sent: 0, error: 'Missing ownerId' };
+  }
+
+  const tokensSnap = await db
+    .collection('local_users')
+    .doc(ownerId)
+    .collection('fcmTokens')
+    .get();
+
+  const tokens = tokensSnap.docs.map((d) => d.id).filter(Boolean);
+  if (tokens.length === 0) {
+    logger.info('No FCM tokens for owner.', { ownerId, type });
+    return { success: false, sent: 0, error: 'No tokens' };
+  }
+
+  const payload = {
+    notification: { title, body },
+    data: {
+      type: type || 'business',
+      ...Object.fromEntries(
+        Object.entries(data).map(([k, v]) => [k, String(v ?? '')]),
+      ),
+    },
+    apns: {
+      payload: {
+        aps: {
+          alert: { title, body },
+          badge: 1,
+          sound: 'default',
+        },
+      },
+    },
+  };
+
+  const batchSize = 500;
+  let sentCount = 0;
+  const failedTokens = [];
+
+  for (let i = 0; i < tokens.length; i += batchSize) {
+    const batch = tokens.slice(i, i + batchSize);
+    const response = await messaging.sendEachForMulticast({
+      tokens: batch,
+      ...payload,
+    });
+
+    sentCount += response.successCount;
+
+    response.responses.forEach((resp, idx) => {
+      if (!resp.success) {
+        const token = batch[idx];
+        failedTokens.push(token);
+        logger.warn('FCM send failed.', {
+          ownerId,
+          token: token.substring(0, 16),
+          error: resp.error?.message,
+        });
+      }
+    });
+  }
+
+  // Clean up stale tokens to avoid repeated failures.
+  if (failedTokens.length > 0) {
+    await Promise.all(
+      failedTokens.map((token) =>
+        db
+          .collection('local_users')
+          .doc(ownerId)
+          .collection('fcmTokens')
+          .doc(token)
+          .delete()
+          .catch(() => {}),
+      ),
+    );
+  }
+
+  const notificationId = db
+    .collection('local_users')
+    .doc(ownerId)
+    .collection('notifications')
+    .doc().id;
+
+  const notificationRecord = {
+    id: notificationId,
+    ownerId,
+    type: type || 'business',
+    title,
+    body,
+    data,
+    sentCount,
+    failedCount: failedTokens.length,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    read: false,
+  };
+
+  await db
+    .collection('local_users')
+    .doc(ownerId)
+    .collection('notifications')
+    .doc(notificationId)
+    .set(notificationRecord);
+
+  await db.collection('user_notifications').add({
+    ...notificationRecord,
+    source: 'cloud-function',
+  });
+
+  logger.info('Owner notification processed.', {
+    ownerId,
+    type,
+    sentCount,
+    failedCount: failedTokens.length,
+  });
+
+  return { success: true, sent: sentCount, failed: failedTokens.length };
+}
+
+/**
+ * Triggered when a promotion document is created or updated. If engagement
+ * (views + clicks) crosses a configurable threshold within the last hour,
+ * notify the owner that the promotion is trending.
+ */
+exports.onPromotionEngagementSpike = onDocumentUpdated(
+  {
+    region: 'australia-southeast1',
+    document: 'promotions/{promotionId}',
+  },
+  async (event) => {
+    const before = event.data?.before?.data() || {};
+    const after = event.data?.after?.data() || {};
+    const promotionId = event.params.promotionId;
+    const ownerId = after.ownerId;
+    const title = after.title || 'Your promotion';
+
+    if (!ownerId) {
+      logger.warn('Promotion missing ownerId.', { promotionId });
+      return;
+    }
+
+    const prefs = await admin.firestore().collection('local_users').doc(ownerId).get();
+    if (!prefs.exists || prefs.data().notifyTrendingPromotion === false) {
+      logger.info('Owner disabled trending promotion notifications.', { ownerId, promotionId });
+      return;
+    }
+
+    const previousViews = Number(before.views || 0);
+    const previousClicks = Number(before.clicks || 0);
+    const currentViews = Number(after.views || 0);
+    const currentClicks = Number(after.clicks || 0);
+
+    const delta = currentViews + currentClicks - previousViews - previousClicks;
+    const threshold = Number(after.engagementSpikeThreshold) || 50;
+
+    if (delta < threshold) return;
+
+    // Prevent duplicate notifications by checking lastSpikeNotifiedAt.
+    const lastNotified = after.lastSpikeNotifiedAt?.toMillis?.() || 0;
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
+    if (lastNotified > oneHourAgo) return;
+
+    await sendOwnerNotification({
+      ownerId,
+      title: '🔥 Your promotion is trending!',
+      body: `"${title}" is getting lots of attention — ${currentViews} views and ${currentClicks} clicks so far.`,
+      data: { promotionId, screen: 'promotion_detail' },
+      type: 'trending_promotion',
+    });
+
+    await event.data.after.ref.update({
+      lastSpikeNotifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  },
+);
+
+/**
+ * Scheduled job that runs every hour and notifies owners about promotions
+ * expiring within the next 24 hours.
+ */
+exports.notifyExpiringOffers = onSchedule(
+  {
+    region: 'australia-southeast1',
+    schedule: 'every 60 minutes',
+    timeoutSeconds: 300,
+  },
+  async () => {
+    const db = admin.firestore();
+    const now = admin.firestore.Timestamp.now();
+    const oneDay = 24 * 60 * 60 * 1000;
+    const oneDayFromNow = admin.firestore.Timestamp.fromMillis(now.toMillis() + oneDay);
+
+    const promotionsSnap = await db
+      .collection('promotions')
+      .where('endAt', '<=', oneDayFromNow)
+      .where('endAt', '>', now)
+      .where('status', 'in', ['active', 'scheduled'])
+      .get();
+
+    const results = [];
+    for (const promotionDoc of promotionsSnap.docs) {
+      const promotion = promotionDoc.data();
+      const ownerId = promotion.ownerId;
+      const title = promotion.title || 'Your offer';
+      const endAt = promotion.endAt?.toDate?.();
+      const hoursLeft = endAt
+        ? Math.max(1, Math.round((endAt.getTime() - now.toMillis()) / (60 * 60 * 1000)))
+        : '24';
+
+      if (!ownerId) continue;
+
+      const prefs = await db.collection('local_users').doc(ownerId).get();
+      if (!prefs.exists || prefs.data().notifyOfferExpiry === false) {
+        continue;
+      }
+
+      // Avoid duplicate expiry reminders per promotion.
+      const alreadyReminded = promotion.expiryReminderSentAt?.toMillis?.() || 0;
+      if (alreadyReminded > now.toMillis() - oneDay) {
+        continue;
+      }
+
+      const result = await sendOwnerNotification({
+        ownerId,
+        title: '⏰ Offer expiring soon',
+        body: `"${title}" expires in about ${hoursLeft} hour${hoursLeft === 1 ? '' : 's'}. Boost or extend it to keep the momentum going.`,
+        data: { promotionId: promotionDoc.id, screen: 'promotion_detail' },
+        type: 'offer_expiry',
+      });
+
+      if (result.success) {
+        await promotionDoc.ref.update({
+          expiryReminderSentAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+
+      results.push(result);
+    }
+
+    logger.info('Expiring offer reminders complete.', {
+      checked: promotionsSnap.size,
+      sent: results.filter((r) => r.success).length,
+    });
+  },
+);
+
+/**
+ * Triggered when a new review is created. Notifies the business owner if they
+ * have enabled new-review notifications.
+ */
+exports.onNewReviewNotifyOwner = onDocumentCreated(
+  {
+    region: 'australia-southeast1',
+    document: 'reviews/{reviewId}',
+  },
+  async (event) => {
+    const data = event.data?.data() || {};
+    const businessId = data.businessId;
+    const reviewId = event.params.reviewId;
+
+    if (!businessId) {
+      logger.warn('Review created without businessId.', { reviewId });
+      return;
+    }
+
+    const businessDoc = await admin.firestore().collection('businesses').doc(businessId).get();
+    if (!businessDoc.exists) return;
+
+    const ownerId = businessDoc.data().ownerId;
+    if (!ownerId) return;
+
+    const prefs = await admin.firestore().collection('local_users').doc(ownerId).get();
+    if (!prefs.exists || prefs.data().notifyNewReview === false) {
+      logger.info('Owner disabled new review notifications.', { ownerId, reviewId });
+      return;
+    }
+
+    const businessName = businessDoc.data().businessName || 'Your business';
+    const rating = data.rating;
+    const stars = typeof rating === 'number' ? '⭐'.repeat(Math.min(5, Math.max(1, rating))) : '';
+
+    await sendOwnerNotification({
+      ownerId,
+      title: '⭐ New review received',
+      body: `${businessName} received a new ${stars} review. See what customers are saying.`,
+      data: { businessId, reviewId, screen: 'reviews' },
+      type: 'new_review',
     });
   },
 );

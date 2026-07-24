@@ -21,6 +21,7 @@ import 'package:brisconnect/screens/business_dashboard_screen.dart';
 import 'package:brisconnect/screens/vendor_reviews_screen.dart';
 import 'package:brisconnect/screens/business_profile_screen.dart';
 import 'package:brisconnect/screens/local_settings_screen.dart';
+import 'package:brisconnect/screens/business_notification_settings_screen.dart';
 import 'package:brisconnect/screens/my_feedback_screen.dart';
 import 'package:brisconnect/screens/welcome_screen_new.dart';
 import 'package:brisconnect/services/firestore_service.dart';
@@ -1512,6 +1513,31 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                         MaterialPageRoute(
                           builder: (_) =>
                               const AppearanceSettingsScreen.local(),
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    ListTile(
+                      leading: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: AppPalette.deepBlue.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.notifications_outlined,
+                            color: AppPalette.deepBlue, size: 20),
+                      ),
+                      title: const Text('Business Notifications',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: const Text('Push alerts for your business'),
+                      trailing: const Icon(Icons.chevron_right_rounded,
+                          color: AppPalette.mutedText),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const BusinessNotificationSettingsScreen(),
                         ),
                       ),
                     ),

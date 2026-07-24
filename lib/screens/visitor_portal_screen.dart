@@ -26,6 +26,7 @@ import 'package:brisconnect/services/olympic_event_email_service.dart';
 import 'package:brisconnect/services/visitor_notification_service.dart';
 import 'package:brisconnect/screens/welcome_screen_new.dart';
 import 'package:brisconnect/services/firebase_media_service.dart';
+import 'package:brisconnect/services/review_service.dart';
 import 'package:brisconnect/utils/error_messages.dart';
 import 'package:brisconnect/utils/profile_image_utils.dart';
 import 'package:brisconnect/screens/food_business_discovery_screen.dart';
@@ -773,26 +774,44 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
         existingRating: null,
         existingBuzzRating: null,
       ),
-    ).then((result) {
+    ).then((result) async {
       if (result != null && mounted) {
         final review = result['review'] as String? ?? '';
         final rating = result['rating'] as double? ?? 0;
         final buzzRating = result['buzzRating'] as double? ?? 0;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Review submitted! ⭐ ${rating.toInt()} / Buzz ⚡ ${buzzRating.toInt()}',
-            ),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        final visitor = VisitorAuth.currentVisitor;
+        final visitorName = visitor?.name ?? 'Anonymous';
 
-        // TODO: Save review data to Firestore
-        // Future implementation:
-        // - Store review with foodId, visitorEmail, timestamp
-        // - Update food item's aggregate rating
-        // - Track buzz rating trend
+        try {
+          await ReviewService().createReview(
+            businessId: foodId,
+            visitorName: visitorName,
+            rating: rating.toInt(),
+            buzzRating: buzzRating.toInt(),
+            comment: review,
+          );
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Review submitted! ⭐ ${rating.toInt()} / Buzz ⚡ ${buzzRating.toInt()}',
+                ),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Could not submit review: $e'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
       }
     });
   }
@@ -1514,9 +1533,41 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     );
   }
 
+  Stream<List<Map<String, dynamic>>> _discoverFoodStream() {
+    return FirebaseFirestore.instance
+        .collection('food_businesses')
+        .orderBy('rating', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        final cuisineTypes = data['cuisineTypes'];
+        final categories = cuisineTypes is List
+            ? cuisineTypes.map((v) => '$v').toList()
+            : <String>[];
+        return <String, dynamic>{
+          'id': doc.id,
+          'section': 'food',
+          'badge': 'FOOD',
+          'title': data['name'] ?? data['businessName'] ?? 'Untitled',
+          'description': data['description'] ?? '',
+          'location': data['address'] ?? '',
+          'imageUrl': data['imageUrl'] ??
+              data['logoUrl'] ??
+              data['coverImageUrl'] ??
+              '',
+          'categories': categories,
+          'category': categories.isNotEmpty ? categories.first : '',
+          'rating': data['rating'] ?? data['averageRating'] ?? 0,
+          'price': data['priceRange'] ?? '',
+        };
+      }).toList();
+    });
+  }
+
   Widget _buildDiscoverBody() {
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: Stream.value([]),
+      stream: _discoverFoodStream(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());

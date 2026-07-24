@@ -74,5 +74,12 @@
 	<string>BrisConnect+ uses Face ID to securely authenticate your account and protect your data.</string>
 	<key>NSBiometricUsageDescription</key>
 	<string>BrisConnect+ uses biometric authentication (fingerprint/face) to securely verify your identity.</string>
+	<key>NSUserNotificationUsageDescription</key>
+	<string>BrisConnect+ sends alerts when your promotions trend or offers are about to expire.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>
