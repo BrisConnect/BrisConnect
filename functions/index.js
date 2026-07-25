@@ -2120,6 +2120,122 @@ exports.notifyExpiringOffers = onSchedule(
 );
 
 /**
+ * Health-check callable for business-owner notification services.
+ * Verifies Firestore and FCM are reachable, records the result, and returns
+ * an availability snapshot. Designed to be invoked by a synthetic monitor.
+ */
+exports.notificationHealth = onCall(
+  {
+    region: 'australia-southeast1',
+  },
+  async () => {
+    const db = admin.firestore();
+    const start = Date.now();
+    const result = {
+      status: 'ok',
+      firestoreReachable: false,
+      fcmReachable: false,
+      latencyMs: 0,
+      checkedAt: admin.firestore.Timestamp.now(),
+    };
+
+    try {
+      // Probe Firestore with a lightweight read.
+      await db.collection('local_users').limit(1).get();
+      result.firestoreReachable = true;
+    } catch (e) {
+      logger.error('Notification health Firestore probe failed.', { error: e.message });
+      result.firestoreReachable = false;
+      result.status = 'degraded';
+    }
+
+    try {
+      // Probe FCM with a dry-run multicast to a dummy token.
+      await admin.messaging().sendEachForMulticast({
+        tokens: ['__health_probe__'],
+        notification: { title: 'Health probe', body: 'Ignore' },
+        dryRun: true,
+      });
+      result.fcmReachable = true;
+    } catch (e) {
+      // A dry-run to an invalid token still means FCM is reachable.
+      if (e.code === 'messaging/invalid-registration-token' || e.message?.includes('registration token')) {
+        result.fcmReachable = true;
+      } else {
+        logger.error('Notification health FCM probe failed.', { error: e.message });
+        result.fcmReachable = false;
+        result.status = 'degraded';
+      }
+    }
+
+    result.latencyMs = Date.now() - start;
+
+    if (!result.firestoreReachable || !result.fcmReachable) {
+      result.status = 'unavailable';
+    }
+
+    await db.collection('notification_health_checks').add(result);
+    logger.info('Notification health check complete.', result);
+    return result;
+  },
+);
+
+/**
+ * Scheduled synthetic monitor for notification services.
+ * Runs every minute, calls notificationHealth internally, and logs the result.
+ */
+exports.notificationHealthProbe = onSchedule(
+  {
+    region: 'australia-southeast1',
+    schedule: 'every 1 minutes',
+    timeoutSeconds: 30,
+  },
+  async () => {
+    const db = admin.firestore();
+    const start = Date.now();
+    const result = {
+      status: 'ok',
+      firestoreReachable: false,
+      fcmReachable: false,
+      latencyMs: 0,
+      checkedAt: admin.firestore.Timestamp.now(),
+    };
+
+    try {
+      await db.collection('local_users').limit(1).get();
+      result.firestoreReachable = true;
+    } catch (e) {
+      logger.error('Scheduled notification health Firestore probe failed.', { error: e.message });
+      result.status = 'degraded';
+    }
+
+    try {
+      await admin.messaging().sendEachForMulticast({
+        tokens: ['__health_probe__'],
+        notification: { title: 'Health probe', body: 'Ignore' },
+        dryRun: true,
+      });
+      result.fcmReachable = true;
+    } catch (e) {
+      if (e.code === 'messaging/invalid-registration-token' || e.message?.includes('registration token')) {
+        result.fcmReachable = true;
+      } else {
+        logger.error('Scheduled notification health FCM probe failed.', { error: e.message });
+        result.status = 'degraded';
+      }
+    }
+
+    result.latencyMs = Date.now() - start;
+    if (!result.firestoreReachable || !result.fcmReachable) {
+      result.status = 'unavailable';
+    }
+
+    await db.collection('notification_health_checks').add(result);
+    logger.info('Scheduled notification health probe complete.', result);
+  },
+);
+
+/**
  * Extends a promotion's end date by [extensionDays] days (default 7).
  * Only the promotion owner may call this function.
  */

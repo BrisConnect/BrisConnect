@@ -265,3 +265,99 @@ describe('extendPromotion', () => {
     }
   });
 });
+
+describe('notificationHealth', () => {
+  let notificationHealth;
+  let healthAddStub;
+
+  beforeEach(() => {
+    delete require.cache[require.resolve('../index.js')];
+    const mod = require('../index.js');
+    notificationHealth = mod.notificationHealth;
+
+    healthAddStub = sinon.stub().resolves({ id: 'check-1' });
+    collectionStub.withArgs('notification_health_checks').returns({ add: healthAddStub });
+
+    // Firestore probe: local_users.limit(1).get()
+    collectionStub.withArgs('local_users').returns({
+      limit: sinon.stub().returns({
+        get: sinon.stub().resolves(createQuerySnapshot([])),
+      }),
+    });
+
+    messagingStub.returns({
+      sendEachForMulticast: sinon.stub().resolves({
+        successCount: 0,
+        responses: [],
+      }),
+    });
+  });
+
+  it('returns ok and records the check when both probes succeed', async () => {
+    const wrapped = functionsTest.wrap(notificationHealth);
+    const result = await wrapped({ data: {} });
+
+    expect(result.status).to.equal('ok');
+    expect(result.firestoreReachable).to.be.true;
+    expect(result.fcmReachable).to.be.true;
+    expect(result).to.have.property('latencyMs');
+    expect(result).to.have.property('checkedAt');
+    expect(healthAddStub.calledOnce).to.be.true;
+    const recorded = healthAddStub.firstCall.args[0];
+    expect(recorded.status).to.equal('ok');
+  });
+
+  it('returns degraded when firestore probe fails', async () => {
+    collectionStub.withArgs('local_users').returns({
+      limit: sinon.stub().returns({
+        get: sinon.stub().rejects(new Error('Firestore down')),
+      }),
+    });
+
+    const wrapped = functionsTest.wrap(notificationHealth);
+    const result = await wrapped({ data: {} });
+
+    expect(result.status).to.equal('unavailable');
+    expect(result.firestoreReachable).to.be.false;
+    expect(healthAddStub.calledOnce).to.be.true;
+  });
+});
+
+describe('notificationHealthProbe', () => {
+  let notificationHealthProbe;
+  let healthAddStub;
+
+  beforeEach(() => {
+    delete require.cache[require.resolve('../index.js')];
+    const mod = require('../index.js');
+    notificationHealthProbe = mod.notificationHealthProbe;
+
+    healthAddStub = sinon.stub().resolves({ id: 'probe-1' });
+    collectionStub.withArgs('notification_health_checks').returns({ add: healthAddStub });
+
+    collectionStub.withArgs('local_users').returns({
+      limit: sinon.stub().returns({
+        get: sinon.stub().resolves(createQuerySnapshot([])),
+      }),
+    });
+
+    messagingStub.returns({
+      sendEachForMulticast: sinon.stub().resolves({
+        successCount: 0,
+        responses: [],
+      }),
+    });
+  });
+
+  it('records a health check on schedule', async () => {
+    const wrapped = functionsTest.wrap(notificationHealthProbe);
+    await wrapped({});
+
+    expect(healthAddStub.calledOnce).to.be.true;
+    const recorded = healthAddStub.firstCall.args[0];
+    expect(recorded).to.have.property('status');
+    expect(recorded).to.have.property('firestoreReachable');
+    expect(recorded).to.have.property('fcmReachable');
+    expect(recorded).to.have.property('latencyMs');
+  });
+});

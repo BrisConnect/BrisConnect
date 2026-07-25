@@ -10,6 +10,7 @@ import 'package:brisconnect/screens/local_portal_screen.dart';
 import 'package:brisconnect/screens/admin_dashboard_screen.dart';
 import 'package:brisconnect/screens/business_profile_form_screen.dart';
 import 'package:brisconnect/screens/business_profile_view_screen.dart';
+import 'package:brisconnect/screens/notification_health_screen.dart';
 import 'package:brisconnect/screens/promotion_detail_screen.dart';
 import 'package:brisconnect/models/business.dart';
 import 'package:brisconnect/services/fcm_service.dart';
@@ -95,6 +96,11 @@ class BrisConnectApp extends StatelessWidget {
             final promotionId = settings.arguments as String? ?? '';
             return MaterialPageRoute(
               builder: (_) => PromotionDetailScreen(promotionId: promotionId),
+              settings: settings,
+            );
+          case '/notification-health':
+            return MaterialPageRoute(
+              builder: (_) => const NotificationHealthScreen(),
               settings: settings,
             );
           default:
