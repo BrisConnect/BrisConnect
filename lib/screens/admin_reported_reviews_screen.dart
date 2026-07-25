@@ -171,7 +171,7 @@ class _ReviewCardState extends State<_ReviewCard> {
   bool _isLoading = false;
 
   Future<void> _moderate(ModerationDecision decision) async {
-    final adminEmail = AdminAuth.currentAdminEmail;
+    final adminEmail = AdminAuth.currentAdminEmail ?? widget.moderationService.currentAdminEmail;
     if (adminEmail == null || adminEmail.isEmpty) {
       _showSnack('Admin email not available.', isError: true);
       return;
@@ -206,10 +206,13 @@ class _ReviewCardState extends State<_ReviewCard> {
         ? 'Reason for dismissing the report'
         : 'Reason for ${decision.label.toLowerCase()}';
 
+    if (!mounted) return null;
+
     return showDialog<String>(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: Text(title),
+        title: Text(title, key: const ValueKey('moderation_reason_title')),
         content: TextField(
           controller: controller,
           maxLines: 3,

@@ -11,8 +11,15 @@ class AdminAuth {
 
   static bool get isAdminLoggedIn => _isAdminLoggedIn;
   static String? get lastErrorMessage => _lastErrorMessage;
-  static String? get currentAdminEmail =>
-      fb_auth.FirebaseAuth.instance.currentUser?.email;
+  static String? get currentAdminEmail {
+    try {
+      return fb_auth.FirebaseAuth.instance.currentUser?.email;
+    } catch (_) {
+      // Firebase may not be initialized in widget/widget tests.
+      return null;
+    }
+  }
+
   static String? get profileImageUrl => _profileImageUrl;
   static String? get profileImageStoragePath => _profileImageStoragePath;
 
