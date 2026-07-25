@@ -22,6 +22,18 @@ class ActivityFeedItem {
   final String imageUrl;
   final DateTime createdAt;
 
+  /// Whether this item is pinned to the top of the community feed.
+  final bool isPinned;
+
+  /// Timestamp when the item was pinned. Used to sort pinned items.
+  final DateTime? pinnedAt;
+
+  /// Whether this item is highlighted/promoted in the community feed.
+  final bool isHighlighted;
+
+  /// Timestamp when the item was highlighted. Used to sort highlighted items.
+  final DateTime? highlightedAt;
+
   /// Id of the related entity the card should deep-link to.
   /// - review → businessId
   /// - event → event id
@@ -40,6 +52,10 @@ class ActivityFeedItem {
     required this.body,
     required this.imageUrl,
     required this.createdAt,
+    this.isPinned = false,
+    this.pinnedAt,
+    this.isHighlighted = false,
+    this.highlightedAt,
     required this.targetId,
     this.secondaryTargetId,
   });
@@ -54,6 +70,9 @@ class ActivityFeedItem {
     final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
     if (createdAt == null) return null;
 
+    final pinnedAt = (data['pinnedAt'] as Timestamp?)?.toDate();
+    final highlightedAt = (data['highlightedAt'] as Timestamp?)?.toDate();
+
     return ActivityFeedItem(
       id: doc.id,
       type: ActivityFeedType.review,
@@ -64,6 +83,10 @@ class ActivityFeedItem {
       body: data['comment']?.toString() ?? '',
       imageUrl: data['imageUrl']?.toString() ?? '',
       createdAt: createdAt,
+      isPinned: data['isPinned'] == true,
+      pinnedAt: pinnedAt,
+      isHighlighted: data['isHighlighted'] == true,
+      highlightedAt: highlightedAt,
       targetId: data['businessId']?.toString() ?? doc.id,
       secondaryTargetId: doc.id,
     );
@@ -83,6 +106,9 @@ class ActivityFeedItem {
     final time = data['time']?.toString().trim() ?? '';
     final dateTime = time.isNotEmpty ? '$date • $time' : date;
 
+    final pinnedAt = (data['pinnedAt'] as Timestamp?)?.toDate();
+    final highlightedAt = (data['highlightedAt'] as Timestamp?)?.toDate();
+
     return ActivityFeedItem(
       id: doc.id,
       type: ActivityFeedType.event,
@@ -91,6 +117,10 @@ class ActivityFeedItem {
       body: data['description']?.toString() ?? '',
       imageUrl: data['imageUrl']?.toString() ?? '',
       createdAt: createdAt,
+      isPinned: data['isPinned'] == true,
+      pinnedAt: pinnedAt,
+      isHighlighted: data['isHighlighted'] == true,
+      highlightedAt: highlightedAt,
       targetId: doc.id,
     );
   }
@@ -98,6 +128,9 @@ class ActivityFeedItem {
   static ActivityFeedItem? fromBusinessDoc(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>?;
     if (data == null) return null;
+
+    // Removed/deactivated businesses should not appear in the feed.
+    if (data['isActive'] == false || data['isDeleted'] == true) return null;
 
     final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
     if (createdAt == null) return null;
@@ -107,6 +140,9 @@ class ActivityFeedItem {
             : data['name'])
         ?.toString()
         .trim();
+
+    final pinnedAt = (data['pinnedAt'] as Timestamp?)?.toDate();
+    final highlightedAt = (data['highlightedAt'] as Timestamp?)?.toDate();
 
     return ActivityFeedItem(
       id: doc.id,
@@ -118,6 +154,10 @@ class ActivityFeedItem {
           data['imageUrl']?.toString() ??
           data['coverImageUrl']?.toString() ??
           '',
+      isPinned: data['isPinned'] == true,
+      pinnedAt: pinnedAt,
+      isHighlighted: data['isHighlighted'] == true,
+      highlightedAt: highlightedAt,
       createdAt: createdAt,
       targetId: doc.id,
     );

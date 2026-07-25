@@ -89,7 +89,7 @@ class ActivityFeedService {
     switch (type) {
       case ActivityFeedType.review:
         return _recentVisibleReviewsStream(effectiveLimit)
-            .map((items) => _sortByCreatedAtDesc(items));
+            .map((items) => _sortByPriorityThenDate(items));
       case ActivityFeedType.event:
         return _firestore
             .collection('business_events')
@@ -98,11 +98,13 @@ class ActivityFeedService {
             .limit(effectiveLimit)
             .snapshots()
             .map(
-              (snapshot) => snapshot.docs
-                  .map(ActivityFeedItem.fromBusinessEventDoc)
-                  .where((item) => item != null)
-                  .cast<ActivityFeedItem>()
-                  .toList(),
+              (snapshot) => _sortByPriorityThenDate(
+                snapshot.docs
+                    .map(ActivityFeedItem.fromBusinessEventDoc)
+                    .where((item) => item != null)
+                    .cast<ActivityFeedItem>()
+                    .toList(),
+              ),
             );
       case ActivityFeedType.business:
         return _firestore
@@ -111,11 +113,13 @@ class ActivityFeedService {
             .limit(effectiveLimit)
             .snapshots()
             .map(
-              (snapshot) => snapshot.docs
-                  .map(ActivityFeedItem.fromBusinessDoc)
-                  .where((item) => item != null)
-                  .cast<ActivityFeedItem>()
-                  .toList(),
+              (snapshot) => _sortByPriorityThenDate(
+                snapshot.docs
+                    .map(ActivityFeedItem.fromBusinessDoc)
+                    .where((item) => item != null)
+                    .cast<ActivityFeedItem>()
+                    .toList(),
+              ),
             );
       case ActivityFeedType.photo:
         // Photos are not yet stored as a separate collection. Surface review
@@ -125,6 +129,93 @@ class ActivityFeedService {
             .map((items) => items.where((i) => i.imageUrl.isNotEmpty).toList());
       case ActivityFeedType.all:
         return activityFeedStream(limit: effectiveLimit);
+    }
+  }
+
+  /// Pin an item so it appears at the top of the community feed.
+  Future<void> pinItem(ActivityFeedItem item) async {
+    final ref = _firestore.collection(_collectionForType(item.type)).doc(item.id);
+    await ref.update({
+      'isPinned': true,
+      'pinnedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Unpin an item.
+  Future<void> unpinItem(ActivityFeedItem item) async {
+    final ref = _firestore.collection(_collectionForType(item.type)).doc(item.id);
+    await ref.update({
+      'isPinned': false,
+      'pinnedAt': null,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Highlight an item so it is promoted in the community feed.
+  Future<void> highlightItem(ActivityFeedItem item) async {
+    final ref = _firestore.collection(_collectionForType(item.type)).doc(item.id);
+    await ref.update({
+      'isHighlighted': true,
+      'highlightedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Remove the highlight from an item.
+  Future<void> unhighlightItem(ActivityFeedItem item) async {
+    final ref = _firestore.collection(_collectionForType(item.type)).doc(item.id);
+    await ref.update({
+      'isHighlighted': false,
+      'highlightedAt': null,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Remove an item from the community feed.
+  ///
+  /// Uses content-specific moderation flags so the item is excluded by the
+  /// feed parsers and cannot reappear.
+  Future<void> removeItem(ActivityFeedItem item) async {
+    final ref = _firestore.collection(_collectionForType(item.type)).doc(item.id);
+    switch (item.type) {
+      case ActivityFeedType.review:
+      case ActivityFeedType.photo:
+        await ref.update({
+          'visible': false,
+          'isFlagged': true,
+          'deletedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        break;
+      case ActivityFeedType.event:
+        await ref.update({
+          'status': 'rejected',
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        break;
+      case ActivityFeedType.business:
+        await ref.update({
+          'isActive': false,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        break;
+      case ActivityFeedType.all:
+        throw ArgumentError('Cannot remove a feed item with type all');
+    }
+  }
+
+  String _collectionForType(ActivityFeedType type) {
+    switch (type) {
+      case ActivityFeedType.review:
+      case ActivityFeedType.photo:
+        return 'reviews';
+      case ActivityFeedType.event:
+        return 'business_events';
+      case ActivityFeedType.business:
+        return 'businesses';
+      case ActivityFeedType.all:
+        throw ArgumentError('No single collection for type all');
     }
   }
 
@@ -222,12 +313,32 @@ class ActivityFeedService {
       seen.add(key);
       merged.add(item);
     }
-    merged.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    _sortByPriorityThenDate(merged);
     return merged.take(limit).toList();
   }
 
-  List<ActivityFeedItem> _sortByCreatedAtDesc(List<ActivityFeedItem> items) {
-    items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  /// Sort feed items so pinned items appear first, then highlighted items,
+  /// then regular items. Within each tier the most recently pinned,
+  /// highlighted, or created item is shown first.
+  List<ActivityFeedItem> _sortByPriorityThenDate(List<ActivityFeedItem> items) {
+    items.sort((a, b) {
+      final scoreA = a.isPinned ? 2 : a.isHighlighted ? 1 : 0;
+      final scoreB = b.isPinned ? 2 : b.isHighlighted ? 1 : 0;
+      if (scoreA != scoreB) return scoreB - scoreA;
+
+      final dateA = a.isPinned
+          ? a.pinnedAt
+          : a.isHighlighted
+              ? a.highlightedAt
+              : a.createdAt;
+      final dateB = b.isPinned
+          ? b.pinnedAt
+          : b.isHighlighted
+              ? b.highlightedAt
+              : b.createdAt;
+      if (dateA == null || dateB == null) return 0;
+      return dateB.compareTo(dateA);
+    });
     return items;
   }
 }

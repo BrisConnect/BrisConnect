@@ -20,6 +20,10 @@ void main() {
       required DateTime createdAt,
       bool visible = true,
       bool isFlagged = false,
+      bool isPinned = false,
+      DateTime? pinnedAt,
+      bool isHighlighted = false,
+      DateTime? highlightedAt,
       String businessId = 'biz_1',
     }) async {
       final ref = fakeFirestore.collection('reviews').doc(id);
@@ -39,6 +43,12 @@ void main() {
         'helpfulCount': 0,
         'isFlagged': isFlagged,
         'visible': visible,
+        'isPinned': isPinned,
+        'pinnedAt': pinnedAt != null ? Timestamp.fromDate(pinnedAt) : null,
+        'isHighlighted': isHighlighted,
+        'highlightedAt': highlightedAt != null
+            ? Timestamp.fromDate(highlightedAt)
+            : null,
       });
       return ref;
     }
@@ -48,6 +58,10 @@ void main() {
       required String title,
       required DateTime createdAt,
       String status = 'published',
+      bool isPinned = false,
+      DateTime? pinnedAt,
+      bool isHighlighted = false,
+      DateTime? highlightedAt,
     }) async {
       final ref = fakeFirestore.collection('business_events').doc(id);
       await ref.set({
@@ -63,6 +77,12 @@ void main() {
         'status': status,
         'createdAt': Timestamp.fromDate(createdAt),
         'updatedAt': Timestamp.fromDate(createdAt),
+        'isPinned': isPinned,
+        'pinnedAt': pinnedAt != null ? Timestamp.fromDate(pinnedAt) : null,
+        'isHighlighted': isHighlighted,
+        'highlightedAt': highlightedAt != null
+            ? Timestamp.fromDate(highlightedAt)
+            : null,
       });
       return ref;
     }
@@ -71,6 +91,11 @@ void main() {
       required String id,
       required String name,
       required DateTime createdAt,
+      bool isActive = true,
+      bool isPinned = false,
+      DateTime? pinnedAt,
+      bool isHighlighted = false,
+      DateTime? highlightedAt,
     }) async {
       final ref = fakeFirestore.collection('businesses').doc(id);
       await ref.set({
@@ -78,6 +103,13 @@ void main() {
         'description': 'A tasty spot',
         'address': 'Brisbane',
         'createdAt': Timestamp.fromDate(createdAt),
+        'isActive': isActive,
+        'isPinned': isPinned,
+        'pinnedAt': pinnedAt != null ? Timestamp.fromDate(pinnedAt) : null,
+        'isHighlighted': isHighlighted,
+        'highlightedAt': highlightedAt != null
+            ? Timestamp.fromDate(highlightedAt)
+            : null,
       });
       return ref;
     }
@@ -182,6 +214,185 @@ void main() {
     test('empty feed returns no items', () async {
       final items = await service.activityFeedStream(limit: 10).first;
       expect(items, isEmpty);
+    });
+
+    test('pinned items sort to the top', () async {
+      final now = DateTime.now();
+      await addReview(
+        id: 'r1',
+        comment: 'New',
+        createdAt: now,
+      );
+      await addReview(
+        id: 'r2',
+        comment: 'Pinned old',
+        createdAt: now.subtract(const Duration(hours: 24)),
+        isPinned: true,
+        pinnedAt: now.subtract(const Duration(minutes: 5)),
+      );
+
+      final items = await service.activityFeedStream(limit: 10).first;
+      expect(items.length, 2);
+      expect(items.first.id, 'r2');
+      expect(items.first.isPinned, true);
+    });
+
+    test('highlighted items sort below pinned and above regular', () async {
+      final now = DateTime.now();
+      await addReview(
+        id: 'r1',
+        comment: 'Regular',
+        createdAt: now,
+      );
+      await addReview(
+        id: 'r2',
+        comment: 'Highlighted old',
+        createdAt: now.subtract(const Duration(hours: 24)),
+        isHighlighted: true,
+        highlightedAt: now.subtract(const Duration(minutes: 5)),
+      );
+      await addReview(
+        id: 'r3',
+        comment: 'Pinned older',
+        createdAt: now.subtract(const Duration(hours: 48)),
+        isPinned: true,
+        pinnedAt: now.subtract(const Duration(minutes: 10)),
+      );
+
+      final items = await service.activityFeedStream(limit: 10).first;
+      expect(items.map((i) => i.id).toList(), ['r3', 'r2', 'r1']);
+    });
+
+    test('pinItem and unpinItem update Firestore', () async {
+      final now = DateTime.now();
+      await addReview(id: 'r1', comment: 'A', createdAt: now);
+
+      final item = (await service.activityFeedStream(limit: 1).first).first;
+      await service.pinItem(item);
+
+      var snapshot = await fakeFirestore.collection('reviews').doc('r1').get();
+      expect(snapshot.data()?['isPinned'], true);
+      expect(snapshot.data()?['pinnedAt'], isNotNull);
+
+      final pinnedItem =
+          (await service.activityFeedStream(limit: 1).first).first;
+      await service.unpinItem(pinnedItem);
+
+      snapshot = await fakeFirestore.collection('reviews').doc('r1').get();
+      expect(snapshot.data()?['isPinned'], false);
+      expect(snapshot.data()?['pinnedAt'], isNull);
+    });
+
+    test('highlightItem and unhighlightItem update Firestore', () async {
+      final now = DateTime.now();
+      await addEvent(id: 'e1', title: 'Event', createdAt: now);
+
+      final item = (await service.activityFeedStreamByType(
+        ActivityFeedType.event,
+        limit: 1,
+      ).first)
+          .first;
+      await service.highlightItem(item);
+
+      var snapshot =
+          await fakeFirestore.collection('business_events').doc('e1').get();
+      expect(snapshot.data()?['isHighlighted'], true);
+      expect(snapshot.data()?['highlightedAt'], isNotNull);
+
+      final highlightedItem = (await service.activityFeedStreamByType(
+        ActivityFeedType.event,
+        limit: 1,
+      ).first)
+          .first;
+      await service.unhighlightItem(highlightedItem);
+
+      snapshot =
+          await fakeFirestore.collection('business_events').doc('e1').get();
+      expect(snapshot.data()?['isHighlighted'], false);
+      expect(snapshot.data()?['highlightedAt'], isNull);
+    });
+
+    test('removeItem hides reviews from the feed', () async {
+      final now = DateTime.now();
+      await addReview(id: 'r1', comment: 'Spam', createdAt: now);
+
+      final item = (await service.activityFeedStream(limit: 1).first).first;
+      await service.removeItem(item);
+
+      final items = await service.activityFeedStream(limit: 10).first;
+      expect(items, isEmpty);
+
+      final snapshot = await fakeFirestore.collection('reviews').doc('r1').get();
+      final data = snapshot.data()!;
+      expect(data['visible'], false);
+      expect(data['isFlagged'], true);
+      expect(data['deletedAt'], isNotNull);
+    });
+
+    test('removeItem hides events from the feed', () async {
+      final now = DateTime.now();
+      await addEvent(id: 'e1', title: 'Spam event', createdAt: now);
+
+      final item = (await service.activityFeedStreamByType(
+        ActivityFeedType.event,
+        limit: 1,
+      ).first)
+          .first;
+      await service.removeItem(item);
+
+      final items = await service.activityFeedStreamByType(
+        ActivityFeedType.event,
+        limit: 10,
+      ).first;
+      expect(items, isEmpty);
+
+      final snapshot =
+          await fakeFirestore.collection('business_events').doc('e1').get();
+      expect(snapshot.data()?['status'], 'rejected');
+    });
+
+    test('removeItem hides businesses from the feed', () async {
+      final now = DateTime.now();
+      await addBusiness(id: 'b1', name: 'Spam business', createdAt: now);
+
+      final item = (await service.activityFeedStreamByType(
+        ActivityFeedType.business,
+        limit: 1,
+      ).first)
+          .first;
+      await service.removeItem(item);
+
+      final items = await service.activityFeedStreamByType(
+        ActivityFeedType.business,
+        limit: 10,
+      ).first;
+      expect(items, isEmpty);
+
+      final snapshot =
+          await fakeFirestore.collection('businesses').doc('b1').get();
+      expect(snapshot.data()?['isActive'], false);
+    });
+
+    test('deactivated businesses are excluded from the feed', () async {
+      final now = DateTime.now();
+      await addBusiness(
+        id: 'b1',
+        name: 'Active',
+        createdAt: now,
+      );
+      await addBusiness(
+        id: 'b2',
+        name: 'Inactive',
+        createdAt: now.subtract(const Duration(seconds: 1)),
+        isActive: false,
+      );
+
+      final items = await service.activityFeedStreamByType(
+        ActivityFeedType.business,
+        limit: 10,
+      ).first;
+      expect(items.length, 1);
+      expect(items.first.id, 'b1');
     });
   });
 }

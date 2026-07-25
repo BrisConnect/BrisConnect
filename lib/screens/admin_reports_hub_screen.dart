@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/app_user_role.dart';
+import 'package:brisconnect/screens/admin_community_feed_screen.dart';
 import 'package:brisconnect/screens/admin_reported_events_screen.dart';
 import 'package:brisconnect/screens/admin_reported_reviews_screen.dart';
 import 'package:brisconnect/theme/app_palette.dart';
@@ -50,6 +51,18 @@ class AdminReportsHubScreen extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          _HubCard(
+            icon: Icons.dynamic_feed_outlined,
+            title: 'Community Feed',
+            subtitle: 'Pin, highlight and remove feed content',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const AdminCommunityFeedScreen(),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -88,7 +101,7 @@ class _HubCard extends StatelessWidget {
         side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
       ),
       child: ListTile(
-        leading: Icon(icon, color: AppPalette.primary),
+        leading: Icon(icon, color: AppPalette.ochre),
         title: Text(
           title,
           style: const TextStyle(

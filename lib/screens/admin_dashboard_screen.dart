@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:brisconnect/auth/app_user_role.dart';
 import 'package:brisconnect/auth/admin_auth.dart';
+import 'package:brisconnect/screens/admin_business_management_screen.dart';
+import 'package:brisconnect/screens/admin_community_feed_screen.dart';
 import 'package:brisconnect/screens/admin_event_review_screen.dart';
 import 'package:brisconnect/screens/admin_feedback_review_screen.dart';
 import 'package:brisconnect/screens/admin_email_broadcast_screen.dart';
@@ -214,6 +216,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => const AdminReportsHubScreen(),
+      ),
+    );
+  }
+
+  void _openCommunityFeed() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const AdminCommunityFeedScreen(),
       ),
     );
   }
@@ -700,7 +711,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           value: reportsSnap.data?.toString() ?? '—',
                           label: 'Reports',
                           subtext: 'Pending Review',
-                          onTap: _openReportedEvents,
+                          onTap: _openReportsHub,
                         ),
                       ),
                     ],
@@ -962,6 +973,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   trailing: const Icon(Icons.chevron_right_rounded,
                       color: AppPalette.mutedText),
                   onTap: _openBusinessManagement,
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  leading: _settingsIcon(Icons.dynamic_feed_outlined),
+                  title: const Text('Community Feed',
+                      style: TextStyle(fontWeight: FontWeight.w600, color: AppPalette.charcoal)),
+                  subtitle: const Text('Pin, highlight and remove feed content',
+                      style: TextStyle(color: AppPalette.mutedText)),
+                  trailing: const Icon(Icons.chevron_right_rounded,
+                      color: AppPalette.mutedText),
+                  onTap: _openCommunityFeed,
                 ),
               ],
             ),
