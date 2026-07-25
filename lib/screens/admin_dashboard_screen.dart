@@ -461,7 +461,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   child: const Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.event_rounded, color: Colors.white, size: 24),
+                      Icon(Icons.event_rounded, color: Colors.white, size: 22),
+                      SizedBox(height: 2),
                       Text(
                         'Events',
                         style: TextStyle(
@@ -704,7 +705,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildStatsCarousel() {
     return SizedBox(
-      height: 132,
+      height: 154,
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
@@ -1642,7 +1643,7 @@ class _DashboardStatCard extends StatelessWidget {
                 const Spacer(),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
               value,
               style: TextStyle(
@@ -1659,20 +1660,20 @@ class _DashboardStatCard extends StatelessWidget {
                 color: AppPalette.charcoal,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             if (trend != null)
               Row(
                 children: [
                   Icon(
                     trend!.isUp ? Icons.arrow_upward : Icons.arrow_downward,
                     color: trend!.isUp ? Colors.green.shade700 : Colors.red.shade700,
-                    size: 12,
+                    size: 11,
                   ),
                   const SizedBox(width: 2),
                   Text(
                     '${trend!.change.abs()} ${trend!.periodLabel}',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 10,
                       fontWeight: FontWeight.w700,
                       color: trend!.isUp ? Colors.green.shade700 : Colors.red.shade700,
                     ),
@@ -1683,7 +1684,7 @@ class _DashboardStatCard extends StatelessWidget {
               Text(
                 subtext,
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   color: AppPalette.mutedText,
                 ),
               ),
@@ -1889,22 +1890,25 @@ class _NavItem extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        width: 60,
+        width: 56,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               icon,
-              size: 24,
+              size: 22,
               color: isSelected ? Colors.white : Colors.white70,
             ),
             const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? Colors.white : Colors.white70,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? Colors.white : Colors.white70,
+                ),
               ),
             ),
           ],
