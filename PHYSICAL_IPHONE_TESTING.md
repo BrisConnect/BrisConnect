@@ -6,6 +6,14 @@
 
 ## ⚡ Quick Start on Physical iPhone
 
+### Apple Developer Account
+- **Account Holder**: June Maiava
+- **Team ID**: `GF6FMCNU87`
+- **Bundle ID**: `com.june.brisconnect`
+- **Signing**: Automatic signing with the team above is configured in both the iOS and macOS Xcode projects.
+
+> ⚠️ **Important**: This is currently a **personal/free Apple Developer team**. Apple does **not** allow Push Notifications on physical devices with a free/personal team. To enable Firebase Cloud Messaging (FCM) on a physical iPhone, you must enroll in the paid [Apple Developer Program](https://developer.apple.com/programs/) and switch the Xcode team to the paid organization account.
+
 ### Prerequisites
 ```bash
 # 1. Connect iPhone via USB cable
@@ -146,9 +154,24 @@ flutter devices  # Should now show iPhone
 # Solution 1: Use automatic signing
 open -a Xcode ios/Runner.xcworkspace
 # In Xcode: Select Runner > Signing & Capabilities > Automatic Signing
+# Ensure Team is set to "June Maiava (GF6FMCNU87)"
 
 # Solution 2: Run with auto-provisioning
 flutter run --release
+```
+
+#### "Push Notifications capability not available"
+```bash
+# Issue: Personal/free Apple Developer teams cannot add the Push Notifications
+# capability required by firebase_messaging on a physical device.
+#
+# Solution:
+# 1. Enroll in the paid Apple Developer Program at
+#    https://developer.apple.com/programs/
+# 2. In Xcode, change the team to the paid organization
+# 3. Add "Push Notifications" capability under Runner > Signing & Capabilities
+# 4. Regenerate the provisioning profile
+# 5. Rebuild: flutter clean && flutter run -d <device-id>
 ```
 
 #### "Could not find a connected device"
@@ -212,7 +235,8 @@ In Xcode:
    - [ ] Version: "1.0.0"
    - [ ] Build: "1"
 4. Go to "Signing & Capabilities":
-   - [ ] Select Team (Apple Developer Account)
+   - [ ] Select Team: **June Maiava (GF6FMCNU87)**
+   - [ ] Verify bundle ID: **com.june.brisconnect**
    - [ ] Verify bundle ID matches provisioning profile
 
 ### Step 4: Archive for App Store
