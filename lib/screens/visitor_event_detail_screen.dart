@@ -10,6 +10,7 @@ import 'package:brisconnect/widgets/audio_guide_widget.dart';
 import 'package:brisconnect/widgets/crowd_report_widget.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 import 'package:brisconnect/widgets/share_bottom_sheet.dart';
+import 'package:brisconnect/widgets/visitor_photo_gallery_widget.dart';
 
 /// Full-page event detail screen shown when a Visitor taps an event card.
 /// Displays hero image, cultural background description, optional AI narration,
@@ -120,8 +121,7 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
     final title = (widget.event['title'] as String? ?? 'Event').trim();
     final dateTime = (widget.event['dateTime'] as String? ?? '').trim();
     final location = (widget.event['location'] as String? ?? '').trim();
-    final description =
-        (widget.event['description'] as String? ?? '').trim();
+    final description = (widget.event['description'] as String? ?? '').trim();
 
     if (id.isEmpty) {
       if (!mounted) return;
@@ -201,8 +201,7 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
     final culturalBackground =
         (widget.event['culturalBackground'] as String? ?? '').trim();
     final aiAudio = (widget.event['aiAudio'] as String? ?? '').trim();
-    final aiNarration =
-        (widget.event['aiNarration'] as String? ?? '').trim();
+    final aiNarration = (widget.event['aiNarration'] as String? ?? '').trim();
     final narrationText = _buildNarrationText(
       badge: badge,
       title: title,
@@ -365,6 +364,16 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
                         eventId: widget.event['id'] as String,
                       ),
                       const SizedBox(height: 22),
+                    ],
+
+                    // Visitor Photo Gallery
+                    if ((widget.event['id'] as String? ?? '').isNotEmpty) ...[
+                      VisitorPhotoGalleryWidget(
+                        eventId: widget.event['id'] as String,
+                      ),
+                      const SizedBox(height: 22),
+                      const Divider(color: AppPalette.border),
+                      const SizedBox(height: 16),
                     ],
 
                     // Cultural background

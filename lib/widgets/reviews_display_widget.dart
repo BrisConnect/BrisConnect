@@ -173,7 +173,8 @@ class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
         return Icon(
           Icons.star,
           size: 16,
-          color: fillPercentage > 0.5 ? AppPalette.ochre : AppPalette.background,
+          color:
+              fillPercentage > 0.5 ? AppPalette.ochre : AppPalette.background,
         );
       }),
     );
@@ -292,9 +293,11 @@ class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
                         value: 'delete',
                         child: Row(
                           children: [
-                            Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                            Icon(Icons.delete_outline,
+                                size: 18, color: Colors.redAccent),
                             SizedBox(width: 8),
-                            Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                            Text('Delete',
+                                style: TextStyle(color: Colors.redAccent)),
                           ],
                         ),
                       ),
@@ -417,31 +420,32 @@ class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
                     reasonController.text.trim(),
                     severity: selectedSeverity,
                   );
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Recommendation reported successfully'),
-                    ),
-                  );
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Recommendation reported successfully'),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e')),
+                    );
+                  }
                 }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e')),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppPalette.ochre,
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppPalette.ochre,
+              ),
+              child: const Text(
+                'Report',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
-            child: const Text(
-              'Report',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

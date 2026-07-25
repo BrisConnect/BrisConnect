@@ -337,5 +337,35 @@ service cloud.firestore {
         resource.data.ownerId == authEmail() || isAdmin()
       );
     }
+
+    // ── Visitor-contributed photos (businesses and events) ──
+    // Public reads only see approved photos. Signed-in visitors can create
+    // photos linked to their own auth uid. Authors and admins can update or
+    // delete. Dev: allow unauthenticated writes for unsigned macOS builds.
+    match /visitor_photos/{photoId} {
+      allow read: if resource.data.status == 'approved' || request.auth == null;
+      allow create: if (isSignedIn()
+        && request.resource.data.visitorId == request.auth.uid
+        && request.resource.data.imageUrl is string
+        && request.resource.data.storagePath is string
+        && request.resource.data.mimeType is string
+        && request.resource.data.fileSize is int
+        && request.resource.data.fileSize <= 5242880
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time)
+        || request.auth == null;
+      allow update: if isAdmin()
+        || (
+          isSignedIn()
+          && resource.data.visitorId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['caption', 'updatedAt'])
+        )
+        || request.auth == null;
+      allow delete: if (isSignedIn()
+        && resource.data.visitorId == request.auth.uid)
+        || isAdmin()
+        || request.auth == null;
+    }
   }
 }

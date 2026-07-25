@@ -73,6 +73,14 @@ service firebase.storage {
       allow write: if isSignedIn() || request.auth == null;
     }
 
+    // Visitor-contributed photos for businesses and events.
+    // Dev: allow public read/write for unsigned macOS builds. Restrict to
+    // authenticated owners before production.
+    match /visitor_photos/{userEmail}/{targetType}/{targetId}/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn() || request.auth == null;
+    }
+
     // AI-generated post images.
     // Dev: allow public read/write for unsigned macOS builds where Firebase Auth
     // keychain access fails. Restrict to authenticated owners before production.

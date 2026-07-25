@@ -5,6 +5,7 @@ import 'package:brisconnect/services/business_dashboard_service.dart';
 import 'package:brisconnect/services/food_business_service.dart';
 import 'package:brisconnect/widgets/crowd_report_widget.dart';
 import 'package:brisconnect/widgets/business_reviews_widget.dart';
+import 'package:brisconnect/widgets/visitor_photo_gallery_widget.dart';
 
 class FoodBusinessDetailScreen extends StatefulWidget {
   final String businessId;
@@ -201,6 +202,10 @@ class _FoodBusinessDetailScreenState extends State<FoodBusinessDetailScreen> {
                     ],
                   ),
                 ),
+                const Divider(),
+                // Visitor Photo Gallery
+                VisitorPhotoGalleryWidget(businessId: widget.businessId),
+                const SizedBox(height: 16),
                 const Divider(),
                 // Crowd Report Widget
                 if ((widget.businessId as String? ?? '').isNotEmpty) ...[
