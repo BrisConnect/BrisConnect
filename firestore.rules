@@ -116,6 +116,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ── Notification health checks ──
+    // Synthetic monitor results; written by Cloud Functions only.
+    match /notification_health_checks/{docId} {
+      allow read: if isSignedIn() || isAdmin();
+      allow write: if isAdmin();
+    }
+
     // ── User notifications ──
     match /user_notifications/{docId} {
       allow read: if isSignedIn();
