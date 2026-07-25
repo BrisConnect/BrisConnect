@@ -16,8 +16,13 @@ class BusinessProfileService {
         _storage = storage ?? FirebaseStorage.instance;
 
   static const String _collection = 'businesses';
+  static const String _archiveCollection = 'business_archive';
+  static const String _verificationLogCollection = 'business_verification_log';
   static const String _logoFolder = 'business_logos';
   static const String _coverFolder = 'business_covers';
+
+  /// Archive retention period in days.
+  static const int archiveRetentionDays = 30;
 
   /// Create a new business profile
   Future<String> createBusinessProfile(Business business) async {
@@ -234,20 +239,24 @@ class BusinessProfileService {
     }
   }
 
-  /// Stream of all verified businesses
+  /// Stream of all verified, active, non-deleted businesses (public listing).
   Stream<List<Business>> getVerifiedBusinessesStream() {
     return _firestore
         .collection(_collection)
         .where('isVerified', isEqualTo: true)
+        .where('isActive', isEqualTo: true)
+        .where('deletedAt', isNull: true)
         .snapshots()
         .map((snapshot) => snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
   }
 
-  /// Stream of all businesses regardless of verification status.
+  /// Stream of all active, non-deleted businesses regardless of verification status.
   /// Useful for development/testing when no profiles have been verified yet.
   Stream<List<Business>> getAllBusinessesStream() {
     return _firestore
         .collection(_collection)
+        .where('isActive', isEqualTo: true)
+        .where('deletedAt', isNull: true)
         .snapshots()
         .map((snapshot) => snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
   }
@@ -258,6 +267,8 @@ class BusinessProfileService {
         .collection(_collection)
         .where('isTrending', isEqualTo: true)
         .where('isVerified', isEqualTo: true)
+        .where('isActive', isEqualTo: true)
+        .where('deletedAt', isNull: true)
         .orderBy('buzzScore', descending: true)
         .limit(limit)
         .snapshots()
@@ -276,14 +287,252 @@ class BusinessProfileService {
     }
   }
 
-  /// Verify a business (admin only)
-  Future<void> verifyBusiness(String businessId) async {
+  /// Verify a business (admin only). Records an audit log entry so the
+  /// verification can be reviewed later.
+  Future<void> verifyBusiness({
+    required String businessId,
+    required String adminEmail,
+    String? notes,
+  }) async {
     try {
-      await _firestore.collection(_collection).doc(businessId).update({
-        'isVerified': true,
+      final docRef = _firestore.collection(_collection).doc(businessId);
+      final now = FieldValue.serverTimestamp();
+
+      await _firestore.runTransaction((transaction) async {
+        final snapshot = await transaction.get(docRef);
+        if (!snapshot.exists) {
+          throw Exception('Business not found');
+        }
+        transaction.update(docRef, {
+          'isVerified': true,
+          'verifiedAt': now,
+          'verifiedBy': adminEmail,
+          'updatedAt': now,
+        });
+        transaction.set(
+          _firestore.collection(_verificationLogCollection).doc(),
+          {
+            'businessId': businessId,
+            'adminEmail': adminEmail,
+            'action': 'verify',
+            'verifiedAt': now,
+            'notes': notes,
+          },
+        );
       });
     } catch (e) {
       throw Exception('Failed to verify business: $e');
     }
+  }
+
+  /// Revoke verification (admin only).
+  Future<void> unverifyBusiness({
+    required String businessId,
+    required String adminEmail,
+    String? notes,
+  }) async {
+    try {
+      final docRef = _firestore.collection(_collection).doc(businessId);
+      final now = FieldValue.serverTimestamp();
+
+      await _firestore.runTransaction((transaction) async {
+        final snapshot = await transaction.get(docRef);
+        if (!snapshot.exists) {
+          throw Exception('Business not found');
+        }
+        transaction.update(docRef, {
+          'isVerified': false,
+          'verifiedAt': FieldValue.delete(),
+          'verifiedBy': FieldValue.delete(),
+          'updatedAt': now,
+        });
+        transaction.set(
+          _firestore.collection(_verificationLogCollection).doc(),
+          {
+            'businessId': businessId,
+            'adminEmail': adminEmail,
+            'action': 'unverify',
+            'verifiedAt': now,
+            'notes': notes,
+          },
+        );
+      });
+    } catch (e) {
+      throw Exception('Failed to unverify business: $e');
+    }
+  }
+
+  /// Stream verification audit records for a business.
+  Stream<List<Map<String, dynamic>>> getVerificationLog(String businessId) {
+    return _firestore
+        .collection(_verificationLogCollection)
+        .where('businessId', isEqualTo: businessId)
+        .orderBy('verifiedAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
+  }
+
+  /// Deactivate a business listing (admin only).
+  Future<void> deactivateBusiness({
+    required String businessId,
+    required String adminEmail,
+    String? reason,
+  }) async {
+    try {
+      await _firestore.collection(_collection).doc(businessId).update({
+        'isActive': false,
+        'deactivatedAt': FieldValue.serverTimestamp(),
+        'deactivatedBy': adminEmail,
+        'deactivationReason': reason,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Failed to deactivate business: $e');
+    }
+  }
+
+  /// Reactivate a previously deactivated business listing (admin only).
+  Future<void> reactivateBusiness({
+    required String businessId,
+    required String adminEmail,
+  }) async {
+    try {
+      await _firestore.collection(_collection).doc(businessId).update({
+        'isActive': true,
+        'reactivatedAt': FieldValue.serverTimestamp(),
+        'reactivatedBy': adminEmail,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Failed to reactivate business: $e');
+    }
+  }
+
+  /// Soft-delete a business and archive it for 30-day recovery.
+  Future<void> archiveBusiness({
+    required String businessId,
+    required String adminEmail,
+    String? reason,
+  }) async {
+    try {
+      final docRef = _firestore.collection(_collection).doc(businessId);
+      final now = Timestamp.now();
+      final expiresAt = Timestamp.fromDate(
+        DateTime.now().add(const Duration(days: archiveRetentionDays)),
+      );
+
+      await _firestore.runTransaction((transaction) async {
+        final snapshot = await transaction.get(docRef);
+        if (!snapshot.exists) {
+          throw Exception('Business not found');
+        }
+        final data = snapshot.data()!;
+        data['originalId'] = businessId;
+        data['deletedAt'] = now;
+        data['deletedBy'] = adminEmail;
+        data['deleteReason'] = reason;
+        data['archiveExpiresAt'] = expiresAt;
+
+        transaction.set(
+          _firestore.collection(_archiveCollection).doc(businessId),
+          data,
+        );
+        transaction.update(docRef, {
+          'deletedAt': now,
+          'deletedBy': adminEmail,
+          'deleteReason': reason,
+          'isActive': false,
+          'updatedAt': now,
+        });
+      });
+    } catch (e) {
+      throw Exception('Failed to archive business: $e');
+    }
+  }
+
+  /// Restore a soft-deleted business from the archive.
+  Future<void> restoreBusiness({
+    required String businessId,
+    required String adminEmail,
+  }) async {
+    try {
+      final liveRef = _firestore.collection(_collection).doc(businessId);
+      final archiveRef = _firestore.collection(_archiveCollection).doc(businessId);
+
+      await _firestore.runTransaction((transaction) async {
+        final archiveSnap = await transaction.get(archiveRef);
+        if (!archiveSnap.exists) {
+          throw Exception('Archived business not found');
+        }
+        final data = archiveSnap.data()!;
+        data.remove('archiveExpiresAt');
+        data['restoredAt'] = FieldValue.serverTimestamp();
+        data['restoredBy'] = adminEmail;
+        data['deletedAt'] = FieldValue.delete();
+        data['deletedBy'] = FieldValue.delete();
+        data['deleteReason'] = FieldValue.delete();
+        data['isActive'] = true;
+        data['updatedAt'] = FieldValue.serverTimestamp();
+
+        transaction.set(liveRef, data);
+        transaction.delete(archiveRef);
+      });
+    } catch (e) {
+      throw Exception('Failed to restore business: $e');
+    }
+  }
+
+  /// Permanently delete an archived business after the retention window.
+  Future<void> permanentlyDeleteArchivedBusiness(String businessId) async {
+    try {
+      final archiveRef = _firestore.collection(_archiveCollection).doc(businessId);
+      final archiveSnap = await archiveRef.get();
+      if (!archiveSnap.exists) return;
+
+      final business = Business.fromFirestore(archiveSnap);
+      if (business.logoUrl != null) {
+        try {
+          await _deleteImageFromUrl(business.logoUrl!);
+        } catch (_) {}
+      }
+      if (business.coverImageUrl != null) {
+        try {
+          await _deleteImageFromUrl(business.coverImageUrl!);
+        } catch (_) {}
+      }
+
+      await archiveRef.delete();
+    } catch (e) {
+      throw Exception('Failed to permanently delete archived business: $e');
+    }
+  }
+
+  /// Stream of all businesses including inactive and archived, for admin use.
+  Stream<List<Business>> getAllBusinessesAdminStream() {
+    return _firestore
+        .collection(_collection)
+        .orderBy('updatedAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
+  }
+
+  /// Stream of archived businesses pending permanent deletion.
+  Stream<List<Business>> getArchivedBusinessesStream() {
+    return _firestore
+        .collection(_archiveCollection)
+        .orderBy('deletedAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
+  }
+
+  /// Stream of businesses flagged as potential duplicates.
+  Stream<List<Business>> getFlaggedDuplicatesStream() {
+    return _firestore
+        .collection(_collection)
+        .where('duplicateOf', isNull: false)
+        .orderBy('duplicateOf')
+        .orderBy('updatedAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
   }
 }

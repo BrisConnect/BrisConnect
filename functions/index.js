@@ -26,6 +26,9 @@ const BRISBANE_CBD = {
 
 const GOOGLE_IMPORT_RADIUS_METERS = 30000;
 
+const BUSINESS_ARCHIVE_RETENTION_DAYS = 30;
+const DUPLICATE_NAME_THRESHOLD = 0.85; // Jaro-Winkler similarity
+
 const GOOGLE_ATTRACTION_TYPES = [
   'tourist_attraction',
   'museum',
@@ -2831,6 +2834,188 @@ exports.cleanupModeratedContent = onSchedule(
     await auditBatch.commit();
 
     logger.info('Moderation cleanup complete.', { reviewsPurged, auditPurged });
+  },
+);
+
+// ── Business duplicate detection ────────────────────────────────────────────
+
+/**
+ * Compute Jaro-Winkler similarity between two strings (0-1).
+ */
+function jaroWinkler(s1, s2) {
+  if (s1 === s2) return 1.0;
+  if (!s1 || !s2) return 0.0;
+
+  const len1 = s1.length;
+  const len2 = s2.length;
+  const matchDistance = Math.floor(Math.max(len1, len2) / 2) - 1;
+  const s1Matches = new Array(len1).fill(false);
+  const s2Matches = new Array(len2).fill(false);
+
+  let matches = 0;
+  let transpositions = 0;
+
+  for (let i = 0; i < len1; i += 1) {
+    const start = Math.max(0, i - matchDistance);
+    const end = Math.min(i + matchDistance + 1, len2);
+
+    for (let j = start; j < end; j += 1) {
+      if (s2Matches[j] || s1[i] !== s2[j]) continue;
+      s1Matches[i] = true;
+      s2Matches[j] = true;
+      matches += 1;
+      break;
+    }
+  }
+
+  if (matches === 0) return 0.0;
+
+  let k = 0;
+  for (let i = 0; i < len1; i += 1) {
+    if (!s1Matches[i]) continue;
+    while (!s2Matches[k]) k += 1;
+    if (s1[i] !== s2[k]) transpositions += 1;
+    k += 1;
+  }
+
+  const jaro = (
+    (matches / len1)
+    + (matches / len2)
+    + ((matches - transpositions / 2) / matches)
+  ) / 3;
+
+  let prefix = 0;
+  for (let i = 0; i < Math.min(len1, len2); i += 1) {
+    if (s1[i] === s2[i]) prefix += 1;
+    else break;
+  }
+
+  return jaro + 0.1 * Math.min(prefix, 4) * (1 - jaro);
+}
+
+/**
+ * Firestore trigger that flags potential duplicate business listings when a
+ * business is created or updated. Matches are based on name similarity and
+ * geographic proximity.
+ */
+exports.flagDuplicateBusinesses = onDocumentUpdated(
+  {
+    region: 'australia-southeast1',
+    document: 'businesses/{businessId}',
+  },
+  async (event) => {
+    const after = event.data.after.data();
+    const businessId = event.params.businessId;
+
+    if (!after || after.deletedAt) return;
+
+    const db = admin.firestore();
+    const name = String(after.businessName || '').toLowerCase().trim();
+    const lat = after.lat;
+    const lng = after.lng;
+
+    if (!name) return;
+
+    // Only compare against active, non-deleted businesses.
+    const candidatesSnap = await db
+      .collection('businesses')
+      .where('deletedAt', '==', null)
+      .where('isActive', '==', true)
+      .get();
+
+    let bestMatchId = null;
+    let bestScore = 0;
+
+    for (const doc of candidatesSnap.docs) {
+      if (doc.id === businessId) continue;
+      const candidate = doc.data();
+      const candidateName = String(candidate.businessName || '').toLowerCase().trim();
+      if (!candidateName) continue;
+
+      let score = jaroWinkler(name, candidateName);
+
+      // Boost score if within ~100m.
+      if (lat != null && lng != null && candidate.lat != null && candidate.lng != null) {
+        const distanceKm = haversineDistance(lat, lng, candidate.lat, candidate.lng);
+        if (distanceKm <= 0.1) {
+          score += 0.15;
+        }
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatchId = doc.id;
+      }
+    }
+
+    if (bestScore >= DUPLICATE_NAME_THRESHOLD && bestMatchId) {
+      await event.data.after.ref.update({
+        duplicateOf: bestMatchId,
+        duplicateScore: bestScore,
+        flaggedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      logger.info('Flagged potential duplicate business.', {
+        businessId,
+        duplicateOf: bestMatchId,
+        score: bestScore,
+      });
+    } else if (after.duplicateOf != null) {
+      await event.data.after.ref.update({
+        duplicateOf: admin.firestore.FieldValue.delete(),
+        duplicateScore: admin.firestore.FieldValue.delete(),
+        flaggedAt: admin.firestore.FieldValue.delete(),
+      });
+    }
+  },
+);
+
+/**
+ * Haversine distance between two lat/lng points in kilometers.
+ */
+function haversineDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Scheduled cleanup: permanently delete business listings archived more than
+ * 30 days ago.
+ */
+exports.cleanupArchivedBusinesses = onSchedule(
+  {
+    region: 'australia-southeast1',
+    schedule: 'every 24 hours',
+    timeoutSeconds: 300,
+  },
+  async () => {
+    const db = admin.firestore();
+    const now = admin.firestore.Timestamp.now();
+    const cutoff = admin.firestore.Timestamp.fromMillis(
+      now.toMillis() - BUSINESS_ARCHIVE_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+    );
+
+    const archivedSnap = await db
+      .collection('business_archive')
+      .where('archiveExpiresAt', '<=', cutoff)
+      .limit(500)
+      .get();
+
+    let purged = 0;
+    const batch = db.batch();
+    for (const doc of archivedSnap.docs) {
+      batch.delete(doc.ref);
+      purged += 1;
+    }
+    await batch.commit();
+
+    logger.info('Archived business cleanup complete.', { purged });
   },
 );
 

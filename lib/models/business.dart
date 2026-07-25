@@ -26,6 +26,10 @@ class Business {
   final bool isTrending; // True when buzzScore meets threshold
   final int viewCount; // Total profile views
   final int reviewCount; // Total reviews
+  final bool isActive; // Admin can deactivate without deleting
+  final DateTime? deletedAt; // Soft-delete timestamp
+  final String? deletedBy; // Admin email that performed soft delete
+  final String? duplicateOf; // Document ID of canonical business if flagged duplicate
 
   Business({
     this.id,
@@ -52,7 +56,22 @@ class Business {
     this.isTrending = false,
     this.viewCount = 0,
     this.reviewCount = 0,
+    this.isActive = true,
+    this.deletedAt,
+    this.deletedBy,
+    this.duplicateOf,
   });
+
+  /// Whether the listing has been soft-deleted.
+  bool get isDeleted => deletedAt != null;
+
+  /// Display status label for admin dashboards.
+  String get statusLabel {
+    if (isDeleted) return 'Archived';
+    if (!isActive) return 'Inactive';
+    if (isVerified) return 'Verified';
+    return 'Pending';
+  }
 
   /// Convert Business to Firestore document
   Map<String, dynamic> toFirestore() {
@@ -80,6 +99,10 @@ class Business {
       'isTrending': isTrending,
       'viewCount': viewCount,
       'reviewCount': reviewCount,
+      'isActive': isActive,
+      'deletedAt': deletedAt,
+      'deletedBy': deletedBy,
+      'duplicateOf': duplicateOf,
     };
   }
 
@@ -117,6 +140,10 @@ class Business {
       isTrending: data['isTrending'] ?? false,
       viewCount: (data['viewCount'] as num?)?.toInt() ?? 0,
       reviewCount: (data['reviewCount'] as num?)?.toInt() ?? 0,
+      isActive: data['isActive'] ?? !(data['deletedAt'] != null),
+      deletedAt: (data['deletedAt'] as Timestamp?)?.toDate(),
+      deletedBy: data['deletedBy'],
+      duplicateOf: data['duplicateOf'],
     );
   }
 
@@ -146,6 +173,10 @@ class Business {
     bool? isTrending,
     int? viewCount,
     int? reviewCount,
+    bool? isActive,
+    DateTime? deletedAt,
+    String? deletedBy,
+    String? duplicateOf,
   }) {
     return Business(
       id: id ?? this.id,
@@ -172,6 +203,10 @@ class Business {
       isTrending: isTrending ?? this.isTrending,
       viewCount: viewCount ?? this.viewCount,
       reviewCount: reviewCount ?? this.reviewCount,
+      isActive: isActive ?? this.isActive,
+      deletedAt: deletedAt,
+      deletedBy: deletedBy,
+      duplicateOf: duplicateOf,
     );
   }
 }

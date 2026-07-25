@@ -7,6 +7,7 @@ import 'package:brisconnect/screens/home_screen.dart';
 import 'package:brisconnect/screens/welcome_screen_new.dart';
 import 'package:brisconnect/screens/visitor_portal_screen.dart';
 import 'package:brisconnect/screens/local_portal_screen.dart';
+import 'package:brisconnect/screens/admin_business_management_screen.dart';
 import 'package:brisconnect/screens/admin_dashboard_screen.dart';
 import 'package:brisconnect/screens/business_profile_form_screen.dart';
 import 'package:brisconnect/screens/business_profile_view_screen.dart';
@@ -58,6 +59,11 @@ class BrisConnectApp extends StatelessWidget {
           case '/admin/dashboard':
             return MaterialPageRoute(
               builder: (_) => AdminDashboardScreen(),
+              settings: settings,
+            );
+          case '/admin/businesses':
+            return MaterialPageRoute(
+              builder: (_) => AdminBusinessManagementScreen(),
               settings: settings,
             );
           case '/business/create':

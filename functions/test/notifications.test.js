@@ -116,6 +116,15 @@ after(() => {
 });
 
 beforeEach(() => {
+  // Re-inject our stubbed firebase-admin before each test so other test files
+  // do not overwrite the cache with their own admin stub.
+  require.cache[require.resolve('firebase-admin')] = {
+    id: require.resolve('firebase-admin'),
+    filename: require.resolve('firebase-admin'),
+    loaded: true,
+    exports: adminStub,
+  };
+
   // Reset stubs between tests.
   collectionStub.resetHistory();
   docStub.resetHistory();
