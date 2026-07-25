@@ -685,13 +685,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildStatsCarousel() {
     return SizedBox(
-      height: 116,
+      height: 132,
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
         children: [
           _buildStatCard(
             stream: widget.dashboardService.totalUsersCount(),
+            trendStream: widget.dashboardService.usersTrend(),
             icon: Icons.groups_rounded,
             iconColor: AppPalette.ochre,
             label: 'Users',
@@ -700,6 +701,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           _buildStatCard(
             stream: widget.dashboardService.totalBusinessesCount(),
+            trendStream: widget.dashboardService.businessesTrend(),
             icon: Icons.business_rounded,
             iconColor: AppPalette.deepBlue,
             label: 'Businesses',
@@ -708,6 +710,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           _buildStatCard(
             stream: widget.dashboardService.totalEventsCount(),
+            trendStream: widget.dashboardService.eventsTrend(),
             icon: Icons.event_note_rounded,
             iconColor: AppPalette.gold,
             label: 'Events',
@@ -716,6 +719,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           _buildStatCard(
             stream: widget.dashboardService.pendingEventReportsCount(),
+            trendStream: widget.dashboardService.eventReportsTrend(),
             icon: Icons.flag_rounded,
             iconColor: Colors.red.shade700,
             label: 'Event Reports',
@@ -724,6 +728,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           _buildStatCard(
             stream: widget.dashboardService.pendingReviewReportsCount(),
+            trendStream: widget.dashboardService.reviewReportsTrend(),
             icon: Icons.reviews_rounded,
             iconColor: Colors.orange.shade700,
             label: 'Reviews',
@@ -732,6 +737,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           _buildStatCard(
             stream: widget.dashboardService.pendingLocalUsersCount(),
+            trendStream: widget.dashboardService.approvalsTrend(),
             icon: Icons.person_add_alt_1_rounded,
             iconColor: Colors.green.shade600,
             label: 'Approvals',
@@ -745,6 +751,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildStatCard({
     required Stream<int> stream,
+    required Stream<MetricTrend> trendStream,
     required IconData icon,
     required Color iconColor,
     required String label,
@@ -753,20 +760,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }) {
     return StreamBuilder<int>(
       stream: stream,
-      builder: (context, snapshot) {
-        return Padding(
-          padding: const EdgeInsets.only(right: 10),
-          child: SizedBox(
-            width: 140,
-            child: _DashboardStatCard(
-              icon: icon,
-              iconColor: iconColor,
-              value: snapshot.data?.toString() ?? '—',
-              label: label,
-              subtext: subtext,
-              onTap: onTap,
-            ),
-          ),
+      builder: (context, countSnapshot) {
+        return StreamBuilder<MetricTrend>(
+          stream: trendStream,
+          builder: (context, trendSnapshot) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: SizedBox(
+                width: 148,
+                child: _DashboardStatCard(
+                  icon: icon,
+                  iconColor: iconColor,
+                  value: countSnapshot.data?.toString() ?? '—',
+                  label: label,
+                  subtext: subtext,
+                  trend: trendSnapshot.data,
+                  onTap: onTap,
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -1281,6 +1294,7 @@ class _DashboardStatCard extends StatelessWidget {
   final String value;
   final String label;
   final String subtext;
+  final MetricTrend? trend;
   final VoidCallback? onTap;
 
   const _DashboardStatCard({
@@ -1289,6 +1303,7 @@ class _DashboardStatCard extends StatelessWidget {
     required this.value,
     required this.label,
     required this.subtext,
+    this.trend,
     this.onTap,
   });
 
@@ -1345,14 +1360,34 @@ class _DashboardStatCard extends StatelessWidget {
                 color: AppPalette.charcoal,
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              subtext,
-              style: const TextStyle(
-                fontSize: 11,
-                color: AppPalette.mutedText,
+            const SizedBox(height: 4),
+            if (trend != null)
+              Row(
+                children: [
+                  Icon(
+                    trend!.isUp ? Icons.arrow_upward : Icons.arrow_downward,
+                    color: trend!.isUp ? Colors.green.shade700 : Colors.red.shade700,
+                    size: 12,
+                  ),
+                  const SizedBox(width: 2),
+                  Text(
+                    '${trend!.change.abs()} ${trend!.periodLabel}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: trend!.isUp ? Colors.green.shade700 : Colors.red.shade700,
+                    ),
+                  ),
+                ],
+              )
+            else
+              Text(
+                subtext,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppPalette.mutedText,
+                ),
               ),
-            ),
           ],
         ),
       ),
