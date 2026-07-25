@@ -8,12 +8,15 @@ import 'package:brisconnect/auth/app_user_role.dart';
 import 'package:brisconnect/auth/admin_auth.dart';
 import 'package:brisconnect/screens/admin_business_management_screen.dart';
 import 'package:brisconnect/screens/admin_community_feed_screen.dart';
+import 'package:brisconnect/models/event_item.dart';
+import 'package:brisconnect/screens/admin_edit_event_screen.dart';
 import 'package:brisconnect/screens/admin_event_review_screen.dart';
 import 'package:brisconnect/screens/admin_feedback_review_screen.dart';
 import 'package:brisconnect/screens/admin_email_broadcast_screen.dart';
 import 'package:brisconnect/screens/admin_sms_broadcast_screen.dart';
 import 'package:brisconnect/screens/admin_user_management_screen.dart';
 import 'package:brisconnect/screens/admin_reports_hub_screen.dart';
+import 'package:brisconnect/screens/create_business_screen.dart';
 import 'package:brisconnect/screens/welcome_screen_new.dart';
 import 'package:brisconnect/services/admin_dashboard_service.dart';
 import 'package:brisconnect/services/admin_event_service.dart';
@@ -234,6 +237,35 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => AdminBusinessManagementScreen(),
+      ),
+    );
+  }
+
+  void _openCreateBusiness() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const CreateBusinessScreen(),
+      ),
+    );
+  }
+
+  void _openCreateEvent() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AdminEditEventScreen(
+          event: const EventItem(
+            id: '',
+            title: '',
+            date: '',
+            time: '',
+            location: '',
+            description: '',
+            reviewStatus: EventReviewStatus.pending,
+          ),
+          enforceRoleGuard: false,
+        ),
       ),
     );
   }
@@ -861,8 +893,51 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
-          childAspectRatio: 2.8,
-          children: const [],
+          childAspectRatio: 2.6,
+          children: [
+            _QuickActionButton(
+              icon: Icons.business_outlined,
+              label: 'Add Business',
+              onTap: _openCreateBusiness,
+            ),
+            _QuickActionButton(
+              icon: Icons.verified_outlined,
+              label: 'Verify Business',
+              onTap: _openBusinessManagement,
+            ),
+            _QuickActionButton(
+              icon: Icons.star_border_outlined,
+              label: 'Featured Promotion',
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Featured Promotion coming soon'),
+                  ),
+                );
+              },
+            ),
+            _QuickActionButton(
+              icon: Icons.event_available_outlined,
+              label: 'Create Event',
+              onTap: _openCreateEvent,
+            ),
+            _QuickActionButton(
+              icon: Icons.report_outlined,
+              label: 'Review Reports',
+              onTap: _openReportsHub,
+            ),
+            _QuickActionButton(
+              icon: Icons.analytics_outlined,
+              label: 'View Analytics',
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Analytics dashboard coming soon'),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
       ],
     );
@@ -1276,6 +1351,65 @@ class _DashboardStatCard extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 11,
                 color: AppPalette.mutedText,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Quick action button ──
+class _QuickActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _QuickActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppPalette.surface.withValues(alpha: 0.80),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppPalette.border.withValues(alpha: 0.5)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppPalette.ochre.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: AppPalette.ochre, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppPalette.charcoal,
+                ),
               ),
             ),
           ],
