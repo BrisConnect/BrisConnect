@@ -9,12 +9,12 @@ class _MockAuditService implements ModerationAuditService {
   final List<_LogCall> calls = [];
 
   @override
-  Future<void> logAction({
+  Future<String> logAction({
     required String adminEmail,
-    required dynamic contentType,
+    required ModeratedContentType contentType,
     required String contentId,
-    required String contentOwnerId,
-    required dynamic decision,
+    String? contentOwnerId,
+    required ModerationDecision decision,
     required String reason,
     Map<String, dynamic>? metadata,
   }) async {
@@ -24,6 +24,7 @@ class _MockAuditService implements ModerationAuditService {
       decision: decision,
       reason: reason,
     ));
+    return 'audit-id';
   }
 
   @override
@@ -73,10 +74,12 @@ class _MockNotificationService implements ModerationNotificationService {
 }
 
 class _FakeReportEventService implements ReportEventService {
-  final EventReport report;
+  final EventReport? report;
   final List<_UpdateCall> updates = [];
 
   _FakeReportEventService(this.report);
+
+  _FakeReportEventService.nullReport() : report = null;
 
   @override
   Future<EventReport?> getReportById(String id) async => report;
@@ -151,17 +154,7 @@ void main() {
 
     test('throws when report is not found', () async {
       final emptyService = AdminModerationService(
-        reportEventService: _FakeReportEventService(
-          // id mismatch simulates missing document
-          EventReport(
-            id: 'other',
-            eventId: 'event-x',
-            visitorEmail: 'other@example.com',
-            reason: 'other',
-            status: 'pending',
-            createdAt: DateTime.now(),
-          ),
-        ),
+        reportEventService: _FakeReportEventService.nullReport(),
         auditService: auditService,
         notificationService: notificationService,
       );

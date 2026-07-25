@@ -11,11 +11,15 @@ import 'package:brisconnect/widgets/role_guard.dart';
 
 class AdminReportedEventsScreen extends StatefulWidget {
   final ReportEventService reportService;
+  final AdminModerationService? moderationService;
+  final AdminUserManagementService? userManagementService;
   final bool enforceRoleGuard;
 
   AdminReportedEventsScreen({
     super.key,
     ReportEventService? reportService,
+    this.moderationService,
+    this.userManagementService,
     this.enforceRoleGuard = true,
   }) : reportService = reportService ?? ReportEventService();
 
@@ -37,10 +41,12 @@ class _AdminReportedEventsScreenState extends State<AdminReportedEventsScreen> {
   @override
   void initState() {
     super.initState();
-    _moderationService = AdminModerationService(
-      reportEventService: widget.reportService,
-    );
-    _userManagementService = AdminUserManagementService();
+    _moderationService = widget.moderationService ??
+        AdminModerationService(
+          reportEventService: widget.reportService,
+        );
+    _userManagementService =
+        widget.userManagementService ?? AdminUserManagementService();
     _updateStream();
   }
 
@@ -309,13 +315,18 @@ class ReportCard extends StatefulWidget {
   State<ReportCard> createState() => _ReportCardState();
 }
 
+String _formatDate(DateTime date) {
+  return '${date.month}/${date.day}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+}
+
 class _ReportCardState extends State<ReportCard> {
   bool _isUpdating = false;
 
   Future<void> _moderate(ModerationDecision decision) async {
     if (_isUpdating) return;
 
-    final adminEmail = AdminAuth.currentAdminEmail;
+    final adminEmail = AdminAuth.currentAdminEmail ??
+        widget.moderationService.currentAdminEmail;
     if (adminEmail == null || adminEmail.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -647,7 +658,4 @@ class _ReportCardState extends State<ReportCard> {
     }
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.month}/${date.day}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
-  }
 }

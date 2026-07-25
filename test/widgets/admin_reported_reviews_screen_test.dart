@@ -1,4 +1,3 @@
-import 'package:brisconnect/auth/admin_auth.dart';
 import 'package:brisconnect/models/moderation_action.dart';
 import 'package:brisconnect/models/review.dart';
 import 'package:brisconnect/screens/admin_reported_reviews_screen.dart';
@@ -21,9 +20,14 @@ void main() {
 
   group('AdminReportedReviewsScreen', () {
     late _MockAdminModerationService service;
+    late _MockAdminUserManagementService userManagementService;
 
     setUp(() {
       service = _MockAdminModerationService();
+      userManagementService = _MockAdminUserManagementService();
+      when(() => userManagementService.watchAllUsers()).thenAnswer(
+        (_) => Stream.value([]),
+      );
     });
 
     testWidgets('shows loading indicator while stream is waiting',
@@ -36,6 +40,7 @@ void main() {
         MaterialApp(
           home: AdminReportedReviewsScreen(
             moderationService: service,
+            userManagementService: userManagementService,
             enforceRoleGuard: false,
           ),
         ),
@@ -53,6 +58,7 @@ void main() {
         MaterialApp(
           home: AdminReportedReviewsScreen(
             moderationService: service,
+            userManagementService: userManagementService,
             enforceRoleGuard: false,
           ),
         ),
@@ -76,6 +82,7 @@ void main() {
         MaterialApp(
           home: AdminReportedReviewsScreen(
             moderationService: service,
+            userManagementService: userManagementService,
             enforceRoleGuard: false,
           ),
         ),
@@ -101,6 +108,7 @@ void main() {
         MaterialApp(
           home: AdminReportedReviewsScreen(
             moderationService: service,
+            userManagementService: userManagementService,
             enforceRoleGuard: false,
           ),
         ),
@@ -130,6 +138,7 @@ void main() {
         MaterialApp(
           home: AdminReportedReviewsScreen(
             moderationService: service,
+            userManagementService: userManagementService,
             enforceRoleGuard: false,
           ),
         ),
@@ -170,6 +179,7 @@ void main() {
         MaterialApp(
           home: AdminReportedReviewsScreen(
             moderationService: service,
+            userManagementService: userManagementService,
             enforceRoleGuard: false,
           ),
         ),
@@ -212,6 +222,7 @@ void main() {
         MaterialApp(
           home: AdminReportedReviewsScreen(
             moderationService: service,
+            userManagementService: userManagementService,
             enforceRoleGuard: false,
           ),
         ),
@@ -232,11 +243,15 @@ void main() {
       when(() => service.reportedReviewsStream).thenAnswer(
         (_) => Stream.error('Network failure'),
       );
+      when(() => service.deletedReviewsStream).thenAnswer(
+        (_) => Stream.value([]),
+      );
 
       await tester.pumpWidget(
         MaterialApp(
           home: AdminReportedReviewsScreen(
             moderationService: service,
+            userManagementService: userManagementService,
             enforceRoleGuard: false,
           ),
         ),

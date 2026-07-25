@@ -1,5 +1,6 @@
 import 'package:brisconnect/models/moderation_action.dart';
 import 'package:brisconnect/screens/admin_reported_events_screen.dart';
+import 'package:brisconnect/services/admin_moderation_service.dart';
 import 'package:brisconnect/services/admin_user_management_service.dart';
 import 'package:brisconnect/services/report_event_service.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockReportEventService extends Mock implements ReportEventService {}
+
+class _MockAdminModerationService extends Mock
+    implements AdminModerationService {}
 
 class _MockAdminUserManagementService extends Mock
     implements AdminUserManagementService {}
@@ -18,11 +22,16 @@ void main() {
 
   group('AdminReportedEventsScreen', () {
     late _MockReportEventService reportService;
+    late _MockAdminModerationService moderationService;
     late _MockAdminUserManagementService userManagementService;
 
     setUp(() {
       reportService = _MockReportEventService();
+      moderationService = _MockAdminModerationService();
       userManagementService = _MockAdminUserManagementService();
+      when(() => userManagementService.watchAllUsers()).thenAnswer(
+        (_) => Stream.value([]),
+      );
     });
 
     testWidgets('displays reports and applies severity filter',
@@ -40,6 +49,8 @@ void main() {
         MaterialApp(
           home: AdminReportedEventsScreen(
             reportService: reportService,
+            moderationService: moderationService,
+            userManagementService: userManagementService,
             enforceRoleGuard: false,
           ),
         ),
@@ -69,11 +80,23 @@ void main() {
       );
       when(() => reportService.updateReportStatus(any(), any()))
           .thenAnswer((_) async {});
+      when(() => moderationService.currentAdminEmail)
+          .thenReturn('admin@example.com');
+      when(
+        () => moderationService.moderateEventReport(
+          reportId: any(named: 'reportId'),
+          decision: any(named: 'decision'),
+          adminEmail: any(named: 'adminEmail'),
+          reason: any(named: 'reason'),
+        ),
+      ).thenAnswer((_) async {});
 
       await tester.pumpWidget(
         MaterialApp(
           home: AdminReportedEventsScreen(
             reportService: reportService,
+            moderationService: moderationService,
+            userManagementService: userManagementService,
             enforceRoleGuard: false,
           ),
         ),
@@ -88,8 +111,14 @@ void main() {
       await tester.tap(find.widgetWithText(ElevatedButton, 'Confirm'));
       await tester.pumpAndSettle();
 
-      verify(() => reportService.updateReportStatus('r1', 'resolved'))
-          .called(1);
+      verify(
+        () => moderationService.moderateEventReport(
+          reportId: 'r1',
+          decision: ModerationDecision.delete,
+          adminEmail: 'admin@example.com',
+          reason: 'Confirmed spam',
+        ),
+      ).called(1);
     });
 
     testWidgets('shows empty state when no reports match filters',
@@ -102,6 +131,8 @@ void main() {
         MaterialApp(
           home: AdminReportedEventsScreen(
             reportService: reportService,
+            moderationService: moderationService,
+            userManagementService: userManagementService,
             enforceRoleGuard: false,
           ),
         ),

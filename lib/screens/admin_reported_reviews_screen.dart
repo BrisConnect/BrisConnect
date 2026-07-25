@@ -11,11 +11,13 @@ import 'package:brisconnect/widgets/role_guard.dart';
 
 class AdminReportedReviewsScreen extends StatefulWidget {
   final AdminModerationService moderationService;
+  final AdminUserManagementService? userManagementService;
   final bool enforceRoleGuard;
 
   AdminReportedReviewsScreen({
     super.key,
     AdminModerationService? moderationService,
+    this.userManagementService,
     this.enforceRoleGuard = true,
   }) : moderationService = moderationService ?? AdminModerationService();
 
@@ -52,7 +54,8 @@ class _AdminReportedReviewsScreenState
   @override
   void initState() {
     super.initState();
-    _userManagementService = AdminUserManagementService();
+    _userManagementService =
+        widget.userManagementService ?? AdminUserManagementService();
     _updateStream();
   }
 
@@ -120,16 +123,6 @@ class _AdminReportedReviewsScreenState
       'other': 'Other',
     };
     return labels[reason] ?? reason;
-  }
-
-  String _severityLabel(String severity) {
-    const labels = {
-      'low': 'Low',
-      'medium': 'Medium',
-      'high': 'High',
-      'critical': 'Critical',
-    };
-    return labels[severity] ?? severity;
   }
 
   String _formatDate(DateTime date) {
@@ -307,6 +300,20 @@ class _AdminReportedReviewsScreenState
     }
     return screen;
   }
+}
+
+String _severityLabel(String severity) {
+  const labels = {
+    'low': 'Low',
+    'medium': 'Medium',
+    'high': 'High',
+    'critical': 'Critical',
+  };
+  return labels[severity] ?? severity;
+}
+
+String _formatDateTime(DateTime date) {
+  return '${date.month}/${date.day}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
 }
 
 class _ReviewCard extends StatefulWidget {
@@ -556,7 +563,7 @@ class _ReviewCardState extends State<_ReviewCard> {
               spacing: 12,
               children: [
                 Text(
-                  'Submitted: ${_formatDate(review.createdAt)}',
+                  'Submitted: ${_formatDateTime(review.createdAt)}',
                   style: const TextStyle(fontSize: 11, color: AppPalette.charcoal),
                 ),
                 Text(
@@ -631,9 +638,5 @@ class _ReviewCardState extends State<_ReviewCard> {
       default:
         return Colors.blue.shade700;
     }
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.month}/${date.day}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
   }
 }

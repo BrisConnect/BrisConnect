@@ -54,20 +54,21 @@ void main() {
       expect(doc.data()!['severity'], 'medium');
     });
 
-    test('duplicate report returns false', () async {
+    test('duplicate report throws duplicate error', () async {
       await service.submitReport(
         eventId: 'event-3',
         visitorEmail: 'v@example.com',
         reason: 'spam',
       );
 
-      final result = await service.submitReport(
-        eventId: 'event-3',
-        visitorEmail: 'v@example.com',
-        reason: 'spam',
+      expect(
+        () => service.submitReport(
+          eventId: 'event-3',
+          visitorEmail: 'v@example.com',
+          reason: 'spam',
+        ),
+        throwsA(isA<StateError>()),
       );
-
-      expect(result, isFalse);
     });
 
     test('getReasonLabel returns readable labels', () {
