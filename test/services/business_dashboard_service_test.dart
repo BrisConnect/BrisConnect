@@ -69,17 +69,17 @@ void main() {
     Future<DocumentReference> addPromotion({
       required String id,
       required String businessId,
-      required DateTime endDate,
+      required DateTime endAt,
       String ownerId = 'owner@test.com',
-      bool isActive = true,
+      String status = 'active',
     }) async {
       final ref = fakeFirestore.collection('promotions').doc(id);
       await ref.set({
         'businessId': businessId,
         'ownerId': ownerId,
         'title': 'Promo $id',
-        'isActive': isActive,
-        'endDate': Timestamp.fromDate(endDate),
+        'status': status,
+        'endAt': Timestamp.fromDate(endAt),
       });
       return ref;
     }
@@ -227,19 +227,18 @@ void main() {
       await addPromotion(
         id: 'p1',
         businessId: 'b1',
-        endDate: now.add(const Duration(days: 7)),
+        endAt: now.add(const Duration(days: 7)),
       );
       await addPromotion(
         id: 'p2',
         businessId: 'b1',
-        endDate: now.subtract(const Duration(days: 1)),
-        isActive: true,
+        endAt: now.subtract(const Duration(days: 1)),
       );
       await addPromotion(
         id: 'p3',
         businessId: 'b1',
-        endDate: now.add(const Duration(days: 7)),
-        isActive: false,
+        endAt: now.add(const Duration(days: 7)),
+        status: 'scheduled',
       );
       await addEvent(id: 'e1', businessId: 'b1', date: tomorrow);
       await addEvent(

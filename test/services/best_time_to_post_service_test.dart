@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:brisconnect/models/audience_interaction.dart';
+import 'package:brisconnect/models/promotion_schedule.dart';
 import 'package:brisconnect/services/audience_analytics_service.dart';
 import 'package:brisconnect/services/best_time_to_post_service.dart';
 
@@ -155,6 +156,30 @@ void main() {
         const [],
       );
       expect(warning, isNull);
+    });
+
+    test('getPromotion returns the scheduled promotion', () async {
+      final endAt = DateTime.now().add(const Duration(days: 7));
+      final docRef = await fakeFirestore.collection('promotions').add({
+        'businessId': 'b1',
+        'ownerId': 'owner@test.com',
+        'title': 'Summer Special',
+        'description': '20% off',
+        'scheduledAt': Timestamp.fromDate(DateTime.now()),
+        'endAt': Timestamp.fromDate(endAt),
+        'status': 'active',
+        'createdAt': Timestamp.fromDate(DateTime.now()),
+      });
+
+      final promotion = await service.getPromotion(docRef.id);
+      expect(promotion, isNotNull);
+      expect(promotion!.title, 'Summer Special');
+      expect(promotion.status, PromotionStatus.active);
+    });
+
+    test('getPromotion returns null for missing promotion', () async {
+      final promotion = await service.getPromotion('nonexistent');
+      expect(promotion, isNull);
     });
 
     test('recommendations spread across different days when possible',

@@ -128,6 +128,23 @@
       ]
     },
     {
+      "collectionGroup": "promotions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "endAt", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "promotions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "endAt", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "business_events",
       "queryScope": "COLLECTION",
       "fields": [

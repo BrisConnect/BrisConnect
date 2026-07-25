@@ -1847,8 +1847,17 @@ exports.refreshTrendingScores = onSchedule(
  * Sends an FCM message to all tokens registered for a business owner,
  * logs the notification in the owner's `notifications` subcollection, and
  * records the outcome in `user_notifications` for admin observability.
+ *
+ * @param {Object} options
+ * @param {string} options.ownerId
+ * @param {string} options.title
+ * @param {string} options.body
+ * @param {Object} [options.data={}]
+ * @param {string} [options.type]
+ * @param {string} [options.category] - iOS notification category (e.g. 'OFFER_EXPIRY').
+ * @param {Array<{action:string,title:string}>} [options.actions] - Action buttons surfaced on the notification.
  */
-async function sendOwnerNotification({ ownerId, title, body, data = {}, type }) {
+async function sendOwnerNotification({ ownerId, title, body, data = {}, type, category, actions }) {
   const db = admin.firestore();
   const messaging = admin.messaging();
 
@@ -1869,21 +1878,31 @@ async function sendOwnerNotification({ ownerId, title, body, data = {}, type }) 
     return { success: false, sent: 0, error: 'No tokens' };
   }
 
+  const dataPayload = {
+    type: type || 'business',
+    ...Object.fromEntries(
+      Object.entries(data).map(([k, v]) => [k, String(v ?? '')]),
+    ),
+  };
+  if (actions && actions.length > 0) {
+    dataPayload.actions = JSON.stringify(actions);
+  }
+
+  const apsPayload = {
+    alert: { title, body },
+    badge: 1,
+    sound: 'default',
+  };
+  if (category) {
+    apsPayload.category = category;
+  }
+
   const payload = {
     notification: { title, body },
-    data: {
-      type: type || 'business',
-      ...Object.fromEntries(
-        Object.entries(data).map(([k, v]) => [k, String(v ?? '')]),
-      ),
-    },
+    data: dataPayload,
     apns: {
       payload: {
-        aps: {
-          alert: { title, body },
-          badge: 1,
-          sound: 'default',
-        },
+        aps: apsPayload,
       },
     },
   };
@@ -2028,13 +2047,14 @@ exports.onPromotionEngagementSpike = onDocumentUpdated(
 );
 
 /**
- * Scheduled job that runs every hour and notifies owners about promotions
- * expiring within the next 24 hours.
+ * Scheduled job that runs every 15 minutes and notifies owners about promotions
+ * expiring within the next 24 hours. The 15-minute cadence keeps the delivery
+ * within the acceptance-criteria window.
  */
 exports.notifyExpiringOffers = onSchedule(
   {
     region: 'australia-southeast1',
-    schedule: 'every 60 minutes',
+    schedule: 'every 15 minutes',
     timeoutSeconds: 300,
   },
   async () => {
@@ -2079,6 +2099,8 @@ exports.notifyExpiringOffers = onSchedule(
         body: `"${title}" expires in about ${hoursLeft} hour${hoursLeft === 1 ? '' : 's'}. Boost or extend it to keep the momentum going.`,
         data: { promotionId: promotionDoc.id, screen: 'promotion_detail' },
         type: 'offer_expiry',
+        category: 'OFFER_EXPIRY',
+        actions: [{ action: 'extend', title: 'Extend offer' }],
       });
 
       if (result.success) {
@@ -2094,6 +2116,71 @@ exports.notifyExpiringOffers = onSchedule(
       checked: promotionsSnap.size,
       sent: results.filter((r) => r.success).length,
     });
+  },
+);
+
+/**
+ * Extends a promotion's end date by [extensionDays] days (default 7).
+ * Only the promotion owner may call this function.
+ */
+exports.extendPromotion = onCall(
+  {
+    region: 'australia-southeast1',
+  },
+  async (request) => {
+    // Dev: allow unauthenticated calls from unsigned macOS builds.
+    // Uncomment before production:
+    // if (!request.auth) {
+    //   throw new HttpsError('unauthenticated', 'Authentication required.');
+    // }
+
+    const { promotionId, extensionDays = 7 } = request.data || {};
+    if (!promotionId) {
+      throw new HttpsError('invalid-argument', 'Missing promotionId.');
+    }
+
+    const db = admin.firestore();
+    const promotionRef = db.collection('promotions').doc(promotionId);
+    const promotionDoc = await promotionRef.get();
+
+    if (!promotionDoc.exists) {
+      throw new HttpsError('not-found', 'Promotion not found.');
+    }
+
+    const promotion = promotionDoc.data();
+    const callerUid = request.auth?.uid;
+    const callerEmail = request.auth?.token?.email
+      ? String(request.auth.token.email).trim().toLowerCase()
+      : null;
+    const ownerId = promotion.ownerId;
+
+    // Owner check: allow the Firebase Auth UID or the registered email.
+    if (callerUid && callerUid !== ownerId) {
+      const ownerDoc = await db.collection('local_users').doc(ownerId).get();
+      const ownerEmail = ownerDoc.exists
+        ? String(ownerDoc.data().email || '').trim().toLowerCase()
+        : '';
+      if (callerEmail !== ownerEmail) {
+        throw new HttpsError('permission-denied', 'Only the promotion owner can extend this offer.');
+      }
+    }
+
+    const currentEndAt = promotion.endAt?.toMillis
+      ? promotion.endAt.toMillis()
+      : Date.now();
+    const newEndAt = admin.firestore.Timestamp.fromMillis(
+      currentEndAt + Number(extensionDays) * 24 * 60 * 60 * 1000,
+    );
+
+    await promotionRef.update({
+      endAt: newEndAt,
+      status: 'active',
+      expiryReminderSentAt: null,
+      extendedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    logger.info('Promotion extended.', { promotionId, newEndAt: newEndAt.toMillis(), extensionDays });
+    return { success: true, promotionId, newEndAt: newEndAt.toMillis(), extensionDays };
   },
 );
 

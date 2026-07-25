@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+
+import 'package:brisconnect/services/best_time_to_post_service.dart';
 
 /// Top-level handler for background/terminated FCM messages.
 /// Must be a top-level or static function.
@@ -51,6 +54,7 @@ class FcmService {
 
   String? _cachedToken;
   StreamSubscription<RemoteMessage>? _foregroundSub;
+  StreamSubscription<RemoteMessage>? _openedAppSub;
   StreamSubscription<String>? _tokenRefreshSub;
 
   /// Last known token. May be null before [initialize] completes.
@@ -98,16 +102,28 @@ class FcmService {
         _handleForegroundMessage,
         onError: (Object e) => debugPrint('[FCM] foreground message error: $e'),
       );
+
+      _openedAppSub = FirebaseMessaging.onMessageOpenedApp.listen(
+        _handleNotificationOpen,
+        onError: (Object e) => debugPrint('[FCM] opened-app error: $e'),
+      );
+
+      final initialMessage = await _messaging.getInitialMessage();
+      if (initialMessage != null) {
+        _handleNotificationOpen(initialMessage);
+      }
     } catch (e) {
       debugPrint('[FCM] initialization failed: $e');
     }
   }
 
-  /// Disposes foreground and token refresh listeners.
+  /// Disposes foreground, opened-app, and token refresh listeners.
   void dispose() {
     unawaited(_foregroundSub?.cancel());
+    unawaited(_openedAppSub?.cancel());
     unawaited(_tokenRefreshSub?.cancel());
     _foregroundSub = null;
+    _openedAppSub = null;
     _tokenRefreshSub = null;
   }
 
@@ -159,7 +175,8 @@ class FcmService {
   }
 
   /// Presents a lightweight heads-up notification when a message arrives
-  /// while the app is in the foreground.
+  /// while the app is in the foreground. Action buttons from the FCM data
+  /// payload are surfaced as snackbar actions (e.g. "Extend offer").
   void _handleForegroundMessage(RemoteMessage message) {
     debugPrint('[FCM] foreground message: ${message.notification?.title}');
 
@@ -168,6 +185,22 @@ class FcmService {
 
     final context = navigatorKey.currentContext;
     if (context == null) return;
+
+    final actions = _parseNotificationActions(message.data['actions']);
+    final promotionId = message.data['promotionId'];
+
+    SnackBarAction? action;
+    if (actions.isNotEmpty) {
+      final first = actions.first;
+      action = SnackBarAction(
+        label: first['title'] ?? 'Open',
+        onPressed: () => _onNotificationAction(
+          context,
+          action: first['action'] ?? '',
+          promotionId: promotionId,
+        ),
+      );
+    }
 
     // Keep the snackbar non-blocking and accessible.
     ScaffoldMessenger.of(context).showSnackBar(
@@ -188,14 +221,83 @@ class FcmService {
             ],
           ),
         ),
-        duration: const Duration(seconds: 5),
+        duration: const Duration(seconds: 8),
         behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: 'Dismiss',
-          onPressed: () {},
-        ),
+        action: action ??
+            SnackBarAction(
+              label: 'Dismiss',
+              onPressed: () {},
+            ),
       ),
     );
+  }
+
+  /// Parses a JSON array of action objects from the FCM data payload.
+  List<Map<String, String>> _parseNotificationActions(dynamic raw) {
+    if (raw == null || raw is! String || raw.isEmpty) return [];
+    try {
+      final decoded = jsonDecode(raw) as List<dynamic>;
+      return decoded
+          .whereType<Map<String, dynamic>>()
+          .map((a) => <String, String>{
+                'action': (a['action'] as String? ?? ''),
+                'title': (a['title'] as String? ?? ''),
+              })
+          .where((a) => a['action']!.isNotEmpty && a['title']!.isNotEmpty)
+          .toList();
+    } catch (e) {
+      debugPrint('[FCM] failed to parse notification actions: $e');
+      return [];
+    }
+  }
+
+  /// Handles a notification action button press.
+  Future<void> _onNotificationAction(
+    BuildContext context, {
+    required String action,
+    String? promotionId,
+  }) async {
+    switch (action) {
+      case 'extend':
+        if (promotionId == null || promotionId.isEmpty) return;
+        final ok = await BestTimeToPostService().extendPromotion(
+          promotionId: promotionId,
+        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                ok ? 'Offer extended by 7 days.' : 'Could not extend offer.',
+              ),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  /// Navigates to the appropriate screen when a push notification is tapped
+  /// while the app is backgrounded or terminated.
+  void _handleNotificationOpen(RemoteMessage message) {
+    final screen = message.data['screen'];
+    if (screen == null || screen.isEmpty) return;
+
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    switch (screen) {
+      case 'promotion_detail':
+        final promotionId = message.data['promotionId'];
+        if (promotionId != null && promotionId.isNotEmpty) {
+          navigator.pushNamed('/promotion/detail', arguments: promotionId);
+        }
+        break;
+      default:
+        debugPrint('[FCM] unhandled notification screen: $screen');
+    }
   }
 }
 

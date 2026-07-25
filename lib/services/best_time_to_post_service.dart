@@ -1,8 +1,10 @@
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 
+import 'package:brisconnect/config/app_config.dart';
 import 'package:brisconnect/models/audience_interaction.dart';
 import 'package:brisconnect/models/promotion_schedule.dart';
 
@@ -82,14 +84,19 @@ class BestTimeToPostResult {
 /// 14 days of data and statistically meaningful variance are required.
 class BestTimeToPostService {
   final FirebaseFirestore _firestore;
+  final FirebaseFunctions? _functions;
 
-  BestTimeToPostService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  BestTimeToPostService({FirebaseFirestore? firestore, FirebaseFunctions? functions})
+      : _firestore = firestore ?? FirebaseFirestore.instance,
+        _functions = functions;
 
   static const String _interactionsCollection = 'audience_interactions';
   static const String _promotionsCollection = 'promotions';
   static const int _minDaysOfHistory = 14;
   static const int _windowHours = 2;
+
+  FirebaseFunctions get _functionsInstance =>
+      _functions ?? FirebaseFunctions.instanceFor(region: AppConfig.firebaseFunctionsRegion);
 
   /// Returns recommended posting windows for the businesses owned by [ownerId].
   ///
@@ -295,6 +302,41 @@ class BestTimeToPostService {
           .add(promotion.toFirestore());
     } catch (e) {
       debugPrint('[BestTimeToPostService] recordScheduledPromotion failed: $e');
+    }
+  }
+
+  /// Fetches a single promotion by [promotionId].
+  Future<PromotionSchedule?> getPromotion(String promotionId) async {
+    try {
+      final doc = await _firestore.collection(_promotionsCollection).doc(promotionId).get();
+      if (!doc.exists) return null;
+      return PromotionSchedule.fromFirestore(doc);
+    } catch (e) {
+      debugPrint('[BestTimeToPostService] getPromotion failed: $e');
+      return null;
+    }
+  }
+
+  /// Extends a promotion's end date by [extensionDays] days via the
+  /// `extendPromotion` Cloud Function. The function enforces ownership server-side.
+  Future<bool> extendPromotion({
+    required String promotionId,
+    int extensionDays = 7,
+  }) async {
+    try {
+      final callable = _functionsInstance.httpsCallable('extendPromotion');
+      final result = await callable.call<Map<String, dynamic>>({
+        'promotionId': promotionId,
+        'extensionDays': extensionDays,
+      });
+      final data = result.data;
+      return data['success'] == true;
+    } on FirebaseFunctionsException catch (e) {
+      debugPrint('[BestTimeToPostService] extendPromotion failed: ${e.code} ${e.message}');
+      return false;
+    } catch (e) {
+      debugPrint('[BestTimeToPostService] extendPromotion unexpected error: $e');
+      return false;
     }
   }
 }

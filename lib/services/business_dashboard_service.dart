@@ -173,8 +173,8 @@ class BusinessDashboardService {
     final snapshot = await _firestore
         .collection(_promotionsCollection)
         .where('ownerId', isEqualTo: ownerId)
-        .where('isActive', isEqualTo: true)
-        .where('endDate', isGreaterThanOrEqualTo: Timestamp.now())
+        .where('status', isEqualTo: 'active')
+        .where('endAt', isGreaterThanOrEqualTo: Timestamp.now())
         .count()
         .get();
     return snapshot.count ?? 0;
