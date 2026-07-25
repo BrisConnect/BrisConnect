@@ -575,7 +575,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Welcome Back, $displayName!',
+                      'Welcome back, Admin',
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
