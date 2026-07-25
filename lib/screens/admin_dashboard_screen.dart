@@ -363,6 +363,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             children: [
               _buildHomeTab(),
               _buildUsersTab(),
+              _buildBusinessesTab(),
               _buildEventsTab(),
               _buildSettingsTab(),
             ],
@@ -430,9 +431,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 isSelected: _selectedNavIndex == 1,
                 onTap: () => setState(() { _selectedNavIndex = 1; _isNavVisible = true; }),
               ),
+              _NavItem(
+                icon: Icons.business_rounded,
+                label: 'Businesses',
+                isSelected: _selectedNavIndex == 2,
+                onTap: () => setState(() { _selectedNavIndex = 2; _isNavVisible = true; }),
+              ),
               // Center Events button
               GestureDetector(
-                onTap: () => setState(() { _selectedNavIndex = 2; _isNavVisible = true; }),
+                onTap: () => setState(() { _selectedNavIndex = 3; _isNavVisible = true; }),
                 child: Container(
                   width: 56,
                   height: 56,
@@ -470,8 +477,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               _NavItem(
                 icon: Icons.settings_rounded,
                 label: 'Settings',
-                isSelected: _selectedNavIndex == 3,
-                onTap: () => setState(() { _selectedNavIndex = 3; _isNavVisible = true; }),
+                isSelected: _selectedNavIndex == 4,
+                onTap: () => setState(() { _selectedNavIndex = 4; _isNavVisible = true; }),
               ),
             ],
           ),
@@ -482,6 +489,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildUsersTab() {
     return AdminUserManagementScreen(enforceRoleGuard: false);
+  }
+
+  Widget _buildBusinessesTab() {
+    return AdminBusinessManagementScreen(enforceRoleGuard: false);
   }
 
   Widget _buildEventsTab() {
