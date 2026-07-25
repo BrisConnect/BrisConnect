@@ -55,6 +55,18 @@ class AdminDashboardService {
     );
   }
 
+  Stream<int> totalBusinessesCount() {
+    return _countStream(_firestore.collection('businesses'));
+  }
+
+  Stream<int> pendingReviewReportsCount() {
+    return _countStream(
+      _firestore
+          .collection('review_reports')
+          .where('status', isEqualTo: 'pending'),
+    );
+  }
+
   Stream<int> pendingFeedbackCount() {
     return _countStream(
       _firestore

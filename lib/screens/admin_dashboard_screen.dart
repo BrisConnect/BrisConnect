@@ -652,59 +652,91 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildStatsCarousel() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: StreamBuilder<int>(
-        stream: widget.dashboardService.totalUsersCount(),
-        builder: (context, usersSnap) {
-          return StreamBuilder<int>(
+    return SizedBox(
+      height: 116,
+      child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        children: [
+          _buildStatCard(
+            stream: widget.dashboardService.totalUsersCount(),
+            icon: Icons.groups_rounded,
+            iconColor: AppPalette.ochre,
+            label: 'Users',
+            subtext: 'Total Registered',
+            onTap: _openUsersManagement,
+          ),
+          _buildStatCard(
+            stream: widget.dashboardService.totalBusinessesCount(),
+            icon: Icons.business_rounded,
+            iconColor: AppPalette.deepBlue,
+            label: 'Businesses',
+            subtext: 'Total Listed',
+            onTap: _openBusinessManagement,
+          ),
+          _buildStatCard(
             stream: widget.dashboardService.totalEventsCount(),
-            builder: (context, eventsSnap) {
-              return StreamBuilder<int>(
-                stream: widget.dashboardService.pendingEventReportsCount(),
-                builder: (context, reportsSnap) {
-                  return Row(
-                    children: [
-                      Expanded(
-                        child: _DashboardStatCard(
-                          icon: Icons.groups_rounded,
-                          iconColor: AppPalette.ochre,
-                          value: usersSnap.data?.toString() ?? '—',
-                          label: 'Users',
-                          subtext: 'Total Registered',
-                          onTap: _openUsersManagement,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _DashboardStatCard(
-                          icon: Icons.event_note_rounded,
-                          iconColor: AppPalette.gold,
-                          value: eventsSnap.data?.toString() ?? '—',
-                          label: 'Events',
-                          subtext: 'In System',
-                          onTap: _openEventsManagement,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _DashboardStatCard(
-                          icon: Icons.flag_rounded,
-                          iconColor: Colors.red.shade700,
-                          value: reportsSnap.data?.toString() ?? '—',
-                          label: 'Reports',
-                          subtext: 'Pending Review',
-                          onTap: _openReportsHub,
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-          );
-        },
+            icon: Icons.event_note_rounded,
+            iconColor: AppPalette.gold,
+            label: 'Events',
+            subtext: 'In System',
+            onTap: _openEventsManagement,
+          ),
+          _buildStatCard(
+            stream: widget.dashboardService.pendingEventReportsCount(),
+            icon: Icons.flag_rounded,
+            iconColor: Colors.red.shade700,
+            label: 'Event Reports',
+            subtext: 'Pending Review',
+            onTap: _openReportsHub,
+          ),
+          _buildStatCard(
+            stream: widget.dashboardService.pendingReviewReportsCount(),
+            icon: Icons.reviews_rounded,
+            iconColor: Colors.orange.shade700,
+            label: 'Reviews',
+            subtext: 'Pending Reports',
+            onTap: _openReportsHub,
+          ),
+          _buildStatCard(
+            stream: widget.dashboardService.pendingLocalUsersCount(),
+            icon: Icons.person_add_alt_1_rounded,
+            iconColor: Colors.green.shade600,
+            label: 'Approvals',
+            subtext: 'Pending Accounts',
+            onTap: _openUsersManagement,
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildStatCard({
+    required Stream<int> stream,
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String subtext,
+    required VoidCallback onTap,
+  }) {
+    return StreamBuilder<int>(
+      stream: stream,
+      builder: (context, snapshot) {
+        return Padding(
+          padding: const EdgeInsets.only(right: 10),
+          child: SizedBox(
+            width: 140,
+            child: _DashboardStatCard(
+              icon: icon,
+              iconColor: iconColor,
+              value: snapshot.data?.toString() ?? '—',
+              label: label,
+              subtext: subtext,
+              onTap: onTap,
+            ),
+          ),
+        );
+      },
     );
   }
 
