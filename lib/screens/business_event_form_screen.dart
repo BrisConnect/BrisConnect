@@ -11,11 +11,13 @@ import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 class BusinessEventFormScreen extends StatefulWidget {
   final Business business;
   final BusinessEvent? event; // If provided, we're editing
+  final BusinessEventService? eventService;
 
   const BusinessEventFormScreen({
     super.key,
     required this.business,
     this.event,
+    this.eventService,
   });
 
   @override
@@ -28,7 +30,8 @@ class _BusinessEventFormScreenState extends State<BusinessEventFormScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _locationController;
   late final TextEditingController _descriptionController;
-  final BusinessEventService _eventService = BusinessEventService();
+  late final BusinessEventService _eventService =
+      widget.eventService ?? BusinessEventService();
   final ImagePicker _imagePicker = ImagePicker();
 
   DateTime? _selectedDate;

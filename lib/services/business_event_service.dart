@@ -25,6 +25,13 @@ class BusinessEventService {
     required String location,
     required String description,
   }) async {
+    if (title.trim().isEmpty ||
+        date.trim().isEmpty ||
+        time.trim().isEmpty ||
+        location.trim().isEmpty) {
+      return null;
+    }
+
     try {
       final event = BusinessEvent(
         businessId: businessId,
