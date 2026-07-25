@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:brisconnect/auth/app_user_role.dart';
@@ -674,6 +675,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     child: _buildQuickActions(),
                   ),
                   const SizedBox(height: 28),
+
+                  // ── Weekly Analytics Chart ──
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildWeeklyAnalyticsSection(),
+                  ),
+                  const SizedBox(height: 32),
                 ],
               ),
             ),
@@ -951,6 +959,286 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               },
             ),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWeeklyAnalyticsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Weekly Activity',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppPalette.charcoal,
+              ),
+            ),
+            StreamBuilder<AdminWeeklyAnalytics>(
+              stream: widget.dashboardService.weeklyAnalytics(),
+              builder: (context, snapshot) {
+                final total = snapshot.hasData
+                    ? snapshot.data!.newUsers.values.reduce((a, b) => a + b) +
+                        snapshot.data!.businessRegistrations.values
+                            .reduce((a, b) => a + b) +
+                        snapshot.data!.eventsCreated.values
+                            .reduce((a, b) => a + b) +
+                        snapshot.data!.reportsReceived.values
+                            .reduce((a, b) => a + b)
+                    : null;
+                return Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppPalette.ochre.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    total != null ? '$total this week' : '—',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: AppPalette.ochre,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'New users, business registrations, events and reports',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppPalette.mutedText,
+          ),
+        ),
+        const SizedBox(height: 14),
+        StreamBuilder<AdminWeeklyAnalytics>(
+          stream: widget.dashboardService.weeklyAnalytics(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return Container(
+                height: 220,
+                alignment: Alignment.center,
+                child: const CircularProgressIndicator(),
+              );
+            }
+
+            final analytics = snapshot.data!;
+            final maxY = analytics.maxValue < 5 ? 5.0 : analytics.maxValue * 1.2;
+
+            return Container(
+              height: 260,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppPalette.surface.withValues(alpha: 0.80),
+                borderRadius: BorderRadius.circular(18),
+                border:
+                    Border.all(color: AppPalette.border.withValues(alpha: 0.5)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: LineChart(
+                      LineChartData(
+                        gridData: FlGridData(
+                          show: true,
+                          drawVerticalLine: false,
+                          horizontalInterval: maxY / 5,
+                          getDrawingHorizontalLine: (_) => FlLine(
+                            color: Colors.grey.shade300,
+                            strokeWidth: 1,
+                            dashArray: [4, 4],
+                          ),
+                        ),
+                        titlesData: FlTitlesData(
+                          topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 32,
+                              interval: maxY / 5,
+                              getTitlesWidget: (value, meta) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 6),
+                                  child: Text(
+                                    value.toInt().toString(),
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: AppPalette.mutedText,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              interval: 1,
+                              getTitlesWidget: (value, meta) {
+                                const days = [
+                                  'Mon',
+                                  'Tue',
+                                  'Wed',
+                                  'Thu',
+                                  'Fri',
+                                  'Sat',
+                                  'Sun'
+                                ];
+                                final index = value.toInt();
+                                if (index < 0 || index >= days.length) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Text(
+                                    days[index],
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: AppPalette.mutedText,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        borderData: FlBorderData(show: false),
+                        minX: 0,
+                        maxX: 6,
+                        minY: 0,
+                        maxY: maxY,
+                        lineBarsData: [
+                          _buildLineBarData(
+                            analytics.newUsers.values,
+                            AppPalette.ochre,
+                            showDots: true,
+                          ),
+                          _buildLineBarData(
+                            analytics.businessRegistrations.values,
+                            AppPalette.deepBlue,
+                          ),
+                          _buildLineBarData(
+                            analytics.eventsCreated.values,
+                            AppPalette.gold,
+                          ),
+                          _buildLineBarData(
+                            analytics.reportsReceived.values,
+                            Colors.red.shade700,
+                          ),
+                        ],
+                        lineTouchData: LineTouchData(
+                          touchTooltipData: LineTouchTooltipData(
+                            getTooltipColor: (_) => AppPalette.charcoal,
+                            getTooltipItems: (touchedSpots) {
+                              return touchedSpots.map((spot) {
+                                return LineTooltipItem(
+                                  '${spot.y.toInt()}',
+                                  const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
+                                );
+                              }).toList();
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 14,
+                    runSpacing: 6,
+                    children: [
+                      _buildChartLegend('New Users', AppPalette.ochre),
+                      _buildChartLegend('Businesses', AppPalette.deepBlue),
+                      _buildChartLegend('Events', AppPalette.gold),
+                      _buildChartLegend('Reports', Colors.red.shade700),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  LineChartBarData _buildLineBarData(
+    List<int> values,
+    Color color, {
+    bool showDots = false,
+  }) {
+    return LineChartBarData(
+      spots: List.generate(
+        values.length,
+        (i) => FlSpot(i.toDouble(), values[i].toDouble()),
+      ),
+      isCurved: true,
+      color: color,
+      barWidth: 3,
+      isStrokeCapRound: true,
+      dotData: FlDotData(
+        show: showDots,
+        getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
+          radius: 4,
+          color: color,
+          strokeWidth: 2,
+          strokeColor: Colors.white,
+        ),
+      ),
+      belowBarData: BarAreaData(
+        show: true,
+        color: color.withValues(alpha: 0.08),
+      ),
+    );
+  }
+
+  Widget _buildChartLegend(String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: AppPalette.mutedText,
+          ),
         ),
       ],
     );
