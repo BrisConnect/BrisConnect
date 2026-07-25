@@ -228,7 +228,10 @@ class BusinessDashboardService {
     var sum = 0;
     history.forEach((key, value) {
       try {
-        final parts = key.split('/');
+        // Support both "dd-mm-yyyy" (service format) and "dd/mm/yyyy" (legacy).
+        final separator = key.contains('-') ? '-' : (key.contains('/') ? '/' : '');
+        if (separator.isEmpty) return;
+        final parts = key.split(separator);
         if (parts.length != 3) return;
         final day = int.parse(parts[0]);
         final month = int.parse(parts[1]);
@@ -278,11 +281,11 @@ class BusinessDashboardService {
           .get();
       final ownerId = businessDoc.data()?['ownerId'] as String? ?? '';
 
-      await _firestore.collection(_businessesCollection).doc(businessId).update({
+      await _firestore.collection(_businessesCollection).doc(businessId).set({
         'viewCount': FieldValue.increment(1),
         'viewHistory.$today': FieldValue.increment(1),
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
 
       if (visitorId != null &&
           visitorId.trim().isNotEmpty &&
@@ -315,11 +318,11 @@ class BusinessDashboardService {
           .get();
       final ownerId = businessDoc.data()?['ownerId'] as String? ?? '';
 
-      await _firestore.collection(_businessesCollection).doc(businessId).update({
+      await _firestore.collection(_businessesCollection).doc(businessId).set({
         'savedCount': FieldValue.increment(1),
         'saveHistory.$today': FieldValue.increment(1),
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
 
       if (visitorId != null &&
           visitorId.trim().isNotEmpty &&

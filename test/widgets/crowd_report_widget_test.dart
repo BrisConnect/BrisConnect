@@ -1,3 +1,4 @@
+import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/services/crowd_report_service.dart';
 import 'package:brisconnect/widgets/crowd_report_widget.dart';
 import 'package:flutter/material.dart';
@@ -27,6 +28,19 @@ class _FakeCrowdReportService extends CrowdReportService {
 
 void main() {
   group('CrowdReportWidget', () {
+    setUp(() {
+      VisitorAuth.debugSetCurrentVisitorForTesting(
+        const VisitorUser(
+          name: 'Test Visitor',
+          email: 'visitor@test.com',
+          password: 'password',
+        ),
+      );
+    });
+
+    tearDown(() {
+      VisitorAuth.debugSetCurrentVisitorForTesting(null);
+    });
     testWidgets('displays Low, Moderate, High options', (tester) async {
       final service = _FakeCrowdReportService(canSubmit: true);
       await tester.pumpWidget(MaterialApp(

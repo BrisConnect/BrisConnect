@@ -49,7 +49,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.byIcon(Icons.share_rounded), findsNWidgets(2));
-      expect(find.text('Share This Business'), findsOneWidget);
+      expect(find.text('Share'), findsOneWidget);
     });
   });
 }

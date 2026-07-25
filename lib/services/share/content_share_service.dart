@@ -30,8 +30,8 @@ enum ShareContentType { business, event, food, stadium }
 /// served by the web landing page for the shared URL. This service builds
 /// the same canonical URLs that those crawlers will fetch.
 class ContentShareService {
-  static const Duration shareTimeout = Duration(seconds: 5);
-  static const String _baseUrl = 'https://brisconnect-68b78.web.app';
+  static const Duration shareTimeout = Duration(seconds: 2);
+  static const String _baseUrl = 'https://www.brisconnect.com.au';
 
   final ClipboardWriter _clipboardWriter;
 
