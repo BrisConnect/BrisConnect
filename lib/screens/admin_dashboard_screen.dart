@@ -620,7 +620,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                       child: TextField(
                         decoration: InputDecoration(
-                          hintText: 'Search users, events, stats...',
+                          hintText: 'Search users, businesses, events...',
                           hintStyle: TextStyle(
                             color: AppPalette.mutedText,
                             fontWeight: FontWeight.w500,
