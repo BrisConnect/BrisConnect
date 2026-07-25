@@ -71,7 +71,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (imageUrl.isNotEmpty) {
       return NetworkImage(imageUrl);
     }
-    return null;
+    return const AssetImage('assets/images/brisconnect_logo.png');
   }
 
   Future<ImageSource?> _pickImageSource() {
@@ -459,13 +459,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildHomeTab() {
-    final email = AdminAuth.currentAdminEmail ?? '';
-    final displayName = email.isNotEmpty
-        ? email.split('@').first
-            .split('.')
-            .map((s) => s.isNotEmpty ? '${s[0].toUpperCase()}${s.substring(1)}' : s)
-            .join(' ')
-        : 'Admin';
     final heroAvatarRadius =
       (MediaQuery.of(context).size.width * 0.16).clamp(56.0, 72.0).toDouble();
 
@@ -538,35 +531,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           valueListenable: AdminAuth.profileVersion,
                           builder: (context, _, __) {
                             final profileImage = _profileImageProvider();
-                            return GestureDetector(
-                              onTap: _uploadAdminProfileImage,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.6),
-                                    width: 2,
+                            return Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.6),
+                                  width: 2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.25),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
                                   ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.25),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: CircleAvatar(
-                                  radius: heroAvatarRadius,
-                                  backgroundColor: AppPalette.ochre,
-                                  backgroundImage: profileImage,
-                                  child: profileImage == null
-                                      ? Icon(
-                                          Icons.person_rounded,
-                                          color: Colors.white,
-                                          size: heroAvatarRadius * 0.9,
-                                        )
-                                      : null,
-                                ),
+                                ],
+                              ),
+                              child: CircleAvatar(
+                                radius: heroAvatarRadius,
+                                backgroundColor: AppPalette.ochre,
+                                backgroundImage: profileImage,
                               ),
                             );
                           },
@@ -898,10 +881,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         radius: 48,
                         backgroundColor: AppPalette.deepBlue,
                         backgroundImage: profileImage,
-                        child: profileImage == null
-                            ? const Icon(Icons.person_rounded,
-                                color: Colors.white, size: 48)
-                            : null,
                       ),
                       const SizedBox(width: 14),
                       Expanded(
