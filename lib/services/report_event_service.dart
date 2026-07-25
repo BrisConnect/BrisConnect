@@ -148,6 +148,18 @@ class ReportEventService {
     }
   }
 
+  /// Get a single report by its document ID.
+  Future<EventReport?> getReportById(String reportId) async {
+    try {
+      final doc = await _firestore.collection('event_reports').doc(reportId).get();
+      if (!doc.exists) return null;
+      return EventReport.fromFirestore(doc.id, doc.data() ?? {});
+    } catch (error) {
+      debugPrint('[ReportEventService] Error fetching report by ID: $error');
+      rethrow;
+    }
+  }
+
   /// Get all reports for an event
   Future<List<EventReport>> getEventReports(String eventId) async {
     try {

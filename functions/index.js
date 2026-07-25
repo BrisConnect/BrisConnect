@@ -2527,5 +2527,109 @@ exports.verifyEmailLoginCode = onCall(
   },
 );
 
+// ── Moderation: server-side audit logging and cleanup ──────────────────────
+
+const MODERATION_RETENTION_DAYS = 30;
+const AUDIT_LOG_RETENTION_DAYS = 365;
+
+/**
+ * Server-side audit log writer that can be called securely from admin clients.
+ */
+exports.logModerationAction = onCall(
+  {
+    region: 'australia-southeast1',
+  },
+  async (request) => {
+    // Dev: allow unauthenticated calls from unsigned macOS builds.
+    // Uncomment before production:
+    // if (!request.auth) {
+    //   throw new HttpsError('unauthenticated', 'Admin authentication required.');
+    // }
+
+    const {
+      adminEmail,
+      contentType,
+      contentId,
+      contentOwnerId,
+      decision,
+      reason,
+      metadata,
+    } = request.data || {};
+
+    if (!adminEmail || !contentType || !contentId || !decision || !reason) {
+      throw new HttpsError('invalid-argument', 'Missing required moderation fields.');
+    }
+
+    const normalizedAdmin = String(adminEmail).trim().toLowerCase();
+    const logRef = admin.firestore().collection('moderation_audit_log').doc();
+    await logRef.set({
+      adminEmail: normalizedAdmin,
+      contentType: String(contentType),
+      contentId: String(contentId),
+      contentOwnerId: contentOwnerId ? String(contentOwnerId) : null,
+      decision: String(decision),
+      reason: String(reason),
+      metadata: metadata || {},
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    logger.info('Moderation action logged', { logId: logRef.id, contentId, decision });
+    return { logId: logRef.id };
+  },
+);
+
+/**
+ * Scheduled cleanup: permanently delete recommendations that were soft-deleted
+ * more than 30 days ago. Audit logs older than 12 months are also removed.
+ */
+exports.cleanupModeratedContent = onSchedule(
+  {
+    region: 'australia-southeast1',
+    schedule: 'every 24 hours',
+    timeoutSeconds: 300,
+  },
+  async () => {
+    const db = admin.firestore();
+    const now = admin.firestore.Timestamp.now();
+    const retentionCutoff = admin.firestore.Timestamp.fromMillis(
+      now.toMillis() - MODERATION_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+    );
+    const auditCutoff = admin.firestore.Timestamp.fromMillis(
+      now.toMillis() - AUDIT_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+    );
+
+    const deletedReviewsSnap = await db
+      .collection('reviews')
+      .where('deletedAt', '<=', retentionCutoff)
+      .where('deletedAt', '!=', null)
+      .limit(500)
+      .get();
+
+    let reviewsPurged = 0;
+    const batch = db.batch();
+    for (const doc of deletedReviewsSnap.docs) {
+      batch.delete(doc.ref);
+      reviewsPurged += 1;
+    }
+    await batch.commit();
+
+    const oldAuditSnap = await db
+      .collection('moderation_audit_log')
+      .where('createdAt', '<=', auditCutoff)
+      .limit(500)
+      .get();
+
+    let auditPurged = 0;
+    const auditBatch = db.batch();
+    for (const doc of oldAuditSnap.docs) {
+      auditBatch.delete(doc.ref);
+      auditPurged += 1;
+    }
+    await auditBatch.commit();
+
+    logger.info('Moderation cleanup complete.', { reviewsPurged, auditPurged });
+  },
+);
+
 // ── Social sharing Open Graph proxy ─────────────────────────────────────────
 exports.ogProxy = ogProxy;

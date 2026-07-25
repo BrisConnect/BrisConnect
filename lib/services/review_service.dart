@@ -2,7 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:brisconnect/models/moderation_action.dart';
 import 'package:brisconnect/models/review.dart';
+import 'package:brisconnect/services/moderation_audit_service.dart';
+import 'package:brisconnect/services/moderation_notification_service.dart';
 
 /// Service for visitor recommendations (reusing the reviews collection).
 ///
@@ -16,6 +19,8 @@ class ReviewService {
   final Connectivity? _connectivity;
   final String? _currentUserId;
   final bool _useFirebaseAuth;
+  final ModerationAuditService? _auditService;
+  final ModerationNotificationService? _notificationService;
 
   static const int _maxRetries = 3;
   static const Duration _retryDelay = Duration(seconds: 1);
@@ -31,11 +36,15 @@ class ReviewService {
     Connectivity? connectivity,
     String? currentUserId,
     bool useFirebaseAuth = true,
+    ModerationAuditService? auditService,
+    ModerationNotificationService? notificationService,
   })  : _firestore = firestore,
         _auth = auth,
         _connectivity = connectivity,
         _currentUserId = currentUserId,
-        _useFirebaseAuth = useFirebaseAuth;
+        _useFirebaseAuth = useFirebaseAuth,
+        _auditService = auditService,
+        _notificationService = notificationService;
 
   FirebaseFirestore get firestore => _firestore ?? FirebaseFirestore.instance;
 
@@ -451,6 +460,99 @@ class ReviewService {
     }
   }
 
+  /// Moderate a reported recommendation. The review stays hidden after a
+  /// report; an admin can either delete it (soft), dismiss the report, or
+  /// approve/restore it so it becomes visible again.
+  Future<void> moderateReview({
+    required String reviewId,
+    required ModerationDecision decision,
+    required String adminEmail,
+    required String reason,
+  }) async {
+    try {
+      await _assertOnline();
+      final review = await _withRetry(
+        () => getReview(reviewId),
+        operationName: 'getReview',
+      );
+      if (review == null) {
+        throw Exception('Recommendation not found');
+      }
+
+      switch (decision) {
+        case ModerationDecision.approve:
+        case ModerationDecision.unflag:
+        case ModerationDecision.dismiss:
+          await _withRetry(
+            () => _reviewsCollection.doc(reviewId).update({
+              'isReported': false,
+              'reportReason': null,
+              'reportedBy': null,
+              'isFlagged': false,
+              'visible': true,
+              'updatedAt': FieldValue.serverTimestamp(),
+            }),
+            operationName: 'moderateReview_approve',
+          );
+          break;
+        case ModerationDecision.delete:
+        case ModerationDecision.flag:
+          await _withRetry(
+            () => _reviewsCollection.doc(reviewId).update({
+              'deletedAt': FieldValue.serverTimestamp(),
+              'deletedBy': adminEmail,
+              'visible': false,
+              'updatedAt': FieldValue.serverTimestamp(),
+            }),
+            operationName: 'moderateReview_delete',
+          );
+          break;
+        case ModerationDecision.restore:
+          await _withRetry(
+            () => _reviewsCollection.doc(reviewId).update({
+              'deletedAt': null,
+              'deletedBy': null,
+              'isReported': false,
+              'reportReason': null,
+              'reportedBy': null,
+              'isFlagged': false,
+              'visible': true,
+              'updatedAt': FieldValue.serverTimestamp(),
+            }),
+            operationName: 'moderateReview_restore',
+          );
+          break;
+      }
+
+      await _updateBusinessReviewMetrics(review.businessId);
+
+      await _auditService?.logAction(
+        adminEmail: adminEmail,
+        contentType: ModeratedContentType.review,
+        contentId: reviewId,
+        contentOwnerId: review.visitorId,
+        decision: decision,
+        reason: reason,
+        metadata: {
+          'businessId': review.businessId,
+          'previousReportReason': review.reportReason,
+        },
+      );
+
+      if (decision == ModerationDecision.delete || decision == ModerationDecision.flag) {
+        await _notificationService?.notifyContentRemoved(
+          userEmail: review.visitorId,
+          userType: 'visitor',
+          contentType: 'recommendation',
+          contentId: reviewId,
+          reason: reason,
+        );
+      }
+    } catch (e) {
+      throw Exception('Failed to moderate recommendation: $e');
+    }
+  }
+
   /// Flag a recommendation for admin moderation.
   Future<void> flagReview(String reviewId) async {
     try {
@@ -590,6 +692,27 @@ class ReviewService {
     } catch (e) {
       throw Exception('Failed to fetch reported recommendations: $e');
     }
+  }
+
+  /// Real-time stream of reported recommendations for the admin dashboard.
+  Stream<List<Review>> getReportedReviewsStream() {
+    return _reviewsCollection
+        .where('isReported', isEqualTo: true)
+        .where('deletedAt', isNull: true)
+        .orderBy('updatedAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => Review.fromFirestore(doc)).toList());
+  }
+
+  /// Stream of all soft-deleted recommendations, ordered by deletion time.
+  /// Used by the admin dashboard to recover recently deleted content.
+  Stream<List<Review>> getDeletedReviewsStream() {
+    return _reviewsCollection
+        .where('deletedAt', isNull: false)
+        .orderBy('deletedAt', descending: true)
+        .limit(_defaultPageSize * 10)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => Review.fromFirestore(doc)).toList());
   }
 
   /// Get recommendation history for a visitor (including soft-deleted).

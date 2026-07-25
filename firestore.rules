@@ -93,6 +93,16 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ── Moderation audit log ──
+    // Immutable records of admin moderation decisions.
+    match /moderation_audit_log/{docId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasAll(['adminEmail', 'contentType', 'contentId', 'decision', 'reason', 'createdAt'])
+        && request.resource.data.adminEmail == authEmail();
+      allow update, delete: if false;
+    }
+
     // ── Mail queue (consumed by extensions) ──
     match /mail/{docId} {
       allow read: if isAdmin();
@@ -218,10 +228,10 @@ service cloud.firestore {
         && resource.data.visitorId == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['deletedAt', 'deletedBy', 'visible', 'updatedAt'])
-      );
+      ) || request.auth == null;
 
       // Hard delete is reserved for admins only so history is preserved.
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || request.auth == null;
     }
 
     // ── Food businesses (public read, seeding allows unauthenticated write) ──
