@@ -36,6 +36,7 @@ class ReportEventDialog extends StatefulWidget {
 
 class _ReportEventDialogState extends State<ReportEventDialog> {
   late String _selectedReason;
+  late String _selectedSeverity;
   final _commentsController = TextEditingController();
   bool _isSubmitting = false;
   String? _errorMessage;
@@ -44,6 +45,7 @@ class _ReportEventDialogState extends State<ReportEventDialog> {
   void initState() {
     super.initState();
     _selectedReason = ReportEventService.reportReasons.first;
+    _selectedSeverity = ReportEventService.reportSeverities[1]; // medium
   }
 
   @override
@@ -63,6 +65,7 @@ class _ReportEventDialogState extends State<ReportEventDialog> {
         eventId: widget.eventId,
         visitorEmail: widget.visitorEmail,
         reason: _selectedReason,
+        severity: _selectedSeverity,
         comments: _commentsController.text.isEmpty ? null : _commentsController.text,
       );
 
@@ -105,24 +108,45 @@ class _ReportEventDialogState extends State<ReportEventDialog> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            RadioGroup<String>(
-              groupValue: _selectedReason,
-              onChanged: (value) {
-                if (_isSubmitting || value == null) {
-                  return;
-                }
-                setState(() => _selectedReason = value);
-              },
-              child: Column(
-                children: ReportEventService.reportReasons.map((reason) {
-                  return RadioListTile<String>(
-                    title: Text(ReportEventService.getReasonLabel(reason)),
-                    value: reason,
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                  );
-                }).toList(),
-              ),
+            Column(
+              children: ReportEventService.reportReasons.map((reason) {
+                return RadioListTile<String>(
+                  title: Text(ReportEventService.getReasonLabel(reason)),
+                  value: reason,
+                  groupValue: _selectedReason,
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  onChanged: _isSubmitting
+                      ? null
+                      : (value) {
+                          if (value == null) return;
+                          setState(() => _selectedReason = value);
+                        },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Severity',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Column(
+              children: ReportEventService.reportSeverities.map((severity) {
+                return RadioListTile<String>(
+                  title: Text(ReportEventService.getSeverityLabel(severity)),
+                  value: severity,
+                  groupValue: _selectedSeverity,
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  onChanged: _isSubmitting
+                      ? null
+                      : (value) {
+                          if (value == null) return;
+                          setState(() => _selectedSeverity = value);
+                        },
+                );
+              }).toList(),
             ),
             const SizedBox(height: 16),
             const Text(

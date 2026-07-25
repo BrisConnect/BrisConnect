@@ -3,12 +3,16 @@ import 'package:brisconnect/models/moderation_action.dart';
 import 'package:brisconnect/models/review.dart';
 import 'package:brisconnect/screens/admin_reported_reviews_screen.dart';
 import 'package:brisconnect/services/admin_moderation_service.dart';
+import 'package:brisconnect/services/admin_user_management_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockAdminModerationService extends Mock
     implements AdminModerationService {}
+
+class _MockAdminUserManagementService extends Mock
+    implements AdminUserManagementService {}
 
 void main() {
   setUpAll(() {
@@ -191,6 +195,39 @@ void main() {
       ).called(1);
     });
 
+    testWidgets('severity filter hides non-matching reviews', (tester) async {
+      final reviews = [
+        _fakeReview(id: 'r1', isReported: true, severity: 'critical'),
+        _fakeReview(id: 'r2', isReported: true, severity: 'low'),
+      ];
+
+      when(() => service.reportedReviewsStream).thenAnswer(
+        (_) => Stream.value(reviews),
+      );
+      when(() => service.deletedReviewsStream).thenAnswer(
+        (_) => Stream.value([]),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AdminReportedReviewsScreen(
+            moderationService: service,
+            enforceRoleGuard: false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Test comment'), findsNWidgets(2));
+
+      await tester.tap(find.text('All severities'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Critical').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Test comment'), findsOneWidget);
+    });
+
     testWidgets('shows error message on stream error', (tester) async {
       when(() => service.reportedReviewsStream).thenAnswer(
         (_) => Stream.error('Network failure'),
@@ -217,6 +254,7 @@ Review _fakeReview({
   String comment = 'Test comment',
   bool isReported = false,
   String? reportReason,
+  String severity = 'medium',
   DateTime? deletedAt,
 }) {
   return Review(
@@ -230,6 +268,7 @@ Review _fakeReview({
     createdAt: DateTime(2025, 1, 1),
     isReported: isReported,
     reportReason: reportReason,
+    severity: severity,
     deletedAt: deletedAt,
   );
 }

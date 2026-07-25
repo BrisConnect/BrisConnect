@@ -55,6 +55,7 @@ class BusinessRatingsService {
         'isReported': false,
         'reportReason': null,
         'reportedBy': null,
+        'severity': 'medium',
         'deletedBy': null,
         'helpfulCount': 0,
         'isFlagged': false,

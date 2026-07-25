@@ -8,6 +8,7 @@ class EventReport {
   final String reason; // e.g., 'inappropriate_content', 'false_information', 'spam', 'other'
   final String? comments;
   final String status; // 'pending', 'reviewing', 'resolved', 'dismissed'
+  final String severity; // 'low', 'medium', 'high', 'critical'
   final DateTime createdAt;
   final DateTime? reviewedAt;
 
@@ -18,6 +19,7 @@ class EventReport {
     required this.reason,
     this.comments,
     required this.status,
+    this.severity = 'medium',
     required this.createdAt,
     this.reviewedAt,
   });
@@ -30,6 +32,7 @@ class EventReport {
       reason: (data['reason'] as String?) ?? 'other',
       comments: (data['comments'] as String?),
       status: (data['status'] as String?) ?? 'pending',
+      severity: (data['severity'] as String?) ?? 'medium',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       reviewedAt: (data['reviewedAt'] as Timestamp?)?.toDate(),
     );
@@ -41,6 +44,7 @@ class EventReport {
         'reason': reason,
         'comments': comments,
         'status': status,
+        'severity': severity,
         'createdAt': FieldValue.serverTimestamp(),
         'reviewedAt': reviewedAt != null ? Timestamp.fromDate(reviewedAt!) : null,
       };
@@ -66,6 +70,13 @@ class ReportEventService {
     'other',
   ];
 
+  static const List<String> reportSeverities = [
+    'low',
+    'medium',
+    'high',
+    'critical',
+  ];
+
   static String getReasonLabel(String reason) {
     final labels = {
       'inappropriate_content': 'Inappropriate Content',
@@ -75,6 +86,16 @@ class ReportEventService {
       'other': 'Other',
     };
     return labels[reason] ?? reason;
+  }
+
+  static String getSeverityLabel(String severity) {
+    final labels = {
+      'low': 'Low',
+      'medium': 'Medium',
+      'high': 'High',
+      'critical': 'Critical',
+    };
+    return labels[severity] ?? severity;
   }
 
   /// Check if a visitor has already reported this event
@@ -100,6 +121,7 @@ class ReportEventService {
     required String visitorEmail,
     required String reason,
     String? comments,
+    String severity = 'medium',
   }) async {
     try {
       final visitorEmailLower = visitorEmail.toLowerCase().trim();
@@ -115,6 +137,7 @@ class ReportEventService {
         reason: reason,
         comments: comments?.trim().isEmpty ?? true ? null : comments?.trim(),
         status: 'pending',
+        severity: reportSeverities.contains(severity) ? severity : 'medium',
         createdAt: DateTime.now(),
       );
 

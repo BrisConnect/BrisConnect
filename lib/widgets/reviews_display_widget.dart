@@ -347,54 +347,76 @@ class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
 
   void _showReportDialog(BuildContext context, String reviewId) {
     final reasonController = TextEditingController();
+    String selectedSeverity = 'medium';
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Report Recommendation'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Why are you reporting this recommendation?',
-              style: TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: reasonController,
-              maxLines: 3,
-              minLines: 2,
-              decoration: InputDecoration(
-                hintText: 'Please explain...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding: const EdgeInsets.all(12),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Report Recommendation'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Why are you reporting this recommendation?',
+                style: TextStyle(fontSize: 14),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (reasonController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please provide a reason'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                maxLines: 3,
+                minLines: 2,
+                decoration: InputDecoration(
+                  hintText: 'Please explain...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                );
-                return;
-              }
+                  contentPadding: const EdgeInsets.all(12),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Severity',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: ['low', 'medium', 'high', 'critical'].map((severity) {
+                  return ChoiceChip(
+                    label: Text(_severityLabel(severity)),
+                    selected: selectedSeverity == severity,
+                    onSelected: (selected) {
+                      if (selected) setState(() => selectedSeverity = severity);
+                    },
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (reasonController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please provide a reason'),
+                    ),
+                  );
+                  return;
+                }
 
-              try {
-                await _reviewService.reportReview(
-                  reviewId,
-                  reasonController.text.trim(),
-                );
+                try {
+                  await _reviewService.reportReview(
+                    reviewId,
+                    reasonController.text.trim(),
+                    severity: selectedSeverity,
+                  );
                 if (context.mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -462,6 +484,16 @@ class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
         ],
       ),
     );
+  }
+
+  String _severityLabel(String severity) {
+    const labels = {
+      'low': 'Low',
+      'medium': 'Medium',
+      'high': 'High',
+      'critical': 'Critical',
+    };
+    return labels[severity] ?? severity;
   }
 
   String _formatReviewDate(DateTime date) {

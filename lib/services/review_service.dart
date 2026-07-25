@@ -230,6 +230,7 @@ class ReviewService {
           'isReported': false,
           'reportReason': null,
           'reportedBy': null,
+          'severity': 'medium',
           'deletedBy': null,
           'helpfulCount': 0,
           'isFlagged': false,
@@ -375,16 +376,27 @@ class ReviewService {
         .map((snapshot) => snapshot.docs.length);
   }
 
+  static const List<String> _reportSeverities = [
+    'low',
+    'medium',
+    'high',
+    'critical',
+  ];
+
   /// Report a recommendation as inappropriate / spam.
   Future<void> reportReview(
     String reviewId,
     String reportReason, {
     String? reporterId,
+    String severity = 'medium',
   }) async {
     try {
       if (reportReason.trim().isEmpty) {
         throw Exception('Report reason cannot be empty');
       }
+
+      final normalizedSeverity =
+          _reportSeverities.contains(severity) ? severity : 'medium';
 
       await _assertOnline();
       await _withRetry(
@@ -392,6 +404,7 @@ class ReviewService {
           'isReported': true,
           'reportReason': reportReason.trim(),
           'reportedBy': reporterId ?? _currentUserIdOrAuth ?? '',
+          'severity': normalizedSeverity,
           'visible': false,
           'updatedAt': FieldValue.serverTimestamp(),
         }),
@@ -488,6 +501,7 @@ class ReviewService {
               'isReported': false,
               'reportReason': null,
               'reportedBy': null,
+              'severity': 'medium',
               'isFlagged': false,
               'visible': true,
               'updatedAt': FieldValue.serverTimestamp(),
@@ -515,6 +529,7 @@ class ReviewService {
               'isReported': false,
               'reportReason': null,
               'reportedBy': null,
+              'severity': 'medium',
               'isFlagged': false,
               'visible': true,
               'updatedAt': FieldValue.serverTimestamp(),

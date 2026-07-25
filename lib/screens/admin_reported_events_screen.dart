@@ -53,17 +53,45 @@ class _AdminReportedEventsScreenState extends State<AdminReportedEventsScreen> {
       if (_selectedReasonFilter != 'all' && report.reason != _selectedReasonFilter) {
         return false;
       }
-      if (_selectedSeverityFilter != 'all' && report.status != _selectedSeverityFilter) {
+      if (_selectedSeverityFilter != 'all' && report.severity != _selectedSeverityFilter) {
         return false;
       }
-      if (_selectedDateFrom != null && report.createdAt.isBefore(_selectedDateFrom!)) {
+      final from = _selectedDateFrom;
+      final to = _selectedDateTo;
+      if (from != null && report.createdAt.isBefore(from)) {
         return false;
       }
-      if (_selectedDateTo != null && report.createdAt.isAfter(_selectedDateTo!)) {
+      if (to != null && report.createdAt.isAfter(to.add(const Duration(days: 1)))) {
         return false;
       }
       return true;
     }).toList();
+  }
+
+  Future<void> _pickDate({required bool isFrom}) async {
+    final initial = isFrom ? _selectedDateFrom : _selectedDateTo;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial ?? DateTime.now(),
+      firstDate: DateTime(2024),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        if (isFrom) {
+          _selectedDateFrom = picked;
+        } else {
+          _selectedDateTo = picked;
+        }
+      });
+    }
+  }
+
+  void _clearDateFilters() {
+    setState(() {
+      _selectedDateFrom = null;
+      _selectedDateTo = null;
+    });
   }
 
   @override
@@ -75,14 +103,14 @@ class _AdminReportedEventsScreenState extends State<AdminReportedEventsScreen> {
       ),
       body: Column(
         children: [
-          // Status filter chips
+          // Filters
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Filter Reports by Status',
+                  'Filter Reports',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -133,6 +161,67 @@ class _AdminReportedEventsScreenState extends State<AdminReportedEventsScreen> {
                         });
                       },
                     ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Category / reason / severity / date filters
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    DropdownButton<String>(
+                      value: _selectedReasonFilter,
+                      hint: const Text('Reason'),
+                      items: [
+                        const DropdownMenuItem(value: 'all', child: Text('All reasons')),
+                        ...ReportEventService.reportReasons.map(
+                          (reason) => DropdownMenuItem(
+                            value: reason,
+                            child: Text(ReportEventService.getReasonLabel(reason)),
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) setState(() => _selectedReasonFilter = value);
+                      },
+                    ),
+                    DropdownButton<String>(
+                      value: _selectedSeverityFilter,
+                      hint: const Text('Severity'),
+                      items: [
+                        const DropdownMenuItem(value: 'all', child: Text('All severities')),
+                        ...ReportEventService.reportSeverities.map(
+                          (severity) => DropdownMenuItem(
+                            value: severity,
+                            child: Text(ReportEventService.getSeverityLabel(severity)),
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) setState(() => _selectedSeverityFilter = value);
+                      },
+                    ),
+                    ActionChip(
+                      avatar: const Icon(Icons.calendar_today, size: 16),
+                      label: Text(_selectedDateFrom == null
+                          ? 'From date'
+                          : 'From ${_formatDate(_selectedDateFrom!)}'),
+                      onPressed: () => _pickDate(isFrom: true),
+                    ),
+                    ActionChip(
+                      avatar: const Icon(Icons.calendar_today, size: 16),
+                      label: Text(_selectedDateTo == null
+                          ? 'To date'
+                          : 'To ${_formatDate(_selectedDateTo!)}'),
+                      onPressed: () => _pickDate(isFrom: false),
+                    ),
+                    if (_selectedDateFrom != null || _selectedDateTo != null)
+                      TextButton.icon(
+                        onPressed: _clearDateFilters,
+                        icon: const Icon(Icons.clear, size: 16),
+                        label: const Text('Clear dates'),
+                      ),
                   ],
                 ),
               ],
@@ -438,10 +527,22 @@ class _ReportCardState extends State<ReportCard> {
               ],
             ),
             const SizedBox(height: 12),
-            // Reason
-            Text(
-              'Reason: ${ReportEventService.getReasonLabel(widget.report.reason)}',
-              style: const TextStyle(fontWeight: FontWeight.w600),
+            // Reason and severity
+            Wrap(
+              spacing: 12,
+              children: [
+                Text(
+                  'Reason: ${ReportEventService.getReasonLabel(widget.report.reason)}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  'Severity: ${ReportEventService.getSeverityLabel(widget.report.severity)}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: _severityColor(widget.report.severity),
+                  ),
+                ),
+              ],
             ),
             if (widget.report.comments != null) ...[
               const SizedBox(height: 8),
@@ -530,6 +631,19 @@ class _ReportCardState extends State<ReportCard> {
         return Colors.grey;
       default:
         return Colors.grey;
+    }
+  }
+
+  Color _severityColor(String severity) {
+    switch (severity) {
+      case 'critical':
+        return Colors.red.shade700;
+      case 'high':
+        return Colors.orange.shade700;
+      case 'low':
+        return Colors.green.shade700;
+      default:
+        return Colors.blue.shade700;
     }
   }
 

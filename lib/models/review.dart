@@ -14,6 +14,7 @@ class Review {
   final bool isReported;
   final String? reportReason;
   final String reportedBy;
+  final String severity; // 'low', 'medium', 'high', 'critical'
   final int helpfulCount;
   final bool isFlagged;
   final bool visible;
@@ -32,6 +33,7 @@ class Review {
     this.isReported = false,
     this.reportReason,
     this.reportedBy = '',
+    this.severity = 'medium',
     this.helpfulCount = 0,
     this.isFlagged = false,
     this.visible = true,
@@ -54,6 +56,7 @@ class Review {
       'isReported': isReported,
       'reportReason': reportReason,
       'reportedBy': reportedBy,
+      'severity': severity,
       'helpfulCount': helpfulCount,
       'isFlagged': isFlagged,
       'visible': visible,
@@ -77,6 +80,7 @@ class Review {
       isReported: data['isReported'] ?? false,
       reportReason: data['reportReason'],
       reportedBy: data['reportedBy'] ?? '',
+      severity: data['severity'] ?? 'medium',
       helpfulCount: data['helpfulCount'] ?? 0,
       isFlagged: data['isFlagged'] ?? false,
       visible: data['visible'] ?? !(data['isReported'] == true || data['isFlagged'] == true || data['deletedAt'] != null),
@@ -98,6 +102,7 @@ class Review {
     bool? isReported,
     String? reportReason,
     String? reportedBy,
+    String? severity,
     int? helpfulCount,
     bool? isFlagged,
     bool? visible,
@@ -116,6 +121,7 @@ class Review {
       isReported: isReported ?? this.isReported,
       reportReason: reportReason ?? this.reportReason,
       reportedBy: reportedBy ?? this.reportedBy,
+      severity: severity ?? this.severity,
       helpfulCount: helpfulCount ?? this.helpfulCount,
       isFlagged: isFlagged ?? this.isFlagged,
       visible: visible ?? this.visible,
