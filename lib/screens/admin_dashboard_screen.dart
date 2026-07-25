@@ -11,8 +11,7 @@ import 'package:brisconnect/screens/admin_feedback_review_screen.dart';
 import 'package:brisconnect/screens/admin_email_broadcast_screen.dart';
 import 'package:brisconnect/screens/admin_sms_broadcast_screen.dart';
 import 'package:brisconnect/screens/admin_user_management_screen.dart';
-import 'package:brisconnect/screens/admin_reported_events_screen.dart';
-import 'package:brisconnect/screens/admin_reported_reviews_screen.dart';
+import 'package:brisconnect/screens/admin_reports_hub_screen.dart';
 import 'package:brisconnect/screens/welcome_screen_new.dart';
 import 'package:brisconnect/services/admin_dashboard_service.dart';
 import 'package:brisconnect/services/admin_event_service.dart';
@@ -210,20 +209,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     setState(() => _selectedNavIndex = 2);
   }
 
-  void _openReportedEvents() {
+  void _openReportsHub() {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => AdminReportedEventsScreen(),
-      ),
-    );
-  }
-
-  void _openReportedReviews() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AdminReportedReviewsScreen(),
+        builder: (_) => const AdminReportsHubScreen(),
       ),
     );
   }
@@ -953,25 +943,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             child: Column(
               children: [
                 ListTile(
-                  leading: _settingsIcon(Icons.flag_rounded),
-                  title: const Text('Reported Events',
+                  leading: _settingsIcon(Icons.report_outlined),
+                  title: const Text('Reports Hub',
                       style: TextStyle(fontWeight: FontWeight.w600, color: AppPalette.charcoal)),
-                  subtitle: const Text('Review flagged event reports',
+                  subtitle: const Text('Moderate reported events and recommendations',
                       style: TextStyle(color: AppPalette.mutedText)),
                   trailing: const Icon(Icons.chevron_right_rounded,
                       color: AppPalette.mutedText),
-                  onTap: _openReportedEvents,
-                ),
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                ListTile(
-                  leading: _settingsIcon(Icons.reviews_outlined),
-                  title: const Text('Reported Recommendations',
-                      style: TextStyle(fontWeight: FontWeight.w600, color: AppPalette.charcoal)),
-                  subtitle: const Text('Moderate reported reviews',
-                      style: TextStyle(color: AppPalette.mutedText)),
-                  trailing: const Icon(Icons.chevron_right_rounded,
-                      color: AppPalette.mutedText),
-                  onTap: _openReportedReviews,
+                  onTap: _openReportsHub,
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(

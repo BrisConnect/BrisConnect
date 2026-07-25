@@ -130,6 +130,19 @@ class AdminModerationService {
         debugPrint('[AdminModerationService] Could not notify event owner: $e');
       }
     }
+
+    // Notify the reporter of the resolution.
+    try {
+      await _notificationService.notifyReportResolved(
+        userEmail: report.visitorEmail,
+        userType: 'visitor',
+        contentType: 'event',
+        contentId: report.eventId,
+        decision: decision,
+      );
+    } catch (e) {
+      debugPrint('[AdminModerationService] Could not notify reporter: $e');
+    }
   }
 
   /// Stream audit actions for a specific content item.

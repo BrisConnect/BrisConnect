@@ -13,6 +13,7 @@ class Review {
   final DateTime? deletedAt;
   final bool isReported;
   final String? reportReason;
+  final String reportedBy;
   final int helpfulCount;
   final bool isFlagged;
   final bool visible;
@@ -30,6 +31,7 @@ class Review {
     this.deletedAt,
     this.isReported = false,
     this.reportReason,
+    this.reportedBy = '',
     this.helpfulCount = 0,
     this.isFlagged = false,
     this.visible = true,
@@ -51,6 +53,7 @@ class Review {
       'deletedAt': deletedAt,
       'isReported': isReported,
       'reportReason': reportReason,
+      'reportedBy': reportedBy,
       'helpfulCount': helpfulCount,
       'isFlagged': isFlagged,
       'visible': visible,
@@ -73,6 +76,7 @@ class Review {
       deletedAt: (data['deletedAt'] as Timestamp?)?.toDate(),
       isReported: data['isReported'] ?? false,
       reportReason: data['reportReason'],
+      reportedBy: data['reportedBy'] ?? '',
       helpfulCount: data['helpfulCount'] ?? 0,
       isFlagged: data['isFlagged'] ?? false,
       visible: data['visible'] ?? !(data['isReported'] == true || data['isFlagged'] == true || data['deletedAt'] != null),
@@ -93,6 +97,7 @@ class Review {
     DateTime? deletedAt,
     bool? isReported,
     String? reportReason,
+    String? reportedBy,
     int? helpfulCount,
     bool? isFlagged,
     bool? visible,
@@ -110,6 +115,7 @@ class Review {
       deletedAt: deletedAt ?? this.deletedAt,
       isReported: isReported ?? this.isReported,
       reportReason: reportReason ?? this.reportReason,
+      reportedBy: reportedBy ?? this.reportedBy,
       helpfulCount: helpfulCount ?? this.helpfulCount,
       isFlagged: isFlagged ?? this.isFlagged,
       visible: visible ?? this.visible,

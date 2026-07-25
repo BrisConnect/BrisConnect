@@ -74,4 +74,51 @@ class ModerationNotificationService {
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
+
+  /// Notify the original reporter that their report has been resolved.
+  Future<void> notifyReportResolved({
+    required String userEmail,
+    required String userType,
+    required String contentType,
+    required String contentId,
+    required dynamic decision,
+  }) async {
+    final normalized = userEmail.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      debugPrint('[ModerationNotificationService] Cannot notify empty reporter email');
+      return;
+    }
+
+    final decisionLabel = _decisionLabel(decision);
+    final title = 'Report resolved';
+    final message = decisionLabel == 'Dismissed'
+        ? 'Your report about a $contentType was reviewed and dismissed.'
+        : 'Your report about a $contentType was reviewed and action was taken.';
+
+    await _notificationsCollection.doc(_docId(normalized, contentId, 'resolved')).set({
+      'userEmail': normalized,
+      'userType': userType,
+      'type': 'report_resolved',
+      'title': title,
+      'message': message,
+      'contentType': contentType,
+      'contentId': contentId,
+      'decision': decisionLabel,
+      'isRead': false,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  String _decisionLabel(dynamic decision) {
+    if (decision == null) return 'Reviewed';
+    // Accept ModerationDecision enum or raw string.
+    final raw = decision.toString();
+    if (raw.contains('dismiss')) return 'Dismissed';
+    if (raw.contains('delete')) return 'Removed';
+    if (raw.contains('flag')) return 'Flagged';
+    if (raw.contains('unflag')) return 'Unflagged';
+    if (raw.contains('restore')) return 'Restored';
+    if (raw.contains('approve')) return 'Approved';
+    return 'Reviewed';
+  }
 }

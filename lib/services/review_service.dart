@@ -548,6 +548,17 @@ class ReviewService {
           reason: reason,
         );
       }
+
+      // Notify the reporter that the report was resolved.
+      if (review.reportReason != null && review.reportReason!.isNotEmpty) {
+        await _notificationService?.notifyReportResolved(
+          userEmail: review.reportedBy.isNotEmpty ? review.reportedBy : review.visitorId,
+          userType: 'visitor',
+          contentType: 'recommendation',
+          contentId: reviewId,
+          decision: decision,
+        );
+      }
     } catch (e) {
       throw Exception('Failed to moderate recommendation: $e');
     }
