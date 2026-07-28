@@ -352,10 +352,72 @@ class _BusinessProfileSetupScreenState
         .showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  Widget _buildApprovalBlockedScreen(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0D1117),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.lock_outline, color: AppPalette.ochre, size: 64),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Account Pending Approval',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Your Local account must be approved by an admin before you can create a business profile.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+                  ),
+                  const SizedBox(height: 28),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await LocalAuth.logout();
+                      if (context.mounted) {
+                        Navigator.of(context).pushNamedAndRemoveUntil('/welcome', (route) => false);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppPalette.ochre,
+                      foregroundColor: Colors.black,
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Back to Welcome', style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   // ── Build ─────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.existing != null;
+
+    // Defence-in-depth: only approved Local users may create or edit a
+    // business profile. Login already blocks unapproved users, but this
+    // prevents any stale session or deep-link from reaching the form.
+    if (!isEdit && !LocalAuth.isApprovedLocal) {
+      return _buildApprovalBlockedScreen(context);
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF0D1117),
       appBar: AppBar(

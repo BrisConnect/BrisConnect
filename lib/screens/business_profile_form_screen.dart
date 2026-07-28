@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/models/business.dart';
 import 'package:brisconnect/services/business_profile_service.dart';
 import 'package:image_picker/image_picker.dart';
@@ -257,9 +258,71 @@ class _BusinessProfileFormScreenState extends State<BusinessProfileFormScreen> {
     );
   }
 
+  Widget _buildApprovalBlockedScreen(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Create Business Profile'),
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.lock_outline, color: Color(0xFFFF7A1A), size: 64),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Account Pending Approval',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Your Local account must be approved by an admin before you can create a business profile.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, height: 1.5),
+                  ),
+                  const SizedBox(height: 28),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await LocalAuth.logout();
+                      if (context.mounted) {
+                        Navigator.of(context).pushNamedAndRemoveUntil('/welcome', (route) => false);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF7A1A),
+                      foregroundColor: Colors.black,
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Back to Welcome', style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 768;
+
+    // Defence-in-depth: only approved Local users may create a business
+    // profile. Edit mode is allowed for existing approved owners.
+    if (!_isEditMode && LocalAuth.isLocalLoggedIn && !LocalAuth.isApprovedLocal) {
+      return _buildApprovalBlockedScreen(context);
+    }
 
     return Scaffold(
       appBar: AppBar(

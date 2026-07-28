@@ -152,6 +152,10 @@ class LocalAuth {
   static String? get lastErrorMessage => _lastErrorMessage;
   static ValueListenable<int> get profileVersion => _profileVersion;
 
+  /// Whether the currently signed-in Local user has been admin-approved.
+  static bool get isApprovedLocal =>
+      _currentLocal?.approvalStatus == AccountApprovalStatus.approved;
+
   @visibleForTesting
   static bool isApprovalAuthorized(AccountApprovalStatus status) {
     return status == AccountApprovalStatus.approved;

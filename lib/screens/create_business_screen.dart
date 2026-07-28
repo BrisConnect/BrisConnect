@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:brisconnect/auth/app_user_role.dart';
+import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/models/business.dart';
 import 'package:brisconnect/services/business_profile_service.dart';
 import 'package:brisconnect/services/google_places_autocomplete_service.dart';
@@ -170,6 +171,59 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
     }
   }
 
+  Widget _buildApprovalBlockedScreen(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppPalette.background,
+      appBar: AppBar(
+        title: const LogoAppBarTitle('Create Business'),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.lock_outline, color: AppPalette.ochre, size: 64),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Account Pending Approval',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Your Local account must be approved by an admin before you can create a business profile.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, height: 1.5),
+                  ),
+                  const SizedBox(height: 28),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await LocalAuth.logout();
+                      if (context.mounted) {
+                        Navigator.of(context).pushNamedAndRemoveUntil('/welcome', (route) => false);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppPalette.ochre,
+                      foregroundColor: Colors.black,
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Back to Welcome', style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -211,6 +265,10 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
           ),
         ),
       );
+    }
+
+    if (LocalAuth.isLocalLoggedIn && !LocalAuth.isApprovedLocal) {
+      return _buildApprovalBlockedScreen(context);
     }
 
     return RoleGuard(
