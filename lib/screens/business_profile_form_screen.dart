@@ -428,7 +428,7 @@ class _BusinessProfileFormScreenState extends State<BusinessProfileFormScreen> {
         Text('Category', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: _selectedCategory,
+          initialValue: _selectedCategory,
           items: businessCategories
               .map((category) => DropdownMenuItem(
                     value: category,

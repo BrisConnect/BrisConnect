@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:brisconnect/models/activity_feed_item.dart';
@@ -8,6 +10,7 @@ import 'package:brisconnect/models/activity_feed_item.dart';
 /// - reviews (visitor recommendations)
 /// - business_events (published events)
 /// - businesses (newly listed food businesses)
+/// - promotions (scheduled promotions and published AI-generated promotions)
 ///
 /// Photos are represented by review and event images today. A dedicated
 /// `photos` collection can be added later without changing the public API.
@@ -27,16 +30,19 @@ class ActivityFeedService {
   ///
   /// The stream is appropriate for the initial feed load and automatically
   /// reflects new posts within Firestore's snapshot latency (typically < 1s).
-  Stream<List<ActivityFeedItem>> activityFeedStream({int limit = _defaultPageSize}) {
+  Stream<List<ActivityFeedItem>> activityFeedStream(
+      {int limit = _defaultPageSize}) {
     final effectiveLimit = _clampLimit(limit);
     return _recentVisibleReviewsStream(effectiveLimit)
         .asyncMap((reviews) async {
       final events = await _recentPublishedEventsFuture(effectiveLimit);
       final businesses = await _recentBusinessesFuture(effectiveLimit);
+      final promotions = await _recentPromotionsFuture(effectiveLimit);
       return _mergeAndDeduplicate([
         ...reviews,
         ...events,
         ...businesses,
+        ...promotions,
       ], effectiveLimit);
     });
   }
@@ -64,11 +70,16 @@ class ActivityFeedService {
       effectiveLimit,
       startAfter: startAfter,
     );
+    final promotionsFuture = _recentPromotionsFuture(
+      effectiveLimit,
+      startAfter: startAfter,
+    );
 
     final results = await Future.wait([
       reviewsFuture,
       eventsFuture,
       businessesFuture,
+      promotionsFuture,
     ]);
 
     final merged = _mergeAndDeduplicate(
@@ -107,20 +118,7 @@ class ActivityFeedService {
               ),
             );
       case ActivityFeedType.business:
-        return _firestore
-            .collection('businesses')
-            .orderBy('createdAt', descending: true)
-            .limit(effectiveLimit)
-            .snapshots()
-            .map(
-              (snapshot) => _sortByPriorityThenDate(
-                snapshot.docs
-                    .map(ActivityFeedItem.fromBusinessDoc)
-                    .where((item) => item != null)
-                    .cast<ActivityFeedItem>()
-                    .toList(),
-              ),
-            );
+        return _recentPromotionsStream(effectiveLimit);
       case ActivityFeedType.photo:
         // Photos are not yet stored as a separate collection. Surface review
         // and event images as photo activity until a dedicated collection is
@@ -134,7 +132,8 @@ class ActivityFeedService {
 
   /// Pin an item so it appears at the top of the community feed.
   Future<void> pinItem(ActivityFeedItem item) async {
-    final ref = _firestore.collection(_collectionForType(item.type)).doc(item.id);
+    final ref =
+        _firestore.collection(_collectionForType(item.type)).doc(item.id);
     await ref.update({
       'isPinned': true,
       'pinnedAt': FieldValue.serverTimestamp(),
@@ -144,7 +143,8 @@ class ActivityFeedService {
 
   /// Unpin an item.
   Future<void> unpinItem(ActivityFeedItem item) async {
-    final ref = _firestore.collection(_collectionForType(item.type)).doc(item.id);
+    final ref =
+        _firestore.collection(_collectionForType(item.type)).doc(item.id);
     await ref.update({
       'isPinned': false,
       'pinnedAt': null,
@@ -154,7 +154,8 @@ class ActivityFeedService {
 
   /// Highlight an item so it is promoted in the community feed.
   Future<void> highlightItem(ActivityFeedItem item) async {
-    final ref = _firestore.collection(_collectionForType(item.type)).doc(item.id);
+    final ref =
+        _firestore.collection(_collectionForType(item.type)).doc(item.id);
     await ref.update({
       'isHighlighted': true,
       'highlightedAt': FieldValue.serverTimestamp(),
@@ -164,7 +165,8 @@ class ActivityFeedService {
 
   /// Remove the highlight from an item.
   Future<void> unhighlightItem(ActivityFeedItem item) async {
-    final ref = _firestore.collection(_collectionForType(item.type)).doc(item.id);
+    final ref =
+        _firestore.collection(_collectionForType(item.type)).doc(item.id);
     await ref.update({
       'isHighlighted': false,
       'highlightedAt': null,
@@ -177,7 +179,8 @@ class ActivityFeedService {
   /// Uses content-specific moderation flags so the item is excluded by the
   /// feed parsers and cannot reappear.
   Future<void> removeItem(ActivityFeedItem item) async {
-    final ref = _firestore.collection(_collectionForType(item.type)).doc(item.id);
+    final ref =
+        _firestore.collection(_collectionForType(item.type)).doc(item.id);
     switch (item.type) {
       case ActivityFeedType.review:
       case ActivityFeedType.photo:
@@ -225,14 +228,7 @@ class ActivityFeedService {
   }
 
   Stream<List<ActivityFeedItem>> _recentVisibleReviewsStream(int limit) {
-    return _firestore
-        .collection('reviews')
-        .where('visible', isEqualTo: true)
-        .where('isFlagged', isEqualTo: false)
-        .orderBy('createdAt', descending: true)
-        .limit(limit)
-        .snapshots()
-        .map(
+    return _recentVisibleReviewsQuery(limit).snapshots().map(
           (snapshot) => snapshot.docs
               .map(ActivityFeedItem.fromReviewDoc)
               .where((item) => item != null)
@@ -245,12 +241,7 @@ class ActivityFeedService {
     int limit, {
     DateTime? startAfter,
   }) async {
-    var query = _firestore
-        .collection('reviews')
-        .where('visible', isEqualTo: true)
-        .where('isFlagged', isEqualTo: false)
-        .orderBy('createdAt', descending: true)
-        .limit(limit);
+    var query = _recentVisibleReviewsQuery(limit);
     if (startAfter != null) {
       query = query.startAfter([Timestamp.fromDate(startAfter)]);
     }
@@ -260,6 +251,19 @@ class ActivityFeedService {
         .where((item) => item != null)
         .cast<ActivityFeedItem>()
         .toList();
+  }
+
+  /// Base query for public reviews in the community feed.
+  ///
+  /// Only filters on `visible` at the server so older review documents that
+  /// pre-date the `isFlagged` field are still returned. `fromReviewDoc`
+  /// drops flagged reviews client-side.
+  Query<Map<String, dynamic>> _recentVisibleReviewsQuery(int limit) {
+    return _firestore
+        .collection('reviews')
+        .where('visible', isEqualTo: true)
+        .orderBy('createdAt', descending: true)
+        .limit(limit);
   }
 
   Future<List<ActivityFeedItem>> _recentPublishedEventsFuture(
@@ -286,10 +290,7 @@ class ActivityFeedService {
     int limit, {
     DateTime? startAfter,
   }) async {
-    var query = _firestore
-        .collection('businesses')
-        .orderBy('createdAt', descending: true)
-        .limit(limit);
+    var query = _businessFeedQuery(limit);
     if (startAfter != null) {
       query = query.startAfter([Timestamp.fromDate(startAfter)]);
     }
@@ -299,6 +300,277 @@ class ActivityFeedService {
         .where((item) => item != null)
         .cast<ActivityFeedItem>()
         .toList();
+  }
+
+  /// Base query for businesses that are allowed in the public feed.
+  ///
+  /// This must mirror the Firestore security rule:
+  /// `isActive == true && deletedAt == null`.
+  /// A composite index is required for the two equality filters plus
+  /// `createdAt` ordering.
+  Query<Map<String, dynamic>> _businessFeedQuery(int limit) {
+    return _firestore
+        .collection('businesses')
+        .where('isActive', isEqualTo: true)
+        .where('deletedAt', isNull: true)
+        .orderBy('createdAt', descending: true)
+        .limit(limit);
+  }
+
+  Stream<List<ActivityFeedItem>> _recentPromotionsStream(int limit) {
+    final promotionsStream = _safeStream(
+      () => _firestore
+          .collection('promotions')
+          .where('status', isEqualTo: 'active')
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .snapshots()
+          .map(
+            (snapshot) => snapshot.docs
+                .map(ActivityFeedItem.fromPromotionDoc)
+                .where((item) => item != null)
+                .cast<ActivityFeedItem>()
+                .toList(),
+          ),
+      fallback: _simplePromotionsQuery(limit),
+    );
+
+    final aiPostsStream = _safeStream(
+      () => _firestore
+          .collection('ai_generated_posts')
+          .where('status', isEqualTo: 'published')
+          .where('postType', isEqualTo: 'promotion')
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .snapshots()
+          .map(
+            (snapshot) => snapshot.docs
+                .map(ActivityFeedItem.fromAiGeneratedPostDoc)
+                .where((item) => item != null)
+                .cast<ActivityFeedItem>()
+                .toList(),
+          ),
+      fallback: _simpleAiPostsQuery(limit),
+    );
+
+    return _combineLatest2(
+      promotionsStream,
+      aiPostsStream,
+      (promotions, aiPosts) => _sortByPriorityThenDate(
+        [...promotions, ...aiPosts].take(limit).toList(),
+      ),
+    );
+  }
+
+  Stream<List<ActivityFeedItem>> _simplePromotionsQuery(int limit) {
+    return _firestore
+        .collection('promotions')
+        .where('status', isEqualTo: 'active')
+        .limit(limit * 2)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(ActivityFeedItem.fromPromotionDoc)
+              .where((item) => item != null)
+              .cast<ActivityFeedItem>()
+              .toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+        );
+  }
+
+  Stream<List<ActivityFeedItem>> _simpleAiPostsQuery(int limit) {
+    return _firestore
+        .collection('ai_generated_posts')
+        .where('status', isEqualTo: 'published')
+        .limit(limit * 2)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(ActivityFeedItem.fromAiGeneratedPostDoc)
+              .where((item) => item != null)
+              .cast<ActivityFeedItem>()
+              .toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+        );
+  }
+
+  Stream<T> _safeStream<T>(
+    Stream<T> Function() builder, {
+    required Stream<T> fallback,
+  }) {
+    StreamSubscription<T>? primarySub;
+    StreamSubscription<T>? fallbackSub;
+    final controller = StreamController<T>.broadcast();
+
+    void emitFallback() {
+      if (controller.isClosed) return;
+      primarySub?.cancel();
+      fallbackSub = fallback.listen(
+        controller.add,
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+    }
+
+    try {
+      final primary = builder();
+      var gotEvent = false;
+      primarySub = primary.listen(
+        (event) {
+          gotEvent = true;
+          controller.add(event);
+        },
+        onError: (_) => emitFallback(),
+        onDone: () {
+          if (!gotEvent) emitFallback();
+        },
+      );
+
+      // If no event arrives within 8 seconds, switch to fallback.
+      Future.delayed(const Duration(seconds: 8), () {
+        if (!controller.hasListener || gotEvent || controller.isClosed) return;
+        emitFallback();
+      });
+    } catch (_) {
+      emitFallback();
+    }
+
+    controller.onCancel = () {
+      primarySub?.cancel();
+      fallbackSub?.cancel();
+    };
+
+    return controller.stream;
+  }
+
+  Stream<R> _combineLatest2<T1, T2, R>(
+    Stream<T1> stream1,
+    Stream<T2> stream2,
+    R Function(T1, T2) combiner,
+  ) {
+    T1? latest1;
+    T2? latest2;
+    var has1 = false;
+    var has2 = false;
+
+    final controller = StreamController<R>.broadcast();
+
+    void emit() {
+      if (has1 && has2 && !controller.isClosed) {
+        controller.add(combiner(latest1 as T1, latest2 as T2));
+      }
+    }
+
+    stream1.listen(
+      (value) {
+        latest1 = value;
+        has1 = true;
+        emit();
+      },
+      onError: controller.addError,
+      onDone: () {
+        if (!controller.isClosed) controller.close();
+      },
+    );
+
+    stream2.listen(
+      (value) {
+        latest2 = value;
+        has2 = true;
+        emit();
+      },
+      onError: controller.addError,
+      onDone: () {
+        if (!controller.isClosed) controller.close();
+      },
+    );
+
+    return controller.stream;
+  }
+
+  Future<List<ActivityFeedItem>> _recentPromotionsFuture(
+    int limit, {
+    DateTime? startAfter,
+  }) async {
+    Future<List<ActivityFeedItem>> fetchPromotions() async {
+      try {
+        var query = _firestore
+            .collection('promotions')
+            .where('status', isEqualTo: 'active')
+            .orderBy('createdAt', descending: true)
+            .limit(limit);
+        if (startAfter != null) {
+          query = query.startAfter([Timestamp.fromDate(startAfter)]);
+        }
+        final snapshot = await query.get();
+        return snapshot.docs
+            .map(ActivityFeedItem.fromPromotionDoc)
+            .where((item) => item != null)
+            .cast<ActivityFeedItem>()
+            .toList();
+      } catch (_) {
+        var query = _firestore
+            .collection('promotions')
+            .where('status', isEqualTo: 'active')
+            .limit(limit * 2);
+        if (startAfter != null) {
+          query = query.startAfter([Timestamp.fromDate(startAfter)]);
+        }
+        final snapshot = await query.get();
+        final items = snapshot.docs
+            .map(ActivityFeedItem.fromPromotionDoc)
+            .where((item) => item != null)
+            .cast<ActivityFeedItem>()
+            .toList();
+        items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return items.take(limit).toList();
+      }
+    }
+
+    Future<List<ActivityFeedItem>> fetchAiPosts() async {
+      try {
+        var query = _firestore
+            .collection('ai_generated_posts')
+            .where('status', isEqualTo: 'published')
+            .where('postType', isEqualTo: 'promotion')
+            .orderBy('createdAt', descending: true)
+            .limit(limit);
+        if (startAfter != null) {
+          query = query.startAfter([Timestamp.fromDate(startAfter)]);
+        }
+        final snapshot = await query.get();
+        return snapshot.docs
+            .map(ActivityFeedItem.fromAiGeneratedPostDoc)
+            .where((item) => item != null)
+            .cast<ActivityFeedItem>()
+            .toList();
+      } catch (_) {
+        var query = _firestore
+            .collection('ai_generated_posts')
+            .where('status', isEqualTo: 'published')
+            .limit(limit * 2);
+        if (startAfter != null) {
+          query = query.startAfter([Timestamp.fromDate(startAfter)]);
+        }
+        final snapshot = await query.get();
+        final items = snapshot.docs
+            .map(ActivityFeedItem.fromAiGeneratedPostDoc)
+            .where((item) => item != null)
+            .cast<ActivityFeedItem>()
+            .toList();
+        items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return items.take(limit).toList();
+      }
+    }
+
+    final results = await Future.wait([
+      fetchPromotions(),
+      fetchAiPosts(),
+    ]);
+
+    return _sortByPriorityThenDate(
+      [...results[0], ...results[1]].take(limit).toList(),
+    );
   }
 
   List<ActivityFeedItem> _mergeAndDeduplicate(
@@ -322,8 +594,16 @@ class ActivityFeedService {
   /// highlighted, or created item is shown first.
   List<ActivityFeedItem> _sortByPriorityThenDate(List<ActivityFeedItem> items) {
     items.sort((a, b) {
-      final scoreA = a.isPinned ? 2 : a.isHighlighted ? 1 : 0;
-      final scoreB = b.isPinned ? 2 : b.isHighlighted ? 1 : 0;
+      final scoreA = a.isPinned
+          ? 2
+          : a.isHighlighted
+              ? 1
+              : 0;
+      final scoreB = b.isPinned
+          ? 2
+          : b.isHighlighted
+              ? 1
+              : 0;
       if (scoreA != scoreB) return scoreB - scoreA;
 
       final dateA = a.isPinned

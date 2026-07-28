@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
+import 'package:brisconnect/l10n/app_localizations.dart';
 import 'package:brisconnect/screens/location_settings_screen.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
@@ -13,6 +14,8 @@ class VisitorSettingsScreen extends StatefulWidget {
 }
 
 class _VisitorSettingsScreenState extends State<VisitorSettingsScreen> {
+  AppLocalizations get l10n => AppLocalizations.of(context)!;
+
   late bool _locationAccessEnabled;
   bool _isSaving = false;
 
@@ -43,9 +46,9 @@ class _VisitorSettingsScreenState extends State<VisitorSettingsScreen> {
     if (!mounted) return;
     if (!success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not save settings. Please try again.'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(l10n.couldNotSaveSettings),
+          duration: const Duration(seconds: 2),
         ),
       );
     }
@@ -56,9 +59,9 @@ class _VisitorSettingsScreenState extends State<VisitorSettingsScreen> {
       await _persistSettings(locationAccessEnabled: false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Location access disabled for app features.'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(l10n.locationAccessDisabled),
+          duration: const Duration(seconds: 2),
         ),
       );
       return;
@@ -77,19 +80,19 @@ class _VisitorSettingsScreenState extends State<VisitorSettingsScreen> {
     if (!mounted) return;
     if (granted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Location permission granted.'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(l10n.locationPermissionGranted),
+          duration: const Duration(seconds: 2),
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text(
-            'Location permission was not granted. You can enable it in system settings.',
+          content: Text(
+            l10n.locationPermissionNotGranted,
           ),
           action: SnackBarAction(
-            label: 'Open Settings',
+            label: l10n.openSettings,
             onPressed: openAppSettings,
           ),
           duration: const Duration(seconds: 4),
@@ -107,23 +110,23 @@ class _VisitorSettingsScreenState extends State<VisitorSettingsScreen> {
     return Scaffold(
       backgroundColor: AppPalette.background,
       appBar: AppBar(
-        title: const LogoAppBarTitle('Location Radius'),
+        title: LogoAppBarTitle(l10n.locationRadius),
       ),
       body: visitor == null
-          ? const Center(
+          ? Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Text(
-                  'Please log in to view settings.',
+                  l10n.pleaseLoginToViewSettings,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppPalette.mutedText),
+                  style: const TextStyle(color: AppPalette.mutedText),
                 ),
               ),
             )
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
-                const _SectionLabel('Location Permissions'),
+                _SectionLabel(l10n.locationPermissions),
                 const SizedBox(height: 8),
                 Card(
                   color: AppPalette.surface,
@@ -135,12 +138,12 @@ class _VisitorSettingsScreenState extends State<VisitorSettingsScreen> {
                   child: SwitchListTile(
                     value: _locationAccessEnabled,
                     onChanged: _isSaving ? null : _toggleLocationAccess,
-                    title: const Text(
-                      'Enable Location Access',
-                      style: TextStyle(fontWeight: FontWeight.w700),
+                    title: Text(
+                      l10n.enableLocationAccess,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
-                    subtitle: const Text(
-                      'Allow nearby recommendations and map-aware features.',
+                    subtitle: Text(
+                      l10n.allowNearbyMapFeatures,
                     ),
                     secondary: const Icon(
                       Icons.location_on_outlined,
@@ -158,12 +161,12 @@ class _VisitorSettingsScreenState extends State<VisitorSettingsScreen> {
                     side: const BorderSide(color: AppPalette.border),
                   ),
                   child: ListTile(
-                    title: const Text(
-                      'Location Settings',
-                      style: TextStyle(fontWeight: FontWeight.w700),
+                    title: Text(
+                      l10n.locationSettings,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
-                    subtitle: const Text(
-                      'Set your search radius for events and attractions.',
+                    subtitle: Text(
+                      l10n.setSearchRadius,
                     ),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () {
@@ -180,7 +183,7 @@ class _VisitorSettingsScreenState extends State<VisitorSettingsScreen> {
 
                 const SizedBox(height: 24),
 
-                const _SectionLabel('About'),
+                _SectionLabel(l10n.about),
                 const SizedBox(height: 8),
                 Card(
                   color: AppPalette.surface,
@@ -189,32 +192,32 @@ class _VisitorSettingsScreenState extends State<VisitorSettingsScreen> {
                     borderRadius: BorderRadius.circular(16),
                     side: const BorderSide(color: AppPalette.border),
                   ),
-                  child: const Padding(
-                    padding: EdgeInsets.all(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'BrisConnect+',
-                          style: TextStyle(
+                          l10n.appTitle,
+                          style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             color: AppPalette.charcoal,
                             fontSize: 15,
                           ),
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
-                          'BrisConnect+ is a smart city guide that helps visitors and locals discover events, explore attractions, and capture their Brisbane experiences in one connected platform.',
-                          style: TextStyle(
+                          l10n.aboutDescription,
+                          style: const TextStyle(
                             color: AppPalette.mutedText,
                             fontSize: 13,
                             height: 1.5,
                           ),
                         ),
-                        SizedBox(height: 12),
+                        const SizedBox(height: 12),
                         Text(
-                          'Version 1.0.0',
-                          style: TextStyle(
+                          l10n.versionLabel('1.0.0'),
+                          style: const TextStyle(
                             color: AppPalette.mutedText,
                             fontSize: 12,
                           ),

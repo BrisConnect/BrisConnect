@@ -216,9 +216,7 @@ class _BusinessEventsManagementScreenState
                     ),
                   )
                 else
-                  ...publishedEvents
-                      .map((event) => _buildEventCard(event))
-                      .toList(),
+                  ...publishedEvents.map((event) => _buildEventCard(event)),
                 if (cancelledEvents.isNotEmpty) ...[
                   const SizedBox(height: 24),
                   const Text(
@@ -231,8 +229,7 @@ class _BusinessEventsManagementScreenState
                   ),
                   const SizedBox(height: 12),
                   ...cancelledEvents
-                      .map((event) => _buildEventCard(event, cancelled: true))
-                      .toList(),
+                      .map((event) => _buildEventCard(event, cancelled: true)),
                 ],
               ],
             ),

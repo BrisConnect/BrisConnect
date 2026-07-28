@@ -2,22 +2,22 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import '../l10n/app_localizations.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:brisconnect/screens/business_profile_view_screen.dart';
 import 'package:brisconnect/screens/food_detail_screen.dart';
-import 'package:brisconnect/screens/stadium_detail_screen.dart';
 import 'package:brisconnect/screens/visitor_event_detail_screen.dart';
 import 'package:brisconnect/widgets/report_event_dialog.dart';
 import 'package:brisconnect/widgets/food_review_dialog.dart';
 import 'package:brisconnect/theme/app_palette.dart';
-import 'package:brisconnect/utils/venue_image_fallback.dart';
+import 'package:brisconnect/widgets/fallback_image.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
 
 import 'package:brisconnect/services/firestore_service.dart';
@@ -29,7 +29,6 @@ import 'package:brisconnect/services/firebase_media_service.dart';
 import 'package:brisconnect/services/review_service.dart';
 import 'package:brisconnect/utils/error_messages.dart';
 import 'package:brisconnect/utils/profile_image_utils.dart';
-import 'package:brisconnect/screens/food_business_discovery_screen.dart';
 import 'visitor_settings_screen.dart';
 import 'appearance_settings_screen.dart';
 import 'my_feedback_screen.dart';
@@ -40,6 +39,8 @@ import '../widgets/inline_status_message.dart';
 import '../widgets/reusable_event_card.dart';
 import '../widgets/logo_app_bar_title.dart';
 import '../widgets/help_support_sheet.dart';
+import '../widgets/desktop_top_app_bar.dart';
+import '../utils/responsive_utils.dart';
 
 class VisitorPortalScreen extends StatefulWidget {
   const VisitorPortalScreen({
@@ -56,15 +57,52 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   Uint8List? _pendingProfileImageBytes;
   Timer? _searchDebounce;
   int _selectedIndex = 0;
-  bool _isNavVisible = true;
   DateTime? _selectedEventDate;
   FirestoreService? _firestoreService;
+
+  String _formatLanguageLabel(AppLocalizations l10n, String code) {
+    switch (code) {
+      case 'en':
+        return l10n.languageEnglish;
+      case 'es':
+        return l10n.languageSpanish;
+      case 'fr':
+        return l10n.languageFrench;
+      case 'de':
+        return l10n.languageGerman;
+      case 'zh':
+        return l10n.languageChinese;
+      case 'ar':
+        return l10n.languageArabic;
+      case 'hi':
+        return l10n.languageHindi;
+      case 'it':
+        return l10n.languageItalian;
+      case 'ja':
+        return l10n.languageJapanese;
+      case 'ko':
+        return l10n.languageKorean;
+      case 'pt':
+        return l10n.languagePortuguese;
+      case 'ru':
+        return l10n.languageRussian;
+      case 'vi':
+        return l10n.languageVietnamese;
+      case 'el':
+        return l10n.languageGreek;
+      default:
+        return l10n.languageEnglish;
+    }
+  }
+
   Stream<List<Map<String, dynamic>>>? _discoverRadiusStreamCache;
   Stream<List<Map<String, dynamic>>>? _approvedEventsStreamCache;
   late double _userLatitude;
   late double _userLongitude;
   late int _radiusKm;
   late bool _isUsingRadius;
+  final ValueNotifier<bool> _navVisibleNotifier = ValueNotifier<bool>(true);
+  DateTime? _lastNavToggle;
 
   final Set<_VisitorFilterSection> _selectedSections = {
     _VisitorFilterSection.food,
@@ -73,6 +111,16 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     _VisitorPriceFilter.free,
     _VisitorPriceFilter.paid,
   };
+
+  // Caches for expensive list computations so they don't re-run on every
+  // frame caused by animations, scrolling, or nested ValueListenableBuilders.
+  List<Map<String, dynamic>>? _cachedFoodItems;
+  List<Map<String, dynamic>>? _cachedFoodSource;
+  String? _cachedFoodFilterKey;
+  List<Map<String, dynamic>>? _cachedRecommendedItems;
+  List<Map<String, dynamic>>? _cachedRecommendedSource;
+  List<Map<String, dynamic>>? _cachedTopRatedFoodItems;
+  List<Map<String, dynamic>>? _cachedTopRatedFoodSource;
   @override
   void initState() {
     super.initState();
@@ -93,7 +141,6 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   }
 
   void _updateUserPreferences() {
-
     final visitor = VisitorAuth.currentVisitor;
     if (visitor != null) {
       _radiusKm = visitor.locationRadiusKm;
@@ -112,6 +159,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _navVisibleNotifier.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -171,8 +219,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               ?.map((v) => '$v'.trim().toLowerCase())
               .toList(growable: false) ??
           const <String>[];
-      final singleCategory =
-          (item['category'] as String? ?? '').toLowerCase();
+      final singleCategory = (item['category'] as String? ?? '').toLowerCase();
       final sectionVal = (item['section'] as String? ?? '').toLowerCase();
       final matchesSearch = query.isEmpty ||
           (item['title'] as String? ?? '').toLowerCase().contains(query) ||
@@ -336,6 +383,79 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     return scored.take(6).map((entry) => entry.item).toList(growable: false);
   }
 
+  String _foodFilterCacheKey() {
+    return '${_searchController.text.trim()}_'
+        '${_selectedSections.toString()}_'
+        '${_selectedPriceFilters.toString()}_'
+        '${_selectedEventDate?.millisecondsSinceEpoch ?? 0}';
+  }
+
+  List<Map<String, dynamic>> _getCachedFoodItems(
+    List<Map<String, dynamic>> items,
+  ) {
+    final key = _foodFilterCacheKey();
+    if (!identical(_cachedFoodSource, items) || _cachedFoodFilterKey != key) {
+      _cachedFoodSource = items;
+      _cachedFoodFilterKey = key;
+      _cachedFoodItems = _filterItems(
+        items,
+        section: _VisitorFilterSection.food,
+      );
+    }
+    return _cachedFoodItems ?? items;
+  }
+
+  List<Map<String, dynamic>> _getCachedRecommendedItems(
+    List<Map<String, dynamic>> items,
+  ) {
+    if (!identical(_cachedRecommendedSource, items)) {
+      _cachedRecommendedSource = items;
+      _cachedRecommendedItems = _recommendedItems(items);
+    }
+    return _cachedRecommendedItems ?? items;
+  }
+
+  List<Map<String, dynamic>> _topRatedFoodItems(
+    List<Map<String, dynamic>> items,
+  ) {
+    final foodItems = items.where((item) {
+      final section = (item['section'] as String? ?? '').trim().toLowerCase();
+      return section == 'food';
+    }).toList(growable: false);
+
+    final scored = foodItems
+        .map((item) {
+          final rating = (item['rating'] as num?)?.toDouble() ?? 0.0;
+          final reviewCount = (item['reviewCount'] as num?)?.toInt() ?? 0;
+          final score = (rating * 10) + (reviewCount.clamp(0, 100) / 10);
+          return (
+            item: item,
+            score: score,
+            rating: rating,
+            reviewCount: reviewCount
+          );
+        })
+        .where((entry) => entry.rating >= 3.5)
+        .toList(growable: false);
+
+    scored.sort((a, b) {
+      final byScore = b.score.compareTo(a.score);
+      if (byScore != 0) return byScore;
+      return b.rating.compareTo(a.rating);
+    });
+    return scored.take(8).map((entry) => entry.item).toList(growable: false);
+  }
+
+  List<Map<String, dynamic>> _getCachedTopRatedFoodItems(
+    List<Map<String, dynamic>> items,
+  ) {
+    if (!identical(_cachedTopRatedFoodSource, items)) {
+      _cachedTopRatedFoodSource = items;
+      _cachedTopRatedFoodItems = _topRatedFoodItems(items);
+    }
+    return _cachedTopRatedFoodItems ?? const <Map<String, dynamic>>[];
+  }
+
   DateTime? _parseDateFromString(String value) {
     final datePart = value.split('•').first.trim();
 
@@ -376,22 +496,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     return null;
   }
 
-  String _formatFilterDate(DateTime date) {
-    const monthNames = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${date.day} ${monthNames[date.month - 1]} ${date.year}';
+  String _formatFilterDate(String locale, DateTime date) {
+    return DateFormat.yMMMd(locale).format(date);
   }
 
   String _sectionLabel(_VisitorFilterSection section) {
@@ -407,12 +513,12 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     }
   }
 
-  String _priceLabel(_VisitorPriceFilter filter) {
+  String _priceLabel(AppLocalizations l10n, _VisitorPriceFilter filter) {
     switch (filter) {
       case _VisitorPriceFilter.free:
-        return 'Free';
+        return l10n.freeLabel;
       case _VisitorPriceFilter.paid:
-        return 'Paid';
+        return l10n.paidLabel;
     }
   }
 
@@ -434,6 +540,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
+        final l10n = AppLocalizations.of(context)!;
         return StatefulBuilder(
           builder: (context, setModalState) {
             Widget buildSectionTile(_VisitorFilterSection section) {
@@ -457,7 +564,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               return CheckboxListTile(
                 value: prices.contains(filter),
                 contentPadding: EdgeInsets.zero,
-                title: Text(_priceLabel(filter)),
+                title: Text(_priceLabel(l10n, filter)),
                 onChanged: (value) {
                   setModalState(() {
                     if (value == true) {
@@ -489,8 +596,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                           physics: const ClampingScrollPhysics(),
                           padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
                           children: [
-                            const Text(
-                              'Filter Events',
+                            Text(
+                              AppLocalizations.of(context)!.filterEventsTitle,
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w700,
@@ -498,8 +605,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            const Text(
-                              'Price',
+                            Text(
+                              AppLocalizations.of(context)!.priceLabel,
                               style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 color: AppPalette.charcoal,
@@ -508,8 +615,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                             buildPriceTile(_VisitorPriceFilter.free),
                             buildPriceTile(_VisitorPriceFilter.paid),
                             const SizedBox(height: 12),
-                            const Text(
-                              'Date',
+                            Text(
+                              AppLocalizations.of(context)!.dateLabel,
                               style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 color: AppPalette.charcoal,
@@ -534,11 +641,11 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                                   Icons.calendar_today_rounded,
                                   size: 16,
                                 ),
-                                label: const Text('Pick a date'),
+                                label: Text(AppLocalizations.of(context)!.pickADate),
                               )
                             else
                               InputChip(
-                                label: Text(_formatFilterDate(selectedDate!)),
+                                label: Text(_formatFilterDate(Localizations.localeOf(context).toString(), selectedDate!)),
                                 onDeleted: () =>
                                     setModalState(() => selectedDate = null),
                                 backgroundColor: AppPalette.surfaceAlt,
@@ -568,7 +675,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                                     ),
                                   );
                                 },
-                                child: const Text('Reset'),
+                                child: Text(AppLocalizations.of(context)!.resetButton),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -588,7 +695,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                                   backgroundColor: AppPalette.deepBlue,
                                   foregroundColor: Colors.white,
                                 ),
-                                child: const Text('Apply'),
+                                child: Text(AppLocalizations.of(context)!.applyButton),
                               ),
                             ),
                           ],
@@ -631,19 +738,19 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     final chips = <Widget>[
       ..._selectedPriceFilters.map(
         (filter) => Chip(
-          label: Text(_priceLabel(filter)),
+          label: Text(_priceLabel(AppLocalizations.of(context)!, filter)),
           backgroundColor: AppPalette.surfaceAlt,
           side: const BorderSide(color: AppPalette.border),
         ),
       ),
       if (_selectedEventDate != null)
         Chip(
-          label: Text(_formatFilterDate(_selectedEventDate!)),
+          label: Text(_formatFilterDate(Localizations.localeOf(context).toString(), _selectedEventDate!)),
           backgroundColor: AppPalette.surfaceAlt,
           side: const BorderSide(color: AppPalette.border),
         ),
       ActionChip(
-        label: const Text('Clear filters'),
+        label: Text(AppLocalizations.of(context)!.clearFilters),
         backgroundColor: AppPalette.surfaceAlt,
         side: const BorderSide(color: AppPalette.border),
         onPressed: () {
@@ -671,6 +778,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   }
 
   void _toggleSavedItem(String id, {Map<String, dynamic>? itemData}) {
+    final l10n = AppLocalizations.of(context)!;
     final section =
         (itemData?['section'] as String? ?? '').trim().toLowerCase();
     final isEvent = section == 'events';
@@ -680,8 +788,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
         : VisitorAuth.toggleSavedAttraction(id);
     if (!didUpdate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please log in as a Visitor to save events.'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.pleaseSignInToSaveEvents),
         ),
       );
       return;
@@ -716,7 +824,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
         debugPrint('[VisitorPortal] Failed to schedule notification: $e');
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$eventTitle saved to Interested.')),
+        SnackBar(content: Text(l10n.eventSavedToInterested(eventTitle))),
       );
     } else if (isEvent && !isNowSaved && itemData != null) {
       final notificationService = VisitorNotificationService();
@@ -733,7 +841,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
         debugPrint('[VisitorPortal] Failed to cancel notification: $e');
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$eventTitle removed from Interested.')),
+        SnackBar(content: Text(l10n.eventRemovedFromInterested(eventTitle))),
       );
     } else {
       final title = itemData?['title'] as String? ?? 'Attraction';
@@ -741,8 +849,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
         SnackBar(
           content: Text(
             isNowSaved
-                ? '$title saved to Saved Attractions.'
-                : '$title removed from Saved Attractions.',
+                ? l10n.savedToAttractions(title)
+                : l10n.removedFromAttractions(title),
           ),
         ),
       );
@@ -755,14 +863,15 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     // Guests must sign in before writing a review or submitting a BuzzVote.
     if (!VisitorAuth.isVisitorLoggedIn) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please sign in to write a review or BuzzVote.'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.pleaseSignInToReview),
           behavior: SnackBarBehavior.floating,
         ),
       );
       return;
     }
 
+    final l10n = AppLocalizations.of(context)!;
     final foodTitle = item['title'] as String? ?? 'Food Place';
     final foodId = item['id'] as String? ?? '';
 
@@ -796,7 +905,10 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  'Review submitted! ⭐ ${rating.toInt()} / Buzz ⚡ ${buzzRating.toInt()}',
+                  l10n.reviewSubmitted(
+                    rating.toInt().toString(),
+                    buzzRating.toInt().toString(),
+                  ),
                 ),
                 duration: const Duration(seconds: 2),
               ),
@@ -806,7 +918,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Could not submit review: $e'),
+                content: Text(l10n.reviewSubmitFailed(e.toString())),
                 behavior: SnackBarBehavior.floating,
               ),
             );
@@ -817,11 +929,11 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   }
 
   Future<void> _openWebLink(String link) async {
+    final l10n = AppLocalizations.of(context)!;
     if (link.trim().isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('No external link available for this item yet.')),
+          SnackBar(content: Text(l10n.noExternalLink)),
         );
       }
       return;
@@ -836,15 +948,13 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
       }
       if (!didLaunch && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Unable to open the event link right now.')),
+          SnackBar(content: Text(l10n.unableToOpenLink)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Unable to open the event link right now.')),
+          SnackBar(content: Text(l10n.unableToOpenLink)),
         );
       }
       if (!mounted) {
@@ -949,31 +1059,17 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           dateTime: (item['dateTime'] as String? ?? '').trim(),
           price: (item['price'] as String? ?? '').trim(),
           mapQuery: (item['mapQuery'] as String? ?? '').trim(),
-          webLink: (item['webLink'] as String? ?? '').trim(),
+          webLink: (item['website'] as String? ?? '').trim(),
+          phone: (item['phone'] as String? ?? '').trim(),
+          email: (item['email'] as String? ?? '').trim(),
+          openingHours: (item['openingHours'] as String? ?? '').trim(),
+          facebookUrl: (item['facebookUrl'] as String? ?? '').trim(),
+          instagramUrl: (item['instagramUrl'] as String? ?? '').trim(),
+          onlineOrderUrl: (item['onlineOrderUrl'] as String? ?? '').trim(),
           aiAudio: (item['aiAudio'] as String? ?? '').trim(),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openStadiumDetails(Map<String, dynamic> item) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => StadiumDetailScreen(
-          id: (item['id'] as String? ?? '').trim(),
-          title: (item['title'] as String? ?? 'Stadium').trim(),
-          description: (item['description'] as String? ?? '').trim(),
-          location: (item['location'] as String? ?? '').trim(),
-          imageUrl: (item['imageUrl'] as String? ?? '').trim(),
-          categories:
-              List<String>.from(item['categories'] as List? ?? const []),
-          badge: (item['badge'] as String? ?? 'Stadium').trim(),
-          dateTime: (item['dateTime'] as String? ?? '').trim(),
-          price: (item['price'] as String? ?? '').trim(),
-          mapQuery: (item['mapQuery'] as String? ?? '').trim(),
-          webLink: (item['webLink'] as String? ?? '').trim(),
-          aiAudio: (item['aiAudio'] as String? ?? '').trim(),
+          menu: _parseMenu(item['menu']),
+          photoGallery:
+              _parsePhotoGallery(item['photoGallery'], item['imageUrl']),
         ),
       ),
     );
@@ -1008,10 +1104,10 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               },
               textInputAction: TextInputAction.search,
               onSubmitted: (_) => FocusScope.of(context).unfocus(),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 border: InputBorder.none,
-                hintText: 'Search local food businesses...',
-                hintStyle: TextStyle(color: AppPalette.mutedText),
+                hintText: AppLocalizations.of(context)!.searchHintLocalFood,
+                hintStyle: const TextStyle(color: AppPalette.mutedText),
               ),
             ),
           ),
@@ -1023,9 +1119,11 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               decoration: BoxDecoration(
                 color: AppPalette.surfaceAlt,
                 shape: BoxShape.circle,
-                border: Border.all(color: AppPalette.border.withValues(alpha: 0.5)),
+                border:
+                    Border.all(color: AppPalette.border.withValues(alpha: 0.5)),
               ),
-              child: const Icon(Icons.mic_rounded, size: 18, color: AppPalette.mutedText),
+              child: const Icon(Icons.mic_rounded,
+                  size: 18, color: AppPalette.mutedText),
             ),
           ),
         ],
@@ -1034,6 +1132,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   }
 
   Widget _buildEventCard(Map<String, dynamic> item) {
+    final l10n = AppLocalizations.of(context)!;
     final id = item['id'] as String? ?? '';
     final section = (item['section'] as String? ?? '').trim();
     final isEvent = section == 'events';
@@ -1055,6 +1154,12 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           price: item['price'] as String? ?? '',
           source: item['source'] as String?,
           venue: item['venue'] as String?,
+          phone: item['phone'] as String?,
+          website: item['website'] as String?,
+          email: item['email'] as String?,
+          facebookUrl: item['facebookUrl'] as String?,
+          instagramUrl: item['instagramUrl'] as String?,
+          onlineOrderUrl: item['onlineOrderUrl'] as String?,
           categories: (item['categories'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList(),
@@ -1062,9 +1167,15 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           rating: (item['rating'] as num?)?.toDouble(),
           isFavorite: isFavorite,
           cardColor: AppPalette.surface.withValues(alpha: 0.80),
+          border: isEvent
+              ? null
+              : Border.all(
+                  color: const Color(0xFF93C5FD),
+                  width: 1.5,
+                ),
           onShareTap: () {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Share: ${item['title'] ?? 'Event'}')),
+              SnackBar(content: Text(l10n.shareTitle(item['title'] as String? ?? l10n.eventFallback))),
             );
           },
           onCardTap: () async {
@@ -1082,10 +1193,6 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               await _openFoodDetails(item);
               return;
             }
-            if (section == 'stadiums') {
-              await _openStadiumDetails(item);
-              return;
-            }
             final openedAttraction =
                 await _openAttractionDetailsIfAvailable(item);
             if (!openedAttraction && mounted) {
@@ -1094,7 +1201,9 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           },
           onWebTap: () async {
             final section = (item['section'] as String? ?? '').trim();
-            final link = (item['webLink'] as String? ?? '').trim();
+            final link =
+                (item['website'] as String? ?? item['webLink'] as String? ?? '')
+                    .trim();
             if (section == 'events') {
               if (link.isNotEmpty) {
                 _openWebLink(link);
@@ -1112,10 +1221,6 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               await _openFoodDetails(item);
               return;
             }
-            if (section == 'stadiums' && link.isEmpty) {
-              await _openStadiumDetails(item);
-              return;
-            }
             if (link.isEmpty) {
               final openedAttraction =
                   await _openAttractionDetailsIfAvailable(item);
@@ -1128,12 +1233,13 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           },
           onReviewTap: () {
             final section = (item['section'] as String? ?? '').trim();
-            if (section == 'food') {
+            final reviewL10n = AppLocalizations.of(context)!;
+    if (section == 'food') {
               _showFoodReviewDialog(item);
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Reviews are only available for food items'),
+                SnackBar(
+                  content: Text(reviewL10n.reviewsOnlyForFood),
                 ),
               );
             }
@@ -1157,7 +1263,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                   }
                 },
                 icon: const Icon(Icons.flag, size: 18),
-                label: const Text('Report Event'),
+                label: Text(AppLocalizations.of(context)!.reportEvent),
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.red,
                 ),
@@ -1165,6 +1271,100 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  /// Lazy sliver grid used in the discover page so tall cards don't force
+  /// an enormous shrink-wrapped height.
+  Widget _buildFoodSliverGrid(List<Map<String, dynamic>> items) {
+    return SliverLayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisExtent = constraints.crossAxisExtent;
+        if (crossAxisExtent >= Breakpoints.desktop) {
+          final crossAxisCount = ResponsiveUtils.gridColumnCount(
+            context,
+            itemMinWidth: 340,
+            minColumns: 2,
+            maxColumns: 4,
+            spacing: 16,
+          );
+          return SliverPadding(
+            padding: EdgeInsets.symmetric(
+              horizontal: ResponsiveUtils.isDesktop(context) ? 32 : 20,
+            ),
+            sliver: SliverGrid(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 0,
+                childAspectRatio: 0.42,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _buildEventCard(items[index]),
+                childCount: items.length,
+              ),
+            ),
+          );
+        }
+        if (crossAxisExtent >= Breakpoints.mobile) {
+          return SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 0,
+                childAspectRatio: 0.40,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _buildEventCard(items[index]),
+                childCount: items.length,
+              ),
+            ),
+          );
+        }
+        return SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => _buildEventCard(items[index]),
+              childCount: items.length,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Converts a saved-events list into a responsive grid on tablet/desktop.
+  Widget _buildSavedCardGrid(List<Map<String, dynamic>> items) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= Breakpoints.mobile) {
+          return GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: ResponsiveUtils.gridColumnCount(
+                context,
+                itemMinWidth: 340,
+                minColumns: 2,
+                maxColumns: 3,
+                spacing: 16,
+              ),
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 0,
+              childAspectRatio: 0.44,
+            ),
+            itemCount: items.length,
+            itemBuilder: (context, index) => _buildEventCard(items[index]),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: items.map(_buildEventCard).toList(),
+        );
+      },
     );
   }
 
@@ -1181,8 +1381,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Recommended for You',
+              Text(
+                AppLocalizations.of(context)!.recommendedForYou,
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
@@ -1227,12 +1427,6 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               final location = (item['location'] as String? ?? '').trim();
               final section = (item['section'] as String? ?? '').trim();
               final badge = (item['badge'] as String? ?? '').trim();
-              final venueFallback = VenueImageFallback.forVenue(
-                title: title,
-                section: section,
-                badge: badge,
-              );
-              final resolvedImageUrl = imageUrl.isNotEmpty ? imageUrl : venueFallback;
               final isEvent = section == 'events';
               final isFavorite = isEvent
                   ? VisitorAuth.isInterestedInEvent(id)
@@ -1241,17 +1435,15 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               return GestureDetector(
                 onTap: () async {
                   if (section == 'events') {
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => VisitorEventDetailScreen(event: item),
-                    ));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => VisitorEventDetailScreen(event: item),
+                        ));
                     return;
                   }
                   if (section == 'food') {
                     await _openFoodDetails(item);
-                    return;
-                  }
-                  if (section == 'stadiums') {
-                    await _openStadiumDetails(item);
                     return;
                   }
                   final opened = await _openAttractionDetailsIfAvailable(item);
@@ -1265,45 +1457,12 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                       // Image card
                       Stack(
                         children: [
-                          ClipRRect(
+                          FallbackImage(
+                            imageUrl: imageUrl,
+                            height: 130,
+                            width: 170,
                             borderRadius: BorderRadius.circular(16),
-                            child: CachedNetworkImage(
-                              imageUrl: resolvedImageUrl,
-                              height: 130,
-                              width: 170,
-                              fit: BoxFit.cover,
-                              placeholder: (_, __) => Container(
-                                height: 130,
-                                width: 170,
-                                decoration: BoxDecoration(
-                                  color: AppPalette.surfaceAlt,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: const Center(
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  ),
-                                ),
-                              ),
-                              errorWidget: (_, __, ___) => Image.network(
-                                venueFallback,
-                                height: 130,
-                                width: 170,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  height: 130,
-                                  width: 170,
-                                  decoration: BoxDecoration(
-                                    color: AppPalette.surfaceAlt,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: const Icon(Icons.image_rounded,
-                                      color: AppPalette.mutedText, size: 36),
-                                ),
-                              ),
-                            ),
+                            category: section,
                           ),
                           Positioned(
                             top: 8,
@@ -1367,6 +1526,184 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     );
   }
 
+  Widget _buildTopRatedFoodCarousel(List<Map<String, dynamic>> items) {
+    if (items.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: ResponsiveUtils.isDesktop(context) ? 32 : 20,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                AppLocalizations.of(context)!.recommendedForYou,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: AppPalette.charcoal,
+                ),
+              ),
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => _RecommendedFoodAllScreen(
+                        items: items,
+                        onFoodTap: _openFoodDetails,
+                      ),
+                    ),
+                  );
+                },
+                child: const Row(
+                  children: [
+                    Text(
+                      'See All',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppPalette.ochre,
+                      ),
+                    ),
+                    SizedBox(width: 2),
+                    Icon(Icons.chevron_right_rounded,
+                        color: AppPalette.ochre, size: 20),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 230,
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(
+              dragDevices: {
+                PointerDeviceKind.touch,
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.trackpad,
+              },
+            ),
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(
+                horizontal: ResponsiveUtils.isDesktop(context) ? 32 : 20,
+              ),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 14),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                final id = (item['id'] as String? ?? '').trim();
+                final imageUrl = (item['imageUrl'] as String? ?? '').trim();
+                final title = (item['title'] as String? ?? 'Food').trim();
+                final location = (item['location'] as String? ?? '').trim();
+                final rating = (item['rating'] as num?)?.toDouble() ?? 0.0;
+                final reviewCount = (item['reviewCount'] as num?)?.toInt() ?? 0;
+                final isFavorite = VisitorAuth.isBusinessSaved(id);
+
+                return GestureDetector(
+                  onTap: () => _openFoodDetails(item),
+                  child: SizedBox(
+                    width: 180,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Stack(
+                          children: [
+                            FallbackImage(
+                              imageUrl: imageUrl,
+                              height: 140,
+                              width: 180,
+                              borderRadius: BorderRadius.circular(16),
+                              category: 'food',
+                            ),
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: GestureDetector(
+                                onTap: () {
+                                  VisitorAuth.toggleSavedBusiness(id);
+                                  setState(() {});
+                                },
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    isFavorite
+                                        ? Icons.bookmark_rounded
+                                        : Icons.bookmark_border_rounded,
+                                    size: 18,
+                                    color: isFavorite
+                                        ? AppPalette.ochre
+                                        : AppPalette.mutedText,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppPalette.charcoal,
+                            height: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.star_rounded,
+                              color: AppPalette.gold,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              '${rating.toStringAsFixed(1)} · $reviewCount reviews',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppPalette.mutedText,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (location.isNotEmpty)
+                          Text(
+                            location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppPalette.mutedText,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildCategoryChips() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1389,10 +1726,10 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           child: Row(
             children: [
               _CategoryChip(
-                label: 'Food',
+                label: AppLocalizations.of(context)!.food,
                 emoji: '🍴',
-                isSelected: _selectedSections
-                    .contains(_VisitorFilterSection.food),
+                isSelected:
+                    _selectedSections.contains(_VisitorFilterSection.food),
                 onTap: () {
                   setState(() {
                     _selectedSections
@@ -1411,8 +1748,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   Widget _buildNearbySection(List<Map<String, dynamic>> items) {
     // Pick items with location set, limit to 5
     final nearby = items
-        .where((item) =>
-            (item['location'] as String? ?? '').trim().isNotEmpty)
+        .where((item) => (item['location'] as String? ?? '').trim().isNotEmpty)
         .take(5)
         .toList();
 
@@ -1444,17 +1780,15 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
             child: GestureDetector(
               onTap: () async {
                 if (section == 'events') {
-                  Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => VisitorEventDetailScreen(event: item),
-                  ));
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => VisitorEventDetailScreen(event: item),
+                      ));
                   return;
                 }
                 if (section == 'food') {
                   await _openFoodDetails(item);
-                  return;
-                }
-                if (section == 'stadiums') {
-                  await _openStadiumDetails(item);
                   return;
                 }
                 final opened = await _openAttractionDetailsIfAvailable(item);
@@ -1465,33 +1799,17 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                 decoration: BoxDecoration(
                   color: AppPalette.surface.withValues(alpha: 0.80),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppPalette.border.withValues(alpha: 0.5)),
+                  border: Border.all(
+                      color: AppPalette.border.withValues(alpha: 0.5)),
                 ),
                 child: Row(
                   children: [
-                    ClipRRect(
+                    FallbackImage(
+                      imageUrl: imageUrl,
+                      width: 64,
+                      height: 64,
                       borderRadius: BorderRadius.circular(10),
-                      child: imageUrl.isNotEmpty
-                          ? Image.network(
-                              imageUrl,
-                              width: 64,
-                              height: 64,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                width: 64,
-                                height: 64,
-                                color: AppPalette.surfaceAlt,
-                                child: const Icon(Icons.place_rounded,
-                                    color: AppPalette.mutedText),
-                              ),
-                            )
-                          : Container(
-                              width: 64,
-                              height: 64,
-                              color: AppPalette.surfaceAlt,
-                              child: const Icon(Icons.place_rounded,
-                                  color: AppPalette.mutedText),
-                            ),
+                      category: section,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -1559,10 +1877,49 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           'categories': categories,
           'category': categories.isNotEmpty ? categories.first : '',
           'rating': data['rating'] ?? data['averageRating'] ?? 0,
+          'reviewCount': data['reviewCount'] ?? data['reviewsCount'] ?? 0,
           'price': data['priceRange'] ?? '',
+          'phone': data['phone'] ?? '',
+          'website': data['website'] ?? '',
+          'openingHours': data['openingHours'] ?? '',
+          'email': data['email'] ?? '',
+          'facebookUrl': data['facebookUrl'] ?? data['facebook'] ?? '',
+          'instagramUrl': data['instagramUrl'] ?? data['instagram'] ?? '',
+          'onlineOrderUrl':
+              data['onlineOrderUrl'] ?? data['onlineOrderLink'] ?? '',
+          'menu': data['menu'] ?? const <Map<String, dynamic>>[],
+          'photoGallery': data['photoGallery'] ?? const <String>[],
         };
       }).toList();
     });
+  }
+
+  List<Map<String, dynamic>> _parseMenu(dynamic raw) {
+    if (raw == null) return const <Map<String, dynamic>>[];
+    if (raw is List) {
+      return raw.whereType<Map<String, dynamic>>().toList(growable: false);
+    }
+    if (raw is Map<String, dynamic>) {
+      return [raw];
+    }
+    return const <Map<String, dynamic>>[];
+  }
+
+  List<String> _parsePhotoGallery(dynamic raw, String fallbackImageUrl) {
+    final urls = <String>[];
+    if (raw is List) {
+      for (final value in raw) {
+        final url = value?.toString().trim() ?? '';
+        if (url.isNotEmpty) urls.add(url);
+      }
+    } else if (raw is String && raw.trim().isNotEmpty) {
+      urls.add(raw.trim());
+    }
+    final fallback = fallbackImageUrl.trim();
+    if (fallback.isNotEmpty && !urls.contains(fallback)) {
+      urls.insert(0, fallback);
+    }
+    return urls;
   }
 
   Widget _buildDiscoverBody() {
@@ -1577,7 +1934,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           final message = AppErrorMessages.fromException(
             snapshot.error,
             fallback:
-                'Unable to load discover items right now. Please try again.',
+                AppLocalizations.of(context)!.unableToLoadDiscover,
           );
           return Center(
             child: Padding(
@@ -1585,7 +1942,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               child: InlineStatusMessage(
                 message: message,
                 type: InlineStatusType.error,
-                actionLabel: 'Retry',
+                actionLabel: AppLocalizations.of(context)!.retryAction,
                 onAction: () => setState(() {}),
               ),
             ),
@@ -1596,10 +1953,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           valueListenable: VisitorAuth.interestedEventsVersion,
           builder: (context, _, __) {
             final items = snapshot.data ?? const <Map<String, dynamic>>[];
-            final foodItems = _filterItems(
-              items,
-              section: _VisitorFilterSection.food,
-            );
+            final foodItems = _getCachedFoodItems(items);
 
             final hasAnyVisibleItems = foodItems.isNotEmpty;
 
@@ -1607,211 +1961,213 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                 VisitorAuth.currentVisitor?.name.split(' ').first ?? 'Visitor';
             final heroProfileImage =
                 _profileImageProvider(VisitorAuth.currentVisitor);
+            final isDesktop = ResponsiveUtils.isDesktop(context);
+            final isMobile = ResponsiveUtils.isMobile(context);
 
             return Stack(
               children: [
-                // Dark navy background
+                // Surface colour fills any gaps between slivers.
                 const Positioned.fill(
-                  child: ColoredBox(color: Color(0xFF0D1117)),
+                  child: ColoredBox(color: AppPalette.surface),
                 ),
                 CustomScrollView(
-              slivers: [
-                // ── Hero section (text over full-screen background) ──
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      top: MediaQuery.of(context).padding.top + 12,
-                      left: 16,
-                      right: 16,
-                      bottom: 12,
+                  slivers: [
+                    // ── Recommended food businesses carousel ──
+                    SliverToBoxAdapter(
+                      child: Container(
+                        color: AppPalette.background,
+                        padding: const EdgeInsets.only(top: 16),
+                        child: _buildTopRatedFoodCarousel(
+                          _getCachedTopRatedFoodItems(items),
+                        ),
+                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                            Row(
-                              children: [
-                                ClipOval(
-                                  child: Container(
-                                    width: 60,
-                                    height: 60,
-                                    color: Colors.white.withValues(alpha: 0.1),
-                                    child: Image.asset('assets/Brisconnect New.jpg', fit: BoxFit.cover),
+
+                    // ── Hero section (white background over surface) ──
+                    SliverToBoxAdapter(
+                      child: Container(
+                        color: AppPalette.background,
+                        padding: EdgeInsets.only(
+                          top: MediaQuery.of(context).padding.top + 12,
+                          left: 16,
+                          right: 16,
+                          bottom: 12,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (isMobile) ...[
+                              Row(
+                                children: [
+                                  ClipOval(
+                                    child: Container(
+                                      width: 60,
+                                      height: 60,
+                                      color:
+                                          Colors.white.withValues(alpha: 0.1),
+                                      child: Image.asset(
+                                          'assets/Brisconnect New.jpg',
+                                          fit: BoxFit.cover),
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 10),
-                                const Text(
-                                  'BrisConnect+',
-                                  style: TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
-                                    shadows: [
-                                      Shadow(
-                                        offset: Offset(0, 1),
-                                        blurRadius: 6,
-                                        color: Colors.black45,
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    AppLocalizations.of(context)!.appTitle,
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppPalette.charcoal,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  GestureDetector(
+                                    onTap: () =>
+                                        setState(() => _selectedIndex = 4),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                            color: AppPalette.border, width: 2),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black
+                                                .withValues(alpha: 0.25),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                ),
-                                const Spacer(),
-                                GestureDetector(
-                                  onTap: () => setState(() => _selectedIndex = 4),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: Colors.white, width: 2),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.25),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
+                                      child: CircleAvatar(
+                                        radius: 52,
+                                        backgroundColor: AppPalette.deepBlue,
+                                        backgroundImage: heroProfileImage,
+                                        child: heroProfileImage == null
+                                            ? const Icon(Icons.person_rounded,
+                                                color: Colors.white, size: 48)
+                                            : null,
+                                      ),
                                     ),
-                                    child: CircleAvatar(
-                                      radius: 52,
-                                      backgroundColor: AppPalette.deepBlue,
-                                      backgroundImage: heroProfileImage,
-                                      child: heroProfileImage == null
-                                          ? const Icon(Icons.person_rounded, color: Colors.white, size: 48)
-                                          : null,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 18),
-                            Text(
-                              '👋 Hi, $visitorName',
-                              style: const TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                shadows: [
-                                  Shadow(
-                                    offset: Offset(0, 1),
-                                    blurRadius: 8,
-                                    color: Colors.black54,
                                   ),
                                 ],
+                              ),
+                              const SizedBox(height: 18),
+                            ],
+                            Text(
+                              '👋 Hi, $visitorName',
+                              style: TextStyle(
+                                fontSize: isDesktop ? 36 : 28,
+                                fontWeight: FontWeight.w800,
+                                color: AppPalette.charcoal,
                               ),
                             ),
                             const SizedBox(height: 4),
-                            const Text(
-                              'Discover Local Food',
+                            Text(
+                              AppLocalizations.of(context)!.discoverTitle,
                               style: TextStyle(
-                                fontSize: 18,
+                                fontSize: isDesktop ? 22 : 18,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.white70,
-                                shadows: [
-                                  Shadow(
-                                    offset: Offset(0, 1),
-                                    blurRadius: 6,
-                                    color: Colors.black38,
-                                  ),
-                                ],
+                                color: AppPalette.mutedText,
                               ),
                             ),
-                            const SizedBox(height: 18),
-                            _buildSearchBar(),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // ── Content sheet ──
-                SliverToBoxAdapter(
-                  child: Transform.translate(
-                    offset: const Offset(0, -24),
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF1C1C2E),
-                        borderRadius:
-                            BorderRadius.vertical(top: Radius.circular(28)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 22),
-
-                          // Active filter chips
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 20),
-                            child: _buildActiveFilterChips(),
-                          ),
-
-                          // Food items
-                          if (!hasAnyVisibleItems)
-                            const Padding(
-                              padding: EdgeInsets.fromLTRB(20, 8, 20, 0),
-                              child: _EmptyState(
-                                title: 'No food places found',
-                                subtitle:
-                                    'Try changing your search or filter selections.',
-                              ),
-                            ),
-                          if (foodItems.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 20),
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  const _SectionHeader(
-                                    title: 'Local Food Businesses',
-                                    subtitle:
-                                        'Support small & medium Brisbane food enterprises',
-                                  ),
-                                  ...foodItems.map(_buildEventCard),
-                                ],
-                              ),
-                            ),
+                            if (isMobile) ...[
+                              const SizedBox(height: 18),
+                              _buildSearchBar(),
+                            ],
                           ],
-                          // Businesses section
-                          const SizedBox(height: 8),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const _SectionHeader(
-                                  title: 'Local Food Businesses',
-                                  subtitle: 'Support & review small Brisbane food enterprises',
-                                ),
-                                const SizedBox(height: 12),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton.icon(
-                                    onPressed: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const BusinessSearchScreen(),
-                                      ),
-                                    ),
-                                    icon: const Icon(Icons.storefront_rounded),
-                                    label: const Text('Explore & Review Food Businesses'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppPalette.ochre,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
+
+                    // ── Content sheet ──
+                    SliverToBoxAdapter(
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: AppPalette.surface,
+                          borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(28)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 22),
+
+                            // Active filter chips
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 20),
+                              child: _buildActiveFilterChips(),
+                            ),
+
+                            // Food items
+                            if (!hasAnyVisibleItems)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                                child: _EmptyState(
+                                  title: AppLocalizations.of(context)!.noFoodPlacesFound,
+                                  subtitle:
+                                      AppLocalizations.of(context)!.noFoodPlacesSubtitle,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Food section header + grid
+                    if (foodItems.isNotEmpty) ...[
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isDesktop ? 32 : 20,
+                          ),
+                          child: _SectionHeader(
+                            title: AppLocalizations.of(context)!.localFoodBusinesses,
+                            subtitle:
+                                AppLocalizations.of(context)!.localFoodSubtitle,
+                            titleSize: isDesktop ? 24 : 20,
+                          ),
+                        ),
+                      ),
+                      _buildFoodSliverGrid(foodItems),
+                    ],
+
+                    // Businesses section
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isDesktop ? 32 : 20,
+                        ),
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const BusinessSearchScreen(),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.storefront_rounded),
+                                label: Text(
+                                    AppLocalizations.of(context)!.exploreReviewFoodBusinesses),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppPalette.ochre,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 14),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
               ], // Stack children
             ); // Stack
           },
@@ -1831,11 +2187,11 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
         if (savedEventIds.isEmpty &&
             savedAttractionIds.isEmpty &&
             savedBusinessIds.isEmpty) {
-          return const Center(
+          return Center(
             child: _EmptyState(
-              title: 'No saved items yet',
+              title: AppLocalizations.of(context)!.noSavedItemsTitle,
               subtitle:
-                  'Tap the heart icon on food business cards or the bookmark on a business profile to save them here.',
+                  AppLocalizations.of(context)!.noSavedItemsSubtitle,
             ),
           );
         }
@@ -1859,7 +2215,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                   child: InlineStatusMessage(
                     message: message,
                     type: InlineStatusType.error,
-                    actionLabel: 'Retry',
+                    actionLabel: AppLocalizations.of(context)!.retryAction,
                     onAction: () => setState(() {}),
                   ),
                 ),
@@ -1883,94 +2239,101 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                   savedAttractionIds.contains(id);
             }).toList();
 
-            return StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _approvedEventsStream(),
-              builder: (context, approvedSnapshot) {
-                if (approvedSnapshot.hasError) {
-                  debugPrint(
-                    '[VisitorPortal] Approved events fallback unavailable: ${approvedSnapshot.error}',
-                  );
-                }
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                return StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: _approvedEventsStream(),
+                  builder: (context, approvedSnapshot) {
+                    if (approvedSnapshot.hasError) {
+                      debugPrint(
+                        '[VisitorPortal] Approved events fallback unavailable: ${approvedSnapshot.error}',
+                      );
+                    }
 
-                final approvedEvents =
-                    approvedSnapshot.data ?? const <Map<String, dynamic>>[];
-                final savedFirestoreEvents = approvedEvents
-                    .where((event) {
-                      final id = (event['id'] as String? ?? '').trim();
-                      return id.isNotEmpty && savedEventIds.contains(id);
-                    })
-                    .where(
-                      (event) => !savedDiscoverEvents.any(
-                        (item) => ((item['id'] as String? ?? '').trim() ==
-                            (event['id'] as String? ?? '').trim()),
-                      ),
-                    )
-                    .map(_toSavedEventCardItem)
-                    .toList(growable: false);
-
-                final savedEvents = <Map<String, dynamic>>[
-                  ...savedDiscoverEvents,
-                  ...savedFirestoreEvents,
-                ];
-
-                if (savedEvents.isEmpty &&
-                    savedAttractions.isEmpty &&
-                    savedBusinessIds.isEmpty) {
-                  return const Center(
-                    child: _EmptyState(
-                      title: 'Saved items unavailable',
-                      subtitle:
-                          'Some saved items are no longer published in discovery feed.',
-                    ),
-                  );
-                }
-
-                return ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-                  children: [
-                    if (savedEvents.isNotEmpty) ...[
-                      const _SectionHeader(
-                        title: 'Saved Events',
-                        subtitle: 'Your event reminders and plans',
-                      ),
-                      ...savedEvents.map(
-                        (item) => KeyedSubtree(
-                          key: Key(
-                            'saved-event-card-${(item['id'] as String? ?? '').trim()}',
+                    final approvedEvents =
+                        approvedSnapshot.data ?? const <Map<String, dynamic>>[];
+                    final savedFirestoreEvents = approvedEvents
+                        .where((event) {
+                          final id = (event['id'] as String? ?? '').trim();
+                          return id.isNotEmpty && savedEventIds.contains(id);
+                        })
+                        .where(
+                          (event) => !savedDiscoverEvents.any(
+                            (item) => ((item['id'] as String? ?? '').trim() ==
+                                (event['id'] as String? ?? '').trim()),
                           ),
-                          child: _buildEventCard(item),
+                        )
+                        .map(_toSavedEventCardItem)
+                        .toList(growable: false);
+
+                    final savedEvents = <Map<String, dynamic>>[
+                      ...savedDiscoverEvents,
+                      ...savedFirestoreEvents,
+                    ];
+
+                    if (savedEvents.isEmpty &&
+                        savedAttractions.isEmpty &&
+                        savedBusinessIds.isEmpty) {
+                      return Center(
+                        child: _EmptyState(
+                          title: AppLocalizations.of(context)!.savedItemsUnavailableTitle,
+                          subtitle:
+                              AppLocalizations.of(context)!.savedItemsUnavailableSubtitle,
                         ),
+                      );
+                    }
+
+                    final horizontalPadding =
+                        constraints.maxWidth >= Breakpoints.desktop
+                            ? 48.0
+                            : constraints.maxWidth >= Breakpoints.mobile
+                                ? 32.0
+                                : 16.0;
+                    final titleSize =
+                        constraints.maxWidth >= Breakpoints.desktop
+                            ? 24.0
+                            : 20.0;
+
+                    return ListView(
+                      padding: EdgeInsets.fromLTRB(
+                        horizontalPadding,
+                        14,
+                        horizontalPadding,
+                        24,
                       ),
-                    ],
-                    if (savedAttractions.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      const _SectionHeader(
-                        title: 'Saved Attractions',
-                        subtitle: 'Places to visit independently of events',
-                      ),
-                      ...savedAttractions.map(
-                        (item) => KeyedSubtree(
-                          key: Key(
-                            'saved-attraction-card-${(item['id'] as String? ?? '').trim()}',
+                      children: [
+                        if (savedEvents.isNotEmpty) ...[
+                          _SectionHeader(
+                            title: AppLocalizations.of(context)!.savedEvents,
+                            subtitle: AppLocalizations.of(context)!.savedEventsSubtitle,
+                            titleSize: titleSize,
                           ),
-                          child: _buildEventCard(item),
-                        ),
-                      ),
-                    ],
-                    if (savedBusinessIds.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      const _SectionHeader(
-                        title: 'Saved Businesses',
-                        subtitle: 'Business profiles you have bookmarked',
-                      ),
-                      ...savedBusinessIds.map(
-                        (id) => KeyedSubtree(
-                          key: Key('saved-business-card-$id'),
-                          child: _buildSavedBusinessCard(id),
-                        ),
-                      ),
-                    ],
-                  ],
+                          _buildSavedCardGrid(savedEvents),
+                        ],
+                        if (savedAttractions.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          _SectionHeader(
+                            title: AppLocalizations.of(context)!.savedAttractions,
+                            subtitle: AppLocalizations.of(context)!.savedAttractionsSubtitle,
+                            titleSize: titleSize,
+                          ),
+                          _buildSavedCardGrid(savedAttractions),
+                        ],
+                        if (savedBusinessIds.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          _SectionHeader(
+                            title: AppLocalizations.of(context)!.savedBusinesses,
+                            subtitle: AppLocalizations.of(context)!.savedBusinessesSubtitle,
+                            titleSize:
+                                constraints.maxWidth >= Breakpoints.desktop
+                                    ? 24
+                                    : 20,
+                          ),
+                          _buildSavedFoodBusinessesGrid(savedBusinessIds),
+                        ],
+                      ],
+                    );
+                  },
                 );
               },
             );
@@ -1980,92 +2343,61 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     );
   }
 
-  Widget _buildSavedBusinessCard(String businessId) {
-    return StreamBuilder<DocumentSnapshot>(
+  Widget _buildSavedFoodBusinessesGrid(Set<String> savedBusinessIds) {
+    return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('businesses')
-          .doc(businessId)
+          .collection('food_businesses')
+          .where(FieldPath.documentId, whereIn: savedBusinessIds.toList())
           .snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData || !snapshot.data!.exists) {
+        if (!snapshot.hasData) {
+          return const SizedBox(
+            height: 120,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final docs = snapshot.data!.docs;
+        if (docs.isEmpty) {
           return const SizedBox.shrink();
         }
-        final data = snapshot.data!.data() as Map<String, dynamic>?;
-        if (data == null) return const SizedBox.shrink();
 
-        final name = data['businessName'] as String? ?? 'Business';
-        final imageUrl = data['logoImageUrl'] as String? ??
-            data['coverImageUrl'] as String? ??
-            '';
-        final category = data['category'] as String? ?? '';
+        final items = docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final cuisineTypes = data['cuisineTypes'];
+          final categories = cuisineTypes is List
+              ? cuisineTypes.map((v) => '$v').toList()
+              : <String>[];
+          return <String, dynamic>{
+            'id': doc.id,
+            'section': 'food',
+            'badge': 'FOOD',
+            'title': data['name'] ?? data['businessName'] ?? 'Untitled',
+            'description': data['description'] ?? '',
+            'location': data['address'] ?? '',
+            'imageUrl': data['imageUrl'] ??
+                data['logoUrl'] ??
+                data['coverImageUrl'] ??
+                '',
+            'categories': categories,
+            'category': categories.isNotEmpty ? categories.first : '',
+            'rating': data['rating'] ?? data['averageRating'] ?? 0,
+            'reviewCount': data['reviewCount'] ?? data['reviewsCount'] ?? 0,
+            'price': data['priceRange'] ?? '',
+            'phone': data['phone'] ?? '',
+            'website': data['website'] ?? '',
+            'openingHours': data['openingHours'] ?? '',
+            'email': data['email'] ?? '',
+            'facebookUrl': data['facebookUrl'] ?? data['facebook'] ?? '',
+            'instagramUrl': data['instagramUrl'] ?? data['instagram'] ?? '',
+            'onlineOrderUrl':
+                data['onlineOrderUrl'] ?? data['onlineOrderLink'] ?? '',
+            'menu': data['menu'] ?? const <Map<String, dynamic>>[],
+            'photoGallery': data['photoGallery'] ?? const <String>[],
+          };
+        }).toList();
 
-        return Card(
-          color: AppPalette.surface,
-          margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(12),
-            leading: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: imageUrl.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: imageUrl,
-                      width: 60,
-                      height: 60,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(
-                        width: 60,
-                        height: 60,
-                        color: AppPalette.surfaceAlt,
-                      ),
-                      errorWidget: (_, __, ___) => Container(
-                        width: 60,
-                        height: 60,
-                        color: AppPalette.surfaceAlt,
-                        child: const Icon(Icons.business, color: Colors.white54),
-                      ),
-                    )
-                  : Container(
-                      width: 60,
-                      height: 60,
-                      color: AppPalette.surfaceAlt,
-                      child: const Icon(Icons.business, color: Colors.white54),
-                    ),
-            ),
-            title: Text(
-              name,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            subtitle: category.isNotEmpty
-                ? Text(
-                    category,
-                    style: TextStyle(color: AppPalette.mutedText),
-                  )
-                : null,
-            trailing: IconButton(
-              icon: const Icon(Icons.bookmark, color: AppPalette.ochre),
-              onPressed: () {
-                VisitorAuth.toggleSavedBusiness(businessId);
-                setState(() {});
-              },
-            ),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => BusinessProfileViewScreen(
-                    businessId: businessId,
-                    isOwnProfile: false,
-                  ),
-                ),
-              );
-            },
-          ),
-        );
+        return _buildSavedCardGrid(items);
       },
     );
   }
@@ -2115,22 +2447,25 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choose from gallery'),
-              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Take a photo'),
-              onTap: () => Navigator.pop(ctx, ImageSource.camera),
-            ),
-          ],
-        ),
-      ),
+      builder: (ctx) {
+        final sheetL10n = AppLocalizations.of(ctx)!;
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: Text(sheetL10n.chooseFromGallery),
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: Text(sheetL10n.takeAPhoto),
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -2138,7 +2473,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     final visitor = VisitorAuth.currentVisitor;
     if (visitor == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in as a Visitor first.')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.pleaseLoginVisitor)),
       );
       return;
     }
@@ -2164,7 +2499,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
       setState(() => _pendingProfileImageBytes = null);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Only JPG and PNG images are supported.')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.onlyJpgPng)),
       );
       return;
     }
@@ -2173,9 +2508,9 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
       setState(() => _pendingProfileImageBytes = null);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
             content:
-                Text('Image is too large. Please choose a smaller image.')),
+                Text(AppLocalizations.of(context)!.imageTooLarge)),
       );
       return;
     }
@@ -2228,11 +2563,13 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     String currentName,
     String currentEmail,
     String currentPhone,
+    String currentLanguage,
   ) async {
     final formKey = GlobalKey<FormState>();
     bool saving = false;
     String editedName = currentName;
     String editedPhone = currentPhone;
+    String editedLanguage = currentLanguage;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -2242,6 +2579,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
+        final l10n = AppLocalizations.of(sheetContext)!;
         return Padding(
           padding: EdgeInsets.fromLTRB(
             24,
@@ -2257,9 +2595,9 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
-                      'Edit Profile',
-                      style: TextStyle(
+                    Text(
+                      l10n.editProfile,
+                      style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
                         color: AppPalette.charcoal,
@@ -2272,8 +2610,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                       textCapitalization: TextCapitalization.words,
                       onChanged: (value) => editedName = value,
                       decoration: InputDecoration(
-                        labelText: 'Display name',
-                        hintText: 'Enter your name',
+                        labelText: l10n.name,
+                        hintText: l10n.enterYourName,
                         prefixIcon: const Icon(Icons.person_outline_rounded),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -2281,10 +2619,10 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
-                          return 'Name cannot be empty.';
+                          return l10n.nameCannotBeEmpty;
                         }
                         if (value.trim().length < 2) {
-                          return 'Name must be at least 2 characters.';
+                          return l10n.nameMinLength;
                         }
                         return null;
                       },
@@ -2294,7 +2632,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                       initialValue: currentEmail,
                       readOnly: true,
                       decoration: InputDecoration(
-                        labelText: 'Email',
+                        labelText: l10n.email,
                         prefixIcon: const Icon(Icons.alternate_email_rounded),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -2307,8 +2645,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                       keyboardType: TextInputType.phone,
                       onChanged: (value) => editedPhone = value,
                       decoration: InputDecoration(
-                        labelText: 'Phone number',
-                        hintText: 'e.g. 04xxxxxxxx',
+                        labelText: l10n.phone,
+                        hintText: l10n.phoneHint,
                         prefixIcon: const Icon(Icons.phone_outlined),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -2322,9 +2660,41 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                         final normalized =
                             trimmed.replaceAll(RegExp(r'[^0-9+]'), '');
                         if (normalized.length < 8 || normalized.length > 16) {
-                          return 'Enter a valid phone number.';
+                          return l10n.enterValidPhone;
                         }
                         return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: editedLanguage,
+                      decoration: InputDecoration(
+                        labelText: l10n.language,
+                        prefixIcon: const Icon(Icons.language_outlined),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      items: [
+                        DropdownMenuItem(value: 'en', child: Text(_formatLanguageLabel(l10n, 'en'))),
+                        DropdownMenuItem(value: 'es', child: Text(_formatLanguageLabel(l10n, 'es'))),
+                        DropdownMenuItem(value: 'fr', child: Text(_formatLanguageLabel(l10n, 'fr'))),
+                        DropdownMenuItem(value: 'de', child: Text(_formatLanguageLabel(l10n, 'de'))),
+                        DropdownMenuItem(value: 'zh', child: Text(_formatLanguageLabel(l10n, 'zh'))),
+                        DropdownMenuItem(value: 'ar', child: Text(_formatLanguageLabel(l10n, 'ar'))),
+                        DropdownMenuItem(value: 'hi', child: Text(_formatLanguageLabel(l10n, 'hi'))),
+                        DropdownMenuItem(value: 'it', child: Text(_formatLanguageLabel(l10n, 'it'))),
+                        DropdownMenuItem(value: 'ja', child: Text(_formatLanguageLabel(l10n, 'ja'))),
+                        DropdownMenuItem(value: 'ko', child: Text(_formatLanguageLabel(l10n, 'ko'))),
+                        DropdownMenuItem(value: 'pt', child: Text(_formatLanguageLabel(l10n, 'pt'))),
+                        DropdownMenuItem(value: 'ru', child: Text(_formatLanguageLabel(l10n, 'ru'))),
+                        DropdownMenuItem(value: 'vi', child: Text(_formatLanguageLabel(l10n, 'vi'))),
+                        DropdownMenuItem(value: 'el', child: Text(_formatLanguageLabel(l10n, 'el'))),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setSheetState(() => editedLanguage = value);
+                        }
                       },
                     ),
                     const SizedBox(height: 20),
@@ -2345,6 +2715,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                               final ok = await VisitorAuth.updateProfileInfo(
                                 newName: editedName,
                                 newPhone: editedPhone,
+                                newLanguage: editedLanguage,
                               );
                               if (!sheetContext.mounted) return;
                               Navigator.pop(sheetContext);
@@ -2353,8 +2724,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                                   SnackBar(
                                     content: Text(
                                       ok
-                                          ? 'Profile updated successfully.'
-                                          : 'Could not update profile. Please try again.',
+                                          ? l10n.profileUpdated
+                                          : l10n.profileUpdateFailed,
                                     ),
                                     backgroundColor: ok
                                         ? Colors.green.shade700
@@ -2372,12 +2743,12 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text('Save Changes'),
+                          : Text(l10n.save),
                     ),
                     const SizedBox(height: 8),
                     TextButton(
                       onPressed: () => Navigator.pop(sheetContext),
-                      child: const Text('Cancel'),
+                      child: Text(l10n.cancel),
                     ),
                   ],
                 ),
@@ -2401,24 +2772,27 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Sign Out'),
-        content: const Text('Are you sure you want to sign out?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade700,
-              foregroundColor: Colors.white,
+      builder: (dialogContext) {
+        final l10n = AppLocalizations.of(dialogContext)!;
+        return AlertDialog(
+          title: Text(l10n.signOut),
+          content: Text(l10n.areYouSureSignOut),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(l10n.cancel),
             ),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Sign Out'),
-          ),
-        ],
-      ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(l10n.signOut),
+            ),
+          ],
+        );
+      },
     );
     if (confirmed != true) return;
     await VisitorAuth.logout();
@@ -2434,22 +2808,41 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
       valueListenable: VisitorAuth.profileVersion,
       builder: (context, _, __) {
         final visitor = VisitorAuth.currentVisitor;
-        final displayName = visitor?.name ?? 'Visitor User';
+        final displayName = visitor?.name ?? 'Guest Visitor';
         final displayEmail = visitor?.email ?? '';
         final displayPhone = visitor?.phone.trim() ?? '';
+        final displayLanguage = visitor?.language ?? 'en';
         final profileImage = _profileImageProvider(visitor);
 
+        final width = ResponsiveUtils.widthOf(context);
+        final isProfileDesktop = width >= Breakpoints.desktop;
+        final isProfileTablet =
+            width >= Breakpoints.mobile && width < Breakpoints.tablet;
+        final horizontalPadding = isProfileDesktop
+            ? 48.0
+            : isProfileTablet
+                ? 32.0
+                : 16.0;
+
+        final l10n = AppLocalizations.of(context)!;
+
         return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 36),
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            isProfileDesktop ? 32 : 20,
+            horizontalPadding,
+            36,
+          ),
           children: [
-            _buildSectionLabel('Profile Info'),
+            _buildSectionLabel(l10n.profileInfo),
             Card(
               color: AppPalette.surface.withValues(alpha: 0.88),
               elevation: 4,
               shadowColor: AppPalette.cardShadow,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
+                side:
+                    BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -2498,6 +2891,14 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                               ),
                             ),
                           ],
+                          const SizedBox(height: 2),
+                          Text(
+                            _formatLanguageLabel(l10n, displayLanguage),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppPalette.mutedText,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -2514,11 +2915,12 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Edit profile',
+                      tooltip: l10n.editProfile,
                       onPressed: () => _showEditProfileSheet(
                         displayName,
                         displayEmail,
                         displayPhone,
+                        displayLanguage,
                       ),
                       icon: const Icon(
                         Icons.edit_rounded,
@@ -2531,27 +2933,50 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            _buildSectionLabel('Preferences'),
+            _buildSectionLabel(l10n.preferences),
             Card(
               color: AppPalette.surface.withValues(alpha: 0.88),
               elevation: 4,
               shadowColor: AppPalette.cardShadow,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
+                side:
+                    BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
               ),
               child: Column(
                 children: [
                   ListTile(
                     leading: const Icon(
+                      Icons.language_outlined,
+                      color: AppPalette.deepBlue,
+                    ),
+                    title: Text(
+                      l10n.language,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(_formatLanguageLabel(l10n, displayLanguage)),
+                    trailing: const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppPalette.mutedText,
+                    ),
+                    onTap: () => _showEditProfileSheet(
+                      displayName,
+                      displayEmail,
+                      displayPhone,
+                      displayLanguage,
+                    ),
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  ListTile(
+                    leading: const Icon(
                       Icons.pin_drop_outlined,
                       color: AppPalette.deepBlue,
                     ),
-                    title: const Text(
-                      'Location Radius',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                    title: Text(
+                      l10n.locationRadius,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    subtitle: const Text('Set how far recommendations can be'),
+                    subtitle: Text(l10n.setHowFarRecommendations),
                     trailing: const Icon(
                       Icons.chevron_right_rounded,
                       color: AppPalette.mutedText,
@@ -2569,11 +2994,11 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                       Icons.palette_outlined,
                       color: AppPalette.deepBlue,
                     ),
-                    title: const Text(
-                      'Appearance Settings',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                    title: Text(
+                      l10n.appearanceSettings,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    subtitle: const Text('Theme, text size & feedback'),
+                    subtitle: Text(l10n.themeTextSizeFeedback),
                     trailing: const Icon(
                       Icons.chevron_right_rounded,
                       color: AppPalette.mutedText,
@@ -2590,14 +3015,15 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            _buildSectionLabel('Feedback'),
+            _buildSectionLabel(l10n.feedback),
             Card(
               color: AppPalette.surface.withValues(alpha: 0.88),
               elevation: 4,
               shadowColor: AppPalette.cardShadow,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
+                side:
+                    BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
               ),
               child: ListTile(
                 leading: Container(
@@ -2613,12 +3039,12 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                     size: 20,
                   ),
                 ),
-                title: const Text(
-                  'My Feedback',
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                title: Text(
+                  l10n.myFeedback,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
-                subtitle: const Text(
-                  'View your submitted feedback and admin responses',
+                subtitle: Text(
+                  l10n.viewSubmittedFeedback,
                 ),
                 trailing: const Icon(
                   Icons.chevron_right_rounded,
@@ -2635,14 +3061,15 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               ),
             ),
             const SizedBox(height: 24),
-_buildSectionLabel('Help & Support'),
+            _buildSectionLabel(l10n.helpAndSupport),
             Card(
               color: AppPalette.surface.withValues(alpha: 0.88),
               elevation: 4,
               shadowColor: AppPalette.cardShadow,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
+                side:
+                    BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
               ),
               child: ListTile(
                 leading: Container(
@@ -2655,24 +3082,25 @@ _buildSectionLabel('Help & Support'),
                   child: const Icon(Icons.help_outline_rounded,
                       color: AppPalette.ochre, size: 20),
                 ),
-                title: const Text(
-                  'Help & Support',
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                title: Text(
+                  l10n.helpAndSupport,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
-                subtitle: const Text('FAQs, contact us & app info'),
+                subtitle: Text(l10n.faqsContactAppInfo),
                 trailing: const Icon(Icons.chevron_right_rounded, size: 20),
                 onTap: () => _showHelpSupport(context),
               ),
             ),
             const SizedBox(height: 24),
-            _buildSectionLabel('Sign Out'),
+            _buildSectionLabel(l10n.signOut),
             Card(
               color: AppPalette.surface.withValues(alpha: 0.88),
               elevation: 4,
               shadowColor: AppPalette.cardShadow,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
+                side:
+                    BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
               ),
               child: ListTile(
                 leading: Container(
@@ -2689,13 +3117,13 @@ _buildSectionLabel('Help & Support'),
                   ),
                 ),
                 title: Text(
-                  'Sign Out',
+                  l10n.signOut,
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     color: Colors.red.shade700,
                   ),
                 ),
-                subtitle: const Text('Return to the welcome screen'),
+                subtitle: Text(l10n.returnWelcome),
                 onTap: _confirmLogout,
               ),
             ),
@@ -2705,16 +3133,17 @@ _buildSectionLabel('Help & Support'),
     );
   }
 
-  String _appBarTitleForIndex(int index) {
+  String _appBarTitleForIndex(BuildContext context, int index) {
+    final l10n = AppLocalizations.of(context)!;
     switch (index) {
       case 1:
-        return 'Community';
+        return l10n.community;
       case 2:
-        return 'Map';
+        return l10n.map;
       case 3:
-        return 'Saved';
+        return l10n.saved;
       case 4:
-        return 'Profile';
+        return l10n.profile;
       default:
         return '';
     }
@@ -2724,7 +3153,7 @@ _buildSectionLabel('Help & Support'),
     return Stack(
       children: [
         const Positioned.fill(
-          child: ColoredBox(color: Color(0xFF0D1117)),
+          child: ColoredBox(color: AppPalette.background),
         ),
         Positioned.fill(child: SafeArea(child: child)),
       ],
@@ -2735,172 +3164,310 @@ _buildSectionLabel('Help & Support'),
   Widget build(BuildContext context) {
     final bool isDiscover = _selectedIndex == 0;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
-      extendBodyBehindAppBar: true,
-      extendBody: true,
-      appBar: isDiscover
-          ? null
-          : AppBar(
-              automaticallyImplyLeading: false,
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => setState(() => _selectedIndex = 0),
-              ),
-              title: LogoAppBarTitle(_appBarTitleForIndex(_selectedIndex)),
-              backgroundColor: const Color(0xFF1C1C2E),
-              foregroundColor: Colors.white,
-              elevation: 0,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= Breakpoints.desktop;
+        final isTablet = constraints.maxWidth >= Breakpoints.mobile &&
+            constraints.maxWidth < Breakpoints.desktop;
+        return Scaffold(
+          backgroundColor: AppPalette.background,
+          extendBodyBehindAppBar: false,
+          extendBody: false,
+          appBar: isDiscover && (isDesktop || isTablet)
+              ? PreferredSize(
+                  preferredSize: const Size.fromHeight(76),
+                  child: DesktopTopAppBar(
+                    title: AppLocalizations.of(context)!.appTitle,
+                    subtitle: AppLocalizations.of(context)!.discoverSubtitle,
+                    searchController: _searchController,
+                    searchHint: AppLocalizations.of(context)!.searchHintLocalFood,
+                    onSearchChanged: (_) {
+                      _searchDebounce?.cancel();
+                      _searchDebounce = Timer(
+                        const Duration(milliseconds: 300),
+                        () {
+                          if (mounted) setState(() {});
+                        },
+                      );
+                    },
+                    onFilterTap: _openFilterSheet,
+                    onProfileTap: () => setState(() => _selectedIndex = 4),
+                    profileImage: _profileImageProvider(
+                      VisitorAuth.currentVisitor,
+                    ),
+                    userName: VisitorAuth.currentVisitor?.name ?? AppLocalizations.of(context)!.guestVisitor,
+                    userEmail: VisitorAuth.currentVisitor?.email,
+                  ),
+                )
+              : isDiscover
+                  ? null
+                  : AppBar(
+                      automaticallyImplyLeading: false,
+                      leading: IconButton(
+                        icon: const Icon(Icons.arrow_back),
+                        onPressed: () => setState(() => _selectedIndex = 0),
+                      ),
+                      title: LogoAppBarTitle(
+                        _appBarTitleForIndex(context, _selectedIndex),
+                      ),
+                      backgroundColor: AppPalette.background,
+                      foregroundColor: AppPalette.charcoal,
+                      elevation: 0,
+                    ),
+          body: isDesktop ? _buildDesktopBody() : _buildMobileBody(),
+          bottomNavigationBar: isDesktop ? null : _buildBottomNav(),
+        );
+      },
+    );
+  }
+
+  Widget _buildMobileBody() {
+    return NotificationListener<ScrollNotification>(
+      onNotification: _handleScrollNotification,
+      child: IndexedStack(
+        index: _selectedIndex,
+        children: _tabChildren(),
+      ),
+    );
+  }
+
+  bool _shouldToggleNav(bool nextVisible) {
+    if (_navVisibleNotifier.value == nextVisible) return false;
+    final now = DateTime.now();
+    final last = _lastNavToggle;
+    if (last != null && now.difference(last).inMilliseconds < 80) {
+      return false;
+    }
+    _lastNavToggle = now;
+    return true;
+  }
+
+  Widget _buildDesktopBody() {
+    final l10n = AppLocalizations.of(context)!;
+    return Row(
+      children: [
+        NavigationRail(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: (index) =>
+              setState(() => _selectedIndex = index),
+          backgroundColor: AppPalette.background,
+          selectedIconTheme:
+              const IconThemeData(color: AppPalette.ochre, size: 28),
+          unselectedIconTheme: IconThemeData(color: AppPalette.mutedText),
+          selectedLabelTextStyle: const TextStyle(
+            color: AppPalette.ochre,
+            fontWeight: FontWeight.w600,
+          ),
+          unselectedLabelTextStyle: TextStyle(color: AppPalette.mutedText),
+          labelType: NavigationRailLabelType.all,
+          destinations: [
+            NavigationRailDestination(
+              icon: const Icon(Icons.home_outlined),
+              selectedIcon: const Icon(Icons.home_rounded),
+              label: Text(l10n.homeLabel),
             ),
-      body: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          if (notification is ScrollUpdateNotification) {
-            final delta = notification.scrollDelta ?? 0;
-            if (delta > 2 && _isNavVisible) {
-              setState(() => _isNavVisible = false);
-            } else if (delta < -2 && !_isNavVisible) {
-              setState(() => _isNavVisible = true);
-            }
-          } else if (notification is ScrollEndNotification) {
-            if (!_isNavVisible) setState(() => _isNavVisible = true);
-          }
-          return false;
-        },
-        child: IndexedStack(
-          index: _selectedIndex,
-          children: [
-            _buildDiscoverBody(),
-            const SafeArea(child: VisitorActivityFeedScreen()),
-            SafeArea(child: MapEventsScreen(
-              embedded: true,
-              onBackPressed: () => setState(() => _selectedIndex = 0),
-            )),
-            _kangarooBackground(
-              'assets/Kangaroo2.png',
-              _buildSavedBody(),
+            NavigationRailDestination(
+              icon: const Icon(Icons.people_outline_rounded),
+              selectedIcon: const Icon(Icons.people_rounded),
+              label: Text(l10n.community),
             ),
-            _kangarooBackground(
-              'assets/Kangaroo4.png',
-              _buildProfileBody(),
+            NavigationRailDestination(
+              icon: const Icon(Icons.map_outlined),
+              selectedIcon: const Icon(Icons.map_rounded),
+              label: Text(l10n.map),
             ),
-            SafeArea(child: const FoodBusinessDiscoveryScreen()),
+            NavigationRailDestination(
+              icon: const Icon(Icons.favorite_border_rounded),
+              selectedIcon: const Icon(Icons.favorite_rounded),
+              label: Text(l10n.saved),
+            ),
+            NavigationRailDestination(
+              icon: const Icon(Icons.person_outline_rounded),
+              selectedIcon: const Icon(Icons.person_rounded),
+              label: Text(l10n.profile),
+            ),
           ],
         ),
-      ),
-      bottomNavigationBar: AnimatedSlide(
+        Expanded(
+          child: _selectedIndex == 2
+              ? NotificationListener<ScrollNotification>(
+                  onNotification: _handleScrollNotification,
+                  child: IndexedStack(
+                    index: _selectedIndex,
+                    children: _tabChildren(),
+                  ),
+                )
+              : Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1400),
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: _handleScrollNotification,
+                      child: IndexedStack(
+                        index: _selectedIndex,
+                        children: _tabChildren(),
+                      ),
+                    ),
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification is ScrollUpdateNotification) {
+      final delta = notification.scrollDelta ?? 0;
+      if (delta > 2 && _shouldToggleNav(false)) {
+        _navVisibleNotifier.value = false;
+      } else if (delta < -2 && _shouldToggleNav(true)) {
+        _navVisibleNotifier.value = true;
+      }
+    } else if (notification is ScrollEndNotification) {
+      if (_shouldToggleNav(true)) {
+        _navVisibleNotifier.value = true;
+      }
+    }
+    return false;
+  }
+
+  List<Widget> _tabChildren() {
+    return [
+      _buildDiscoverBody(),
+      const SafeArea(child: VisitorActivityFeedScreen()),
+      // On web, only build the Google Map widget when this tab is active.
+      // Keeping the map platform view alive while off-screen (inside
+      // IndexedStack) causes the Google Maps JS SDK to throw an
+      // IntersectionObserver error and the map renders empty. Native mobile
+      // platforms can keep the map alive for better tab-switching UX.
+      kIsWeb
+          ? _selectedIndex == 2
+              ? SafeArea(
+                  child: MapEventsScreen(
+                    embedded: true,
+                    onBackPressed: () => setState(() => _selectedIndex = 0),
+                  ),
+                )
+              : const SizedBox.shrink()
+          : SafeArea(
+              child: MapEventsScreen(
+                embedded: true,
+                onBackPressed: () => setState(() => _selectedIndex = 0),
+              ),
+            ),
+      _kangarooBackground('assets/Kangaroo2.png', _buildSavedBody()),
+      _kangarooBackground('assets/Kangaroo4.png', _buildProfileBody()),
+    ];
+  }
+
+  Widget _buildBottomNav() {
+    final l10n = AppLocalizations.of(context)!;
+    return ValueListenableBuilder<bool>(
+      valueListenable: _navVisibleNotifier,
+      builder: (context, isVisible, child) => AnimatedSlide(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
-        offset: _isNavVisible ? Offset.zero : const Offset(0, 1),
-        child: Theme(
+        offset: isVisible ? Offset.zero : const Offset(0, 1),
+        child: child!,
+      ),
+      child: Theme(
         data: Theme.of(context).copyWith(
           splashColor: Colors.transparent,
           highlightColor: Colors.transparent,
         ),
         child: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) => setState(() => _selectedIndex = index),
-        selectedItemColor: AppPalette.ochre,
-        unselectedItemColor: AppPalette.mutedText,
-        backgroundColor: const Color(0xFF1C1C2E),
-        type: BottomNavigationBarType.fixed,
-        elevation: 12,
-        selectedFontSize: 13,
-        unselectedFontSize: 12,
-        iconSize: 26,
-        items: [
-          BottomNavigationBarItem(
-            icon: const Padding(
-              padding: EdgeInsets.only(bottom: 4),
-              child: Icon(Icons.home_outlined),
-            ),
-            activeIcon: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(16),
+          currentIndex: _selectedIndex,
+          onTap: (index) => setState(() => _selectedIndex = index),
+          selectedItemColor: AppPalette.ochre,
+          unselectedItemColor: AppPalette.mutedText,
+          backgroundColor: AppPalette.background,
+          type: BottomNavigationBarType.fixed,
+          elevation: 12,
+          selectedFontSize: 13,
+          unselectedFontSize: 12,
+          iconSize: 26,
+          items: [
+            BottomNavigationBarItem(
+              icon: const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.home_outlined),
               ),
-              child: const Icon(Icons.home_rounded),
-            ),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: const Padding(
-              padding: EdgeInsets.only(bottom: 4),
-              child: Icon(Icons.people_outline_rounded),
-            ),
-            activeIcon: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(16),
+              activeIcon: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppPalette.ochre.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.home_rounded),
               ),
-              child: const Icon(Icons.people_rounded),
+              label: l10n.homeLabel,
             ),
-            label: 'Community',
-          ),
-          BottomNavigationBarItem(
-            icon: const Padding(
-              padding: EdgeInsets.only(bottom: 4),
-              child: Icon(Icons.map_outlined),
-            ),
-            activeIcon: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(16),
+            BottomNavigationBarItem(
+              icon: const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.people_outline_rounded),
               ),
-              child: const Icon(Icons.map_rounded),
-            ),
-            label: 'Map',
-          ),
-          BottomNavigationBarItem(
-            icon: const Padding(
-              padding: EdgeInsets.only(bottom: 4),
-              child: Icon(Icons.favorite_border_rounded),
-            ),
-            activeIcon: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(16),
+              activeIcon: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppPalette.ochre.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.people_rounded),
               ),
-              child: const Icon(Icons.favorite_rounded),
+              label: l10n.community,
             ),
-            label: 'Saved',
-          ),
-          BottomNavigationBarItem(
-            icon: const Padding(
-              padding: EdgeInsets.only(bottom: 4),
-              child: Icon(Icons.person_outline_rounded),
-            ),
-            activeIcon: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(16),
+            BottomNavigationBarItem(
+              icon: const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.map_outlined),
               ),
-              child: const Icon(Icons.person_rounded),
-            ),
-            label: 'Profile',
-          ),
-          BottomNavigationBarItem(
-            icon: const Padding(
-              padding: EdgeInsets.only(bottom: 4),
-              child: Icon(Icons.restaurant_outlined),
-            ),
-            activeIcon: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(16),
+              activeIcon: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppPalette.ochre.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.map_rounded),
               ),
-              child: const Icon(Icons.restaurant_rounded),
+              label: l10n.map,
             ),
-            label: 'Food',
-          ),
-        ],
-      ),
-      ),
+            BottomNavigationBarItem(
+              icon: const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.favorite_border_rounded),
+              ),
+              activeIcon: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppPalette.ochre.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.favorite_rounded),
+              ),
+              label: l10n.saved,
+            ),
+            BottomNavigationBarItem(
+              icon: const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.person_outline_rounded),
+              ),
+              activeIcon: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppPalette.ochre.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.person_rounded),
+              ),
+              label: l10n.profile,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2909,8 +3476,13 @@ _buildSectionLabel('Help & Support'),
 class _SectionHeader extends StatelessWidget {
   final String title;
   final String subtitle;
+  final double? titleSize;
 
-  const _SectionHeader({required this.title, required this.subtitle});
+  const _SectionHeader({
+    required this.title,
+    required this.subtitle,
+    this.titleSize,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2921,8 +3493,8 @@ class _SectionHeader extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 20,
+            style: TextStyle(
+              fontSize: titleSize ?? 20,
               fontWeight: FontWeight.w800,
               color: AppPalette.charcoal,
             ),
@@ -3003,12 +3575,12 @@ class _CategoryChip extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? AppPalette.ochre : Colors.white.withValues(alpha: 0.80),
+          color: isSelected
+              ? AppPalette.ochre
+              : Colors.white.withValues(alpha: 0.80),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: isSelected
-                ? AppPalette.ochre
-                : AppPalette.border,
+            color: isSelected ? AppPalette.ochre : AppPalette.border,
           ),
           boxShadow: isSelected
               ? [
@@ -3040,6 +3612,120 @@ class _CategoryChip extends StatelessWidget {
   }
 }
 
+class _RecommendedFoodAllScreen extends StatelessWidget {
+  const _RecommendedFoodAllScreen({
+    required this.items,
+    required this.onFoodTap,
+  });
 
+  final List<Map<String, dynamic>> items;
+  final void Function(Map<String, dynamic>) onFoodTap;
 
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppPalette.background,
+      appBar: AppBar(
+        backgroundColor: AppPalette.background,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: AppPalette.charcoal),
+        title: const Text(
+          'Recommended For You',
+          style: TextStyle(
+            color: AppPalette.charcoal,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+      body: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          final imageUrl = (item['imageUrl'] as String? ?? '').trim();
+          final title = (item['title'] as String? ?? 'Food').trim();
+          final location = (item['location'] as String? ?? '').trim();
+          final rating = (item['rating'] as num?)?.toDouble() ?? 0.0;
+          final reviewCount = (item['reviewCount'] as num?)?.toInt() ?? 0;
 
+          return Card(
+            color: AppPalette.surface,
+            margin: const EdgeInsets.only(bottom: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Color(0xFF93C5FD), width: 1.5),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => onFoodTap(item),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: FallbackImage(
+                        imageUrl: imageUrl,
+                        width: 80,
+                        height: 80,
+                        category: 'food',
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppPalette.charcoal,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.star_rounded,
+                                color: AppPalette.gold,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${rating.toStringAsFixed(1)} · $reviewCount reviews',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppPalette.mutedText,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (location.isNotEmpty)
+                            Text(
+                              location,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppPalette.mutedText,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right_rounded,
+                        color: AppPalette.mutedText),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}

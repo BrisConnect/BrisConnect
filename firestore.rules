@@ -86,6 +86,13 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // ── Review reports ──
+    match /review_reports/{docId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+
     // ── App feedback ──
     match /app_feedback/{docId} {
       allow read: if isSignedIn();
@@ -180,8 +187,13 @@ service cloud.firestore {
     // Firebase Auth keychain access fails. Restrict to authenticated owners
     // before production.
     match /businesses/{businessId} {
-      // Public reads only see active, non-deleted listings.
-      allow read: if resource.data.isActive == true && resource.data.deletedAt == null;
+      // Public reads only see active, non-deleted listings. Admins may read all
+      // listings for management dashboards. Older seeded documents omit
+      // isActive, so treat anything that is not explicitly false as active.
+      allow read: if (resource.data.isActive != false && resource.data.deletedAt == null)
+        || (isSignedIn() && resource.data.ownerId == authEmail())
+        || isAdmin()
+        || request.auth == null;
       allow create: if (isSignedIn() && request.resource.data.ownerId == authEmail())
         || request.auth == null;
       allow update: if isSignedIn() && (
@@ -223,8 +235,9 @@ service cloud.firestore {
     // ── Reviews / Recommendations (visitor feedback on businesses) ──
     // Dev: allow unauthenticated reads/writes for unsigned macOS builds.
     match /reviews/{reviewId} {
-      // Only show recommendations that are public (visible == true).
-      allow read: if resource.data.visible == true || request.auth == null;
+      // Public reads see visible reviews only.
+      allow read: if resource.data.visible == true
+        || request.auth == null;
 
       // Authenticated visitors can create one recommendation per business.
       // Rate limits are enforced client-side; rules guarantee auth binding
@@ -296,9 +309,9 @@ service cloud.firestore {
     // ── Business events (local business owner events) ──
     // Dev: allow unauthenticated reads for unsigned macOS builds.
     match /business_events/{eventId} {
-      allow read: if (isSignedIn() && (
-        resource.data.ownerId == authEmail() || resource.data.status == 'published'
-      )) || request.auth == null;
+      allow read: if resource.data.status == 'published'
+        || (isSignedIn() && resource.data.ownerId == authEmail())
+        || request.auth == null;
       allow create: if isSignedIn() && request.resource.data.ownerId == authEmail();
       allow update: if isSignedIn() && (
         resource.data.ownerId == authEmail() || isAdmin()
@@ -311,7 +324,9 @@ service cloud.firestore {
     // ── Promotions (local business owner promotions) ──
     // Dev: allow unauthenticated reads/writes for unsigned macOS builds.
     match /promotions/{promotionId} {
-      allow read: if (isSignedIn() && resource.data.ownerId == authEmail()) || request.auth == null;
+      allow read: if resource.data.status == 'active'
+        || (isSignedIn() && resource.data.ownerId == authEmail())
+        || request.auth == null;
       allow create: if (isSignedIn() && request.resource.data.ownerId == authEmail()) || request.auth == null;
       allow update: if isSignedIn() && (
         resource.data.ownerId == authEmail() || isAdmin()

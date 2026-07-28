@@ -86,7 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
+          physics: const ClampingScrollPhysics(),
           child: Column(
             children: [
               // Header with greeting & profile
@@ -362,6 +362,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         scrollDirection: Axis.horizontal,
+        physics: const ClampingScrollPhysics(),
         itemCount: _foodCategories.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
@@ -409,6 +410,7 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
+        physics: const ClampingScrollPhysics(),
         child: Row(
           children: [
             // Price filter
@@ -511,7 +513,7 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFFF7A1A).withOpacity(0.4),
+              color: const Color(0xFFFF7A1A).withValues(alpha: 0.4),
               blurRadius: 16,
               offset: const Offset(0, 8),
             ),
@@ -547,7 +549,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text(
@@ -565,7 +567,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Text(
@@ -693,6 +695,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 scrollDirection: Axis.horizontal,
+                physics: const ClampingScrollPhysics(),
                 itemCount: restaurants.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 12),
                 itemBuilder: (context, index) =>
@@ -735,7 +738,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -772,7 +775,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -792,7 +795,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.7),
+                      color: Colors.black.withValues(alpha: 0.7),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Row(
@@ -827,7 +830,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.9),
+                        color: Colors.orange.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: const Row(
@@ -1039,7 +1042,7 @@ class _HomeScreenState extends State<HomeScreen> {
             borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFFF7A1A).withOpacity(0.3),
+                color: const Color(0xFFFF7A1A).withValues(alpha: 0.3),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -1159,6 +1162,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 scrollDirection: Axis.horizontal,
+                physics: const ClampingScrollPhysics(),
                 itemCount: businesses.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 12),
                 itemBuilder: (context, index) =>
@@ -1349,7 +1353,7 @@ class _HomeScreenState extends State<HomeScreen> {
             end: Alignment.bottomRight,
             colors: [
               const Color(0xFF1C1F2E),
-              const Color(0xFF2A2F3F).withOpacity(0.6),
+              const Color(0xFF2A2F3F).withValues(alpha: 0.6),
             ],
           ),
           borderRadius: BorderRadius.circular(16),
@@ -1422,7 +1426,7 @@ class _HomeScreenState extends State<HomeScreen> {
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFF7A1A).withOpacity(0.4),
+            color: const Color(0xFFFF7A1A).withValues(alpha: 0.4),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -1469,7 +1473,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFFF7A1A).withOpacity(0.4),
+                    color: const Color(0xFFFF7A1A).withValues(alpha: 0.4),
                     blurRadius: 16,
                     offset: const Offset(0, 8),
                   ),

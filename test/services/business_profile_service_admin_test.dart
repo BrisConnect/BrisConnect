@@ -1,4 +1,3 @@
-import 'package:brisconnect/models/business.dart';
 import 'package:brisconnect/services/business_profile_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -20,7 +19,7 @@ void main() {
       );
     });
 
-    Future<String> _seedBusiness({
+    Future<String> seedBusiness({
       String businessName = 'Test Business',
       bool isVerified = false,
       bool isActive = true,
@@ -41,7 +40,7 @@ void main() {
     }
 
     test('verifyBusiness sets isVerified and writes audit log', () async {
-      final id = await _seedBusiness();
+      final id = await seedBusiness();
 
       await service.verifyBusiness(businessId: id, adminEmail: 'admin@example.com', notes: 'Looks legit');
 
@@ -59,7 +58,7 @@ void main() {
     });
 
     test('unverifyBusiness clears isVerified and writes audit log', () async {
-      final id = await _seedBusiness(isVerified: true);
+      final id = await seedBusiness(isVerified: true);
 
       await service.unverifyBusiness(businessId: id, adminEmail: 'admin@example.com');
 
@@ -69,7 +68,7 @@ void main() {
     });
 
     test('deactivateBusiness sets isActive false', () async {
-      final id = await _seedBusiness();
+      final id = await seedBusiness();
 
       await service.deactivateBusiness(
         businessId: id,
@@ -83,7 +82,7 @@ void main() {
     });
 
     test('reactivateBusiness sets isActive true', () async {
-      final id = await _seedBusiness(isActive: false);
+      final id = await seedBusiness(isActive: false);
 
       await service.reactivateBusiness(businessId: id, adminEmail: 'admin@example.com');
 
@@ -92,7 +91,7 @@ void main() {
     });
 
     test('archiveBusiness soft-deletes and copies to archive', () async {
-      final id = await _seedBusiness();
+      final id = await seedBusiness();
 
       await service.archiveBusiness(
         businessId: id,
@@ -111,7 +110,7 @@ void main() {
     });
 
     test('restoreBusiness moves archived data back to live', () async {
-      final id = await _seedBusiness();
+      final id = await seedBusiness();
       await service.archiveBusiness(
         businessId: id,
         adminEmail: 'admin@example.com',
@@ -153,9 +152,9 @@ void main() {
     });
 
     test('public streams exclude inactive and deleted businesses', () async {
-      final activeVerified = await _seedBusiness(isVerified: true);
-      final inactive = await _seedBusiness(isActive: false);
-      final archived = await _seedBusiness();
+      final activeVerified = await seedBusiness(isVerified: true);
+      final inactive = await seedBusiness(isActive: false);
+      final archived = await seedBusiness();
       await service.archiveBusiness(businessId: archived, adminEmail: 'admin@example.com');
 
       final stream = service.getVerifiedBusinessesStream();

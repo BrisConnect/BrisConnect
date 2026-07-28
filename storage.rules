@@ -58,6 +58,11 @@ service firebase.storage {
       allow write: if isOwner(email);
     }
 
+    match /food_businesses/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn() || request.auth == null;
+    }
+
     match /business_logos/{userEmail}/{fileName} {
       allow read: if true;
       allow write: if isSignedIn() || request.auth == null;

@@ -1,8 +1,7 @@
-import 'dart:async';
-
 import 'package:brisconnect/services/notification_health_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -11,19 +10,6 @@ class _MockFirebaseFunctions extends Mock implements FirebaseFunctions {}
 class _MockHttpsCallable extends Mock implements HttpsCallable {}
 
 class _MockHttpsCallableResult<T> extends Mock implements HttpsCallableResult<T> {}
-
-class _MockFirebaseFirestore extends Mock implements FirebaseFirestore {}
-
-class _MockCollectionReference extends Mock
-    implements CollectionReference<Map<String, dynamic>> {}
-
-class _MockQuery extends Mock implements Query<Map<String, dynamic>> {}
-
-class _MockQuerySnapshot extends Mock
-    implements QuerySnapshot<Map<String, dynamic>> {}
-
-class _MockQueryDocumentSnapshot extends Mock
-    implements QueryDocumentSnapshot<Map<String, dynamic>> {}
 
 void main() {
   group('NotificationHealthService', () {
@@ -69,30 +55,20 @@ void main() {
     });
 
     test('watchRecentChecks emits parsed results', () async {
-      final firestore = _MockFirebaseFirestore();
-      final collection = _MockCollectionReference();
-      final ordered = _MockQuery();
-      final limited = _MockQuery();
-      final snapshot = _MockQuerySnapshot();
-      final doc1 = _MockQueryDocumentSnapshot();
-      final doc2 = _MockQueryDocumentSnapshot();
-
-      when(() => firestore.collection('notification_health_checks')).thenReturn(collection);
-      when(() => collection.orderBy('checkedAt', descending: true)).thenReturn(ordered);
-      when(() => ordered.limit(100)).thenReturn(limited);
-      when(() => limited.snapshots()).thenAnswer((_) => Stream.value(snapshot));
-      when(() => snapshot.docs).thenReturn([doc1, doc2]);
-      when(doc1.data).thenReturn({
+      final firestore = FakeFirebaseFirestore();
+      await firestore.collection('notification_health_checks').add({
         'status': 'ok',
         'firestoreReachable': true,
         'fcmReachable': true,
         'latencyMs': 50,
+        'checkedAt': Timestamp.fromDate(DateTime(2025, 1, 1, 12, 0)),
       });
-      when(doc2.data).thenReturn({
+      await firestore.collection('notification_health_checks').add({
         'status': 'degraded',
         'firestoreReachable': true,
         'fcmReachable': false,
         'latencyMs': 200,
+        'checkedAt': Timestamp.fromDate(DateTime(2025, 1, 1, 11, 0)),
       });
 
       final service = NotificationHealthService(firestore: firestore);

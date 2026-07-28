@@ -162,4 +162,78 @@ class ActivityFeedItem {
       targetId: doc.id,
     );
   }
+
+  static ActivityFeedItem? fromPromotionDoc(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>?;
+    if (data == null) return null;
+
+    final status = data['status']?.toString().toLowerCase() ?? '';
+    if (status != 'active') return null;
+
+    final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+    if (createdAt == null) return null;
+
+    final title = data['title']?.toString().trim();
+    if (title == null || title.isEmpty) return null;
+
+    final endAt = (data['endAt'] as Timestamp?)?.toDate();
+    if (endAt != null && endAt.isBefore(DateTime.now())) return null;
+
+    final pinnedAt = (data['pinnedAt'] as Timestamp?)?.toDate();
+    final highlightedAt = (data['highlightedAt'] as Timestamp?)?.toDate();
+
+    return ActivityFeedItem(
+      id: doc.id,
+      type: ActivityFeedType.business,
+      title: title,
+      subtitle: 'Promotion',
+      body: data['description']?.toString() ?? '',
+      imageUrl: data['imageUrl']?.toString() ??
+          data['promoImageUrl']?.toString() ??
+          '',
+      isPinned: data['isPinned'] == true,
+      pinnedAt: pinnedAt,
+      isHighlighted: data['isHighlighted'] == true,
+      highlightedAt: highlightedAt,
+      createdAt: createdAt,
+      targetId: data['businessId']?.toString() ?? doc.id,
+    );
+  }
+
+  static ActivityFeedItem? fromAiGeneratedPostDoc(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>?;
+    if (data == null) return null;
+
+    final status = data['status']?.toString().toLowerCase() ?? '';
+    if (status != 'published') return null;
+
+    final postType = data['postType']?.toString().toLowerCase() ?? '';
+    if (postType != 'promotion') return null;
+
+    final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+    if (createdAt == null) return null;
+
+    final title = data['title']?.toString().trim();
+    if (title == null || title.isEmpty) return null;
+
+    final pinnedAt = (data['pinnedAt'] as Timestamp?)?.toDate();
+    final highlightedAt = (data['highlightedAt'] as Timestamp?)?.toDate();
+
+    return ActivityFeedItem(
+      id: doc.id,
+      type: ActivityFeedType.business,
+      title: title,
+      subtitle: 'Promotion',
+      body: data['generatedContent']?.toString() ??
+          data['description']?.toString() ??
+          '',
+      imageUrl: data['imageUrl']?.toString() ?? '',
+      isPinned: data['isPinned'] == true,
+      pinnedAt: pinnedAt,
+      isHighlighted: data['isHighlighted'] == true,
+      highlightedAt: highlightedAt,
+      createdAt: createdAt,
+      targetId: data['businessId']?.toString() ?? doc.id,
+    );
+  }
 }

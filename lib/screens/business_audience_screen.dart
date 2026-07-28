@@ -159,7 +159,7 @@ class _BusinessAudienceScreenState extends State<BusinessAudienceScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C2E),
+          color: AppPalette.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
         ),
@@ -283,7 +283,7 @@ class _BusinessAudienceScreenState extends State<BusinessAudienceScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: AppPalette.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: AppPalette.ochre.withValues(alpha: 0.3),
@@ -323,7 +323,7 @@ class _BusinessAudienceScreenState extends State<BusinessAudienceScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: AppPalette.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
@@ -376,7 +376,7 @@ class _BusinessAudienceScreenState extends State<BusinessAudienceScreen> {
       height: 200,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: AppPalette.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
@@ -454,7 +454,7 @@ class _BusinessAudienceScreenState extends State<BusinessAudienceScreen> {
       height: 200,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: AppPalette.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
@@ -563,7 +563,7 @@ class _OverviewCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C2E),
+          color: AppPalette.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
         ),
@@ -644,7 +644,7 @@ class _AudienceErrorCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C2E),
+          color: AppPalette.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
         ),
@@ -678,7 +678,7 @@ class _AudienceEmptyCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: AppPalette.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),

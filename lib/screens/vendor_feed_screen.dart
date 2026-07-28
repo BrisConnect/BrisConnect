@@ -109,7 +109,7 @@ class _VendorFeedScreenState extends State<VendorFeedScreen> {
                 )
               : null,
           filled: true,
-          fillColor: const Color(0xFF1C1C2E),
+          fillColor: AppPalette.surface,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           border: OutlineInputBorder(
@@ -125,31 +125,44 @@ class _VendorFeedScreenState extends State<VendorFeedScreen> {
     final controller = StreamController<List<_FeedItem>>.broadcast();
     List<DocumentSnapshot>? eventDocs;
     List<DocumentSnapshot>? postDocs;
+    List<DocumentSnapshot>? businessEventDocs;
+    List<DocumentSnapshot>? promotionDocs;
 
     void emit() {
-      if (eventDocs == null || postDocs == null) return;
+      if (eventDocs == null ||
+          postDocs == null ||
+          businessEventDocs == null ||
+          promotionDocs == null) {
+        return;
+      }
       final items = <_FeedItem>[
         for (final doc in eventDocs!)
           _FeedItem(
             id: doc.id,
             type: _FeedItemType.event,
             data: doc.data() as Map<String, dynamic>,
-            createdAt: (doc.data() as Map<String, dynamic>)['createdAt']
-                    is Timestamp
-                ? ((doc.data() as Map<String, dynamic>)['createdAt'] as Timestamp)
-                    .toDate()
-                : DateTime.now(),
+            createdAt: _createdAtFromDoc(doc),
           ),
         for (final doc in postDocs!)
           _FeedItem(
             id: doc.id,
             type: _FeedItemType.aiPost,
             data: doc.data() as Map<String, dynamic>,
-            createdAt: (doc.data() as Map<String, dynamic>)['createdAt']
-                    is Timestamp
-                ? ((doc.data() as Map<String, dynamic>)['createdAt'] as Timestamp)
-                    .toDate()
-                : DateTime.now(),
+            createdAt: _createdAtFromDoc(doc),
+          ),
+        for (final doc in businessEventDocs!)
+          _FeedItem(
+            id: doc.id,
+            type: _FeedItemType.businessEvent,
+            data: doc.data() as Map<String, dynamic>,
+            createdAt: _createdAtFromDoc(doc),
+          ),
+        for (final doc in promotionDocs!)
+          _FeedItem(
+            id: doc.id,
+            type: _FeedItemType.promotion,
+            data: doc.data() as Map<String, dynamic>,
+            createdAt: _createdAtFromDoc(doc),
           ),
       ];
       items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -169,31 +182,52 @@ class _VendorFeedScreenState extends State<VendorFeedScreen> {
     final postsSub = FirebaseFirestore.instance
         .collection('ai_generated_posts')
         .where('status', isEqualTo: 'published')
+        .orderBy('createdAt', descending: true)
         .limit(50)
         .snapshots()
         .listen((snap) {
-      // Sort client-side until the Firestore composite index is deployed.
-      postDocs = snap.docs.toList()
-        ..sort((a, b) {
-          final aData = a.data();
-          final bData = b.data();
-          final aTime = aData['createdAt'] is Timestamp
-              ? (aData['createdAt'] as Timestamp).toDate()
-              : DateTime.now();
-          final bTime = bData['createdAt'] is Timestamp
-              ? (bData['createdAt'] as Timestamp).toDate()
-              : DateTime.now();
-          return bTime.compareTo(aTime);
-        });
+      postDocs = snap.docs;
+      emit();
+    }, onError: controller.addError);
+
+    final businessEventsSub = FirebaseFirestore.instance
+        .collection('business_events')
+        .where('status', isEqualTo: 'published')
+        .orderBy('createdAt', descending: true)
+        .limit(50)
+        .snapshots()
+        .listen((snap) {
+      businessEventDocs = snap.docs;
+      emit();
+    }, onError: controller.addError);
+
+    final promotionsSub = FirebaseFirestore.instance
+        .collection('promotions')
+        .where('status', whereIn: ['active', 'scheduled'])
+        .orderBy('createdAt', descending: true)
+        .limit(50)
+        .snapshots()
+        .listen((snap) {
+      promotionDocs = snap.docs;
       emit();
     }, onError: controller.addError);
 
     controller.onCancel = () async {
       await eventsSub.cancel();
       await postsSub.cancel();
+      await businessEventsSub.cancel();
+      await promotionsSub.cancel();
     };
 
     return controller.stream;
+  }
+
+  DateTime _createdAtFromDoc(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>?;
+    if (data == null) return DateTime.now();
+    final createdAt = data['createdAt'];
+    if (createdAt is Timestamp) return createdAt.toDate();
+    return DateTime.now();
   }
 
   Widget _buildFeed() {
@@ -275,7 +309,7 @@ class _VendorFeedScreenState extends State<VendorFeedScreen> {
   }
 }
 
-enum _FeedItemType { event, aiPost }
+enum _FeedItemType { event, aiPost, businessEvent, promotion }
 
 class _FeedItem {
   const _FeedItem({
@@ -301,6 +335,8 @@ class _VendorFeedCard extends StatelessWidget {
     return switch (item.type) {
       _FeedItemType.event => _buildEventCard(context),
       _FeedItemType.aiPost => _buildAiPostCard(context),
+      _FeedItemType.businessEvent => _buildBusinessEventCard(context),
+      _FeedItemType.promotion => _buildPromotionCard(context),
     };
   }
 
@@ -317,7 +353,7 @@ class _VendorFeedCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: AppPalette.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.06),
@@ -458,6 +494,81 @@ class _VendorFeedCard extends StatelessWidget {
     );
   }
 
+  Widget _buildBusinessEventCard(BuildContext context) {
+    final data = item.data;
+    final title = ((data['title'] as String?) ?? 'Untitled Event').trim();
+    final business = ((data['businessName'] as String?) ?? '').trim();
+    final location = ((data['location'] as String?) ?? 'Location TBA').trim();
+    final date = ((data['date'] as String?) ?? 'Date TBA').trim();
+    final time = ((data['time'] as String?) ?? '').trim();
+    final imageUrl = ((data['imageUrl'] as String?) ?? '').trim();
+    final description = ((data['description'] as String?) ?? '').trim();
+
+    return _FeedCard(
+      imageUrl: imageUrl,
+      chipLabel: 'Business Event',
+      business: business.isNotEmpty ? business : 'Community Post',
+      title: title,
+      body: description,
+      footer: Row(
+        children: [
+          const Icon(Icons.calendar_today_rounded,
+              color: Color(0xFF8B8FA8), size: 13),
+          const SizedBox(width: 4),
+          Text(
+            time.isNotEmpty ? '$date • $time' : date,
+            style: const TextStyle(color: Color(0xFF8B8FA8), fontSize: 12),
+          ),
+          const SizedBox(width: 12),
+          const Icon(Icons.location_on_rounded,
+              color: Color(0xFF8B8FA8), size: 13),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              location,
+              style: const TextStyle(color: Color(0xFF8B8FA8), fontSize: 12),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+      shareItem: item,
+    );
+  }
+
+  Widget _buildPromotionCard(BuildContext context) {
+    final data = item.data;
+    final title = ((data['title'] as String?) ?? 'Untitled Promotion').trim();
+    final business = ((data['businessName'] as String?) ?? '').trim();
+    final description = ((data['description'] as String?) ?? '').trim();
+    final discount = ((data['discount'] as String?) ?? '').trim();
+    final imageUrl = ((data['imageUrl'] as String?) ?? '').trim();
+    final endAt = data['endAt'];
+    final ends = endAt is Timestamp
+        ? 'Ends ${_formatDate(endAt.toDate())}'
+        : 'Limited time';
+
+    return _FeedCard(
+      imageUrl: imageUrl,
+      chipLabel: 'Promotion',
+      business: business.isNotEmpty ? business : 'Community Post',
+      title: title,
+      body: description,
+      footer: Row(
+        children: [
+          const Icon(Icons.local_offer_rounded,
+              color: Color(0xFF8B8FA8), size: 13),
+          const SizedBox(width: 4),
+          Text(
+            discount.isNotEmpty ? '$discount • $ends' : ends,
+            style: const TextStyle(color: Color(0xFF8B8FA8), fontSize: 12),
+          ),
+        ],
+      ),
+      shareItem: item,
+    );
+  }
+
   Widget _buildAiPostCard(BuildContext context) {
     final data = item.data;
     final title = ((data['title'] as String?) ?? 'Untitled Post').trim();
@@ -470,7 +581,7 @@ class _VendorFeedCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: AppPalette.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.06),
@@ -597,6 +708,138 @@ class _VendorFeedCard extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+}
+
+class _FeedCard extends StatelessWidget {
+  const _FeedCard({
+    required this.imageUrl,
+    required this.chipLabel,
+    required this.business,
+    required this.title,
+    required this.body,
+    required this.footer,
+    required this.shareItem,
+  });
+
+  final String imageUrl;
+  final String chipLabel;
+  final String business;
+  final String title;
+  final String body;
+  final Widget footer;
+  final _FeedItem shareItem;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppPalette.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.06),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (imageUrl.isNotEmpty)
+            ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
+              child: Image.network(
+                imageUrl,
+                height: 160,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _placeholderImage(),
+              ),
+            )
+          else
+            _placeholderImage(rounded: true),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.storefront_rounded,
+                        color: AppPalette.ochre, size: 14),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        business.isNotEmpty ? business : 'Community Post',
+                        style: const TextStyle(
+                          color: AppPalette.ochre,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppPalette.ochre.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        chipLabel,
+                        style: const TextStyle(
+                          color: AppPalette.ochre,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    _ShareButton(item: shareItem),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (body.isNotEmpty)
+                  Text(
+                    body,
+                    style: const TextStyle(
+                        color: Colors.white70, fontSize: 13, height: 1.55),
+                    maxLines: 6,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                if (body.isNotEmpty) const SizedBox(height: 8),
+                footer,
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _placeholderImage({bool rounded = false}) {
+    return Container(
+      height: 100,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A3E),
+        borderRadius: rounded
+            ? const BorderRadius.vertical(top: Radius.circular(16))
+            : null,
+      ),
+      child: const Icon(Icons.image_outlined,
+          color: Color(0xFF8B8FA8), size: 36),
+    );
   }
 }
 

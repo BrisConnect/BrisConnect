@@ -1,0 +1,323 @@
+{
+  "appTitle": "BrisConnect+",
+  "welcome": "स्वागत है",
+  "signIn": "साइन इन",
+  "signUp": "साइन अप",
+  "signOut": "साइन आउट",
+  "email": "ईमेल",
+  "password": "पासवर्ड",
+  "phone": "फ़ोन",
+  "name": "नाम",
+  "save": "सहेजें",
+  "cancel": "रद्द करें",
+  "editProfile": "प्रोफ़ाइल संपादित करें",
+  "profileInfo": "प्रोफ़ाइल जानकारी",
+  "preferences": "प्राथमिकताएँ",
+  "language": "भाषा",
+  "locationRadius": "स्थान त्रिज्या",
+  "appearanceSettings": "उपस्थिति सेटिंग्स",
+  "feedback": "फीडबैक",
+  "myFeedback": "मेरा फीडबैक",
+  "helpAndSupport": "सहायता और समर्थन",
+  "discover": "खोजें",
+  "community": "समुदाय",
+  "map": "नक्शा",
+  "saved": "सहेजा गया",
+  "profile": "प्रोफ़ाइल",
+  "food": "भोजन",
+  "events": "आयोजन",
+  "businesses": "व्यवसाय",
+  "promotions": "प्रचार",
+  "photos": "फ़ोटो",
+  "newPost": "नया",
+  "search": "खोज",
+  "filter": "फ़िल्टर",
+  "clearFilters": "फ़िल्टर साफ़ करें",
+  "noResults": "कोई परिणाम नहीं मिला",
+  "loading": "लोड हो रहा है...",
+  "error": "त्रुटि",
+  "success": "सफल",
+  "profileUpdated": "प्रोफ़ाइल सफलतापूर्वक अपडेट की गई।",
+  "profileUpdateFailed": "प्रोफ़ाइल अपडेट नहीं की जा सकी। कृपया पुनः प्रयास करें।",
+  "guestVisitor": "अतिथि आगंतुक",
+  "localUser": "स्थानीय",
+  "filterEventsTitle": "इवेंट फ़िल्टर करें",
+  "priceLabel": "कीमत",
+  "dateLabel": "दिनांक",
+  "pickADate": "एक तारीख चुनें",
+  "resetButton": "रीसेट करें",
+  "applyButton": "आवेदन करें",
+  "freeLabel": "मुफ़्त",
+  "paidLabel": "भुगतान किया गया",
+  "eventSavedToInterested": "{eventTitle} को इच्छुक में सहेजा गया।",
+  "@eventSavedToInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "eventRemovedFromInterested": "{eventTitle} को इच्छुक से हटा दिया गया।",
+  "@eventRemovedFromInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "savedToAttractions": "{title} को सहेजे गए आकर्षण में सहेजा गया।",
+  "@savedToAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "removedFromAttractions": "{title} को सहेजे गए आकर्षणों से हटा दिया गया।",
+  "@removedFromAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "pleaseSignInToSaveEvents": "कृपया ईवेंट सहेजने के लिए विज़िटर के रूप में लॉग इन करें।",
+  "pleaseSignInToReview": "कृपया समीक्षा या बज़वोट लिखने के लिए साइन इन करें।",
+  "reviewSubmitted": "समीक्षा सबमिट की गई\\! ⭐ {rating} / बज़ ⚡ {buzzRating}",
+  "@reviewSubmitted": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "buzzRating": {
+        "type": "String"
+      }
+    }
+  },
+  "reviewSubmitFailed": "समीक्षा सबमिट नहीं की जा सकी: {error}",
+  "@reviewSubmitFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noExternalLink": "इस आइटम के लिए अभी तक कोई बाहरी लिंक उपलब्ध नहीं है।",
+  "unableToOpenLink": "इवेंट लिंक अभी खोलने में असमर्थ.",
+  "shareTitle": "साझा करें: {title}",
+  "@shareTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "reportEvent": "घटना की रिपोर्ट करें",
+  "reviewsOnlyForFood": "समीक्षाएँ केवल खाद्य पदार्थों के लिए उपलब्ध हैं",
+  "chooseFromGallery": "गैलरी से चुनें",
+  "takeAPhoto": "एक फोटो लें",
+  "pleaseLoginVisitor": "कृपया पहले विज़िटर के रूप में लॉग इन करें।",
+  "onlyJpgPng": "केवल JPG और PNG छवियाँ समर्थित हैं।",
+  "imageTooLarge": "छवि बहुत बड़ी है. कृपया एक छोटी छवि चुनें.",
+  "profilePictureUpdated": "प्रोफ़ाइल चित्र सफलतापूर्वक अपडेट किया गया.",
+  "profilePictureUpdateFailed": "प्रोफ़ाइल चित्र अपडेट नहीं किया जा सका. कृपया पुन: प्रयास करें।",
+  "enterYourName": "अपना नाम दर्ज करें",
+  "phoneHint": "जैसे 04xxxxxx",
+  "nameCannotBeEmpty": "नाम खाली नहीं हो सकता.",
+  "nameMinLength": "नाम कम से कम 2 अक्षर का होना चाहिए.",
+  "enterValidPhone": "एक वैध फ़ोन नंबर दर्ज करें.",
+  "changeProfilePicture": "प्रोफ़ाइल चित्र बदलें",
+  "uploadProfilePicture": "प्रोफ़ाइल चित्र अपलोड करें",
+  "areYouSureSignOut": "क्या आप वाकई साइन आउट करना चाहते हैं?",
+  "returnWelcome": "स्वागत स्क्रीन पर लौटें",
+  "setHowFarRecommendations": "निर्धारित करें कि सिफ़ारिशें कितनी दूर तक हो सकती हैं",
+  "themeTextSizeFeedback": "थीम, पाठ का आकार और प्रतिक्रिया",
+  "faqsContactAppInfo": "अक्सर पूछे जाने वाले प्रश्न, हमसे संपर्क करें और ऐप की जानकारी",
+  "viewSubmittedFeedback": "अपनी सबमिट की गई प्रतिक्रिया और व्यवस्थापक प्रतिक्रियाएँ देखें",
+  "discoverSubtitle": "स्थानीय भोजन और अनुभवों की खोज करें",
+  "searchHintLocalFood": "स्थानीय खाद्य व्यवसाय खोजें...",
+  "homeLabel": "घर",
+  "recommendedForYou": "आपके लिए अनुशंसित",
+  "seeAll": "सभी देखें",
+  "categories": "श्रेणियाँ",
+  "nearby": "पास में",
+  "noFoodPlacesFound": "खाने की कोई जगह नहीं मिली",
+  "noFoodPlacesSubtitle": "अपनी खोज या फ़िल्टर चयन बदलने का प्रयास करें।",
+  "localFoodBusinesses": "स्थानीय खाद्य व्यवसाय",
+  "localFoodSubtitle": "छोटे और मध्यम ब्रिस्बेन खाद्य उद्यमों का समर्थन करें",
+  "exploreReviewFoodBusinesses": "खाद्य व्यवसायों का अन्वेषण एवं समीक्षा करें",
+  "noSavedItemsTitle": "अभी तक कोई सहेजा गया आइटम नहीं",
+  "noSavedItemsSubtitle": "उन्हें यहां सहेजने के लिए खाद्य व्यवसाय कार्ड पर दिल आइकन या व्यावसायिक प्रोफ़ाइल पर बुकमार्क पर टैप करें।",
+  "savedEvents": "सहेजे गए इवेंट",
+  "savedEventsSubtitle": "आपके ईवेंट अनुस्मारक और योजनाएँ",
+  "savedAttractions": "सहेजे गए आकर्षण",
+  "savedAttractionsSubtitle": "घटनाओं से स्वतंत्र रूप से घूमने लायक स्थान",
+  "savedBusinesses": "सहेजे गए व्यवसाय",
+  "savedBusinessesSubtitle": "खाद्य व्यवसाय जिन्हें आपने बुकमार्क किया है",
+  "savedItemsUnavailableTitle": "सहेजे गए आइटम अनुपलब्ध हैं",
+  "savedItemsUnavailableSubtitle": "कुछ सहेजे गए आइटम अब डिस्कवरी फ़ीड में प्रकाशित नहीं किए जाते हैं।",
+  "retryAction": "पुनः प्रयास करें",
+  "unableToLoadDiscover": "अभी खोजे गए आइटम लोड करने में असमर्थ. कृपया पुन: प्रयास करें।",
+  "unableToLoadSaved": "अभी सहेजे गए आइटम लोड करने में असमर्थ. कृपया पुन: प्रयास करें।",
+  "dateTBA": "दिनांक टीबीए",
+  "timeTBA": "समय टीबीए",
+  "untitledEvent": "शीर्षकहीन घटना",
+  "locationTBA": "स्थान टीबीए",
+  "priceTBA": "कीमत टीबीए",
+  "placeFallback": "जगह",
+  "foodExperienceFallback": "भोजन का अनुभव",
+  "stadiumFallback": "स्टेडियम",
+  "eventFallback": "घटना",
+  "attractionFallback": "आकर्षण",
+  "ratingReviewsCount": "{rating} · {count} समीक्षाएँ",
+  "@ratingReviewsCount": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "approved": "स्वीकृत",
+  "audience": "दर्शक",
+  "businessLabel": "व्यवसाय",
+  "controlDistance": "आस-पास के अवसरों के लिए दूरी नियंत्रित करें",
+  "dashboard": "डैशबोर्ड",
+  "delete": "हटाएँ",
+  "deleteEvent": "ईवेंट हटाएँ",
+  "deletingEvent": "ईवेंट हटाया जा रहा है...",
+  "displayName": "प्रदर्शन नाम",
+  "errorDeletingEvent": "ईवेंट हटाने में त्रुटि: {error}",
+  "@errorDeletingEvent": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "errorLoadingMap": "मानचित्र लोड करने में त्रुटि: {error}",
+  "@errorLoadingMap": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "eventDeleted": "इवेंट \"{title}\" हटा दिया गया है।",
+  "@eventDeleted": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToDeleteEvent": "ईवेंट हटाने में विफल. कृपया पुन: प्रयास करें।",
+  "feed": "फ़ीड",
+  "localBusinessPortal": "स्थानीय व्यापार पोर्टल",
+  "pending": "लंबित",
+  "phoneNumber": "फ़ोन नंबर",
+  "pleaseLoginLocal": "कृपया पहले स्थानीय उपयोगकर्ता के रूप में लॉग इन करें।",
+  "pleaseLoginToDelete": "कृपया ईवेंट हटाने के लिए लॉग इन करें।",
+  "pushAlerts": "अपने व्यवसाय के लिए अलर्ट पुश करें",
+  "rejected": "अस्वीकृत",
+  "reviews": "समीक्षाएँ",
+  "saveChanges": "परिवर्तन सहेजें",
+  "searchHintEvents": "ईवेंट, बुकिंग खोजें...",
+  "suburb": "उपनगर",
+  "thisLinkUnavailable": "यह लिंक अभी उपलब्ध नहीं है.",
+  "total": "कुल",
+  "couldNotSaveSettings": "सेटिंग्स सहेजी नहीं जा सकीं. कृपया पुन: प्रयास करें।",
+  "locationAccessDisabled": "ऐप सुविधाओं के लिए स्थान पहुंच अक्षम कर दी गई है.",
+  "locationPermissionGranted": "स्थान की अनुमति दी गई.",
+  "openSettings": "सेटिंग्स खोलें",
+  "themeDark": "अंधेरा",
+  "themeLight": "रोशनी",
+  "themeSystem": "सिस्टम",
+  "textScalePercent": "{value}%",
+  "@textScalePercent": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "categoryLabel": "श्रेणी: {category}",
+  "@categoryLabel": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "severityLabel": "गंभीरता: {severity}",
+  "@severityLabel": {
+    "placeholders": {
+      "severity": {
+        "type": "String"
+      }
+    }
+  },
+  "languageEnglish": "अंग्रेजी",
+  "languageSpanish": "स्पैनिश",
+  "languageFrench": "फ़्रेंच",
+  "languageGerman": "जर्मन",
+  "languageChinese": "चीनी",
+  "languageArabic": "अरबी",
+  "languageHindi": "हिंदी",
+  "languageItalian": "इटालियन",
+  "languageJapanese": "जापानी",
+  "languageKorean": "कोरियाई",
+  "languagePortuguese": "पुर्तगाली",
+  "languageRussian": "रूसी",
+  "languageVietnamese": "वियतनामी",
+  "languageGreek": "यूनानी",
+  "discoverTitle": "स्थानीय भोजन की खोज करें",
+  "openSourceLink": "ओपन सोर्स लिंक",
+  "pendingApproval": "लंबित अनुमोदन",
+  "deleteEventConfirmation": "क्या आप वाकई \"{title}\" को हटाना चाहते हैं? ",
+  "@deleteEventConfirmation": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "myActivity": "मेरी गतिविधि",
+  "businessNotifications": "व्यावसायिक सूचनाएं",
+  "about": "के बारे में",
+  "aboutDescription": "ब्रिसकनेक्ट+ एक स्मार्ट सिटी गाइड है जो आगंतुकों और स्थानीय लोगों को घटनाओं की खोज करने, आकर्षणों का पता लगाने और उनके ब्रिस्बेन अनुभवों को एक कनेक्टेड प्लेटफॉर्म पर कैद करने में मदद करता है।",
+  "versionLabel": "संस्करण {version}",
+  "@versionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "locationPermissions": "स्थान अनुमतियाँ",
+  "enableLocationAccess": "स्थान पहुंच सक्षम करें",
+  "allowNearbyMapFeatures": "आस-पास की अनुशंसाओं और मानचित्र-जागरूक सुविधाओं को अनुमति दें।",
+  "locationSettings": "स्थान सेटिंग्स",
+  "setSearchRadius": "घटनाओं और आकर्षणों के लिए अपना खोज दायरा निर्धारित करें।",
+  "pleaseLoginToViewSettings": "सेटिंग्स देखने के लिए कृपया लॉग इन करें।",
+  "locationPermissionNotGranted": "स्थान की अनुमति नहीं दी गई. आप इसे सिस्टम सेटिंग्स में सक्षम कर सकते हैं।",
+  "theme": "विषय",
+  "appTheme": "ऐप थीम",
+  "chooseHowAppLooks": "चुनें कि ऐप कैसा दिखेगा.",
+  "textSize": "टेक्स्ट का साइज़",
+  "adjustTextSize": "पूरे ऐप में टेक्स्ट का आकार समायोजित करें।",
+  "smaller": "छोटे",
+  "larger": "बड़ा",
+  "support": "सहायता",
+  "sendAppFeedback": "ऐप फीडबैक भेजें",
+  "reportBugsImprovements": "बग, भ्रामक जानकारी या सुधार सुझावों की रिपोर्ट करें।",
+  "noFeedbackYet": "आपने अभी तक कोई प्रतिक्रिया सबमिट नहीं की है.",
+  "adminResponse": "व्यवस्थापक प्रतिक्रिया",
+  "awaitingAdminResponse": "व्यवस्थापक की प्रतिक्रिया की प्रतीक्षा है...",
+  "statusPending": "लंबित",
+  "statusInProgress": "प्रगति पर है",
+  "statusResolved": "हल किया",
+  "statusWontFix": "ठीक नहीं होगा"
+}

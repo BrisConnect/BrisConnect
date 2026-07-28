@@ -2,7 +2,6 @@ import 'package:brisconnect/auth/app_user_role.dart';
 import 'package:brisconnect/services/admin_message_service.dart';
 import 'package:brisconnect/services/sms_notification_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
-import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
 import 'package:flutter/material.dart';
 
@@ -17,7 +16,8 @@ class AdminSmsBroadcastScreen extends StatefulWidget {
   final bool enforceRoleGuard;
 
   @override
-  State<AdminSmsBroadcastScreen> createState() => _AdminSmsBroadcastScreenState();
+  State<AdminSmsBroadcastScreen> createState() =>
+      _AdminSmsBroadcastScreenState();
 }
 
 class _AdminSmsBroadcastScreenState extends State<AdminSmsBroadcastScreen> {
@@ -135,16 +135,20 @@ class _AdminSmsBroadcastScreenState extends State<AdminSmsBroadcastScreen> {
                 return ListTile(
                   leading: Checkbox(
                     value: isSelected,
-                    onChanged: _isSending ? null : (_) {
-                      setState(() => _audience = value);
-                      Navigator.of(ctx).pop();
-                    },
+                    onChanged: _isSending
+                        ? null
+                        : (_) {
+                            setState(() => _audience = value);
+                            Navigator.of(ctx).pop();
+                          },
                   ),
                   title: Text(label),
-                  onTap: _isSending ? null : () {
-                    setState(() => _audience = value);
-                    Navigator.of(ctx).pop();
-                  },
+                  onTap: _isSending
+                      ? null
+                      : () {
+                          setState(() => _audience = value);
+                          Navigator.of(ctx).pop();
+                        },
                 );
               }),
             ],
@@ -167,14 +171,24 @@ class _AdminSmsBroadcastScreenState extends State<AdminSmsBroadcastScreen> {
         : _audience == 'visitors'
             ? 'All Visitors'
             : _locals.firstWhere(
-                (local) => _audience == 'local:${local['email']}',
-                orElse: () => {'name': '', 'email': ''},
-              )['name'] ?? 'All Visitors';
+                  (local) => _audience == 'local:${local['email']}',
+                  orElse: () => {'name': '', 'email': ''},
+                )['name'] ??
+                'All Visitors';
 
     final content = Scaffold(
-      backgroundColor: AppPalette.background,
+      backgroundColor: const Color(0xFFEBF4FF),
       appBar: AppBar(
-        title: const LogoAppBarTitle('Send SMS Broadcast'),
+        backgroundColor: const Color(0xFFEBF4FF),
+        foregroundColor: const Color(0xFF1E3A8A),
+        elevation: 0,
+        title: const Text(
+          'Send SMS Broadcast',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF1E3A8A),
+          ),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -204,7 +218,8 @@ class _AdminSmsBroadcastScreenState extends State<AdminSmsBroadcastScreen> {
                       ? GestureDetector(
                           onTap: _isSending ? null : _showAudienceDialog,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
                             decoration: BoxDecoration(
                               border: Border.all(color: Colors.grey.shade400),
                               borderRadius: BorderRadius.circular(4),
@@ -217,13 +232,16 @@ class _AdminSmsBroadcastScreenState extends State<AdminSmsBroadcastScreen> {
                                   child: Text(
                                     displayText,
                                     style: TextStyle(
-                                      color: _audience == null ? Colors.grey : Colors.black,
+                                      color: _audience == null
+                                          ? Colors.grey
+                                          : Colors.black,
                                     ),
                                   ),
                                 ),
                                 Icon(
                                   Icons.keyboard_arrow_down,
-                                  color: _isSending ? Colors.grey : Colors.black54,
+                                  color:
+                                      _isSending ? Colors.grey : Colors.black54,
                                 ),
                               ],
                             ),
@@ -276,7 +294,8 @@ class _AdminSmsBroadcastScreenState extends State<AdminSmsBroadcastScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.sms_outlined),
-                      label: Text(_isSending ? 'Sending...' : 'Send SMS Broadcast'),
+                      label: Text(
+                          _isSending ? 'Sending...' : 'Send SMS Broadcast'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppPalette.deepBlue,
                         foregroundColor: Colors.white,

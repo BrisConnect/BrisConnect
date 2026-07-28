@@ -1,0 +1,323 @@
+{
+  "appTitle": "BrisConnect+",
+  "welcome": "Добро пожаловать",
+  "signIn": "Войти",
+  "signUp": "Зарегистрироваться",
+  "signOut": "Выйти",
+  "email": "Электронная почта",
+  "password": "Пароль",
+  "phone": "Телефон",
+  "name": "Имя",
+  "save": "Сохранить",
+  "cancel": "Отмена",
+  "editProfile": "Редактировать профиль",
+  "profileInfo": "Информация профиля",
+  "preferences": "Настройки",
+  "language": "Язык",
+  "locationRadius": "Радиус местоположения",
+  "appearanceSettings": "Настройки внешнего вида",
+  "feedback": "Обратная связь",
+  "myFeedback": "Моя обратная связь",
+  "helpAndSupport": "Помощь и поддержка",
+  "discover": "Исследовать",
+  "community": "Сообщество",
+  "map": "Карта",
+  "saved": "Сохранено",
+  "profile": "Профиль",
+  "food": "Еда",
+  "events": "События",
+  "businesses": "Бизнес",
+  "promotions": "Акции",
+  "photos": "Фото",
+  "newPost": "Новое",
+  "search": "Поиск",
+  "filter": "Фильтр",
+  "clearFilters": "Очистить фильтры",
+  "noResults": "Результаты не найдены",
+  "loading": "Загрузка...",
+  "error": "Ошибка",
+  "success": "Успех",
+  "profileUpdated": "Профиль успешно обновлён.",
+  "profileUpdateFailed": "Не удалось обновить профиль. Попробуйте ещё раз.",
+  "guestVisitor": "Гость",
+  "localUser": "Местный",
+  "filterEventsTitle": "Фильтровать события",
+  "priceLabel": "Цена",
+  "dateLabel": "Дата",
+  "pickADate": "Выберите дату",
+  "resetButton": "Сброс",
+  "applyButton": "Применить",
+  "freeLabel": "Бесплатно",
+  "paidLabel": "Платный",
+  "eventSavedToInterested": "{eventTitle} сохранено в разделе «Интересно».",
+  "@eventSavedToInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "eventRemovedFromInterested": "{eventTitle} удален из списка «Интересно».",
+  "@eventRemovedFromInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "savedToAttractions": "{title} сохранен в папке «Сохраненные достопримечательности».",
+  "@savedToAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "removedFromAttractions": "{title} удален из сохраненных достопримечательностей.",
+  "@removedFromAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "pleaseSignInToSaveEvents": "Пожалуйста, войдите в систему как посетитель, чтобы сохранять события.",
+  "pleaseSignInToReview": "Пожалуйста, войдите, чтобы написать отзыв или BuzzVote.",
+  "reviewSubmitted": "Отзыв отправлен\\! ⭐ {rating} / Живая информация ⚡ {buzzRating}",
+  "@reviewSubmitted": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "buzzRating": {
+        "type": "String"
+      }
+    }
+  },
+  "reviewSubmitFailed": "Не удалось отправить отзыв: {error}",
+  "@reviewSubmitFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noExternalLink": "Для этого элемента пока нет внешней ссылки.",
+  "unableToOpenLink": "Сейчас невозможно открыть ссылку на мероприятие.",
+  "shareTitle": "Поделиться: {title}",
+  "@shareTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "reportEvent": "Сообщить о событии",
+  "reviewsOnlyForFood": "Отзывы доступны только для продуктов питания.",
+  "chooseFromGallery": "Выбрать из галереи",
+  "takeAPhoto": "Сфотографироваться",
+  "pleaseLoginVisitor": "Пожалуйста, сначала войдите в систему как посетитель.",
+  "onlyJpgPng": "Поддерживаются только изображения JPG и PNG.",
+  "imageTooLarge": "Изображение слишком велико. Пожалуйста, выберите изображение меньшего размера.",
+  "profilePictureUpdated": "Изображение профиля успешно обновлено.",
+  "profilePictureUpdateFailed": "Не удалось обновить изображение профиля. Пожалуйста, попробуйте еще раз.",
+  "enterYourName": "Введите свое имя",
+  "phoneHint": "например 04хххххххх",
+  "nameCannotBeEmpty": "Имя не может быть пустым.",
+  "nameMinLength": "Имя должно состоять минимум из 2 символов.",
+  "enterValidPhone": "Введите действительный номер телефона.",
+  "changeProfilePicture": "Изменить изображение профиля",
+  "uploadProfilePicture": "Загрузить изображение профиля",
+  "areYouSureSignOut": "Вы уверены, что хотите выйти?",
+  "returnWelcome": "Вернуться к экрану приветствия",
+  "setHowFarRecommendations": "Установите, насколько далеко могут распространяться рекомендации",
+  "themeTextSizeFeedback": "Тема, размер текста и отзывы",
+  "faqsContactAppInfo": "Часто задаваемые вопросы, свяжитесь с нами и информация о приложении",
+  "viewSubmittedFeedback": "Просмотр отправленных вами отзывов и ответов администратора",
+  "discoverSubtitle": "Откройте для себя местную еду и впечатления",
+  "searchHintLocalFood": "Найдите местные предприятия общественного питания...",
+  "homeLabel": "Главная",
+  "recommendedForYou": "Рекомендуется для вас",
+  "seeAll": "Посмотреть все",
+  "categories": "Категории",
+  "nearby": "Рядом",
+  "noFoodPlacesFound": "Мест с едой не найдено",
+  "noFoodPlacesSubtitle": "Попробуйте изменить параметры поиска или фильтра.",
+  "localFoodBusinesses": "Местные продовольственные предприятия",
+  "localFoodSubtitle": "Поддержите малые и средние пищевые предприятия Брисбена",
+  "exploreReviewFoodBusinesses": "Изучите и сделайте обзор предприятий пищевой промышленности",
+  "noSavedItemsTitle": "Пока нет сохраненных элементов",
+  "noSavedItemsSubtitle": "Коснитесь значка сердечка на визитных карточках с едой или закладки в бизнес-профиле, чтобы сохранить их здесь.",
+  "savedEvents": "Сохраненные события",
+  "savedEventsSubtitle": "Напоминания и планы ваших мероприятий",
+  "savedAttractions": "Сохраненные достопримечательности",
+  "savedAttractionsSubtitle": "Места для посещения независимо от событий",
+  "savedBusinesses": "Сохраненные предприятия",
+  "savedBusinessesSubtitle": "Пищевые предприятия, которые вы добавили в закладки",
+  "savedItemsUnavailableTitle": "Сохраненные элементы недоступны.",
+  "savedItemsUnavailableSubtitle": "Некоторые сохраненные элементы больше не публикуются в ленте открытий.",
+  "retryAction": "Повторить попытку",
+  "unableToLoadDiscover": "Невозможно загрузить обнаруженные элементы прямо сейчас. Пожалуйста, попробуйте еще раз.",
+  "unableToLoadSaved": "Невозможно загрузить сохраненные элементы прямо сейчас. Пожалуйста, попробуйте еще раз.",
+  "dateTBA": "Дата будет объявлена позднее",
+  "timeTBA": "Время будет объявлено позднее",
+  "untitledEvent": "Безымянное событие",
+  "locationTBA": "Местоположение будет объявлено позднее",
+  "priceTBA": "Цена будет объявлена позже",
+  "placeFallback": "Место",
+  "foodExperienceFallback": "Еда Опыт",
+  "stadiumFallback": "Стадион",
+  "eventFallback": "Событие",
+  "attractionFallback": "Привлечение",
+  "ratingReviewsCount": "{rating} · {count} отзывов",
+  "@ratingReviewsCount": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "approved": "Утверждено",
+  "audience": "Аудитория",
+  "businessLabel": "Бизнес",
+  "controlDistance": "Расстояние управления для ближайших возможностей",
+  "dashboard": "Панель управления",
+  "delete": "Удалить",
+  "deleteEvent": "Удалить событие",
+  "deletingEvent": "Удаление мероприятия...",
+  "displayName": "Отображаемое имя",
+  "errorDeletingEvent": "Ошибка удаления события: {error}.",
+  "@errorDeletingEvent": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "errorLoadingMap": "Ошибка загрузки карты: {error}.",
+  "@errorLoadingMap": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "eventDeleted": "Событие «{title}» удалено.",
+  "@eventDeleted": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToDeleteEvent": "Не удалось удалить мероприятие. Пожалуйста, попробуйте еще раз.",
+  "feed": "Кормить",
+  "localBusinessPortal": "Местный бизнес-портал",
+  "pending": "Ожидается",
+  "phoneNumber": "Номер телефона",
+  "pleaseLoginLocal": "Пожалуйста, сначала войдите в систему как локальный пользователь.",
+  "pleaseLoginToDelete": "Пожалуйста, войдите, чтобы удалить события.",
+  "pushAlerts": "Push-уведомления для вашего бизнеса",
+  "rejected": "Отклонено",
+  "reviews": "Отзывы",
+  "saveChanges": "Сохранить изменения",
+  "searchHintEvents": "Поиск событий, заказов...",
+  "suburb": "Пригород",
+  "thisLinkUnavailable": "Эта ссылка сейчас недоступна.",
+  "total": "Итого",
+  "couldNotSaveSettings": "Не удалось сохранить настройки. Пожалуйста, попробуйте еще раз.",
+  "locationAccessDisabled": "Доступ к местоположению отключен для функций приложения.",
+  "locationPermissionGranted": "Разрешение на размещение предоставлено.",
+  "openSettings": "Открыть настройки",
+  "themeDark": "Темный",
+  "themeLight": "Свет",
+  "themeSystem": "Система",
+  "textScalePercent": "{value}%",
+  "@textScalePercent": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "categoryLabel": "Категория: {category}",
+  "@categoryLabel": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "severityLabel": "Серьезность: {severity}",
+  "@severityLabel": {
+    "placeholders": {
+      "severity": {
+        "type": "String"
+      }
+    }
+  },
+  "languageEnglish": "английский",
+  "languageSpanish": "испанский",
+  "languageFrench": "французский",
+  "languageGerman": "немецкий",
+  "languageChinese": "китайский",
+  "languageArabic": "арабский",
+  "languageHindi": "Хинди",
+  "languageItalian": "итальянский",
+  "languageJapanese": "японский",
+  "languageKorean": "Корейский",
+  "languagePortuguese": "португальский",
+  "languageRussian": "русский",
+  "languageVietnamese": "вьетнамский",
+  "languageGreek": "Греческий",
+  "discoverTitle": "Откройте для себя местную еду",
+  "openSourceLink": "Ссылка с открытым исходным кодом",
+  "pendingApproval": "Ожидает одобрения",
+  "deleteEventConfirmation": "Вы уверены, что хотите удалить «{title}»? ",
+  "@deleteEventConfirmation": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "myActivity": "Моя деятельность",
+  "businessNotifications": "Бизнес-уведомления",
+  "about": "О",
+  "aboutDescription": "BrisConnect+ — это умный путеводитель по городу, который помогает посетителям и местным жителям узнавать о событиях, исследовать достопримечательности и записывать свои впечатления от Брисбена на одной подключенной платформе.",
+  "versionLabel": "Версия {version}",
+  "@versionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "locationPermissions": "Разрешения местоположения",
+  "enableLocationAccess": "Включить доступ к местоположению",
+  "allowNearbyMapFeatures": "Разрешить рекомендации поблизости и функции с поддержкой карты.",
+  "locationSettings": "Настройки местоположения",
+  "setSearchRadius": "Установите радиус поиска событий и достопримечательностей.",
+  "pleaseLoginToViewSettings": "Пожалуйста, войдите, чтобы просмотреть настройки.",
+  "locationPermissionNotGranted": "Разрешение на размещение не было предоставлено. Вы можете включить его в настройках системы.",
+  "theme": "Тема",
+  "appTheme": "Тема приложения",
+  "chooseHowAppLooks": "Выберите, как будет выглядеть приложение.",
+  "textSize": "Размер текста",
+  "adjustTextSize": "Отрегулируйте размер текста в приложении.",
+  "smaller": "Меньший",
+  "larger": "Больше",
+  "support": "Поддерживать",
+  "sendAppFeedback": "Отправить отзыв о приложении",
+  "reportBugsImprovements": "Сообщайте об ошибках, вводящей в заблуждение информации или предложениях по улучшению.",
+  "noFeedbackYet": "Вы еще не отправили ни одного отзыва.",
+  "adminResponse": "Ответ администратора",
+  "awaitingAdminResponse": "Жду ответа администратора...",
+  "statusPending": "В ожидании",
+  "statusInProgress": "В ходе выполнения",
+  "statusResolved": "Решено",
+  "statusWontFix": "Не исправлю"
+}

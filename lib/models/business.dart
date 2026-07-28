@@ -147,6 +147,82 @@ class Business {
     );
   }
 
+  /// Create a [Business] from a [food_businesses] document.
+  ///
+  /// This is a compatibility shim: the visitor portal's discover feed and
+  /// detail screens use the [food_businesses] collection, while the business
+  /// owner portal and public share links use the canonical [businesses]
+  /// collection. Tapping a promotion or activity feed card that points at a
+  /// food business should still render a profile.
+  factory Business.fromFoodBusinessDoc(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>?;
+    if (data == null) {
+      return Business(id: doc.id, ownerId: '', businessName: '', category: '', description: '', address: '', contactNumber: '');
+    }
+    final name = (data['name'] ?? data['businessName'] ?? '').toString();
+    final category = (data['category'] ?? 'Food').toString();
+    final logoUrl = data['logoUrl'] ?? data['imageUrl'];
+    final coverImageUrl = data['coverImageUrl'] ?? data['imageUrl'];
+    final lat = (data['lat'] ?? data['latitude']) as num?;
+    final lng = (data['lng'] ?? data['longitude']) as num?;
+    final phone = data['phone'] ?? data['contactNumber'];
+    final website = data['website'];
+    final facebook = data['facebookUrl'] ?? data['facebook'];
+    final instagram = data['instagramUrl'] ?? data['instagram'];
+    final socialMedia = <String, String>{};
+    if (facebook is String && facebook.isNotEmpty) socialMedia['facebook'] = facebook;
+    if (instagram is String && instagram.isNotEmpty) socialMedia['instagram'] = instagram;
+    final operatingHours = data['operatingHours'] ?? data['businessHours'];
+    BusinessHours? businessHours;
+    if (operatingHours is Map<String, dynamic>) {
+      businessHours = BusinessHours.fromFirestore(operatingHours);
+    } else if (operatingHours is String && operatingHours.isNotEmpty) {
+      // Treat free-text hours as a single "Hours" entry.
+      businessHours = BusinessHours(hours: {
+        'Hours': DayHours(openTime: '', closeTime: operatingHours),
+      });
+    }
+    final menuRaw = data['menu'];
+    final menuItems = menuRaw is List
+        ? menuRaw.whereType<String>().toList()
+        : <String>[];
+    final photoGalleryRaw = data['photoGallery'];
+    final photos = photoGalleryRaw is List
+        ? photoGalleryRaw.whereType<String>().toList()
+        : <String>[];
+    final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+    final updatedAt = (data['updatedAt'] as Timestamp?)?.toDate();
+
+    return Business(
+      id: doc.id,
+      ownerId: (data['ownerId'] ?? '').toString(),
+      businessName: name,
+      category: category,
+      description: (data['description'] ?? '').toString(),
+      address: (data['address'] ?? '').toString(),
+      lat: lat?.toDouble(),
+      lng: lng?.toDouble(),
+      contactNumber: (phone ?? '').toString(),
+      website: website is String ? website : null,
+      socialMedia: socialMedia.isEmpty ? null : socialMedia,
+      logoUrl: logoUrl is String ? logoUrl : null,
+      coverImageUrl: coverImageUrl is String ? coverImageUrl : null,
+      businessHours: businessHours,
+      menuItems: menuItems.isEmpty ? null : menuItems,
+      photos: photos.isEmpty ? null : photos,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      isVerified: data['isVerified'] ?? false,
+      rating: (data['rating'] as num?)?.toInt(),
+      buzzScore: (data['buzzScore'] as num?)?.toDouble() ?? 0.0,
+      isTrending: data['isTrending'] ?? false,
+      viewCount: (data['viewCount'] as num?)?.toInt() ?? 0,
+      reviewCount: (data['reviewCount'] as num?)?.toInt() ?? 0,
+      isActive: data['isActive'] ?? !(data['deletedAt'] != null),
+      deletedAt: (data['deletedAt'] as Timestamp?)?.toDate(),
+    );
+  }
+
   /// Create a copy with modifications
   Business copyWith({
     String? id,

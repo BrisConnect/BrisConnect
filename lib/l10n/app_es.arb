@@ -1,0 +1,323 @@
+{
+  "appTitle": "BrisConnect+",
+  "welcome": "Bienvenido",
+  "signIn": "Iniciar sesión",
+  "signUp": "Registrarse",
+  "signOut": "Cerrar sesión",
+  "email": "Correo electrónico",
+  "password": "Contraseña",
+  "phone": "Teléfono",
+  "name": "Nombre",
+  "save": "Guardar",
+  "cancel": "Cancelar",
+  "editProfile": "Editar perfil",
+  "profileInfo": "Información del perfil",
+  "preferences": "Preferencias",
+  "language": "Idioma",
+  "locationRadius": "Radio de ubicación",
+  "appearanceSettings": "Apariencia",
+  "feedback": "Comentarios",
+  "myFeedback": "Mis comentarios",
+  "helpAndSupport": "Ayuda y soporte",
+  "discover": "Descubrir",
+  "community": "Comunidad",
+  "map": "Mapa",
+  "saved": "Guardado",
+  "profile": "Perfil",
+  "food": "Comida",
+  "events": "Eventos",
+  "businesses": "Negocios",
+  "promotions": "Promociones",
+  "photos": "Fotos",
+  "newPost": "Nuevo",
+  "search": "Buscar",
+  "filter": "Filtrar",
+  "clearFilters": "Borrar filtros",
+  "noResults": "No se encontraron resultados",
+  "loading": "Cargando...",
+  "error": "Error",
+  "success": "Éxito",
+  "profileUpdated": "Perfil actualizado con éxito.",
+  "profileUpdateFailed": "No se pudo actualizar el perfil. Inténtalo de nuevo.",
+  "guestVisitor": "Visitante invitado",
+  "localUser": "Local",
+  "filterEventsTitle": "Filtrar eventos",
+  "priceLabel": "Precio",
+  "dateLabel": "Fecha",
+  "pickADate": "Elige una fecha",
+  "resetButton": "Reiniciar",
+  "applyButton": "Aplicar",
+  "freeLabel": "Gratis",
+  "paidLabel": "Pagado",
+  "eventSavedToInterested": "{eventTitle} guardado como Interesado.",
+  "@eventSavedToInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "eventRemovedFromInterested": "{eventTitle} eliminado de Interesado.",
+  "@eventRemovedFromInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "savedToAttractions": "{title} guardado en Atracciones guardadas.",
+  "@savedToAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "removedFromAttractions": "{title} eliminado de las atracciones guardadas.",
+  "@removedFromAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "pleaseSignInToSaveEvents": "Inicie sesión como visitante para guardar eventos.",
+  "pleaseSignInToReview": "Inicie sesión para escribir una reseña o BuzzVote.",
+  "reviewSubmitted": "¡Revisión enviada! ⭐ {rating} / Buzz ⚡ {buzzRating}",
+  "@reviewSubmitted": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "buzzRating": {
+        "type": "String"
+      }
+    }
+  },
+  "reviewSubmitFailed": "No se pudo enviar la reseña: {error}",
+  "@reviewSubmitFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noExternalLink": "Aún no hay ningún enlace externo disponible para este artículo.",
+  "unableToOpenLink": "No se puede abrir el enlace del evento en este momento.",
+  "shareTitle": "Compartir: {title}",
+  "@shareTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "reportEvent": "Informar evento",
+  "reviewsOnlyForFood": "Las reseñas solo están disponibles para alimentos.",
+  "chooseFromGallery": "Elige de la galería",
+  "takeAPhoto": "tomar una foto",
+  "pleaseLoginVisitor": "Primero inicie sesión como visitante.",
+  "onlyJpgPng": "Sólo se admiten imágenes JPG y PNG.",
+  "imageTooLarge": "La imagen es demasiado grande. Elija una imagen más pequeña.",
+  "profilePictureUpdated": "Imagen de perfil actualizada correctamente.",
+  "profilePictureUpdateFailed": "No se pudo actualizar la foto de perfil. Por favor inténtalo de nuevo.",
+  "enterYourName": "Introduce tu nombre",
+  "phoneHint": "por ej. 04xxxxxxxxx",
+  "nameCannotBeEmpty": "El nombre no puede estar vacío.",
+  "nameMinLength": "El nombre debe tener al menos 2 caracteres.",
+  "enterValidPhone": "Ingrese un número de teléfono válido.",
+  "changeProfilePicture": "Cambiar foto de perfil",
+  "uploadProfilePicture": "Subir foto de perfil",
+  "areYouSureSignOut": "¿Estás seguro de que deseas cerrar sesión?",
+  "returnWelcome": "Volver a la pantalla de bienvenida",
+  "setHowFarRecommendations": "Establecer hasta qué punto pueden llegar las recomendaciones",
+  "themeTextSizeFeedback": "Tema, tamaño del texto y comentarios",
+  "faqsContactAppInfo": "Preguntas frecuentes, contáctenos e información de la aplicación",
+  "viewSubmittedFeedback": "Ver los comentarios enviados y las respuestas del administrador",
+  "discoverSubtitle": "Descubra la comida y las experiencias locales.",
+  "searchHintLocalFood": "Buscar negocios de comida locales...",
+  "homeLabel": "Inicio",
+  "recommendedForYou": "Recomendado para ti",
+  "seeAll": "Ver todo",
+  "categories": "Categorías",
+  "nearby": "cerca",
+  "noFoodPlacesFound": "No se encontraron lugares de comida",
+  "noFoodPlacesSubtitle": "Intente cambiar sus selecciones de búsqueda o filtro.",
+  "localFoodBusinesses": "Empresas de alimentos locales",
+  "localFoodSubtitle": "Apoyar a las pequeñas y medianas empresas alimentarias de Brisbane",
+  "exploreReviewFoodBusinesses": "Explorar y revisar empresas alimentarias",
+  "noSavedItemsTitle": "Aún no hay elementos guardados",
+  "noSavedItemsSubtitle": "Toque el ícono del corazón en las tarjetas de presentación de alimentos o el marcador en un perfil comercial para guardarlas aquí.",
+  "savedEvents": "Eventos guardados",
+  "savedEventsSubtitle": "Sus recordatorios y planes de eventos",
+  "savedAttractions": "Atracciones guardadas",
+  "savedAttractionsSubtitle": "Lugares para visitar independientemente de los eventos.",
+  "savedBusinesses": "Negocios salvados",
+  "savedBusinessesSubtitle": "Empresas de alimentación que has marcado como favoritas",
+  "savedItemsUnavailableTitle": "Artículos guardados no disponibles",
+  "savedItemsUnavailableSubtitle": "Algunos elementos guardados ya no se publican en el feed de descubrimiento.",
+  "retryAction": "Reintentar",
+  "unableToLoadDiscover": "No se pueden cargar elementos de descubrimiento en este momento. Por favor inténtalo de nuevo.",
+  "unableToLoadSaved": "No se pueden cargar elementos guardados en este momento. Por favor inténtalo de nuevo.",
+  "dateTBA": "Fecha por determinar",
+  "timeTBA": "Hora por determinar",
+  "untitledEvent": "Evento sin título",
+  "locationTBA": "Ubicación por determinar",
+  "priceTBA": "Precio por determinar",
+  "placeFallback": "Lugar",
+  "foodExperienceFallback": "Experiencia gastronómica",
+  "stadiumFallback": "Estadio",
+  "eventFallback": "Evento",
+  "attractionFallback": "Atracción",
+  "ratingReviewsCount": "{rating} · {count} reseñas",
+  "@ratingReviewsCount": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "approved": "Aprobado",
+  "audience": "Audiencia",
+  "businessLabel": "Negocios",
+  "controlDistance": "Controlar la distancia para oportunidades cercanas",
+  "dashboard": "Panel de control",
+  "delete": "Eliminar",
+  "deleteEvent": "Eliminar evento",
+  "deletingEvent": "Eliminando evento...",
+  "displayName": "Nombre para mostrar",
+  "errorDeletingEvent": "Error al eliminar evento: {error}",
+  "@errorDeletingEvent": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "errorLoadingMap": "Error al cargar el mapa: {error}",
+  "@errorLoadingMap": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "eventDeleted": "Se ha eliminado el evento \"{title}\".",
+  "@eventDeleted": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToDeleteEvent": "No se pudo eliminar el evento. Por favor inténtalo de nuevo.",
+  "feed": "alimentar",
+  "localBusinessPortal": "portal de negocios locales",
+  "pending": "Pendiente",
+  "phoneNumber": "Número de teléfono",
+  "pleaseLoginLocal": "Primero inicie sesión como usuario local.",
+  "pleaseLoginToDelete": "Inicie sesión para eliminar eventos.",
+  "pushAlerts": "Alertas push para tu negocio",
+  "rejected": "Rechazado",
+  "reviews": "Reseñas",
+  "saveChanges": "Guardar cambios",
+  "searchHintEvents": "Buscar eventos, reservas...",
+  "suburb": "suburbio",
+  "thisLinkUnavailable": "Este enlace no está disponible en este momento.",
+  "total": "totales",
+  "couldNotSaveSettings": "No se pudo guardar la configuración. Por favor inténtalo de nuevo.",
+  "locationAccessDisabled": "Acceso a la ubicación deshabilitado para las funciones de la aplicación.",
+  "locationPermissionGranted": "Permiso de ubicación concedido.",
+  "openSettings": "Abrir configuración",
+  "themeDark": "oscuro",
+  "themeLight": "Luz",
+  "themeSystem": "Sistema",
+  "textScalePercent": "{value}%",
+  "@textScalePercent": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "categoryLabel": "Categoría: {category}",
+  "@categoryLabel": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "severityLabel": "Gravedad: {severity}",
+  "@severityLabel": {
+    "placeholders": {
+      "severity": {
+        "type": "String"
+      }
+    }
+  },
+  "languageEnglish": "ingles",
+  "languageSpanish": "español",
+  "languageFrench": "francés",
+  "languageGerman": "alemán",
+  "languageChinese": "chino",
+  "languageArabic": "árabe",
+  "languageHindi": "hindi",
+  "languageItalian": "italiano",
+  "languageJapanese": "japonés",
+  "languageKorean": "coreano",
+  "languagePortuguese": "portugués",
+  "languageRussian": "ruso",
+  "languageVietnamese": "vietnamita",
+  "languageGreek": "griego",
+  "discoverTitle": "Descubra la comida local",
+  "openSourceLink": "Enlace de código abierto",
+  "pendingApproval": "Pendiente de aprobación",
+  "deleteEventConfirmation": "¿Está seguro de que desea eliminar \"{title}\"? ",
+  "@deleteEventConfirmation": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "myActivity": "Mi actividad",
+  "businessNotifications": "Notificaciones comerciales",
+  "about": "Acerca de",
+  "aboutDescription": "BrisConnect+ es una guía de ciudad inteligente que ayuda a visitantes y lugareños a descubrir eventos, explorar atracciones y capturar sus experiencias de Brisbane en una plataforma conectada.",
+  "versionLabel": "Versión {version}",
+  "@versionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "locationPermissions": "Permisos de ubicación",
+  "enableLocationAccess": "Habilitar acceso a la ubicación",
+  "allowNearbyMapFeatures": "Permita recomendaciones cercanas y funciones de reconocimiento de mapas.",
+  "locationSettings": "Configuración de ubicación",
+  "setSearchRadius": "Establezca su radio de búsqueda para eventos y atracciones.",
+  "pleaseLoginToViewSettings": "Inicie sesión para ver la configuración.",
+  "locationPermissionNotGranted": "No se concedió el permiso de ubicación. Puede habilitarlo en la configuración del sistema.",
+  "theme": "Tema",
+  "appTheme": "Tema de la aplicación",
+  "chooseHowAppLooks": "Elige cómo se ve la aplicación.",
+  "textSize": "Tamaño del texto",
+  "adjustTextSize": "Ajuste el tamaño del texto en toda la aplicación.",
+  "smaller": "Menor",
+  "larger": "Más grande",
+  "support": "Apoyo",
+  "sendAppFeedback": "Enviar comentarios sobre la aplicación",
+  "reportBugsImprovements": "Informar errores, información engañosa o sugerencias de mejora.",
+  "noFeedbackYet": "Aún no has enviado ningún comentario.",
+  "adminResponse": "Respuesta del administrador",
+  "awaitingAdminResponse": "Esperando respuesta del administrador...",
+  "statusPending": "Pendiente",
+  "statusInProgress": "En curso",
+  "statusResolved": "Resuelto",
+  "statusWontFix": "No se arreglará"
+}

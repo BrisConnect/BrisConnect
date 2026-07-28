@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
+
 import 'package:brisconnect/models/business.dart';
 
 /// Service for managing business profiles in Firestore and Firebase Storage
@@ -50,12 +53,18 @@ class BusinessProfileService {
     }
   }
 
-  /// Get a business profile by ID
+  /// Get a business profile by ID from the canonical [businesses] collection,
+  /// falling back to [food_businesses] when no document exists.
   Future<Business?> getBusinessProfile(String businessId) async {
     try {
       final doc = await _firestore.collection(_collection).doc(businessId).get();
       if (doc.exists) {
         return Business.fromFirestore(doc);
+      }
+      final foodDoc =
+          await _firestore.collection('food_businesses').doc(businessId).get();
+      if (foodDoc.exists) {
+        return Business.fromFoodBusinessDoc(foodDoc);
       }
       return null;
     } catch (e) {
@@ -63,11 +72,19 @@ class BusinessProfileService {
     }
   }
 
-  /// Get business profile stream for real-time updates
+  /// Get business profile stream for real-time updates.
+  ///
+  /// Listens to [businesses] and falls back to [food_businesses] if the
+  /// document does not exist in the canonical collection.
   Stream<Business?> getBusinessProfileStream(String businessId) {
-    return _firestore.collection(_collection).doc(businessId).snapshots().map((doc) {
+    return _firestore.collection(_collection).doc(businessId).snapshots().asyncMap((doc) async {
       if (doc.exists) {
         return Business.fromFirestore(doc);
+      }
+      final foodDoc =
+          await _firestore.collection('food_businesses').doc(businessId).get();
+      if (foodDoc.exists) {
+        return Business.fromFoodBusinessDoc(foodDoc);
       }
       return null;
     });
@@ -240,25 +257,85 @@ class BusinessProfileService {
   }
 
   /// Stream of all verified, active, non-deleted businesses (public listing).
+  ///
+  /// Falls back to the full collection if the composite index is not yet ready,
+  /// so the map never renders empty because of an indexing delay.
   Stream<List<Business>> getVerifiedBusinessesStream() {
-    return _firestore
-        .collection(_collection)
-        .where('isVerified', isEqualTo: true)
-        .where('isActive', isEqualTo: true)
-        .where('deletedAt', isNull: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
+    return _fallbackableStream(
+      primary: _firestore
+          .collection(_collection)
+          .where('isVerified', isEqualTo: true)
+          .where('isActive', isEqualTo: true)
+          .where('deletedAt', isNull: true)
+          .snapshots(),
+      fallback: _allBusinessesFallbackStream(),
+      label: 'verified',
+    );
   }
 
   /// Stream of all active, non-deleted businesses regardless of verification status.
   /// Useful for development/testing when no profiles have been verified yet.
   Stream<List<Business>> getAllBusinessesStream() {
+    return _fallbackableStream(
+      primary: _firestore
+          .collection(_collection)
+          .where('isActive', isEqualTo: true)
+          .where('deletedAt', isNull: true)
+          .snapshots(),
+      fallback: _allBusinessesFallbackStream(),
+      label: 'all active',
+    );
+  }
+
+  /// Unfiltered fallback stream that requires no composite index.
+  Stream<List<Business>> _allBusinessesFallbackStream() {
     return _firestore
         .collection(_collection)
-        .where('isActive', isEqualTo: true)
-        .where('deletedAt', isNull: true)
         .snapshots()
         .map((snapshot) => snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
+  }
+
+  /// Listens to [primary] and switches to [fallback] on error or empty result.
+  Stream<List<Business>> _fallbackableStream({
+    required Stream<QuerySnapshot> primary,
+    required Stream<List<Business>> fallback,
+    required String label,
+  }) {
+    final controller = StreamController<List<Business>>.broadcast();
+    StreamSubscription? primarySub;
+    StreamSubscription? fallbackSub;
+
+    void listenToFallback() {
+      debugPrint('[BusinessProfileService] $label stream empty/failed, using fallback');
+      fallbackSub?.cancel();
+      fallbackSub = fallback.listen(
+        controller.add,
+        onError: controller.addError,
+      );
+    }
+
+    primarySub = primary
+        .map((snapshot) => snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList())
+        .listen(
+          (data) {
+            if (data.isEmpty) {
+              listenToFallback();
+              return;
+            }
+            controller.add(data);
+          },
+          onError: (Object e) {
+            debugPrint('[BusinessProfileService] $label stream failed: $e');
+            listenToFallback();
+          },
+        );
+
+    controller.onCancel = () {
+      primarySub?.cancel();
+      fallbackSub?.cancel();
+    };
+
+    return controller.stream;
   }
 
   /// Stream of trending businesses (isTrending == true)

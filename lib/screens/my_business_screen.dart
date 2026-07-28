@@ -42,10 +42,12 @@ class _MyBusinessScreenState extends State<MyBusinessScreen> {
     if (confirmed ?? false) {
       try {
         await _businessProfileService.deleteBusinessProfile(businessId);
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Business profile deleted')),
         );
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: ${e.toString()}')),
         );

@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:brisconnect/services/visitor_photo_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';

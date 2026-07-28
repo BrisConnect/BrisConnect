@@ -352,7 +352,7 @@ class _BusinessProfileViewScreenState extends State<BusinessProfileViewScreen> {
     }
     if (await canLaunchUrl(Uri.parse(url))) {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    } else {
+    } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not open $url')),
       );
@@ -363,7 +363,7 @@ class _BusinessProfileViewScreenState extends State<BusinessProfileViewScreen> {
     final url = 'tel:$phone';
     if (await canLaunchUrl(Uri.parse(url))) {
       await launchUrl(Uri.parse(url));
-    } else {
+    } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not open phone dialer')),
       );

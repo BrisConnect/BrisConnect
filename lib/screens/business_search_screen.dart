@@ -326,7 +326,7 @@ class _BusinessSearchResultCard extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: AppPalette.ochre.withOpacity(0.2),
+                            color: AppPalette.ochre.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(

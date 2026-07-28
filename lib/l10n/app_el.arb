@@ -1,0 +1,323 @@
+{
+  "appTitle": "BrisConnect+",
+  "welcome": "Καλώς ήρθατε",
+  "signIn": "Σύνδεση",
+  "signUp": "Εγγραφή",
+  "signOut": "Αποσύνδεση",
+  "email": "Email",
+  "password": "Κωδικός πρόσβασης",
+  "phone": "Τηλέφωνο",
+  "name": "Όνομα",
+  "save": "Αποθήκευση",
+  "cancel": "Ακύρωση",
+  "editProfile": "Επεξεργασία προφίλ",
+  "profileInfo": "Πληροφορίες προφίλ",
+  "preferences": "Προτιμήσεις",
+  "language": "Γλώσσα",
+  "locationRadius": "Ακτίνα τοποθεσίας",
+  "appearanceSettings": "Ρυθμίσεις εμφάνισης",
+  "feedback": "Σχόλια",
+  "myFeedback": "Τα σχόλιά μου",
+  "helpAndSupport": "Βοήθεια και υποστήριξη",
+  "discover": "Ανακαλύψτε",
+  "community": "Κοινότητα",
+  "map": "Χάρτης",
+  "saved": "Αποθηκευμένα",
+  "profile": "Προφίλ",
+  "food": "Φαγητό",
+  "events": "Εκδηλώσεις",
+  "businesses": "Επιχειρήσεις",
+  "promotions": "Προσφορές",
+  "photos": "Φωτογραφίες",
+  "newPost": "Νέο",
+  "search": "Αναζήτηση",
+  "filter": "Φίλτρο",
+  "clearFilters": "Καθαρισμός φίλτρων",
+  "noResults": "Δεν βρέθηκαν αποτελέσματα",
+  "loading": "Φόρτωση...",
+  "error": "Σφάλμα",
+  "success": "Επιτυχία",
+  "profileUpdated": "Το προφίλ ενημερώθηκε με επιτυχία.",
+  "profileUpdateFailed": "Δεν ήταν δυνατή η ενημέρωση του προφίλ. Προσπαθήστε ξανά.",
+  "guestVisitor": "Επισκέπτης",
+  "localUser": "Τοπικός",
+  "filterEventsTitle": "Φιλτράρισμα συμβάντων",
+  "priceLabel": "Τιμή",
+  "dateLabel": "Ημερομηνία",
+  "pickADate": "Επιλέξτε μια ημερομηνία",
+  "resetButton": "Επαναφορά",
+  "applyButton": "Εφαρμόστε",
+  "freeLabel": "Δωρεάν",
+  "paidLabel": "Πληρωμένη",
+  "eventSavedToInterested": "Το {eventTitle} αποθηκεύτηκε στους Ενδιαφερόμενους.",
+  "@eventSavedToInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "eventRemovedFromInterested": "Το {eventTitle} καταργήθηκε από το στοιχείο Ενδιαφέρομαι.",
+  "@eventRemovedFromInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "savedToAttractions": "Το {title} αποθηκεύτηκε στα Αποθηκευμένα αξιοθέατα.",
+  "@savedToAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "removedFromAttractions": "Το {title} καταργήθηκε από τα αποθηκευμένα αξιοθέατα.",
+  "@removedFromAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "pleaseSignInToSaveEvents": "Παρακαλούμε συνδεθείτε ως επισκέπτης για να αποθηκεύσετε συμβάντα.",
+  "pleaseSignInToReview": "Συνδεθείτε για να γράψετε μια κριτική ή το BuzzVote.",
+  "reviewSubmitted": "Η κριτική υποβλήθηκε\\! ⭐ {rating} / Buzz ⚡ {buzzRating}",
+  "@reviewSubmitted": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "buzzRating": {
+        "type": "String"
+      }
+    }
+  },
+  "reviewSubmitFailed": "Δεν ήταν δυνατή η υποβολή κριτικής: {error}",
+  "@reviewSubmitFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noExternalLink": "Δεν υπάρχει ακόμη διαθέσιμος εξωτερικός σύνδεσμος για αυτό το αντικείμενο.",
+  "unableToOpenLink": "Δεν είναι δυνατό το άνοιγμα του συνδέσμου της εκδήλωσης αυτήν τη στιγμή.",
+  "shareTitle": "Κοινή χρήση: {title}",
+  "@shareTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "reportEvent": "Αναφορά συμβάντος",
+  "reviewsOnlyForFood": "Οι κριτικές είναι διαθέσιμες μόνο για τρόφιμα",
+  "chooseFromGallery": "Επιλέξτε από τη συλλογή",
+  "takeAPhoto": "Βγάλε μια φωτογραφία",
+  "pleaseLoginVisitor": "Συνδεθείτε πρώτα ως Επισκέπτης.",
+  "onlyJpgPng": "Υποστηρίζονται μόνο εικόνες JPG και PNG.",
+  "imageTooLarge": "Η εικόνα είναι πολύ μεγάλη. Επιλέξτε μια μικρότερη εικόνα.",
+  "profilePictureUpdated": "Η εικόνα προφίλ ενημερώθηκε με επιτυχία.",
+  "profilePictureUpdateFailed": "Δεν ήταν δυνατή η ενημέρωση της εικόνας προφίλ. Δοκιμάστε ξανά.",
+  "enterYourName": "Εισαγάγετε το όνομά σας",
+  "phoneHint": "π.χ. 04χχχχχχχχ",
+  "nameCannotBeEmpty": "Το όνομα δεν μπορεί να είναι κενό.",
+  "nameMinLength": "Το όνομα πρέπει να αποτελείται από τουλάχιστον 2 χαρακτήρες.",
+  "enterValidPhone": "Εισαγάγετε έναν έγκυρο αριθμό τηλεφώνου.",
+  "changeProfilePicture": "Αλλαγή εικόνας προφίλ",
+  "uploadProfilePicture": "Μεταφόρτωση φωτογραφίας προφίλ",
+  "areYouSureSignOut": "Είστε βέβαιοι ότι θέλετε να αποσυνδεθείτε;",
+  "returnWelcome": "Επιστρέψτε στην οθόνη καλωσορίσματος",
+  "setHowFarRecommendations": "Ορίστε πόσο μακριά μπορούν να είναι οι συστάσεις",
+  "themeTextSizeFeedback": "Θέμα, μέγεθος κειμένου και σχόλια",
+  "faqsContactAppInfo": "Συχνές ερωτήσεις, επικοινωνήστε μαζί μας και πληροφορίες εφαρμογής",
+  "viewSubmittedFeedback": "Δείτε τα σχόλια που υποβάλατε και τις απαντήσεις του διαχειριστή",
+  "discoverSubtitle": "Ανακαλύψτε τοπικό φαγητό και εμπειρίες",
+  "searchHintLocalFood": "Αναζήτηση τοπικών επιχειρήσεων τροφίμων...",
+  "homeLabel": "Σπίτι",
+  "recommendedForYou": "Προτείνεται για εσάς",
+  "seeAll": "Δείτε όλα",
+  "categories": "Κατηγορίες",
+  "nearby": "Κοντά",
+  "noFoodPlacesFound": "Δεν βρέθηκαν μέρη για φαγητό",
+  "noFoodPlacesSubtitle": "Δοκιμάστε να αλλάξετε τις επιλογές αναζήτησης ή φίλτρου.",
+  "localFoodBusinesses": "Τοπικές Επιχειρήσεις Τροφίμων",
+  "localFoodSubtitle": "Υποστηρίξτε τις μικρές και μεσαίες επιχειρήσεις τροφίμων του Μπρίσμπεϊν",
+  "exploreReviewFoodBusinesses": "Εξερευνήστε και αναθεωρήστε επιχειρήσεις τροφίμων",
+  "noSavedItemsTitle": "Δεν υπάρχουν ακόμα αποθηκευμένα στοιχεία",
+  "noSavedItemsSubtitle": "Πατήστε το εικονίδιο της καρδιάς στις επαγγελματικές κάρτες τροφίμων ή τον σελιδοδείκτη σε ένα επαγγελματικό προφίλ για να τις αποθηκεύσετε εδώ.",
+  "savedEvents": "Αποθηκευμένα συμβάντα",
+  "savedEventsSubtitle": "Οι υπενθυμίσεις και τα σχέδιά σας για εκδηλώσεις",
+  "savedAttractions": "Αποθηκευμένα αξιοθέατα",
+  "savedAttractionsSubtitle": "Μέρη για επίσκεψη ανεξάρτητα από εκδηλώσεις",
+  "savedBusinesses": "Αποθηκευμένες Επιχειρήσεις",
+  "savedBusinessesSubtitle": "Επιχειρήσεις τροφίμων που έχετε προσθέσει σελιδοδείκτη",
+  "savedItemsUnavailableTitle": "Τα αποθηκευμένα στοιχεία δεν είναι διαθέσιμα",
+  "savedItemsUnavailableSubtitle": "Ορισμένα αποθηκευμένα στοιχεία δεν δημοσιεύονται πλέον στη ροή εντοπισμού.",
+  "retryAction": "Επανάληψη",
+  "unableToLoadDiscover": "Δεν είναι δυνατή η φόρτωση στοιχείων εντοπισμού αυτήν τη στιγμή. Δοκιμάστε ξανά.",
+  "unableToLoadSaved": "Δεν είναι δυνατή η φόρτωση αποθηκευμένων στοιχείων αυτήν τη στιγμή. Δοκιμάστε ξανά.",
+  "dateTBA": "Ημερομηνία TBA",
+  "timeTBA": "Χρόνος TBA",
+  "untitledEvent": "Εκδήλωση χωρίς τίτλο",
+  "locationTBA": "Τοποθεσία TBA",
+  "priceTBA": "Τιμή TBA",
+  "placeFallback": "Τόπος",
+  "foodExperienceFallback": "Διατροφική Εμπειρία",
+  "stadiumFallback": "Γήπεδο",
+  "eventFallback": "Εκδήλωση",
+  "attractionFallback": "Έλξη",
+  "ratingReviewsCount": "{rating} · {count} κριτικές",
+  "@ratingReviewsCount": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "approved": "Εγκρίθηκε",
+  "audience": "Κοινό",
+  "businessLabel": "Επιχειρήσεις",
+  "controlDistance": "Ελέγξτε την απόσταση για κοντινές ευκαιρίες",
+  "dashboard": "Ταμπλό",
+  "delete": "Διαγραφή",
+  "deleteEvent": "Διαγραφή συμβάντος",
+  "deletingEvent": "Διαγραφή συμβάντος...",
+  "displayName": "Εμφανιζόμενο όνομα",
+  "errorDeletingEvent": "Σφάλμα κατά τη διαγραφή συμβάντος: {error}",
+  "@errorDeletingEvent": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "errorLoadingMap": "Σφάλμα κατά τη φόρτωση χάρτη: {error}",
+  "@errorLoadingMap": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "eventDeleted": "Το συμβάν \"{title}\" έχει διαγραφεί.",
+  "@eventDeleted": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToDeleteEvent": "Αποτυχία διαγραφής συμβάντος. Δοκιμάστε ξανά.",
+  "feed": "Τροφοδοσία",
+  "localBusinessPortal": "Τοπική επιχειρηματική πύλη",
+  "pending": "Σε εκκρεμότητα",
+  "phoneNumber": "Αριθμός τηλεφώνου",
+  "pleaseLoginLocal": "Συνδεθείτε πρώτα ως Τοπικός χρήστης.",
+  "pleaseLoginToDelete": "Παρακαλούμε συνδεθείτε για να διαγράψετε συμβάντα.",
+  "pushAlerts": "Push ειδοποιήσεις για την επιχείρησή σας",
+  "rejected": "Απορρίφθηκε",
+  "reviews": "Κριτικές",
+  "saveChanges": "Αποθήκευση αλλαγών",
+  "searchHintEvents": "Αναζήτηση εκδηλώσεων, κρατήσεων...",
+  "suburb": "Προάστιο",
+  "thisLinkUnavailable": "Αυτός ο σύνδεσμος δεν είναι διαθέσιμος αυτήν τη στιγμή.",
+  "total": "Σύνολο",
+  "couldNotSaveSettings": "Δεν ήταν δυνατή η αποθήκευση των ρυθμίσεων. Δοκιμάστε ξανά.",
+  "locationAccessDisabled": "Η πρόσβαση τοποθεσίας απενεργοποιήθηκε για τις λειτουργίες της εφαρμογής.",
+  "locationPermissionGranted": "Χορηγήθηκε άδεια τοποθεσίας.",
+  "openSettings": "Ανοίξτε τις Ρυθμίσεις",
+  "themeDark": "Σκοτεινό",
+  "themeLight": "Φως",
+  "themeSystem": "Σύστημα",
+  "textScalePercent": "{value}%",
+  "@textScalePercent": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "categoryLabel": "Κατηγορία: {category}",
+  "@categoryLabel": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "severityLabel": "Σοβαρότητα: {severity}",
+  "@severityLabel": {
+    "placeholders": {
+      "severity": {
+        "type": "String"
+      }
+    }
+  },
+  "languageEnglish": "Αγγλικά",
+  "languageSpanish": "Ισπανικά",
+  "languageFrench": "Γαλλικά",
+  "languageGerman": "Γερμανός",
+  "languageChinese": "κινέζικα",
+  "languageArabic": "αραβικά",
+  "languageHindi": "Χίντι",
+  "languageItalian": "ιταλική",
+  "languageJapanese": "Ιαπωνικά",
+  "languageKorean": "κορεάτικα",
+  "languagePortuguese": "Πορτογαλικά",
+  "languageRussian": "Ρωσική",
+  "languageVietnamese": "Βιετναμέζικο",
+  "languageGreek": "Έλληνας",
+  "discoverTitle": "Ανακαλύψτε το τοπικό φαγητό",
+  "openSourceLink": "Σύνδεσμος ανοιχτού κώδικα",
+  "pendingApproval": "Έγκριση σε εκκρεμότητα",
+  "deleteEventConfirmation": "Είστε βέβαιοι ότι θέλετε να διαγράψετε το \"{title}\"; ",
+  "@deleteEventConfirmation": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "myActivity": "Η δραστηριότητά μου",
+  "businessNotifications": "Ειδοποιήσεις επιχειρήσεων",
+  "about": "Για",
+  "aboutDescription": "Το BrisConnect+ είναι ένας έξυπνος οδηγός πόλης που βοηθά τους επισκέπτες και τους ντόπιους να ανακαλύψουν εκδηλώσεις, να εξερευνήσουν αξιοθέατα και να αποτυπώσουν τις εμπειρίες τους στο Brisbane σε μια συνδεδεμένη πλατφόρμα.",
+  "versionLabel": "Έκδοση {version}",
+  "@versionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "locationPermissions": "Δικαιώματα τοποθεσίας",
+  "enableLocationAccess": "Ενεργοποίηση Πρόσβασης τοποθεσίας",
+  "allowNearbyMapFeatures": "Να επιτρέπονται οι κοντινές προτάσεις και οι λειτουργίες που έχουν επίγνωση χάρτη.",
+  "locationSettings": "Ρυθμίσεις τοποθεσίας",
+  "setSearchRadius": "Ορίστε την ακτίνα αναζήτησής σας για εκδηλώσεις και αξιοθέατα.",
+  "pleaseLoginToViewSettings": "Παρακαλούμε συνδεθείτε για να δείτε τις ρυθμίσεις.",
+  "locationPermissionNotGranted": "Δεν χορηγήθηκε άδεια τοποθεσίας. Μπορείτε να το ενεργοποιήσετε στις ρυθμίσεις συστήματος.",
+  "theme": "Θέμα",
+  "appTheme": "Θέμα εφαρμογής",
+  "chooseHowAppLooks": "Επιλέξτε πώς φαίνεται η εφαρμογή.",
+  "textSize": "Μέγεθος κειμένου",
+  "adjustTextSize": "Προσαρμόστε το μέγεθος του κειμένου σε όλη την εφαρμογή.",
+  "smaller": "Μικρότερος",
+  "larger": "Μεγαλύτερος",
+  "support": "Υποστήριξη",
+  "sendAppFeedback": "Αποστολή σχολίων εφαρμογής",
+  "reportBugsImprovements": "Αναφέρετε σφάλματα, παραπλανητικές πληροφορίες ή προτάσεις βελτίωσης.",
+  "noFeedbackYet": "Δεν έχετε υποβάλει ακόμη σχόλια.",
+  "adminResponse": "Απάντηση διαχειριστή",
+  "awaitingAdminResponse": "Αναμένεται απάντηση διαχειριστή...",
+  "statusPending": "Εκκρεμής",
+  "statusInProgress": "Σε εξέλιξη",
+  "statusResolved": "Αποφασισμένος",
+  "statusWontFix": "Δεν θα διορθωθεί"
+}

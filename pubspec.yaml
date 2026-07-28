@@ -25,13 +25,15 @@ dependencies:
   # Networking / maps
   cached_network_image: ^3.4.1
   google_maps_flutter: ^2.5.0
+  google_maps_flutter_web: ^0.5.10
+  pointer_interceptor: ^0.10.1
   geolocator: ^13.0.2
   url_launcher: ^6.3.2
   connectivity_plus: ^6.1.3
 
   # Media / camera
   image_picker: ^1.2.1
-  camera: ^0.11.4
+  camera: ^0.12.0
 
   # Files & sharing
   file_picker: ^10.3.10
@@ -48,6 +50,10 @@ dependencies:
   # Biometric authentication
   local_auth: ^2.3.0
 
+  # Social authentication
+  google_sign_in: ^6.3.0
+  sign_in_with_apple: ^7.0.0
+
   # Audio / TTS
   flutter_tts: ^4.2.5
   just_audio: ^0.9.42
@@ -55,12 +61,17 @@ dependencies:
   # Crypto
   crypto: ^3.0.7
 
+  # Localization
+  flutter_localizations:
+    sdk: flutter
+
   # Calendar
   table_calendar: ^3.1.3
   google_fonts: ^8.1.0
   http: ^1.6.0
-  intl: ^0.20.3
+  intl: ^0.20.2
   fl_chart: ^0.70.0
+  path_provider: ^2.1.6
 
 dev_dependencies:
   flutter_test:
@@ -78,6 +89,7 @@ flutter_launcher_icons:
   background_color: "#1E3A5F"
 
 flutter:
+  generate: true
   uses-material-design: true
   assets:
     - "assets/logo.png"
@@ -92,3 +104,7 @@ flutter:
     - assets/Koala1.png
     - assets/Elder.png
     - assets/AB.png
+  fonts:
+    - family: Material Symbols Outlined
+      fonts:
+        - asset: assets/fonts/MaterialSymbolsOutlined.ttf

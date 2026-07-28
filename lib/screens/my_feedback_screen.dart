@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:brisconnect/l10n/app_localizations.dart';
 import 'package:brisconnect/services/app_feedback_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
@@ -13,11 +14,12 @@ class MyFeedbackScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final service = AppFeedbackService();
 
     return Scaffold(
       backgroundColor: AppPalette.background,
-      appBar: AppBar(title: const LogoAppBarTitle('My Feedback')),
+      appBar: AppBar(title: LogoAppBarTitle(l10n.myFeedback)),
       body: StreamBuilder<List<AppFeedbackItem>>(
         stream: service.watchFeedbackByReporter(reporterEmail),
         builder: (context, snapshot) {
@@ -28,12 +30,12 @@ class MyFeedbackScreen extends StatelessWidget {
           final items = snapshot.data ?? const <AppFeedbackItem>[];
 
           if (items.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Text(
-                  'You have not submitted any feedback yet.',
-                  style: TextStyle(color: AppPalette.mutedText),
+                  l10n.noFeedbackYet,
+                  style: const TextStyle(color: AppPalette.mutedText),
                 ),
               ),
             );
@@ -63,6 +65,8 @@ class _MyFeedbackCard extends StatefulWidget {
 }
 
 class _MyFeedbackCardState extends State<_MyFeedbackCard> {
+  AppLocalizations get l10n => AppLocalizations.of(context)!;
+
   late bool _unread;
 
   @override
@@ -183,8 +187,8 @@ class _MyFeedbackCardState extends State<_MyFeedbackCard> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _MetaChip(label: 'Category: ${item.category}'),
-                _MetaChip(label: 'Severity: ${item.severity}'),
+                _MetaChip(label: l10n.categoryLabel(item.category)),
+                _MetaChip(label: l10n.severityLabel(item.severity)),
               ],
             ),
             if (hasReply) ...[
@@ -207,9 +211,9 @@ class _MyFeedbackCardState extends State<_MyFeedbackCard> {
                         const Icon(Icons.reply_rounded,
                             size: 16, color: AppPalette.deepBlue),
                         const SizedBox(width: 6),
-                        const Text(
-                          'Admin Response',
-                          style: TextStyle(
+                        Text(
+                          l10n.adminResponse,
+                          style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 13,
                             color: AppPalette.deepBlue,
@@ -239,9 +243,9 @@ class _MyFeedbackCardState extends State<_MyFeedbackCard> {
               ),
             ] else ...[
               const SizedBox(height: 12),
-              const Text(
-                'Awaiting admin response...',
-                style: TextStyle(
+              Text(
+                l10n.awaitingAdminResponse,
+                style: const TextStyle(
                   color: AppPalette.mutedText,
                   fontStyle: FontStyle.italic,
                   fontSize: 13,
@@ -300,7 +304,7 @@ class _StatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        _statusLabel(status),
+        _statusLabel(context, status),
         style: TextStyle(
           color: color,
           fontWeight: FontWeight.w700,
@@ -310,16 +314,17 @@ class _StatusBadge extends StatelessWidget {
     );
   }
 
-  String _statusLabel(String value) {
+  String _statusLabel(BuildContext context, String value) {
+    final statusL10n = AppLocalizations.of(context)!;
     switch (value) {
       case 'pending_triage':
-        return 'Pending';
+        return statusL10n.statusPending;
       case 'in_progress':
-        return 'In Progress';
+        return statusL10n.statusInProgress;
       case 'resolved':
-        return 'Resolved';
+        return statusL10n.statusResolved;
       case 'wont_fix':
-        return 'Won\'t Fix';
+        return statusL10n.statusWontFix;
       default:
         return value;
     }

@@ -10,6 +10,7 @@ class AdminUserRecord {
   final String role; // 'visitor', 'local', 'admin'
   final bool active;
   final String? approvalStatus;
+  final bool isBusinessOwner;
   final DateTime? createdAt;
   final DateTime? lastLoginAt;
 
@@ -21,6 +22,7 @@ class AdminUserRecord {
     required this.role,
     required this.active,
     this.approvalStatus,
+    this.isBusinessOwner = false,
     this.createdAt,
     this.lastLoginAt,
   });
@@ -47,8 +49,9 @@ class AdminUserRecord {
 
   factory AdminUserRecord.fromLocalDoc(
     String docId,
-    Map<String, dynamic> data,
-  ) {
+    Map<String, dynamic> data, {
+    bool isBusinessOwner = false,
+  }) {
     return AdminUserRecord(
       id: docId,
       email: docId,
@@ -64,6 +67,7 @@ class AdminUserRecord {
       active: (data['active'] as bool?) ?? true,
       approvalStatus: (data['approvalStatus'] as String?)?.toLowerCase() ??
           'pending',
+      isBusinessOwner: isBusinessOwner,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       lastLoginAt: (data['lastLoginAt'] as Timestamp?)?.toDate(),
     );
@@ -131,7 +135,8 @@ class AdminUserManagementService {
   ) async {
     try {
       final visitors = await _fetchVisitors();
-      final locals = await _fetchLocals();
+      final businessOwnerIds = await _fetchBusinessOwnerIds();
+      final locals = await _fetchLocals(businessOwnerIds: businessOwnerIds);
       final admins = await _fetchAdmins();
 
       var allUsers = [...visitors, ...locals, ...admins];
@@ -176,12 +181,33 @@ class AdminUserManagementService {
     }
   }
 
+  /// Fetch IDs of local users that own at least one business.
+  Future<Set<String>> _fetchBusinessOwnerIds() async {
+    try {
+      final snapshot = await _firestore.collection('businesses').get();
+      return snapshot.docs
+          .map((doc) => (doc.data()['ownerId'] as String?) ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet();
+    } catch (error) {
+      debugPrint(
+          '[AdminUserManagementService] Error fetching business owners: $error');
+      return <String>{};
+    }
+  }
+
   /// Fetch all local users from Firestore.
-  Future<List<AdminUserRecord>> _fetchLocals() async {
+  Future<List<AdminUserRecord>> _fetchLocals({
+    Set<String>? businessOwnerIds,
+  }) async {
     try {
       final snapshot = await _firestore.collection('local_users').get();
       return snapshot.docs
-          .map((doc) => AdminUserRecord.fromLocalDoc(doc.id, doc.data()))
+          .map((doc) => AdminUserRecord.fromLocalDoc(
+                doc.id,
+                doc.data(),
+                isBusinessOwner: businessOwnerIds?.contains(doc.id) ?? false,
+              ))
           .toList();
     } catch (error) {
       debugPrint('[AdminUserManagementService] Error fetching locals: $error');

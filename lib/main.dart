@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'l10n/app_localizations.dart';
 import 'dart:ui';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:brisconnect/screens/home_screen.dart';
+import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/screens/welcome_screen_new.dart';
 import 'package:brisconnect/screens/visitor_portal_screen.dart';
 import 'package:brisconnect/screens/local_portal_screen.dart';
@@ -29,8 +32,22 @@ Future<void> main() async {
   runApp(const BrisConnectApp());
 }
 
-class BrisConnectApp extends StatelessWidget {
-  const BrisConnectApp({Key? key}) : super(key: key);
+class BrisConnectApp extends StatefulWidget {
+  const BrisConnectApp({super.key});
+
+  static _BrisConnectAppState? of(BuildContext context) =>
+      context.findAncestorStateOfType<_BrisConnectAppState>();
+
+  @override
+  State<BrisConnectApp> createState() => _BrisConnectAppState();
+}
+
+class _BrisConnectAppState extends State<BrisConnectApp> {
+  Locale? _locale;
+
+  void setLocale(Locale locale) {
+    setState(() => _locale = locale);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,10 +55,43 @@ class BrisConnectApp extends StatelessWidget {
       navigatorKey: navigatorKey,
       title: 'BrisConnect+',
       debugShowCheckedModeBanner: false,
+      locale: _locale,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('en'),
+        Locale('es'),
+        Locale('fr'),
+        Locale('de'),
+        Locale('zh'),
+        Locale('ar'),
+        Locale('hi'),
+        Locale('it'),
+        Locale('ja'),
+        Locale('ko'),
+        Locale('pt'),
+        Locale('ru'),
+        Locale('vi'),
+        Locale('el'),
+      ],
       theme: ThemeData(
         useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF07132E),
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: AppPalette.background,
+        appBarTheme: AppBarTheme(
+          backgroundColor: AppPalette.background,
+          foregroundColor: AppPalette.charcoal,
+          elevation: 0,
+        ),
+        textTheme: TextTheme(
+          bodyLarge: TextStyle(color: AppPalette.charcoal),
+          bodyMedium: TextStyle(color: AppPalette.charcoal),
+          bodySmall: TextStyle(color: AppPalette.mutedText),
+        ),
       ),
       home: const AnimatedWelcomeScreen(),
       onGenerateRoute: (settings) {
@@ -123,7 +173,7 @@ class BrisConnectApp extends StatelessWidget {
 }
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -173,7 +223,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void _handleContinue() {
     if (selectedAccountType != null) {
       final displayType = selectedAccountType!.trim();
-      print('Selected account type: $displayType');
+      debugPrint('Selected account type: $displayType');
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -199,7 +249,8 @@ class _LoginScreenState extends State<LoginScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Biometric authentication not available on this device'),
+              content:
+                  Text('Biometric authentication not available on this device'),
               backgroundColor: Colors.redAccent,
             ),
           );
@@ -246,7 +297,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF07132E),
+      backgroundColor: AppPalette.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -270,58 +321,58 @@ class _LoginScreenState extends State<LoginScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFF07132E),
-                    const Color(0xFF0F1B3E),
-                    const Color(0xFF07132E),
+                    AppPalette.background,
+                    AppPalette.surface,
+                    AppPalette.background,
                   ],
                 ),
               ),
             ),
 
-          // Subtle futuristic glow effects
-          Positioned(
-            top: -100,
-            right: -100,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFF007BFF).withOpacity(0.15),
-                    const Color(0xFF007BFF).withOpacity(0.0),
-                  ],
+            // Subtle futuristic glow effects
+            Positioned(
+              top: -100,
+              right: -100,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF007BFF).withValues(alpha: 0.15),
+                      const Color(0xFF007BFF).withValues(alpha: 0.0),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          Positioned(
-            bottom: -150,
-            left: -100,
-            child: Container(
-              width: 400,
-              height: 400,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFFFF7A1A).withOpacity(0.1),
-                    const Color(0xFFFF7A1A).withOpacity(0.0),
-                  ],
+            Positioned(
+              bottom: -150,
+              left: -100,
+              child: Container(
+                width: 400,
+                height: 400,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFFFF7A1A).withValues(alpha: 0.1),
+                      const Color(0xFFFF7A1A).withValues(alpha: 0.0),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // Main content
-          SafeArea(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 20),
+            // Main content
+            SafeArea(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 20),
 
                     // Logo
                     Container(
@@ -331,7 +382,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF007BFF).withOpacity(0.3),
+                            color: const Color(0xFF007BFF).withValues(alpha: 0.3),
                             blurRadius: 20,
                             spreadRadius: 5,
                           ),
@@ -398,15 +449,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: const Color(0xFF11162B).withOpacity(0.8),
+                              color: const Color(0xFF11162B).withValues(alpha: 0.8),
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(
-                                color: const Color(0xFF007BFF).withOpacity(0.2),
+                                color: const Color(0xFF007BFF).withValues(alpha: 0.2),
                                 width: 1.5,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
+                                  color: Colors.black.withValues(alpha: 0.3),
                                   blurRadius: 20,
                                   spreadRadius: 0,
                                 ),
@@ -432,7 +483,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                                   // Subtitle
                                   const Text(
-                                    'Welcome back\! Please sign in to continue.',
+                                    'Welcome back! Please sign in to continue.',
                                     style: TextStyle(
                                       fontSize: 14,
                                       color: Color(0xFF9BA9C7),
@@ -446,12 +497,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
-                                        color: const Color(0xFF007BFF).withOpacity(0.3),
+                                        color: const Color(0xFF007BFF)
+                                            .withValues(alpha: 0.3),
                                         width: 1.5,
                                       ),
                                     ),
                                     child: DropdownButtonFormField<String>(
-                                      value: selectedAccountType,
+                                      initialValue: selectedAccountType,
                                       hint: const Text(
                                         'Choose account type',
                                         style: TextStyle(
@@ -464,7 +516,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                           color: Color(0xFF007BFF),
                                         ),
                                         border: InputBorder.none,
-                                        contentPadding: const EdgeInsets.symmetric(
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
                                           horizontal: 16,
                                           vertical: 14,
                                         ),
@@ -476,7 +529,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                         );
                                       }).toList(),
                                       onChanged: (value) {
-                                        setState(() => selectedAccountType = value);
+                                        setState(
+                                            () => selectedAccountType = value);
                                       },
                                       style: const TextStyle(
                                         color: Color(0xFFF5F7FF),
@@ -502,7 +556,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: const Color(0xFFFF7A1A).withOpacity(0.3),
+                                          color: const Color(0xFFFF7A1A)
+                                              .withValues(alpha: 0.3),
                                           blurRadius: 12,
                                           spreadRadius: 0,
                                         ),
@@ -541,7 +596,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         border: Border.all(
-                                          color: const Color(0xFF007BFF).withOpacity(0.4),
+                                          color: const Color(0xFF007BFF)
+                                              .withValues(alpha: 0.4),
                                           width: 2,
                                         ),
                                       ),
@@ -582,7 +638,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                               color: Color(0xFFFF7A1A),
                                               fontSize: 14,
                                               fontWeight: FontWeight.w600,
-                                              decoration: TextDecoration.underline,
+                                              decoration:
+                                                  TextDecoration.underline,
                                             ),
                                             recognizer: null,
                                           ),

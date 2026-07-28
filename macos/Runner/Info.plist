@@ -32,5 +32,18 @@
 	<string>BrisConnect needs your location to show nearby places on the map.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>BrisConnect needs your location to show nearby places on the map.</string>
+	<key>GIDClientID</key>
+	<string>2073694703-9lnhao0k34ou3j207tfin5j1ikdsvmfr.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.june.brisconnect</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.2073694703-9lnhao0k34ou3j207tfin5j1ikdsvmfr</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

@@ -2583,13 +2583,29 @@ exports.sendEmailLoginCode = onCall(
   },
   async (request) => {
     const email = String(request.data.email || '').trim().toLowerCase();
-    const userType = String(request.data.userType || '').trim().toLowerCase();
+    let userType = String(request.data.userType || '').trim().toLowerCase();
 
     if (!email || !email.includes('@')) {
       throw new HttpsError('invalid-argument', 'A valid email address is required.');
     }
-    if (!['visitor', 'local'].includes(userType)) {
-      throw new HttpsError('invalid-argument', 'userType must be visitor or local.');
+    if (userType && !['visitor', 'local', 'admin'].includes(userType)) {
+      throw new HttpsError('invalid-argument', 'userType must be visitor, local, or admin.');
+    }
+
+    // Auto-detect role from Firestore when the client does not specify one.
+    // This lets the welcome screen ask only for an email.
+    if (!userType || userType === 'auto') {
+      const adminDoc = await admin.firestore().collection('admins').doc(email).get();
+      if (adminDoc.exists && (adminDoc.data().active !== false)) {
+        userType = 'admin';
+      } else {
+        const localDoc = await admin.firestore().collection('local_users').doc(email).get();
+        if (localDoc.exists) {
+          userType = 'local';
+        } else {
+          userType = 'visitor';
+        }
+      }
     }
 
     const code = generateCode();
@@ -2615,7 +2631,7 @@ exports.sendEmailLoginCode = onCall(
       sentAt: admin.firestore.FieldValue.serverTimestamp(),
       expiresAt: admin.firestore.Timestamp.fromMillis(now + LOGIN_CODE_TTL_MS),
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    }, { merge: true });
 
     // Queue the email in the existing mail collection.
     await admin.firestore().collection('mail').doc(`login-code-${email}-${now}`).set({
@@ -2632,7 +2648,7 @@ exports.sendEmailLoginCode = onCall(
     });
 
     logger.info('Login code queued', { email, userType });
-    return { sent: true };
+    return { sent: true, userType };
   },
 );
 
@@ -2644,16 +2660,12 @@ exports.verifyEmailLoginCode = onCall(
   async (request) => {
     const email = String(request.data.email || '').trim().toLowerCase();
     const code = String(request.data.code || '').trim();
-    const userType = String(request.data.userType || '').trim().toLowerCase();
 
     if (!email || !email.includes('@')) {
       throw new HttpsError('invalid-argument', 'A valid email address is required.');
     }
     if (!code || code.length < 4) {
       throw new HttpsError('invalid-argument', 'A valid code is required.');
-    }
-    if (!['visitor', 'local'].includes(userType)) {
-      throw new HttpsError('invalid-argument', 'userType must be visitor or local.');
     }
 
     const docId = loginCodeDocId(email);
@@ -2684,6 +2696,18 @@ exports.verifyEmailLoginCode = onCall(
       throw new HttpsError('permission-denied', 'Invalid code.');
     }
 
+    // Use the userType that was determined when the code was sent.
+    // Fall back to the userType provided in the request if the stored value
+    // is missing or invalid (can happen with older code documents).
+    let userType = String(data.userType || '').trim().toLowerCase();
+    if (!['visitor', 'local', 'admin'].includes(userType)) {
+      userType = String(request.data.userType || '').trim().toLowerCase();
+    }
+    if (!['visitor', 'local', 'admin'].includes(userType)) {
+      await codesRef.delete();
+      throw new HttpsError('internal', 'Invalid login session.');
+    }
+
     // Code is valid. Ensure a Firebase Auth user exists for this email.
     let authUser;
     try {
@@ -2696,27 +2720,44 @@ exports.verifyEmailLoginCode = onCall(
       }
     }
 
-    // Ensure the Firestore profile document exists with basic defaults.
-    const collection = userType === 'visitor' ? 'visitor_users' : 'local_users';
-    const profileRef = admin.firestore().collection(collection).doc(email);
-    const profileSnap = await profileRef.get();
-    if (!profileSnap.exists) {
-      const username = email.split('@')[0];
-      const baseProfile = {
-        email,
-        username,
-        role: userType,
-        accountType: userType,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        active: true,
-        notificationsEnabled: true,
-        emailNotificationsEnabled: true,
-      };
-      if (userType === 'local') {
-        baseProfile.approvalStatus = 'pending';
+    if (userType === 'admin') {
+      // Admin profiles are managed separately. Verify the account is authorized.
+      const adminDoc = await admin.firestore().collection('admins').doc(email).get();
+      if (!adminDoc.exists) {
+        await codesRef.delete();
+        throw new HttpsError('permission-denied', 'Not authorized as admin.');
       }
-      await profileRef.set(baseProfile);
+      const adminData = adminDoc.data() || {};
+      if (adminData.active === false) {
+        await codesRef.delete();
+        throw new HttpsError('permission-denied', 'Admin account is disabled.');
+      }
+      await admin.firestore().collection('admins').doc(email).set({
+        lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+    } else {
+      // Ensure the Firestore profile document exists with basic defaults.
+      const collection = userType === 'visitor' ? 'visitor_users' : 'local_users';
+      const profileRef = admin.firestore().collection(collection).doc(email);
+      const profileSnap = await profileRef.get();
+      if (!profileSnap.exists) {
+        const username = email.split('@')[0];
+        const baseProfile = {
+          email,
+          username,
+          role: userType,
+          accountType: userType,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          active: true,
+          notificationsEnabled: true,
+          emailNotificationsEnabled: true,
+        };
+        if (userType === 'local') {
+          baseProfile.approvalStatus = 'pending';
+        }
+        await profileRef.set(baseProfile);
+      }
     }
 
     // Clean up the used code.
@@ -2726,10 +2767,11 @@ exports.verifyEmailLoginCode = onCall(
     const token = await admin.auth().createCustomToken(authUser.uid, {
       email,
       userType,
+      role: userType,
     });
 
     logger.info('Login code verified', { email, userType });
-    return { token };
+    return { token, userType };
   },
 );
 

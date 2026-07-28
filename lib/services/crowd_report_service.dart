@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -157,7 +159,10 @@ class CrowdReportService {
     }
   }
 
-  /// Submits a crowd level report for an event
+  /// Submits a crowd level report for an event or business.
+  ///
+  /// [eventId] may be a business id when the widget is used on a business
+  /// detail screen.
   Future<void> submitReport(String eventId, CrowdLevel level) async {
     await _assertOnline();
     final userId = _currentUserIdOrAuth;
@@ -166,6 +171,7 @@ class CrowdReportService {
     await _withRetry(
       () => _reportsCollection.add({
         'eventId': eventId,
+        'businessId': eventId,
         'userId': userId ?? 'anonymous',
         'level': level.label,
         'weight': level.weight,
@@ -181,6 +187,85 @@ class CrowdReportService {
     }
   }
 
+  /// Crowd status for a business id. Aggregates reports that include the
+  /// business id in either [eventId] or [businessId].
+  Stream<CrowdStatus?> watchBusinessCrowdStatus(String businessId) {
+    final since = DateTime.now().subtract(const Duration(hours: 2));
+    final eventQuery = _reportsCollection
+        .where('eventId', isEqualTo: businessId)
+        .where('timestamp', isGreaterThan: Timestamp.fromDate(since))
+        .orderBy('timestamp', descending: true);
+    final businessQuery = _reportsCollection
+        .where('businessId', isEqualTo: businessId)
+        .where('timestamp', isGreaterThan: Timestamp.fromDate(since))
+        .orderBy('timestamp', descending: true);
+
+    return _combineLatest2(
+      eventQuery.snapshots(),
+      businessQuery.snapshots(),
+      (eventSnap, businessSnap) {
+        final reports = [...eventSnap.docs, ...businessSnap.docs]
+          ..sort((a, b) => b['timestamp']
+              .compareTo(a['timestamp']));
+        if (reports.isEmpty) return null;
+        final totalWeight = reports.fold<num>(
+          0,
+          (total, d) => total + ((d['weight'] as num? ?? 2)),
+        );
+        final avg = totalWeight / reports.length;
+        return CrowdStatus(
+          level: CrowdLevelExtension.fromWeight(avg),
+          reportCount: reports.length,
+          lastReported: (reports.first['timestamp'] as Timestamp).toDate(),
+        );
+      },
+    );
+  }
+
+  Stream<T> _combineLatest2<T, A, B>(
+    Stream<A> stream1,
+    Stream<B> stream2,
+    T Function(A, B) combiner,
+  ) {
+    A? latest1;
+    B? latest2;
+    var has1 = false;
+    var has2 = false;
+    StreamSubscription<A>? sub1;
+    StreamSubscription<B>? sub2;
+    final controller = StreamController<T>.broadcast();
+
+    void emit() {
+      if (has1 && has2 && !controller.isClosed) {
+        controller.add(combiner(latest1 as A, latest2 as B));
+      }
+    }
+
+    sub1 = stream1.listen(
+      (value) {
+        latest1 = value;
+        has1 = true;
+        emit();
+      },
+      onError: controller.addError,
+    );
+    sub2 = stream2.listen(
+      (value) {
+        latest2 = value;
+        has2 = true;
+        emit();
+      },
+      onError: controller.addError,
+    );
+
+    controller.onCancel = () {
+      sub1?.cancel();
+      sub2?.cancel();
+    };
+
+    return controller.stream;
+  }
+
   /// Returns a stream of the current crowd status for an event.
   /// Uses reports from the last 2 hours, weighted average.
   Stream<CrowdStatus?> watchCrowdStatus(String eventId) {
@@ -194,7 +279,7 @@ class CrowdReportService {
       if (snap.docs.isEmpty) return null;
       final reports = snap.docs;
       final totalWeight =
-          reports.fold<int>(0, (sum, d) => sum + ((d['weight'] as num).toInt()));
+          reports.fold<num>(0, (total, d) => total + ((d['weight'] as num)));
       final avg = totalWeight / reports.length;
       return CrowdStatus(
         level: CrowdLevelExtension.fromWeight(avg),

@@ -5,7 +5,6 @@ import 'package:brisconnect/models/activity_feed_item.dart';
 import 'package:brisconnect/screens/visitor_event_detail_screen.dart';
 import 'package:brisconnect/services/activity_feed_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
-import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 
 /// Visitor-facing community activity feed.
 ///
@@ -30,14 +29,7 @@ class _VisitorActivityFeedScreenState extends State<VisitorActivityFeedScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const LogoAppBarTitle('Community'),
-        backgroundColor: const Color(0xFF1C1C2E),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      backgroundColor: AppPalette.background,
       body: Column(
         children: [
           _buildFilterChips(),
@@ -48,9 +40,9 @@ class _VisitorActivityFeedScreenState extends State<VisitorActivityFeedScreen> {
   }
 
   Widget _buildFilterChips() {
-    const filters = ActivityFeedType.values;
+    final filters = _visibleFilters;
     return Container(
-      color: const Color(0xFF0D1117),
+      color: AppPalette.background,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -68,9 +60,9 @@ class _VisitorActivityFeedScreenState extends State<VisitorActivityFeedScreen> {
                 ),
                 selected: selected,
                 selectedColor: AppPalette.ochre,
-                backgroundColor: const Color(0xFF1C1C2E),
+                backgroundColor: AppPalette.surface,
                 labelStyle: TextStyle(
-                  color: selected ? Colors.white : Colors.white70,
+                  color: selected ? Colors.white : Colors.black,
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                 ),
@@ -106,7 +98,7 @@ class _VisitorActivityFeedScreenState extends State<VisitorActivityFeedScreen> {
           return _buildEmptyOrError(
             icon: Icons.error_outline_rounded,
             title: 'Could not load activity',
-            subtitle: 'Pull down to try again.',
+            subtitle: _shortError(snapshot.error),
           );
         }
 
@@ -123,7 +115,8 @@ class _VisitorActivityFeedScreenState extends State<VisitorActivityFeedScreen> {
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
           itemCount: items.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) => _ActivityFeedCard(item: items[index]),
+          itemBuilder: (context, index) =>
+              _ActivityFeedCard(item: items[index]),
         );
       },
     );
@@ -140,13 +133,14 @@ class _VisitorActivityFeedScreenState extends State<VisitorActivityFeedScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: Colors.white.withValues(alpha: 0.2), size: 56),
+            Icon(icon,
+                color: AppPalette.mutedText.withValues(alpha: 0.4), size: 56),
             const SizedBox(height: 16),
             Text(
               title,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: Colors.white,
+                color: AppPalette.charcoal,
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
@@ -156,7 +150,7 @@ class _VisitorActivityFeedScreenState extends State<VisitorActivityFeedScreen> {
               subtitle,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: Color(0xFF8B8FA8),
+                color: AppPalette.mutedText,
                 fontSize: 14,
                 height: 1.5,
               ),
@@ -176,10 +170,28 @@ class _VisitorActivityFeedScreenState extends State<VisitorActivityFeedScreen> {
       case ActivityFeedType.event:
         return 'Events';
       case ActivityFeedType.business:
-        return 'New';
+        return 'Promotions';
       case ActivityFeedType.photo:
         return 'Photos';
     }
+  }
+
+  List<ActivityFeedType> get _visibleFilters => const [
+        ActivityFeedType.all,
+        ActivityFeedType.review,
+        ActivityFeedType.event,
+        ActivityFeedType.business,
+      ];
+
+  String _shortError(Object? error) {
+    final message = error.toString();
+    if (message.contains('permission-denied')) {
+      return 'Permission denied. Please log in again.';
+    }
+    if (message.contains('failed-precondition')) {
+      return 'Database index is still building. Try again shortly.';
+    }
+    return message.length > 120 ? '${message.substring(0, 120)}…' : message;
   }
 
   IconData _iconForType(ActivityFeedType type) {
@@ -210,11 +222,11 @@ class _ActivityFeedCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C2E),
+          color: AppPalette.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.06),
-            width: 1,
+            color: const Color(0xFF93C5FD),
+            width: 1.5,
           ),
         ),
         child: Column(
@@ -234,7 +246,7 @@ class _ActivityFeedCard extends StatelessWidget {
                         child: Text(
                           item.title,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: Colors.black,
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                           ),
@@ -248,7 +260,7 @@ class _ActivityFeedCard extends StatelessWidget {
                   Text(
                     item.subtitle,
                     style: const TextStyle(
-                      color: AppPalette.ochre,
+                      color: Colors.black87,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -258,7 +270,7 @@ class _ActivityFeedCard extends StatelessWidget {
                     Text(
                       item.body,
                       style: const TextStyle(
-                        color: Color(0xFF8B8FA8),
+                        color: Colors.black87,
                         fontSize: 13,
                         height: 1.5,
                       ),
@@ -285,14 +297,14 @@ class _ActivityFeedCard extends StatelessWidget {
         fit: BoxFit.cover,
         placeholder: (_, __) => Container(
           height: 170,
-          color: const Color(0xFF2A2A3E),
+          color: AppPalette.surfaceAlt,
         ),
         errorWidget: (_, __, ___) => Container(
           height: 170,
-          color: const Color(0xFF2A2A3E),
+          color: AppPalette.surfaceAlt,
           alignment: Alignment.center,
           child: const Icon(Icons.image_not_supported_rounded,
-              color: Color(0xFF8B8FA8)),
+              color: AppPalette.mutedText),
         ),
       ),
     );

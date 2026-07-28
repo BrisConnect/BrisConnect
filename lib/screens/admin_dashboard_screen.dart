@@ -1,10 +1,9 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:brisconnect/auth/app_user_role.dart';
 import 'package:brisconnect/auth/admin_auth.dart';
 import 'package:brisconnect/screens/admin_business_management_screen.dart';
@@ -22,9 +21,7 @@ import 'package:brisconnect/screens/welcome_screen_new.dart';
 import 'package:brisconnect/services/admin_dashboard_service.dart';
 import 'package:brisconnect/services/admin_event_service.dart';
 import 'package:brisconnect/services/event_category_service.dart';
-import 'package:brisconnect/services/firebase_media_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
-import 'package:brisconnect/utils/profile_image_utils.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -46,10 +43,8 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  final FirebaseMediaService _mediaService = FirebaseMediaService();
   final EventCategoryService _categoryService = EventCategoryService();
   final AdminEventService _adminEventService = AdminEventService();
-  Uint8List? _pendingProfileImageBytes;
   bool _isNavVisible = true;
   Timer? _navRestoreTimer;
 
@@ -67,130 +62,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     super.dispose();
   }
 
-  ImageProvider<Object>? _profileImageProvider() {
-    if (_pendingProfileImageBytes != null) {
-      return MemoryImage(_pendingProfileImageBytes!);
-    }
-    final imageUrl = AdminAuth.profileImageUrl?.trim() ?? '';
-    if (imageUrl.isNotEmpty) {
-      return NetworkImage(imageUrl);
-    }
-    return const AssetImage('assets/images/brisconnect_logo.png');
-  }
-
-  Future<ImageSource?> _pickImageSource() {
-    return showModalBottomSheet<ImageSource>(
-      context: context,
-      backgroundColor: AppPalette.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choose from gallery'),
-              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Take a photo'),
-              onTap: () => Navigator.pop(ctx, ImageSource.camera),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _uploadAdminProfileImage() async {
-    final email = AdminAuth.currentAdminEmail;
-    if (email == null || email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in as an admin first.')),
-      );
-      return;
-    }
-
-    final source = await _pickImageSource();
-    if (source == null) return;
-    if (!mounted) return;
-
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: source,
-      imageQuality: 75,
-      maxWidth: 720,
-      maxHeight: 720,
-      preferredCameraDevice: CameraDevice.front,
-    );
-    if (picked == null) return;
-
-    final bytes = await picked.readAsBytes();
-    final fileName = picked.name;
-
-    if (!ProfileImageUtils.isSupportedImage(bytes)) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Only JPG and PNG images are supported.')),
-      );
-      return;
-    }
-
-    if (bytes.length > ProfileImageUtils.maxImageBytes) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Image is too large. Please choose a smaller image.')),
-      );
-      return;
-    }
-
-    bool ok = false;
-    setState(() => _pendingProfileImageBytes = bytes);
-    try {
-      final uploaded = await _mediaService.uploadProfileImage(
-        role: 'admin',
-        email: email,
-        bytes: bytes,
-        fileName: fileName,
-        previousStoragePath: AdminAuth.profileImageStoragePath,
-      );
-      if (!mounted) return;
-      ok = await AdminAuth.updateProfileImage(
-        imageUrl: uploaded.downloadUrl,
-        storagePath: uploaded.storagePath,
-      );
-      if (!mounted) return;
-      if (ok) {
-        setState(() => _pendingProfileImageBytes = null);
-      }
-    } on FormatException catch (error) {
-      setState(() => _pendingProfileImageBytes = null);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
-      return;
-    } catch (error) {
-      debugPrint('[AdminDashboard] Profile image upload failed: $error');
-      setState(() => _pendingProfileImageBytes = null);
-    }
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok ? 'Profile picture updated successfully.'
-             : 'Could not update profile picture. Please try again.',
-        ),
-        backgroundColor: ok ? Colors.green.shade700 : Colors.red.shade700,
-      ),
-    );
-  }
-
   Future<void> _runLegacyEventIdMigration() async {
     try {
-      final migratedCount = await AdminEventService().migrateLegacyLocalSubmissionIds();
+      final migratedCount =
+          await AdminEventService().migrateLegacyLocalSubmissionIds();
       if (!mounted || migratedCount == 0) {
         return;
       }
@@ -322,69 +197,85 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-
   int _selectedNavIndex = 0;
 
   @override
   Widget build(BuildContext context) {
     final scaffold = Scaffold(
-        backgroundColor: Colors.transparent,
-        extendBodyBehindAppBar: true,
-        extendBody: true,
-        body: NotificationListener<ScrollNotification>(
-          onNotification: (notification) {
-            if (_selectedNavIndex != 0) {
-              return false;
-            }
-
-            if (notification is ScrollUpdateNotification) {
-              final delta = notification.scrollDelta ?? 0;
-              if (delta > 8 && _isNavVisible) {
-                _navRestoreTimer?.cancel();
-                setState(() => _isNavVisible = false);
-              } else if (delta < -8 && !_isNavVisible) {
-                _navRestoreTimer?.cancel();
-                setState(() => _isNavVisible = true);
-              }
-            } else if (notification is ScrollEndNotification) {
-              _navRestoreTimer?.cancel();
-              if (!_isNavVisible) {
-                _navRestoreTimer = Timer(const Duration(milliseconds: 900), () {
-                  if (mounted && !_isNavVisible) {
-                    setState(() => _isNavVisible = true);
-                  }
-                });
-              }
-            }
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: _selectedNavIndex == 0,
+      appBar: _selectedNavIndex == 0
+          ? null
+          : AppBar(
+              backgroundColor: const Color(0xFFEBF4FF),
+              foregroundColor: const Color(0xFF1E3A8A),
+              elevation: 0,
+              title: Text(
+                _appBarTitleForIndex(_selectedNavIndex),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1E3A8A),
+                ),
+              ),
+              actions: [
+                _buildLogoutButton(context),
+              ],
+            ),
+      extendBody: true,
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (_selectedNavIndex != 0 || kIsWeb) {
             return false;
-          },
-          child: IndexedStack(
-            index: _selectedNavIndex,
-            children: [
-              _buildHomeTab(),
-              _buildUsersTab(),
-              _buildBusinessesTab(),
-              _buildEventsTab(),
-              _buildSettingsTab(),
-            ],
-          ),
-        ),
-        bottomNavigationBar: IgnorePointer(
-          ignoring: !_isNavVisible,
-          child: AnimatedSlide(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            offset: _isNavVisible ? Offset.zero : const Offset(0, 1),
-            child: _buildBottomNav(),
-          ),
-        ),
-      );
+          }
 
-    // Wrap scaffold with solid dark navy background
+          if (notification is ScrollUpdateNotification) {
+            final delta = notification.scrollDelta ?? 0;
+            if (delta > 8 && _isNavVisible) {
+              _navRestoreTimer?.cancel();
+              setState(() => _isNavVisible = false);
+            } else if (delta < -8 && !_isNavVisible) {
+              _navRestoreTimer?.cancel();
+              setState(() => _isNavVisible = true);
+            }
+          } else if (notification is ScrollEndNotification) {
+            _navRestoreTimer?.cancel();
+            if (!_isNavVisible) {
+              _navRestoreTimer = Timer(const Duration(milliseconds: 900), () {
+                if (mounted && !_isNavVisible) {
+                  setState(() => _isNavVisible = true);
+                }
+              });
+            }
+          }
+          return false;
+        },
+        child: IndexedStack(
+          index: _selectedNavIndex,
+          children: [
+            _buildHomeTab(),
+            _buildUsersTab(),
+            _buildBusinessesTab(),
+            _buildEventsTab(),
+            _buildSettingsTab(),
+          ],
+        ),
+      ),
+      bottomNavigationBar: IgnorePointer(
+        ignoring: !_isNavVisible,
+        child: AnimatedSlide(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          offset: _isNavVisible ? Offset.zero : const Offset(0, 1),
+          child: _buildBottomNav(),
+        ),
+      ),
+    );
+
+    // Wrap scaffold with light blue background
     final withBackground = Stack(
       children: [
         const Positioned.fill(
-          child: ColoredBox(color: Color(0xFF0D1117)),
+          child: ColoredBox(color: Color(0xFFEBF4FF)),
         ),
         scaffold,
       ],
@@ -403,13 +294,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildBottomNav() {
     return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(color: Color(0xFFBFDBFE), width: 1),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.20),
+            color: Color(0x1A1E3A8A),
             blurRadius: 12,
-            offset: const Offset(0, -2),
+            offset: Offset(0, -2),
           ),
         ],
       ),
@@ -423,38 +317,50 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 icon: Icons.home_rounded,
                 label: 'Home',
                 isSelected: _selectedNavIndex == 0,
-                onTap: () => setState(() { _selectedNavIndex = 0; _isNavVisible = true; }),
+                onTap: () => setState(() {
+                  _selectedNavIndex = 0;
+                  _isNavVisible = true;
+                }),
               ),
               _NavItem(
                 icon: Icons.groups_rounded,
                 label: 'Users',
                 isSelected: _selectedNavIndex == 1,
-                onTap: () => setState(() { _selectedNavIndex = 1; _isNavVisible = true; }),
+                onTap: () => setState(() {
+                  _selectedNavIndex = 1;
+                  _isNavVisible = true;
+                }),
               ),
               _NavItem(
                 icon: Icons.business_rounded,
                 label: 'Businesses',
                 isSelected: _selectedNavIndex == 2,
-                onTap: () => setState(() { _selectedNavIndex = 2; _isNavVisible = true; }),
+                onTap: () => setState(() {
+                  _selectedNavIndex = 2;
+                  _isNavVisible = true;
+                }),
               ),
               // Center Events button
               GestureDetector(
-                onTap: () => setState(() { _selectedNavIndex = 3; _isNavVisible = true; }),
+                onTap: () => setState(() {
+                  _selectedNavIndex = 3;
+                  _isNavVisible = true;
+                }),
                 child: Container(
                   width: 56,
                   height: 56,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [Color(0xFF252540), Color(0xFF1C1C2E)],
+                      colors: [Color(0xFF3B82F6), Color(0xFF1E40AF)],
                     ),
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Color(0xFF252540),
+                        color: Color(0xFF93C5FD),
                         blurRadius: 10,
-                        offset: const Offset(0, 4),
+                        offset: Offset(0, 4),
                       ),
                     ],
                   ),
@@ -479,12 +385,46 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 icon: Icons.settings_rounded,
                 label: 'Settings',
                 isSelected: _selectedNavIndex == 4,
-                onTap: () => setState(() { _selectedNavIndex = 4; _isNavVisible = true; }),
+                onTap: () => setState(() {
+                  _selectedNavIndex = 4;
+                  _isNavVisible = true;
+                }),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  String _appBarTitleForIndex(int index) {
+    switch (index) {
+      case 1:
+        return 'Users';
+      case 2:
+        return 'Businesses';
+      case 3:
+        return 'Events';
+      case 4:
+        return 'Settings';
+      default:
+        return 'Admin';
+    }
+  }
+
+  Widget _buildLogoutButton(BuildContext context) {
+    return IconButton(
+      tooltip: 'Logout',
+      icon: const Icon(Icons.logout_rounded, color: Color(0xFF1E3A8A)),
+      onPressed: () async {
+        final navigator = Navigator.of(context);
+        await AdminAuth.logout();
+        if (!mounted) return;
+        navigator.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const AnimatedWelcomeScreen()),
+          (route) => false,
+        );
+      },
     );
   }
 
@@ -504,9 +444,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildHomeTab() {
-    final heroAvatarRadius =
-      (MediaQuery.of(context).size.width * 0.16).clamp(56.0, 72.0).toDouble();
-
     return CustomScrollView(
       physics: const ClampingScrollPhysics(),
       slivers: [
@@ -541,14 +478,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   style: TextStyle(
                                     fontSize: 30,
                                     fontWeight: FontWeight.w900,
-                                    color: Colors.white,
-                                    shadows: [
-                                      Shadow(
-                                        offset: Offset(0, 1),
-                                        blurRadius: 8,
-                                        color: Colors.black54,
-                                      ),
-                                    ],
+                                    color: Color(0xFF1E3A8A),
                                   ),
                                 ),
                                 TextSpan(
@@ -557,48 +487,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     fontSize: 30,
                                     fontWeight: FontWeight.w900,
                                     color: AppPalette.ochre,
-                                    shadows: [
-                                      Shadow(
-                                        offset: Offset(0, 1),
-                                        blurRadius: 8,
-                                        color: Colors.black54,
-                                      ),
-                                    ],
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        // Admin profile picture (top-right)
-                        ValueListenableBuilder<int>(
-                          valueListenable: AdminAuth.profileVersion,
-                          builder: (context, _, __) {
-                            final profileImage = _profileImageProvider();
-                            return Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                  width: 2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.25),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: CircleAvatar(
-                                radius: heroAvatarRadius,
-                                backgroundColor: AppPalette.ochre,
-                                backgroundImage: profileImage,
-                              ),
-                            );
-                          },
-                        ),
+                        // Admin profile picture removed for cleaner admin header.
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -607,25 +502,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
-                        color: Colors.white70,
-                        shadows: [
-                          Shadow(
-                            offset: Offset(0, 1),
-                            blurRadius: 6,
-                            color: Colors.black38,
-                          ),
-                        ],
+                        color: Color(0xFF3B82F6),
                       ),
                     ),
                     const SizedBox(height: 18),
                     // Search bar
                     Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF252540),
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(30),
+                        border: Border.all(color: Color(0xFFBFDBFE)),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.12),
+                            color: Color(0x1A1E3A8A),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -661,9 +550,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             offset: const Offset(0, -24),
             child: Container(
               decoration: const BoxDecoration(
-                color: Color(0xFF1C1C2E),
-                borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(28)),
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                border: Border(
+                  top: BorderSide(color: Color(0xFFBFDBFE), width: 1),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -672,19 +563,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
                   // ── Stats cards row ──
                   _buildStatsCarousel(),
-                  const SizedBox(height: 20),
-
-                  // ── Recent Users ──
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _buildRecentUsersSection(),
-                  ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 28),
 
                   // ── Quick Actions ──
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child:
+                        _buildSectionHeader('Quick Actions', onViewAll: null),
+                  ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: _buildQuickActions(),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // ── Recent Users ──
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildSectionHeader('Recent Users',
+                        onViewAll: _openUsersManagement),
+                  ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildRecentUsersSection(),
                   ),
                   const SizedBox(height: 28),
 
@@ -693,7 +596,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: _buildWeeklyAnalyticsSection(),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
@@ -805,41 +708,45 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  Widget _buildSectionHeader(String title, {VoidCallback? onViewAll}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: AppPalette.charcoal,
+          ),
+        ),
+        if (onViewAll != null)
+          GestureDetector(
+            onTap: onViewAll,
+            child: const Row(
+              children: [
+                Text(
+                  'View All',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppPalette.ochre,
+                  ),
+                ),
+                SizedBox(width: 2),
+                Icon(Icons.chevron_right_rounded,
+                    color: AppPalette.ochre, size: 18),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildRecentUsersSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Recent Users',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AppPalette.charcoal,
-              ),
-            ),
-            GestureDetector(
-              onTap: _openUsersManagement,
-              child: const Row(
-                children: [
-                  Text(
-                    'View All',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppPalette.ochre,
-                    ),
-                  ),
-                  SizedBox(width: 2),
-                  Icon(Icons.chevron_right_rounded,
-                      color: AppPalette.ochre, size: 18),
-                ],
-              ),
-            ),
-          ],
-        ),
         const SizedBox(height: 10),
         // Stream recent local users
         StreamBuilder<List<Map<String, dynamic>>>(
@@ -851,7 +758,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 decoration: BoxDecoration(
                   color: AppPalette.surface.withValues(alpha: 0.75),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppPalette.border.withValues(alpha: 0.5)),
+                  border: Border.all(
+                      color: AppPalette.border.withValues(alpha: 0.5)),
                 ),
                 child: const Center(
                   child: Text(
@@ -865,8 +773,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             return Column(
               children: users.map((user) {
                 final name = (user['name'] as String? ?? 'Unknown').trim();
-                final suburb =
-                    (user['suburb'] as String? ?? '').trim();
+                final suburb = (user['suburb'] as String? ?? '').trim();
                 final status =
                     (user['approvalStatus'] as String? ?? 'pending').trim();
                 return Padding(
@@ -894,9 +801,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           .orderBy('createdAt', descending: true)
           .limit(3)
           .snapshots()
-          .map((snap) => snap.docs
-              .map((doc) => {'id': doc.id, ...doc.data()})
-              .toList());
+          .map((snap) =>
+              snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
     } catch (_) {
       return const Stream.empty();
     }
@@ -908,69 +814,55 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildQuickActions() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 2.6,
       children: [
-        const Text(
-          'Quick Actions',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: AppPalette.charcoal,
-          ),
+        _QuickActionButton(
+          icon: Icons.business_outlined,
+          label: 'Add Business',
+          onTap: _openCreateBusiness,
         ),
-        const SizedBox(height: 12),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 2.6,
-          children: [
-            _QuickActionButton(
-              icon: Icons.business_outlined,
-              label: 'Add Business',
-              onTap: _openCreateBusiness,
-            ),
-            _QuickActionButton(
-              icon: Icons.verified_outlined,
-              label: 'Verify Business',
-              onTap: _openBusinessManagement,
-            ),
-            _QuickActionButton(
-              icon: Icons.star_border_outlined,
-              label: 'Featured Promotion',
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Featured Promotion coming soon'),
-                  ),
-                );
-              },
-            ),
-            _QuickActionButton(
-              icon: Icons.event_available_outlined,
-              label: 'Create Event',
-              onTap: _openCreateEvent,
-            ),
-            _QuickActionButton(
-              icon: Icons.report_outlined,
-              label: 'Review Reports',
-              onTap: _openReportsHub,
-            ),
-            _QuickActionButton(
-              icon: Icons.analytics_outlined,
-              label: 'View Analytics',
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Analytics dashboard coming soon'),
-                  ),
-                );
-              },
-            ),
-          ],
+        _QuickActionButton(
+          icon: Icons.verified_outlined,
+          label: 'Verify Business',
+          onTap: _openBusinessManagement,
+        ),
+        _QuickActionButton(
+          icon: Icons.star_border_outlined,
+          label: 'Featured Promotion',
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Featured Promotion coming soon'),
+              ),
+            );
+          },
+        ),
+        _QuickActionButton(
+          icon: Icons.event_available_outlined,
+          label: 'Create Event',
+          onTap: _openCreateEvent,
+        ),
+        _QuickActionButton(
+          icon: Icons.report_outlined,
+          label: 'Review Reports',
+          onTap: _openReportsHub,
+        ),
+        _QuickActionButton(
+          icon: Icons.analytics_outlined,
+          label: 'View Analytics',
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Analytics dashboard coming soon'),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -1039,12 +931,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               return Container(
                 height: 220,
                 alignment: Alignment.center,
-                child: const CircularProgressIndicator(),
+                decoration: BoxDecoration(
+                  color: AppPalette.surface.withValues(alpha: 0.80),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                      color: AppPalette.border.withValues(alpha: 0.5)),
+                ),
+                child: const CircularProgressIndicator(color: AppPalette.ochre),
               );
             }
 
             final analytics = snapshot.data!;
-            final maxY = analytics.maxValue < 5 ? 5.0 : analytics.maxValue * 1.2;
+            final maxY =
+                analytics.maxValue < 5 ? 5.0 : analytics.maxValue * 1.2;
 
             return Container(
               height: 260,
@@ -1267,75 +1166,51 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w800,
-              color: Colors.white,
-              shadows: [
-                Shadow(
-                  offset: Offset(0, 1),
-                  blurRadius: 6,
-                  color: Colors.black38,
-                ),
-              ],
+              color: AppPalette.charcoal,
             ),
           ),
           const SizedBox(height: 20),
 
-          // ── Profile card ──
-          ValueListenableBuilder<int>(
-            valueListenable: AdminAuth.profileVersion,
-            builder: (context, _, __) {
-              final profileImage = _profileImageProvider();
-              final email = AdminAuth.currentAdminEmail ?? '';
-              return Card(
-                color: AppPalette.surface,
-                elevation: 4,
-                shadowColor: AppPalette.cardShadow,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 48,
-                        backgroundColor: AppPalette.deepBlue,
-                        backgroundImage: profileImage,
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Admin',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: AppPalette.charcoal,
-                              ),
-                            ),
-                            if (email.isNotEmpty)
-                              Text(
-                                email,
-                                style:
-                                    const TextStyle(color: AppPalette.mutedText),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                          ],
+          // ── Profile card (admin profile picture removed) ──
+          Card(
+            color: AppPalette.surface,
+            elevation: 4,
+            shadowColor: AppPalette.cardShadow,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const Icon(Icons.account_circle_rounded,
+                      size: 48, color: AppPalette.deepBlue),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Admin',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppPalette.charcoal,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        tooltip: 'Change profile picture',
-                        onPressed: _uploadAdminProfileImage,
-                        icon: const Icon(Icons.photo_camera_outlined,
-                            color: AppPalette.deepBlue, size: 22),
-                      ),
-                    ],
+                        if ((AdminAuth.currentAdminEmail ?? '').isNotEmpty)
+                          Text(
+                            AdminAuth.currentAdminEmail!,
+                            style: const TextStyle(color: AppPalette.mutedText),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
+                ],
+              ),
+            ),
           ),
 
           const SizedBox(height: 24),
@@ -1355,8 +1230,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ListTile(
                   leading: _settingsIcon(Icons.report_outlined),
                   title: const Text('Reports Hub',
-                      style: TextStyle(fontWeight: FontWeight.w600, color: AppPalette.charcoal)),
-                  subtitle: const Text('Moderate reported events and recommendations',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppPalette.charcoal)),
+                  subtitle: const Text(
+                      'Moderate reported events and recommendations',
                       style: TextStyle(color: AppPalette.mutedText)),
                   trailing: const Icon(Icons.chevron_right_rounded,
                       color: AppPalette.mutedText),
@@ -1366,8 +1244,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ListTile(
                   leading: _settingsIcon(Icons.store_outlined),
                   title: const Text('Manage Businesses',
-                      style: TextStyle(fontWeight: FontWeight.w600, color: AppPalette.charcoal)),
-                  subtitle: const Text('Verify, edit, deactivate and archive listings',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppPalette.charcoal)),
+                  subtitle: const Text(
+                      'Verify, edit, deactivate and archive listings',
                       style: TextStyle(color: AppPalette.mutedText)),
                   trailing: const Icon(Icons.chevron_right_rounded,
                       color: AppPalette.mutedText),
@@ -1377,7 +1258,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ListTile(
                   leading: _settingsIcon(Icons.dynamic_feed_outlined),
                   title: const Text('Community Feed',
-                      style: TextStyle(fontWeight: FontWeight.w600, color: AppPalette.charcoal)),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppPalette.charcoal)),
                   subtitle: const Text('Pin, highlight and remove feed content',
                       style: TextStyle(color: AppPalette.mutedText)),
                   trailing: const Icon(Icons.chevron_right_rounded,
@@ -1405,7 +1288,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ListTile(
                   leading: _settingsIcon(Icons.feedback_outlined),
                   title: const Text('Feedback Review',
-                      style: TextStyle(fontWeight: FontWeight.w600, color: AppPalette.charcoal)),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppPalette.charcoal)),
                   subtitle: const Text('Manage user feedback and responses',
                       style: TextStyle(color: AppPalette.mutedText)),
                   trailing: const Icon(Icons.chevron_right_rounded,
@@ -1416,7 +1301,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ListTile(
                   leading: _settingsIcon(Icons.category_rounded),
                   title: const Text('Event Categories',
-                      style: TextStyle(fontWeight: FontWeight.w600, color: AppPalette.charcoal)),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppPalette.charcoal)),
                   subtitle: const Text('Manage event category taxonomy',
                       style: TextStyle(color: AppPalette.mutedText)),
                   trailing: const Icon(Icons.chevron_right_rounded,
@@ -1444,7 +1331,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ListTile(
                   leading: _settingsIcon(Icons.sms_outlined),
                   title: const Text('SMS Broadcast',
-                      style: TextStyle(fontWeight: FontWeight.w600, color: AppPalette.charcoal)),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppPalette.charcoal)),
                   subtitle: const Text('Send SMS announcements to users',
                       style: TextStyle(color: AppPalette.mutedText)),
                   trailing: const Icon(Icons.chevron_right_rounded,
@@ -1455,14 +1344,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ListTile(
                   leading: _settingsIcon(Icons.email_outlined),
                   title: const Text('Email Broadcast',
-                      style: TextStyle(fontWeight: FontWeight.w600, color: AppPalette.charcoal)),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppPalette.charcoal)),
                   subtitle: const Text('Send email announcements to users',
                       style: TextStyle(color: AppPalette.mutedText)),
                   trailing: const Icon(Icons.chevron_right_rounded,
                       color: AppPalette.mutedText),
                   onTap: _openEmailBroadcast,
                 ),
-
               ],
             ),
           ),
@@ -1484,14 +1374,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ListTile(
                   leading: _settingsIcon(Icons.help_outline_rounded),
                   title: const Text('Help & Support',
-                      style: TextStyle(fontWeight: FontWeight.w600, color: AppPalette.charcoal)),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppPalette.charcoal)),
                   subtitle: const Text('Get help with admin features',
                       style: TextStyle(color: AppPalette.mutedText)),
                   trailing: const Icon(Icons.chevron_right_rounded,
                       color: AppPalette.mutedText),
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Contact: support@brisconnect.app')),
+                      const SnackBar(
+                          content: Text('Contact: support@brisconnect.app')),
                     );
                   },
                 ),
@@ -1499,7 +1392,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ListTile(
                   leading: _settingsIcon(Icons.info_outline_rounded),
                   title: const Text('About BrisConnect+',
-                      style: TextStyle(fontWeight: FontWeight.w600, color: AppPalette.charcoal)),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppPalette.charcoal)),
                   subtitle: const Text('Version, credits & legal',
                       style: TextStyle(color: AppPalette.mutedText)),
                   trailing: const Icon(Icons.chevron_right_rounded,
@@ -1510,7 +1405,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       applicationName: 'BrisConnect+',
                       applicationVersion: '1.0.0',
                       applicationLegalese: '© 2026 BrisConnect+ Team',
-                      applicationIcon: Image.asset('assets/Brisconnect New.jpg', height: 48),
+                      applicationIcon:
+                          Image.asset('assets/Brisconnect New.jpg', height: 48),
                     );
                   },
                 ),
@@ -1529,7 +1425,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 await AdminAuth.logout();
                 if (!mounted) return;
                 Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const AnimatedWelcomeScreen()),
+                  MaterialPageRoute(
+                      builder: (_) => const AnimatedWelcomeScreen()),
                   (route) => false,
                 );
               },
@@ -1560,15 +1457,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         style: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w700,
-          color: Colors.white,
+          color: AppPalette.mutedText,
           letterSpacing: 0.8,
-          shadows: [
-            Shadow(
-              offset: Offset(0, 1),
-              blurRadius: 4,
-              color: Colors.black38,
-            ),
-          ],
         ),
       ),
     );
@@ -1666,7 +1556,9 @@ class _DashboardStatCard extends StatelessWidget {
                 children: [
                   Icon(
                     trend!.isUp ? Icons.arrow_upward : Icons.arrow_downward,
-                    color: trend!.isUp ? Colors.green.shade700 : Colors.red.shade700,
+                    color: trend!.isUp
+                        ? Colors.green.shade700
+                        : Colors.red.shade700,
                     size: 11,
                   ),
                   const SizedBox(width: 2),
@@ -1675,7 +1567,9 @@ class _DashboardStatCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
-                      color: trend!.isUp ? Colors.green.shade700 : Colors.red.shade700,
+                      color: trend!.isUp
+                          ? Colors.green.shade700
+                          : Colors.red.shade700,
                     ),
                   ),
                 ],
@@ -1826,14 +1720,11 @@ class _RecentUserCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: isActive
-                    ? Colors.green.shade50
-                    : Colors.orange.shade50,
+                color: isActive ? Colors.green.shade50 : Colors.orange.shade50,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isActive
-                      ? Colors.green.shade300
-                      : Colors.orange.shade300,
+                  color:
+                      isActive ? Colors.green.shade300 : Colors.orange.shade300,
                 ),
               ),
               child: Row(
@@ -1897,7 +1788,7 @@ class _NavItem extends StatelessWidget {
             Icon(
               icon,
               size: 22,
-              color: isSelected ? Colors.white : Colors.white70,
+              color: isSelected ? AppPalette.deepBlue : AppPalette.mutedText,
             ),
             const SizedBox(height: 2),
             FittedBox(
@@ -1907,7 +1798,8 @@ class _NavItem extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: isSelected ? Colors.white : Colors.white70,
+                  color:
+                      isSelected ? AppPalette.deepBlue : AppPalette.mutedText,
                 ),
               ),
             ),
@@ -2017,7 +1909,10 @@ class _CategoryManagementSheetState extends State<_CategoryManagementSheet> {
                   dense: true,
                   leading: const Icon(Icons.drag_handle_rounded,
                       color: AppPalette.mutedText),
-                  title: Text(cat, style: const TextStyle(color: AppPalette.charcoal, fontWeight: FontWeight.w600)),
+                  title: Text(cat,
+                      style: const TextStyle(
+                          color: AppPalette.charcoal,
+                          fontWeight: FontWeight.w600)),
                   trailing: IconButton(
                     icon: Icon(Icons.close_rounded,
                         color: Colors.red.shade700, size: 20),

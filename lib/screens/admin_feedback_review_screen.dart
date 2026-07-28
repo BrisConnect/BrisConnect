@@ -1,7 +1,6 @@
 import 'package:brisconnect/auth/app_user_role.dart';
 import 'package:brisconnect/services/app_feedback_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
-import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
 import 'package:flutter/material.dart';
 
@@ -35,133 +34,178 @@ class _AdminFeedbackReviewScreenState extends State<AdminFeedbackReviewScreen> {
   @override
   Widget build(BuildContext context) {
     final content = Scaffold(
-        backgroundColor: AppPalette.background,
-        appBar: AppBar(
-          title: const LogoAppBarTitle('App Feedback'),
+      backgroundColor: const Color(0xFFEBF4FF),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFEBF4FF),
+        foregroundColor: const Color(0xFF1E3A8A),
+        elevation: 0,
+        title: const Text(
+          'App Feedback',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF1E3A8A),
+          ),
         ),
-        body: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Status',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: AppPalette.charcoal,
-                    ),
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Status',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppPalette.charcoal,
                   ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: AppFeedbackService.feedbackStatuses
-                        .map(
-                          (status) => FilterChip(
-                            label: Text(_label(status)),
-                            selected: _selectedStatus == status,
-                            onSelected: (_) {
-                              setState(() => _selectedStatus = status);
-                            },
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: AppFeedbackService.feedbackStatuses.map(
+                    (status) {
+                      final isSelected = _selectedStatus == status;
+                      return FilterChip(
+                        label: Text(
+                          _label(status),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color:
+                                isSelected ? Colors.white : AppPalette.charcoal,
                           ),
-                        )
-                        .toList(),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Severity',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: AppPalette.charcoal,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _severityOptions
-                        .map(
-                          (severity) => FilterChip(
-                            label: Text(_severityLabel(severity)),
-                            selected: _selectedSeverity == severity,
-                            onSelected: (_) {
-                              setState(() => _selectedSeverity = severity);
-                            },
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: StreamBuilder<List<AppFeedbackItem>>(
-                stream: widget.feedbackService.watchFeedbackByStatus(_selectedStatus),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          'Could not load feedback right now: ${snapshot.error}',
-                          textAlign: TextAlign.center,
                         ),
-                      ),
-                    );
-                  }
-
-                  final items = snapshot.data ?? const <AppFeedbackItem>[];
-                  final filteredItems = items
-                      .where(
-                        (item) => _selectedSeverity == 'all'
-                            ? true
-                            : item.severity.toLowerCase() == _selectedSeverity,
-                      )
-                      .toList();
-
-                  if (filteredItems.isEmpty) {
-                    return Center(
-                      child: Text(
-                        'No ${_severityLabel(_selectedSeverity).toLowerCase()} feedback with status ${_label(_selectedStatus)}.',
-                        style: const TextStyle(color: AppPalette.mutedText),
-                      ),
-                    );
-                  }
-
-                  return ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    itemCount: filteredItems.length,
-                    itemBuilder: (context, index) {
-                      return _FeedbackCard(
-                        item: filteredItems[index],
-                        onStatusChange: (nextStatus) async {
-                          await widget.feedbackService.updateFeedbackStatus(
-                            feedbackId: filteredItems[index].id,
-                            status: nextStatus,
-                            consideredForFix: nextStatus != 'wont_fix',
-                          );
+                        selected: isSelected,
+                        onSelected: (_) {
+                          setState(() => _selectedStatus = status);
                         },
-                        onReply: (reply) async {
-                          await widget.feedbackService.replyToFeedback(
-                            feedbackId: filteredItems[index].id,
-                            reply: reply,
-                          );
-                        },
+                        selectedColor: AppPalette.ochre,
+                        backgroundColor: AppPalette.surface,
+                        checkmarkColor: Colors.white,
+                        side: BorderSide(
+                          color: isSelected
+                              ? AppPalette.ochre
+                              : AppPalette.border.withValues(alpha: 0.6),
+                        ),
                       );
                     },
-                  );
-                },
-              ),
+                  ).toList(),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Severity',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppPalette.charcoal,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _severityOptions.map(
+                    (severity) {
+                      final isSelected = _selectedSeverity == severity;
+                      return FilterChip(
+                        label: Text(
+                          _severityLabel(severity),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color:
+                                isSelected ? Colors.white : AppPalette.charcoal,
+                          ),
+                        ),
+                        selected: isSelected,
+                        onSelected: (_) {
+                          setState(() => _selectedSeverity = severity);
+                        },
+                        selectedColor: AppPalette.ochre,
+                        backgroundColor: AppPalette.surface,
+                        checkmarkColor: Colors.white,
+                        side: BorderSide(
+                          color: isSelected
+                              ? AppPalette.ochre
+                              : AppPalette.border.withValues(alpha: 0.6),
+                        ),
+                      );
+                    },
+                  ).toList(),
+                ),
+              ],
             ),
-          ],
-        ),
-      );
+          ),
+          Expanded(
+            child: StreamBuilder<List<AppFeedbackItem>>(
+              stream:
+                  widget.feedbackService.watchFeedbackByStatus(_selectedStatus),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'Could not load feedback right now: ${snapshot.error}',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                }
+
+                final items = snapshot.data ?? const <AppFeedbackItem>[];
+                final filteredItems = items
+                    .where(
+                      (item) => _selectedSeverity == 'all'
+                          ? true
+                          : item.severity.toLowerCase() == _selectedSeverity,
+                    )
+                    .toList();
+
+                if (filteredItems.isEmpty) {
+                  final severity = _selectedSeverity == 'all'
+                      ? ''
+                      : ' ${_severityLabel(_selectedSeverity).toLowerCase()}';
+                  return Center(
+                    child: Text(
+                      'No$severity feedback with status "${_label(_selectedStatus)}".',
+                      style: const TextStyle(color: AppPalette.mutedText),
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  itemCount: filteredItems.length,
+                  itemBuilder: (context, index) {
+                    return _FeedbackCard(
+                      item: filteredItems[index],
+                      onStatusChange: (nextStatus) async {
+                        await widget.feedbackService.updateFeedbackStatus(
+                          feedbackId: filteredItems[index].id,
+                          status: nextStatus,
+                          consideredForFix: nextStatus != 'wont_fix',
+                        );
+                      },
+                      onReply: (reply) async {
+                        await widget.feedbackService.replyToFeedback(
+                          feedbackId: filteredItems[index].id,
+                          reply: reply,
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
     if (!widget.enforceRoleGuard) return content;
     return RoleGuard(
       allowedRoles: const {AppUserRole.admin},
@@ -381,15 +425,18 @@ class _FeedbackCardState extends State<_FeedbackCard> {
               runSpacing: 8,
               children: [
                 OutlinedButton(
-                  onPressed: _isUpdating ? null : () => _updateStatus('in_progress'),
+                  onPressed:
+                      _isUpdating ? null : () => _updateStatus('in_progress'),
                   child: const Text('Mark In Progress'),
                 ),
                 OutlinedButton(
-                  onPressed: _isUpdating ? null : () => _updateStatus('resolved'),
+                  onPressed:
+                      _isUpdating ? null : () => _updateStatus('resolved'),
                   child: const Text('Mark Resolved'),
                 ),
                 TextButton(
-                  onPressed: _isUpdating ? null : () => _updateStatus('wont_fix'),
+                  onPressed:
+                      _isUpdating ? null : () => _updateStatus('wont_fix'),
                   child: const Text('Mark Won\'t Fix'),
                 ),
               ],
@@ -402,7 +449,8 @@ class _FeedbackCardState extends State<_FeedbackCard> {
                 decoration: BoxDecoration(
                   color: AppPalette.deepBlue.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppPalette.deepBlue.withValues(alpha: 0.2)),
+                  border: Border.all(
+                      color: AppPalette.deepBlue.withValues(alpha: 0.2)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -429,7 +477,8 @@ class _FeedbackCardState extends State<_FeedbackCard> {
                         if (!item.replyReadByReporter) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.orange.shade700,
                               borderRadius: BorderRadius.circular(999),
@@ -449,7 +498,8 @@ class _FeedbackCardState extends State<_FeedbackCard> {
                     const SizedBox(height: 4),
                     Text(
                       item.adminReply!,
-                      style: const TextStyle(color: AppPalette.charcoal, height: 1.4),
+                      style: const TextStyle(
+                          color: AppPalette.charcoal, height: 1.4),
                     ),
                   ],
                 ),
@@ -532,7 +582,8 @@ class _FeedbackCardState extends State<_FeedbackCard> {
     final d = value.day.toString().padLeft(2, '0');
     final m = value.month.toString().padLeft(2, '0');
     final y = value.year.toString();
-    final h = value.hour > 12 ? value.hour - 12 : (value.hour == 0 ? 12 : value.hour);
+    final h =
+        value.hour > 12 ? value.hour - 12 : (value.hour == 0 ? 12 : value.hour);
     final min = value.minute.toString().padLeft(2, '0');
     final period = value.hour >= 12 ? 'PM' : 'AM';
     return '$d/$m/$y $h:$min $period';

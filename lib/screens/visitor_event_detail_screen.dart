@@ -1,12 +1,11 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/services/share/content_share_service.dart';
 import 'package:brisconnect/services/visitor_notification_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
-import 'package:brisconnect/utils/venue_image_fallback.dart';
 import 'package:brisconnect/widgets/audio_guide_widget.dart';
+import 'package:brisconnect/widgets/fallback_image.dart';
 import 'package:brisconnect/widgets/crowd_report_widget.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 import 'package:brisconnect/widgets/share_bottom_sheet.dart';
@@ -34,8 +33,6 @@ class VisitorEventDetailScreen extends StatefulWidget {
 class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
   late final ContentShareService _shareService =
       widget.shareService ?? ContentShareService();
-
-  String get _fallbackImage => VenueImageFallback.forItem(widget.event);
 
   bool get _isSaved {
     final id = (widget.event['id'] as String? ?? '').trim();
@@ -217,8 +214,6 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
         (widget.event['mapQuery'] as String? ?? '').trim().isNotEmpty ||
             location.isNotEmpty;
 
-    final effective = imageUrl.isNotEmpty ? imageUrl : _fallbackImage;
-
     return ValueListenableBuilder<int>(
       valueListenable: VisitorAuth.interestedEventsVersion,
       builder: (context, _, __) {
@@ -247,31 +242,11 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
           body: ListView(
             children: [
               // ── Hero image ──────────────────────────────────────────────
-              CachedNetworkImage(
-                imageUrl: effective,
+              FallbackImage(
+                imageUrl: imageUrl,
                 height: 230,
                 width: double.infinity,
-                fit: BoxFit.cover,
-                placeholder: (_, __) => Container(
-                  height: 230,
-                  color: AppPalette.surfaceAlt,
-                  alignment: Alignment.center,
-                  child: const SizedBox(
-                    width: 28,
-                    height: 28,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-                errorWidget: (_, __, ___) => Container(
-                  height: 230,
-                  color: AppPalette.surfaceAlt,
-                  alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.image_not_supported_rounded,
-                    size: 48,
-                    color: AppPalette.mutedText,
-                  ),
-                ),
+                category: 'event',
               ),
 
               // ── Content ─────────────────────────────────────────────────

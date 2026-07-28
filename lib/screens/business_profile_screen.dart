@@ -209,7 +209,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  backgroundColor: const Color(0xFF1C1C2E),
+                  backgroundColor: AppPalette.surface,
                   title: const Text('Log Out',
                       style: TextStyle(color: Colors.white)),
                   content: const Text('Are you sure you want to log out?',
@@ -232,6 +232,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
               );
               if (confirm == true && mounted) {
                 await LocalAuth.logout();
+                if (!mounted) return;
                 Navigator.pushNamedAndRemoveUntil(
                     context, '/', (_) => false);
               }
@@ -239,7 +240,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFF1C1C2E),
+                color: AppPalette.surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                     color: Colors.redAccent.withValues(alpha: 0.4)),
@@ -261,7 +262,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
       margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: AppPalette.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
             color: AppPalette.ochre.withValues(alpha: 0.3)),
@@ -320,7 +321,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
             margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
             height: 150,
             decoration: BoxDecoration(
-              color: const Color(0xFF1C1C2E),
+              color: AppPalette.surface,
               borderRadius: BorderRadius.circular(16),
               image: (b.coverImageUrl ?? '').isNotEmpty
                   ? DecorationImage(
@@ -699,13 +700,19 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
       final updated = _business!.copyWith(photos: current);
       await _profileService.updateBusinessProfile(updated);
       setState(() => _business = updated);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('\u2713 Photo added'),
-              backgroundColor: AppPalette.ochre));
+              backgroundColor: AppPalette.ochre),
+        );
+      }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Upload failed: $e'),
-              backgroundColor: Colors.redAccent));
+              backgroundColor: Colors.redAccent),
+        );
+      }
     }
   }
 
@@ -797,7 +804,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
       margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: AppPalette.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),

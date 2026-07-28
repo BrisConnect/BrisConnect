@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:brisconnect/auth/app_user_role.dart';
@@ -36,6 +37,8 @@ import 'package:brisconnect/widgets/role_guard.dart';
 import 'package:brisconnect/widgets/reusable_management_card.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 import 'package:brisconnect/widgets/help_support_sheet.dart';
+import 'package:brisconnect/widgets/desktop_top_app_bar.dart';
+import 'package:brisconnect/utils/responsive_utils.dart';
 
 class LocalPortalScreen extends StatefulWidget {
   const LocalPortalScreen({
@@ -64,14 +67,12 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
   FirestoreService? _firestoreService;
   Stream<List<Map<String, dynamic>>>? _approvedEventsStreamCache;
   late int _selectedIndex;
-  bool _isNavVisible = true;
+  final ValueNotifier<bool> _navVisibleNotifier = ValueNotifier<bool>(true);
+  DateTime? _lastNavToggle;
   late double _userLatitude;
   late double _userLongitude;
   late int _radiusKm;
   late bool _isUsingRadius;
-  static const String _defaultImageUrl =
-      'https://images.unsplash.com/photo-1472653431158-6364773b2a56?auto=format&fit=crop&w=1400&q=80';
-
   LocalEventService get _effectiveLocalEventService {
     return _localEventService ??= LocalEventService();
   }
@@ -79,6 +80,8 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
   FirebaseMediaService get _effectiveMediaService {
     return _mediaService ??= FirebaseMediaService();
   }
+
+  AppLocalizations get l10n => AppLocalizations.of(context)!;
 
   Stream<List<Map<String, dynamic>>> _approvedEventsStream() {
     final stream = _approvedEventsStreamCache ??= (_firestoreService ??=
@@ -121,6 +124,12 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     _localEventService = widget.localEventService;
     _selectedIndex = widget.initialTabIndex;
     _updateUserPreferences();
+  }
+
+  @override
+  void dispose() {
+    _navVisibleNotifier.dispose();
+    super.dispose();
   }
 
   void _updateUserPreferences() {
@@ -175,11 +184,11 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
   String _statusText(EventReviewStatus status) {
     switch (status) {
       case EventReviewStatus.approved:
-        return 'Approved';
+        return l10n.approved;
       case EventReviewStatus.pending:
-        return 'Pending Approval';
+        return l10n.pendingApproval;
       case EventReviewStatus.rejected:
-        return 'Rejected';
+        return l10n.rejected;
     }
   }
 
@@ -188,7 +197,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     if (currentLocal == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please log in to delete events.')),
+          SnackBar(content: Text(l10n.pleaseLoginToDelete)),
         );
       }
       return;
@@ -197,21 +206,21 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Event'),
+        title: Text(l10n.deleteEvent),
         content: Text(
-          'Are you sure you want to delete "${event.title}"? This action cannot be undone.',
+          l10n.deleteEventConfirmation(event.title),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(
               foregroundColor: AppPalette.ochre,
             ),
-            child: const Text('Delete'),
+            child: Text(l10n.delete),
           ),
         ],
       ),
@@ -223,9 +232,9 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
 
     // Show loading indicator
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Deleting event...'),
-        duration: Duration(seconds: 1),
+      SnackBar(
+        content: Text(l10n.deletingEvent),
+        duration: const Duration(seconds: 1),
       ),
     );
 
@@ -240,15 +249,15 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
       if (deleted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Event "${event.title}" has been deleted.'),
+            content: Text(l10n.eventDeleted(event.title)),
             backgroundColor: AppPalette.deepBlue,
           ),
         );
         // Stream will automatically refresh and remove the deleted event
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to delete event. Please try again.'),
+          SnackBar(
+            content: Text(l10n.failedToDeleteEvent),
             backgroundColor: AppPalette.ochre,
           ),
         );
@@ -257,7 +266,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error deleting event: $error'),
+            content: Text(l10n.errorDeletingEvent(error.toString())),
             backgroundColor: AppPalette.ochre,
           ),
         );
@@ -299,7 +308,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     if (uri == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This link is not available right now.')),
+        SnackBar(content: Text(l10n.thisLinkUnavailable)),
       );
       return;
     }
@@ -310,7 +319,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     );
     if (!didLaunch && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to open the link right now.')),
+        SnackBar(content: Text(l10n.unableToOpenLink)),
       );
     }
   }
@@ -319,7 +328,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1C1C2E),
+      backgroundColor: AppPalette.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -503,7 +512,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                         ),
                       ),
                       icon: const Icon(Icons.open_in_new_rounded),
-                      label: const Text('Open Source Link'),
+                      label: Text(l10n.openSourceLink),
                     ),
                   ),
                 ],
@@ -563,12 +572,6 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     return '${parts.where((part) => part.trim().isNotEmpty).join('. ')}.';
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
   Widget _buildSearchBar() {
     return Container(
       decoration: BoxDecoration(
@@ -588,8 +591,8 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
         textInputAction: TextInputAction.search,
         onSubmitted: (_) => FocusScope.of(context).unfocus(),
         decoration: InputDecoration(
-          hintText: 'Search events, bookings...',
-          hintStyle: TextStyle(
+          hintText: l10n.searchHintEvents,
+          hintStyle: const TextStyle(
             color: AppPalette.mutedText,
             fontWeight: FontWeight.w500,
           ),
@@ -606,9 +609,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
 
   Widget _buildManagementCard(EventItem event) {
     return ReusableManagementCard(
-      imageUrl: (event.imageAsset?.isNotEmpty == true)
-          ? event.imageAsset!
-          : _defaultImageUrl,
+      imageUrl: event.imageAsset ?? '',
       title: event.title,
       dateTime: '${event.date} • ${event.time}',
       location: event.location,
@@ -683,44 +684,90 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
         .where((i) => (i['section'] as String? ?? '') == 'stadiums')
         .toList();
 
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final horizontalPadding =
+            constraints.maxWidth >= Breakpoints.desktop ? 32.0 : 20.0;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (eventItems.isNotEmpty) ...[
+              _buildDiscoverSectionHeader(
+                'Events',
+                'Upcoming events in Brisbane',
+                horizontalPadding,
+              ),
+              _buildDiscoverCardGrid(eventItems, constraints.maxWidth),
+              const SizedBox(height: 16),
+            ],
+            if (historicalItems.isNotEmpty) ...[
+              _buildDiscoverSectionHeader(
+                'Attractions',
+                'Cultural and historical highlights',
+                horizontalPadding,
+              ),
+              _buildDiscoverCardGrid(historicalItems, constraints.maxWidth),
+              const SizedBox(height: 16),
+            ],
+            if (foodItems.isNotEmpty) ...[
+              _buildDiscoverSectionHeader(
+                'Food',
+                'Discover local dining experiences',
+                horizontalPadding,
+              ),
+              _buildDiscoverCardGrid(foodItems, constraints.maxWidth),
+              const SizedBox(height: 16),
+            ],
+            if (stadiumItems.isNotEmpty) ...[
+              _buildDiscoverSectionHeader(
+                'Stadiums',
+                'Explore iconic sporting venues',
+                horizontalPadding,
+              ),
+              _buildDiscoverCardGrid(stadiumItems, constraints.maxWidth),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  /// Renders discover cards in a responsive grid on desktop/tablet.
+  Widget _buildDiscoverCardGrid(
+    List<Map<String, dynamic>> items,
+    double maxWidth,
+  ) {
+    if (maxWidth >= Breakpoints.mobile) {
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.symmetric(
+          horizontal: maxWidth >= Breakpoints.desktop ? 32 : 20,
+        ),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: ResponsiveUtils.gridColumnCount(
+            context,
+            itemMinWidth: 340,
+            minColumns: 2,
+            maxColumns: maxWidth >= Breakpoints.desktop ? 4 : 3,
+            spacing: 16,
+          ),
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 0,
+          childAspectRatio: 0.78,
+        ),
+        itemCount: items.length,
+        itemBuilder: (context, index) => _buildDiscoverEventCard(items[index]),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (eventItems.isNotEmpty) ...[
-          _buildDiscoverSectionHeader('Events', 'Upcoming events in Brisbane'),
-          ...eventItems.map((item) => Padding(
+      children: items
+          .map((item) => Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _buildDiscoverEventCard(item),
-              )),
-          const SizedBox(height: 16),
-        ],
-        if (historicalItems.isNotEmpty) ...[
-          _buildDiscoverSectionHeader(
-              'Attractions', 'Cultural and historical highlights'),
-          ...historicalItems.map((item) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _buildDiscoverEventCard(item),
-              )),
-          const SizedBox(height: 16),
-        ],
-        if (foodItems.isNotEmpty) ...[
-          _buildDiscoverSectionHeader(
-              'Food', 'Discover local dining experiences'),
-          ...foodItems.map((item) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _buildDiscoverEventCard(item),
-              )),
-          const SizedBox(height: 16),
-        ],
-        if (stadiumItems.isNotEmpty) ...[
-          _buildDiscoverSectionHeader(
-              'Stadiums', 'Explore iconic sporting venues'),
-          ...stadiumItems.map((item) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _buildDiscoverEventCard(item),
-              )),
-        ],
-      ],
+              ))
+          .toList(),
     );
   }
 
@@ -746,7 +793,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                     ),
                   ),
                   icon: const Icon(Icons.search),
-                  label: const Text('Search'),
+                  label: Text(l10n.search),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppPalette.ochre,
                     foregroundColor: Colors.white,
@@ -774,13 +821,13 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                     } catch (e) {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error loading map: $e')),
+                          SnackBar(content: Text(l10n.errorLoadingMap(e.toString()))),
                         );
                       }
                     }
                   },
                   icon: const Icon(Icons.map),
-                  label: const Text('Map'),
+                  label: Text(l10n.map),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppPalette.ochre,
                     foregroundColor: Colors.white,
@@ -795,16 +842,20 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     );
   }
 
-  Widget _buildDiscoverSectionHeader(String title, String subtitle) {
+  Widget _buildDiscoverSectionHeader(
+    String title,
+    String subtitle, [
+    double horizontalPadding = 20,
+  ]) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+      padding: EdgeInsets.fromLTRB(horizontalPadding, 8, horizontalPadding, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 18,
+            style: TextStyle(
+              fontSize: horizontalPadding >= 32 ? 22 : 18,
               fontWeight: FontWeight.w800,
               color: AppPalette.charcoal,
             ),
@@ -876,7 +927,11 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _approvedEventsStream(),
       builder: (context, snapshot) {
-        final discoverItems = _filterDiscoverItems(snapshot.data ?? const []);
+        final items = snapshot.data ?? const <Map<String, dynamic>>[];
+        final discoverItems = _filterDiscoverItems(items);
+        final width = ResponsiveUtils.widthOf(context);
+        final isMobile = width < Breakpoints.mobile;
+        final isDesktop = width >= Breakpoints.desktop;
 
         return CustomScrollView(
           slivers: [
@@ -892,76 +947,78 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                   // Logo + greeting + search
                   Positioned(
                     top: MediaQuery.of(context).padding.top + 12,
-                    left: 16,
-                    right: 16,
+                    left: isMobile ? 16.0 : 32.0,
+                    right: isMobile ? 16.0 : 32.0,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            ClipOval(
-                              child: Container(
-                                width: 64,
-                                height: 64,
-                                color: Colors.white.withValues(alpha: 0.1),
-                                child: Image.asset('assets/Brisconnect New.jpg',
-                                    fit: BoxFit.cover),
+                        if (isMobile)
+                          Row(
+                            children: [
+                              ClipOval(
+                                child: Container(
+                                  width: 64,
+                                  height: 64,
+                                  color: Colors.white.withValues(alpha: 0.1),
+                                  child: Image.asset(
+                                      'assets/Brisconnect New.jpg',
+                                      fit: BoxFit.cover),
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            const Text(
-                              'BrisConnect+',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                shadows: [
-                                  Shadow(
-                                    offset: Offset(0, 1),
-                                    blurRadius: 6,
-                                    color: Colors.black45,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Spacer(),
-                            GestureDetector(
-                              onTap: () => setState(() => _selectedIndex = 4),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border:
-                                      Border.all(color: Colors.white, width: 2),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color:
-                                          Colors.black.withValues(alpha: 0.25),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
+                              const SizedBox(width: 10),
+                              Text(
+                                l10n.appTitle,
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  shadows: [
+                                    Shadow(
+                                      offset: Offset(0, 1),
+                                      blurRadius: 6,
+                                      color: Colors.black45,
                                     ),
                                   ],
                                 ),
-                                child: CircleAvatar(
-                                  radius: 52,
-                                  backgroundColor: AppPalette.deepBlue,
-                                  backgroundImage: heroProfileImage,
-                                  child: heroProfileImage == null
-                                      ? const Icon(Icons.person_rounded,
-                                          color: Colors.white, size: 48)
-                                      : null,
+                              ),
+                              const Spacer(),
+                              GestureDetector(
+                                onTap: () => setState(() => _selectedIndex = 4),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: Colors.white, width: 2),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black
+                                            .withValues(alpha: 0.25),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 52,
+                                    backgroundColor: AppPalette.deepBlue,
+                                    backgroundImage: heroProfileImage,
+                                    child: heroProfileImage == null
+                                        ? const Icon(Icons.person_rounded,
+                                            color: Colors.white, size: 48)
+                                        : null,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 22),
+                            ],
+                          ),
+                        if (isMobile) const SizedBox(height: 22),
                         Text(
                           'Welcome Back, $localName',
-                          style: const TextStyle(
-                            fontSize: 28,
+                          style: TextStyle(
+                            fontSize: isDesktop ? 36 : 28,
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
-                            shadows: [
+                            shadows: const [
                               Shadow(
                                 offset: Offset(0, 1),
                                 blurRadius: 8,
@@ -971,13 +1028,13 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
+                        Text(
                           'Manage Your Events',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: isDesktop ? 20 : 16,
                             fontWeight: FontWeight.w500,
                             color: Colors.white70,
-                            shadows: [
+                            shadows: const [
                               Shadow(
                                 offset: Offset(0, 1),
                                 blurRadius: 6,
@@ -986,8 +1043,10 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 18),
-                        _buildSearchBar(),
+                        if (isMobile) ...[
+                          const SizedBox(height: 18),
+                          _buildSearchBar(),
+                        ],
                       ],
                     ),
                   ),
@@ -1031,12 +1090,13 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
   // ── Profile helpers ───────────────────────────────────────────────────
 
   Widget _buildSectionLabel(String label) {
+    final isDesktop = ResponsiveUtils.widthOf(context) >= Breakpoints.desktop;
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 6),
       child: Text(
         label.toUpperCase(),
         style: TextStyle(
-          fontSize: 11,
+          fontSize: isDesktop ? 13 : 11,
           fontWeight: FontWeight.w800,
           letterSpacing: 1.1,
           color: AppPalette.brown.withValues(alpha: 0.85),
@@ -1073,22 +1133,25 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choose from gallery'),
-              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Take a photo'),
-              onTap: () => Navigator.pop(ctx, ImageSource.camera),
-            ),
-          ],
-        ),
-      ),
+      builder: (ctx) {
+        final sheetL10n = AppLocalizations.of(ctx)!;
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: Text(sheetL10n.chooseFromGallery),
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: Text(sheetL10n.takeAPhoto),
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1096,7 +1159,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     final local = LocalAuth.currentLocal;
     if (local == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in as a Local user first.')),
+        SnackBar(content: Text(l10n.pleaseLoginLocal)),
       );
       return;
     }
@@ -1122,7 +1185,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
       setState(() => _pendingProfileImageBytes = null);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Only JPG and PNG images are supported.')),
+        SnackBar(content: Text(l10n.onlyJpgPng)),
       );
       return;
     }
@@ -1131,9 +1194,9 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
       setState(() => _pendingProfileImageBytes = null);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
             content:
-                Text('Image is too large. Please choose a smaller image.')),
+                Text(l10n.imageTooLarge)),
       );
       return;
     }
@@ -1229,24 +1292,27 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
   Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Sign Out'),
-        content: const Text('Are you sure you want to sign out?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade700,
-              foregroundColor: Colors.white,
+      builder: (ctx) {
+        final dialogL10n = AppLocalizations.of(ctx)!;
+        return AlertDialog(
+          title: Text(dialogL10n.signOut),
+          content: Text(dialogL10n.areYouSureSignOut),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(dialogL10n.cancel),
             ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Sign Out'),
-          ),
-        ],
-      ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(dialogL10n.signOut),
+            ),
+          ],
+        );
+      },
     );
     if (confirmed != true) return;
     await LocalAuth.logout();
@@ -1282,10 +1348,25 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
           _ => (Colors.orange.shade700, 'Pending Approval'),
         };
 
+        final width = ResponsiveUtils.widthOf(context);
+        final isProfileDesktop = width >= Breakpoints.desktop;
+        final isProfileTablet =
+            width >= Breakpoints.mobile && width < Breakpoints.tablet;
+        final horizontalPadding = isProfileDesktop
+            ? 48.0
+            : isProfileTablet
+                ? 32.0
+                : 16.0;
+
         return Container(
           color: const Color(0xFFF8F3EA).withValues(alpha: 0.85),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 36),
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              isProfileDesktop ? 32 : 14,
+              horizontalPadding,
+              36,
+            ),
             children: [
               _buildSectionLabel('Profile Info'),
               Card(
@@ -1385,8 +1466,8 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                                           true ||
                                       local.profileImageBase64?.isNotEmpty ==
                                           true)
-                                  ? 'Change profile picture'
-                                  : 'Upload profile picture',
+                                  ? l10n.changeProfilePicture
+                                  : l10n.uploadProfilePicture,
                               onPressed: _uploadLocalProfileImage,
                               icon: const Icon(
                                 Icons.photo_camera_outlined,
@@ -1395,7 +1476,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                               ),
                             ),
                             IconButton(
-                              tooltip: 'Edit profile',
+                              tooltip: l10n.editProfile,
                               onPressed: () => _showEditProfileSheet(local),
                               icon: const Icon(
                                 Icons.edit_rounded,
@@ -1410,7 +1491,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              _buildSectionLabel('My Activity'),
+              _buildSectionLabel(l10n.myActivity),
               Card(
                 color: AppPalette.surface.withValues(alpha: 0.96),
                 elevation: 0,
@@ -1429,22 +1510,22 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                       child: Row(
                         children: [
                           _StatChip(
-                            label: 'Total',
+                            label: l10n.total,
                             count: totalEvents,
                             color: AppPalette.deepBlue,
                           ),
                           _StatChip(
-                            label: 'Pending',
+                            label: l10n.pending,
                             count: pendingCount,
                             color: Colors.orange.shade700,
                           ),
                           _StatChip(
-                            label: 'Approved',
+                            label: l10n.approved,
                             count: approvedCount,
                             color: Colors.green.shade700,
                           ),
                           _StatChip(
-                            label: 'Rejected',
+                            label: l10n.rejected,
                             count: rejectedCount,
                             color: Colors.red.shade700,
                           ),
@@ -1456,7 +1537,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              _buildSectionLabel('Preferences'),
+              _buildSectionLabel(l10n.preferences),
               Card(
                 color: AppPalette.surface.withValues(alpha: 0.96),
                 elevation: 0,
@@ -1478,10 +1559,9 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                         child: const Icon(Icons.pin_drop_outlined,
                             color: AppPalette.deepBlue, size: 20),
                       ),
-                      title: const Text('Location Radius',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: const Text(
-                          'Control distance for nearby opportunities'),
+                      title: Text(l10n.locationRadius,
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text(l10n.controlDistance),
                       trailing: const Icon(Icons.chevron_right_rounded,
                           color: AppPalette.mutedText),
                       onTap: () => Navigator.push(
@@ -1503,9 +1583,9 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                         child: const Icon(Icons.palette_outlined,
                             color: AppPalette.deepBlue, size: 20),
                       ),
-                      title: const Text('Appearance Settings',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Theme, text size & feedback'),
+                      title: Text(l10n.appearanceSettings,
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text(l10n.themeTextSizeFeedback),
                       trailing: const Icon(Icons.chevron_right_rounded,
                           color: AppPalette.mutedText),
                       onTap: () => Navigator.push(
@@ -1528,9 +1608,9 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                         child: const Icon(Icons.notifications_outlined,
                             color: AppPalette.deepBlue, size: 20),
                       ),
-                      title: const Text('Business Notifications',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Push alerts for your business'),
+                      title: Text(l10n.businessNotifications,
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text(l10n.pushAlerts),
                       trailing: const Icon(Icons.chevron_right_rounded,
                           color: AppPalette.mutedText),
                       onTap: () => Navigator.push(
@@ -1545,7 +1625,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              _buildSectionLabel('Feedback'),
+              _buildSectionLabel(l10n.feedback),
               Card(
                 color: AppPalette.surface.withValues(alpha: 0.96),
                 elevation: 0,
@@ -1568,12 +1648,12 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                       size: 20,
                     ),
                   ),
-                  title: const Text(
-                    'My Feedback',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                  title: Text(
+                    l10n.myFeedback,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
-                  subtitle: const Text(
-                    'View your submitted feedback and admin responses',
+                  subtitle: Text(
+                    l10n.viewSubmittedFeedback,
                   ),
                   trailing: const Icon(
                     Icons.chevron_right_rounded,
@@ -1593,7 +1673,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              _buildSectionLabel('Help & Support'),
+              _buildSectionLabel(l10n.helpAndSupport),
               Card(
                 color: AppPalette.surface.withValues(alpha: 0.96),
                 elevation: 0,
@@ -1613,17 +1693,17 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                     child: const Icon(Icons.help_outline_rounded,
                         color: AppPalette.ochre, size: 20),
                   ),
-                  title: const Text(
-                    'Help & Support',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                  title: Text(
+                    l10n.helpAndSupport,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
-                  subtitle: const Text('FAQs, contact us & app info'),
+                  subtitle: Text(l10n.faqsContactAppInfo),
                   trailing: const Icon(Icons.chevron_right_rounded, size: 20),
                   onTap: () => _showHelpSupport(context),
                 ),
               ),
               const SizedBox(height: 24),
-              _buildSectionLabel('Sign Out'),
+              _buildSectionLabel(l10n.signOut),
               Card(
                 color: AppPalette.surface.withValues(alpha: 0.96),
                 elevation: 0,
@@ -1644,18 +1724,18 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                         color: Colors.red.shade700, size: 20),
                   ),
                   title: Text(
-                    'Sign Out',
+                    l10n.signOut,
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: Colors.red.shade700,
                     ),
                   ),
-                  subtitle: const Text('Return to the welcome screen'),
+                  subtitle: Text(l10n.returnWelcome),
                   onTap: _confirmLogout,
                 ),
               ),
               const SizedBox(height: 24),
-              _buildSectionLabel('About'),
+              _buildSectionLabel(l10n.about),
               Card(
                 color: AppPalette.surface.withValues(alpha: 0.96),
                 elevation: 0,
@@ -1664,32 +1744,32 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                   side: BorderSide(
                       color: AppPalette.border.withValues(alpha: 0.5)),
                 ),
-                child: const Padding(
-                  padding: EdgeInsets.all(16),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'BrisConnect+',
-                        style: TextStyle(
+                        l10n.appTitle,
+                        style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           color: AppPalette.charcoal,
                           fontSize: 15,
                         ),
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Text(
-                        'BrisConnect+ is a smart city guide that helps visitors and locals discover events, explore attractions, and capture their Brisbane experiences in one connected platform.',
-                        style: TextStyle(
+                        l10n.aboutDescription,
+                        style: const TextStyle(
                           color: AppPalette.mutedText,
                           fontSize: 13,
                           height: 1.5,
                         ),
                       ),
-                      SizedBox(height: 12),
+                      const SizedBox(height: 12),
                       Text(
-                        'Version 1.0.0',
-                        style: TextStyle(
+                        l10n.versionLabel('1.0.0'),
+                        style: const TextStyle(
                           color: AppPalette.mutedText,
                           fontSize: 12,
                         ),
@@ -1705,64 +1785,137 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     );
   }
 
+  Widget _localDesktopBody() {
+    return Row(
+      children: [
+        NavigationRail(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: (index) =>
+              setState(() => _selectedIndex = index),
+          backgroundColor: AppPalette.surface,
+          selectedIconTheme:
+              const IconThemeData(color: AppPalette.ochre, size: 28),
+          unselectedIconTheme: IconThemeData(color: AppPalette.mutedText),
+          selectedLabelTextStyle: const TextStyle(
+            color: AppPalette.ochre,
+            fontWeight: FontWeight.w600,
+          ),
+          unselectedLabelTextStyle: TextStyle(color: AppPalette.mutedText),
+          labelType: NavigationRailLabelType.all,
+          destinations: [
+            NavigationRailDestination(
+              icon: const Icon(Icons.dashboard_outlined),
+              selectedIcon: const Icon(Icons.dashboard_rounded),
+              label: Text(l10n.dashboard),
+            ),
+            NavigationRailDestination(
+              icon: const Icon(Icons.people_outline_rounded),
+              selectedIcon: const Icon(Icons.people_rounded),
+              label: Text(l10n.audience),
+            ),
+            NavigationRailDestination(
+              icon: const Icon(Icons.dynamic_feed_outlined),
+              selectedIcon: const Icon(Icons.dynamic_feed_rounded),
+              label: Text(l10n.feed),
+            ),
+            NavigationRailDestination(
+              icon: const Icon(Icons.reviews_outlined),
+              selectedIcon: const Icon(Icons.reviews_rounded),
+              label: Text(l10n.reviews),
+            ),
+            NavigationRailDestination(
+              icon: const Icon(Icons.business_center_outlined),
+              selectedIcon: const Icon(Icons.business_center_rounded),
+              label: Text(l10n.businessLabel),
+            ),
+          ],
+        ),
+        Expanded(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1400),
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _handleScrollNotification,
+                child: IndexedStack(
+                  index: _selectedIndex,
+                  children: [
+                    BusinessDashboardScreen(
+                      ownerId: LocalAuth.currentLocal?.email ?? '',
+                    ),
+                    BusinessAudienceScreen(
+                      ownerId: LocalAuth.currentLocal?.email ?? '',
+                    ),
+                    VendorFeedScreen(),
+                    VendorReviewsScreen(),
+                    BusinessProfileScreen(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isHome = _selectedIndex == 0;
+    final width = ResponsiveUtils.widthOf(context);
+    final isDesktop = width >= Breakpoints.desktop;
+    final isTablet = width >= Breakpoints.mobile && width < Breakpoints.tablet;
 
     final scaffold = Scaffold(
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       extendBody: true,
-      appBar: isHome
-          ? null
-          : AppBar(
-              automaticallyImplyLeading: false,
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => setState(() => _selectedIndex = 0),
+      appBar: isHome && (isDesktop || isTablet)
+          ? DesktopTopAppBar(
+              title: l10n.appTitle,
+              subtitle: l10n.localBusinessPortal,
+              searchController: _searchController,
+              searchHint: l10n.searchHintEvents,
+              onSearchChanged: (_) => setState(() {}),
+              onProfileTap: () => setState(() => _selectedIndex = 4),
+              profileImage: _profileImageProvider(LocalAuth.currentLocal),
+              userName: LocalAuth.currentLocal?.name ?? l10n.localUser,
+              userEmail: LocalAuth.currentLocal?.email,
+            )
+          : isHome
+              ? null
+              : AppBar(
+                  automaticallyImplyLeading: false,
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => setState(() => _selectedIndex = 0),
+                  ),
+                  title: LogoAppBarTitle(
+                    _appBarTitleForIndex(_selectedIndex),
+                  ),
+                  backgroundColor: AppPalette.ochre,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                ),
+      body: isDesktop
+          ? _localDesktopBody()
+          : NotificationListener<ScrollNotification>(
+              onNotification: _handleScrollNotification,
+              child: IndexedStack(
+                index: _selectedIndex,
+                children: [
+                  BusinessDashboardScreen(
+                    ownerId: LocalAuth.currentLocal?.email ?? '',
+                  ),
+                  BusinessAudienceScreen(
+                    ownerId: LocalAuth.currentLocal?.email ?? '',
+                  ),
+                  VendorFeedScreen(),
+                  VendorReviewsScreen(),
+                  BusinessProfileScreen(),
+                ],
               ),
-              title: LogoAppBarTitle(
-                _appBarTitleForIndex(_selectedIndex),
-              ),
-              backgroundColor: AppPalette.ochre,
-              foregroundColor: Colors.white,
-              elevation: 0,
             ),
-      body: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          if (notification is ScrollUpdateNotification) {
-            final delta = notification.scrollDelta ?? 0;
-            if (delta > 2 && _isNavVisible) {
-              setState(() => _isNavVisible = false);
-            } else if (delta < -2 && !_isNavVisible) {
-              setState(() => _isNavVisible = true);
-            }
-          } else if (notification is ScrollEndNotification) {
-            if (!_isNavVisible) setState(() => _isNavVisible = true);
-          }
-          return false;
-        },
-        child: IndexedStack(
-          index: _selectedIndex,
-          children: [
-            BusinessDashboardScreen(
-              ownerId: LocalAuth.currentLocal?.email ?? '',
-            ),
-            BusinessAudienceScreen(
-              ownerId: LocalAuth.currentLocal?.email ?? '',
-            ),
-            VendorFeedScreen(),
-            VendorReviewsScreen(),
-            BusinessProfileScreen(),
-          ],
-        ),
-      ),
-      bottomNavigationBar: AnimatedSlide(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        offset: _isNavVisible ? Offset.zero : const Offset(0, 1),
-        child: _buildLocalBottomNav(),
-      ),
+      bottomNavigationBar: isDesktop ? null : _buildLocalBottomNav(),
     );
 
     // Wrap scaffold with solid dark navy background
@@ -1787,55 +1940,91 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     );
   }
 
+  bool _shouldToggleNav(bool nextVisible) {
+    if (_navVisibleNotifier.value == nextVisible) return false;
+    final now = DateTime.now();
+    final last = _lastNavToggle;
+    if (last != null && now.difference(last).inMilliseconds < 80) {
+      return false;
+    }
+    _lastNavToggle = now;
+    return true;
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification is ScrollUpdateNotification) {
+      final delta = notification.scrollDelta ?? 0;
+      if (delta > 2 && _shouldToggleNav(false)) {
+        _navVisibleNotifier.value = false;
+      } else if (delta < -2 && _shouldToggleNav(true)) {
+        _navVisibleNotifier.value = true;
+      }
+    } else if (notification is ScrollEndNotification) {
+      if (_shouldToggleNav(true)) {
+        _navVisibleNotifier.value = true;
+      }
+    }
+    return false;
+  }
+
   Widget _buildLocalBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.20),
-            blurRadius: 12,
-            offset: const Offset(0, -2),
-          ),
-        ],
+    return ValueListenableBuilder<bool>(
+      valueListenable: _navVisibleNotifier,
+      builder: (context, isVisible, child) => AnimatedSlide(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        offset: isVisible ? Offset.zero : const Offset(0, 1),
+        child: child!,
       ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _LocalNavItem(
-                icon: Icons.dashboard_rounded,
-                label: 'Dashboard',
-                isSelected: _selectedIndex == 0,
-                onTap: () => setState(() => _selectedIndex = 0),
-              ),
-              _LocalNavItem(
-                icon: Icons.people_alt_rounded,
-                label: 'Audience',
-                isSelected: _selectedIndex == 1,
-                onTap: () => setState(() => _selectedIndex = 1),
-              ),
-              _LocalNavItem(
-                icon: Icons.dynamic_feed_rounded,
-                label: 'Feed',
-                isSelected: _selectedIndex == 2,
-                onTap: () => setState(() => _selectedIndex = 2),
-              ),
-              _LocalNavItem(
-                icon: Icons.reviews_rounded,
-                label: 'Reviews',
-                isSelected: _selectedIndex == 3,
-                onTap: () => setState(() => _selectedIndex = 3),
-              ),
-              _LocalNavItem(
-                icon: Icons.business_center_rounded,
-                label: 'Business',
-                isSelected: _selectedIndex == 4,
-                onTap: () => setState(() => _selectedIndex = 4),
-              ),
-            ],
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppPalette.surface,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.20),
+              blurRadius: 12,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _LocalNavItem(
+                  icon: Icons.dashboard_rounded,
+                  label: l10n.dashboard,
+                  isSelected: _selectedIndex == 0,
+                  onTap: () => setState(() => _selectedIndex = 0),
+                ),
+                _LocalNavItem(
+                  icon: Icons.people_alt_rounded,
+                  label: l10n.audience,
+                  isSelected: _selectedIndex == 1,
+                  onTap: () => setState(() => _selectedIndex = 1),
+                ),
+                _LocalNavItem(
+                  icon: Icons.dynamic_feed_rounded,
+                  label: l10n.feed,
+                  isSelected: _selectedIndex == 2,
+                  onTap: () => setState(() => _selectedIndex = 2),
+                ),
+                _LocalNavItem(
+                  icon: Icons.reviews_rounded,
+                  label: l10n.reviews,
+                  isSelected: _selectedIndex == 3,
+                  onTap: () => setState(() => _selectedIndex = 3),
+                ),
+                _LocalNavItem(
+                  icon: Icons.business_center_rounded,
+                  label: l10n.businessLabel,
+                  isSelected: _selectedIndex == 4,
+                  onTap: () => setState(() => _selectedIndex = 4),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1845,16 +2034,16 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
   String _appBarTitleForIndex(int index) {
     switch (index) {
       case 1:
-        return 'Audience';
+        return l10n.audience;
       case 2:
-        return 'Feed';
+        return l10n.feed;
       case 3:
-        return 'Reviews';
+        return l10n.reviews;
       case 4:
-        return 'Profile';
+        return l10n.profile;
       case 0:
       default:
-        return 'Dashboard';
+        return l10n.dashboard;
     }
   }
 }
@@ -1882,6 +2071,8 @@ class _LocalProfileEditorSheet extends StatefulWidget {
 }
 
 class _LocalProfileEditorSheetState extends State<_LocalProfileEditorSheet> {
+  AppLocalizations get l10n => AppLocalizations.of(context)!;
+
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
@@ -1950,7 +2141,7 @@ class _LocalProfileEditorSheetState extends State<_LocalProfileEditorSheet> {
                 autofocus: true,
                 textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
-                  labelText: 'Display name',
+                  labelText: l10n.displayName,
                   prefixIcon: const Icon(Icons.person_outline_rounded),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -1958,7 +2149,7 @@ class _LocalProfileEditorSheetState extends State<_LocalProfileEditorSheet> {
                 ),
                 validator: (v) {
                   if (v == null || v.trim().length < 2) {
-                    return 'Name must be at least 2 characters.';
+                    return l10n.nameMinLength;
                   }
                   return null;
                 },
@@ -1968,7 +2159,7 @@ class _LocalProfileEditorSheetState extends State<_LocalProfileEditorSheet> {
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
-                  labelText: 'Phone number',
+                  labelText: l10n.phoneNumber,
                   prefixIcon: const Icon(Icons.phone_outlined),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -1980,7 +2171,7 @@ class _LocalProfileEditorSheetState extends State<_LocalProfileEditorSheet> {
                 controller: _suburbController,
                 textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
-                  labelText: 'Suburb',
+                  labelText: l10n.suburb,
                   prefixIcon: const Icon(Icons.location_on_outlined),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -2007,12 +2198,12 @@ class _LocalProfileEditorSheetState extends State<_LocalProfileEditorSheet> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text('Save Changes'),
+                    : Text(l10n.saveChanges),
               ),
               const SizedBox(height: 8),
               TextButton(
                 onPressed: _saving ? null : () => Navigator.pop(context),
-                child: const Text('Cancel'),
+                child: Text(l10n.cancel),
               ),
             ],
           ),

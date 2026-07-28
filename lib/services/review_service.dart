@@ -328,7 +328,7 @@ class ReviewService {
       if (snapshot.docs.isEmpty) return 0.0;
 
       final totalRating = snapshot.docs
-          .fold<int>(0, (sum, doc) => sum + (doc['rating'] as int? ?? 0));
+          .fold<num>(0, (total, doc) => total + (doc['rating'] as int? ?? 0));
       return totalRating / snapshot.docs.length;
     } catch (e) {
       throw Exception('Failed to calculate average rating: $e');
@@ -344,7 +344,7 @@ class ReviewService {
         .map((snapshot) {
       if (snapshot.docs.isEmpty) return 0.0;
       final totalRating = snapshot.docs
-          .fold<int>(0, (sum, doc) => sum + (doc['rating'] as int? ?? 0));
+          .fold<num>(0, (total, doc) => total + (doc['rating'] as int? ?? 0));
       return totalRating / snapshot.docs.length;
     });
   }
@@ -642,13 +642,13 @@ class ReviewService {
         operationName: '_updateBusinessReviewMetrics',
       );
 
-      final totalRating = snapshot.docs.fold<int>(
+      final totalRating = snapshot.docs.fold<num>(
         0,
-        (sum, doc) => sum + (doc['rating'] as int? ?? 0),
+        (total, doc) => total + (doc['rating'] as int? ?? 0),
       );
-      final totalBuzz = snapshot.docs.fold<int>(
+      final totalBuzz = snapshot.docs.fold<num>(
         0,
-        (sum, doc) => sum + (doc['buzzRating'] as int? ?? 0),
+        (total, doc) => total + (doc['buzzRating'] as int? ?? 0),
       );
       final count = snapshot.docs.length;
       final averageRating = count > 0 ? totalRating / count : 0.0;

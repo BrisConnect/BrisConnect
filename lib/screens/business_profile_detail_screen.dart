@@ -327,7 +327,7 @@ class _BusinessProfileDetailScreenState
                                           vertical: 4,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: AppPalette.ochre.withOpacity(0.2),
+                                          color: AppPalette.ochre.withValues(alpha: 0.2),
                                           borderRadius: BorderRadius.circular(6),
                                         ),
                                         child: Text(

@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:flutter/foundation.dart';
 
+import 'package:brisconnect/services/email_code_auth_service.dart';
+
 class AdminAuth {
   static bool _isAdminLoggedIn = false;
   static String? _lastErrorMessage;
@@ -29,7 +31,8 @@ class AdminAuth {
 
   static Future<bool> login({
     required String email,
-    required String password,
+    String? password,
+    String? code,
   }) async {
     _lastErrorMessage = null;
     final normalized = email.trim().toLowerCase();
@@ -39,12 +42,59 @@ class AdminAuth {
       return false;
     }
 
-    try {
-      await fb_auth.FirebaseAuth.instance.signInWithEmailAndPassword(
+    // Prefer email + code login when a code is provided.
+    if (code != null && code.trim().isNotEmpty) {
+      final verified = await EmailCodeAuthService.verifyCode(
         email: normalized,
-        password: password,
+        code: code,
+        userType: 'admin',
       );
+      if (!verified) {
+        _lastErrorMessage = EmailCodeAuthService.lastErrorMessage ??
+            'Invalid or expired code. Please try again.';
+        return false;
+      }
+    } else if (password != null && password.isNotEmpty) {
+      try {
+        await fb_auth.FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: normalized,
+          password: password,
+        );
+      } on fb_auth.FirebaseAuthException catch (error) {
+        _isAdminLoggedIn = false;
+        switch (error.code) {
+          case 'user-not-found':
+          case 'wrong-password':
+          case 'invalid-credential':
+            _lastErrorMessage = 'Invalid admin credentials.';
+            break;
+          case 'invalid-email':
+            _lastErrorMessage = 'Please enter a valid email address.';
+            break;
+          case 'operation-not-allowed':
+            _lastErrorMessage =
+                'Email/password sign-in is not enabled in Firebase Authentication.';
+            break;
+          case 'network-request-failed':
+            _lastErrorMessage =
+                'Network error. Check your connection and try again.';
+            break;
+          default:
+            _lastErrorMessage = 'Admin login failed (${error.code}).';
+        }
+        return false;
+      } catch (_) {
+        _isAdminLoggedIn = false;
+        _lastErrorMessage = 'Admin login failed due to an unexpected error.';
+        return false;
+      }
+    } else {
+      _lastErrorMessage = 'Please enter a code or password.';
+      return false;
+    }
 
+    // Verify the admin profile in Firestore and update metadata.
+    try {
       final adminDoc = await FirebaseFirestore.instance
           .collection('admins')
           .doc(normalized)
@@ -85,33 +135,11 @@ class AdminAuth {
       }
 
       _profileImageUrl = (data['profileImageUrl'] as String?)?.trim();
-      _profileImageStoragePath = (data['profileImageStoragePath'] as String?)?.trim();
+      _profileImageStoragePath =
+          (data['profileImageStoragePath'] as String?)?.trim();
       _isAdminLoggedIn = true;
       profileVersion.value++;
       return true;
-    } on fb_auth.FirebaseAuthException catch (error) {
-      _isAdminLoggedIn = false;
-      switch (error.code) {
-        case 'user-not-found':
-        case 'wrong-password':
-        case 'invalid-credential':
-          _lastErrorMessage = 'Invalid admin credentials.';
-          break;
-        case 'invalid-email':
-          _lastErrorMessage = 'Please enter a valid email address.';
-          break;
-        case 'operation-not-allowed':
-          _lastErrorMessage =
-              'Email/password sign-in is not enabled in Firebase Authentication.';
-          break;
-        case 'network-request-failed':
-          _lastErrorMessage =
-              'Network error. Check your connection and try again.';
-          break;
-        default:
-          _lastErrorMessage = 'Admin login failed (${error.code}).';
-      }
-      return false;
     } on FirebaseException catch (error) {
       _isAdminLoggedIn = false;
       if (error.code == 'permission-denied') {

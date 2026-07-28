@@ -232,7 +232,7 @@ class _TopRestaurantsScreenState extends State<TopRestaurantsScreen> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '${(business.rating ?? 0).toStringAsFixed(1)}',
+                          (business.rating ?? 0).toStringAsFixed(1),
                           style: const TextStyle(
                             fontSize: 12,
                             color: Colors.white,

@@ -4,7 +4,6 @@ import 'package:brisconnect/auth/app_user_role.dart';
 import 'package:brisconnect/models/activity_feed_item.dart';
 import 'package:brisconnect/services/activity_feed_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
-import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
 
 /// Admin screen for curating the visitor community feed.
@@ -35,9 +34,18 @@ class _AdminCommunityFeedScreenState extends State<AdminCommunityFeedScreen> {
   @override
   Widget build(BuildContext context) {
     final screen = Scaffold(
-      backgroundColor: AppPalette.background,
+      backgroundColor: const Color(0xFFEBF4FF),
       appBar: AppBar(
-        title: const LogoAppBarTitle('Community Feed'),
+        backgroundColor: const Color(0xFFEBF4FF),
+        foregroundColor: const Color(0xFF1E3A8A),
+        elevation: 0,
+        title: const Text(
+          'Community Feed',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF1E3A8A),
+          ),
+        ),
       ),
       body: Column(
         children: [
@@ -114,7 +122,7 @@ class _AdminCommunityFeedScreenState extends State<AdminCommunityFeedScreen> {
           return _buildEmptyOrError(
             icon: Icons.error_outline_rounded,
             title: 'Could not load activity',
-            subtitle: 'Pull down to try again.',
+            subtitle: _shortError(snapshot.error),
           );
         }
 
@@ -193,6 +201,17 @@ class _AdminCommunityFeedScreenState extends State<AdminCommunityFeedScreen> {
     }
   }
 
+  String _shortError(Object? error) {
+    final message = error.toString();
+    if (message.contains('permission-denied')) {
+      return 'Permission denied. Please log in again.';
+    }
+    if (message.contains('failed-precondition')) {
+      return 'Database index is still building. Try again shortly.';
+    }
+    return message.length > 120 ? '${message.substring(0, 120)}…' : message;
+  }
+
   IconData _iconForType(ActivityFeedType type) {
     switch (type) {
       case ActivityFeedType.all:
@@ -265,9 +284,11 @@ class _AdminFeedCardState extends State<_AdminFeedCard> {
                       ),
                     ),
                     if (item.isPinned)
-                      _buildBadge(Icons.push_pin_rounded, 'Pinned', AppPalette.ochre),
+                      _buildBadge(
+                          Icons.push_pin_rounded, 'Pinned', AppPalette.ochre),
                     if (item.isHighlighted)
-                      _buildBadge(Icons.star_rounded, 'Highlighted', AppPalette.gold),
+                      _buildBadge(
+                          Icons.star_rounded, 'Highlighted', AppPalette.gold),
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -300,7 +321,9 @@ class _AdminFeedCardState extends State<_AdminFeedCard> {
                     TextButton.icon(
                       onPressed: _isLoading ? null : _togglePin,
                       icon: Icon(
-                        item.isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+                        item.isPinned
+                            ? Icons.push_pin_rounded
+                            : Icons.push_pin_outlined,
                         size: 18,
                       ),
                       label: Text(item.isPinned ? 'Unpin' : 'Pin'),
@@ -313,7 +336,8 @@ class _AdminFeedCardState extends State<_AdminFeedCard> {
                             : Icons.star_outline_rounded,
                         size: 18,
                       ),
-                      label: Text(item.isHighlighted ? 'Unhighlight' : 'Highlight'),
+                      label: Text(
+                          item.isHighlighted ? 'Unhighlight' : 'Highlight'),
                     ),
                     ElevatedButton.icon(
                       onPressed: _isLoading ? null : _confirmRemove,
@@ -411,7 +435,10 @@ class _AdminFeedCardState extends State<_AdminFeedCard> {
       } else {
         await widget.service.highlightItem(widget.item);
       }
-    }, success: widget.item.isHighlighted ? 'Highlight removed' : 'Item highlighted');
+    },
+        success: widget.item.isHighlighted
+            ? 'Highlight removed'
+            : 'Item highlighted');
   }
 
   Future<void> _confirmRemove() async {
@@ -443,7 +470,8 @@ class _AdminFeedCardState extends State<_AdminFeedCard> {
     );
   }
 
-  Future<void> _runAction(Future<void> Function() action, {required String success}) async {
+  Future<void> _runAction(Future<void> Function() action,
+      {required String success}) async {
     setState(() => _isLoading = true);
     try {
       await action();

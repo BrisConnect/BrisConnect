@@ -14,6 +14,10 @@ class FoodBusiness {
   final double? averageRating;
   final int? reviewCount;
   final String? operatingHours;
+  final String? email;
+  final String? facebookUrl;
+  final String? instagramUrl;
+  final String? onlineOrderUrl;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -31,6 +35,10 @@ class FoodBusiness {
     this.averageRating,
     this.reviewCount,
     this.operatingHours,
+    this.email,
+    this.facebookUrl,
+    this.instagramUrl,
+    this.onlineOrderUrl,
     this.createdAt,
     this.updatedAt,
   });
@@ -58,6 +66,10 @@ class FoodBusiness {
     final averageRating = data['averageRating'] ?? data['rating'];
     final reviewCount = data['reviewCount'];
     final operatingHours = data['operatingHours'] ?? data['businessHours'];
+    final email = data['email'] ?? data['businessEmail'];
+    final facebookUrl = data['facebookUrl'] ?? data['facebook'];
+    final instagramUrl = data['instagramUrl'] ?? data['instagram'];
+    final onlineOrderUrl = data['onlineOrderUrl'] ?? data['onlineOrderLink'];
 
     return FoodBusiness(
       id: doc.id,
@@ -73,6 +85,10 @@ class FoodBusiness {
       averageRating: (averageRating as num?)?.toDouble(),
       reviewCount: reviewCount as int?,
       operatingHours: operatingHours is String ? operatingHours : null,
+      email: email is String ? email : null,
+      facebookUrl: facebookUrl is String ? facebookUrl : null,
+      instagramUrl: instagramUrl is String ? instagramUrl : null,
+      onlineOrderUrl: onlineOrderUrl is String ? onlineOrderUrl : null,
       createdAt: data['createdAt'] != null
           ? (data['createdAt'] as Timestamp).toDate()
           : null,
@@ -96,6 +112,10 @@ class FoodBusiness {
       'averageRating': averageRating,
       'reviewCount': reviewCount,
       'operatingHours': operatingHours,
+      'email': email,
+      'facebookUrl': facebookUrl,
+      'instagramUrl': instagramUrl,
+      'onlineOrderUrl': onlineOrderUrl,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
     };

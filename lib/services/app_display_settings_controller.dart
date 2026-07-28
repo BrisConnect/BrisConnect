@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:brisconnect/main.dart';
+import 'package:brisconnect/services/fcm_service.dart';
 
 enum AppThemePreference { system, light, dark }
 
@@ -91,11 +93,18 @@ class AppDisplaySettingsController {
     required bool locationAccessEnabled,
     required String? themePreference,
     required double textScaleFactor,
+    String? language,
   }) {
     apply(
       locationAccessEnabled: locationAccessEnabled,
       themePreference: themeFromString(themePreference),
       textScaleFactor: textScaleFactor,
     );
+    if (language != null && language.isNotEmpty) {
+      final context = navigatorKey.currentContext;
+      if (context != null) {
+        BrisConnectApp.of(context)?.setLocale(Locale(language));
+      }
+    }
   }
 }

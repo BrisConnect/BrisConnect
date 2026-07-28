@@ -1,5 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/local_auth.dart';
+import 'package:brisconnect/models/business.dart';
 import 'package:brisconnect/models/promotion_schedule.dart';
 import 'package:brisconnect/services/best_time_to_post_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
@@ -20,14 +22,18 @@ class _SchedulePromotionScreenState extends State<SchedulePromotionScreen> {
   final _descCtrl = TextEditingController();
   DateTime _scheduledAt = DateTime.now().add(const Duration(hours: 1));
   bool _isLoadingRecommendations = true;
+  bool _isLoadingBusinesses = true;
   BestTimeToPostResult? _recommendationResult;
   String? _softWarning;
   bool _ignoreWarning = false;
+  List<Business> _ownerBusinesses = [];
+  Business? _selectedBusiness;
 
   @override
   void initState() {
     super.initState();
     _loadRecommendations();
+    _loadOwnerBusinesses();
   }
 
   Future<void> _loadRecommendations() async {
@@ -46,6 +52,36 @@ class _SchedulePromotionScreenState extends State<SchedulePromotionScreen> {
       _isLoadingRecommendations = false;
       _updateSoftWarning();
     });
+  }
+
+  Future<void> _loadOwnerBusinesses() async {
+    final ownerId = LocalAuth.currentLocal?.email ?? '';
+    if (ownerId.trim().isEmpty) {
+      setState(() => _isLoadingBusinesses = false);
+      return;
+    }
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('businesses')
+          .where('ownerId', isEqualTo: ownerId)
+          .where('isActive', isEqualTo: true)
+          .where('deletedAt', isNull: true)
+          .get();
+
+      final businesses = snapshot.docs.map(Business.fromFirestore).toList();
+
+      if (!mounted) return;
+      setState(() {
+        _ownerBusinesses = businesses;
+        _selectedBusiness = businesses.isNotEmpty ? businesses.first : null;
+        _isLoadingBusinesses = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingBusinesses = false);
+      debugPrint('[SchedulePromotion] Failed to load owner businesses: $e');
+    }
   }
 
   void _updateSoftWarning() {
@@ -126,7 +162,7 @@ class _SchedulePromotionScreenState extends State<SchedulePromotionScreen> {
       final proceed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          backgroundColor: const Color(0xFF1C1C2E),
+          backgroundColor: AppPalette.background,
           title: const Text(
             'Timing Warning',
             style: TextStyle(color: Colors.white),
@@ -153,10 +189,13 @@ class _SchedulePromotionScreenState extends State<SchedulePromotionScreen> {
       setState(() => _ignoreWarning = true);
     }
 
-    // Placeholder: record promotion without a real businessId mapping.
-    // In production, the owner should pick a business from their profiles.
+    if (_selectedBusiness == null || _selectedBusiness!.id == null) {
+      _showSnackBar('Please select a business for this promotion.');
+      return;
+    }
+
     final promotion = PromotionSchedule(
-      businessId: 'placeholder',
+      businessId: _selectedBusiness!.id!,
       ownerId: ownerId,
       title: title,
       description: _descCtrl.text.trim(),
@@ -246,7 +285,7 @@ class _SchedulePromotionScreenState extends State<SchedulePromotionScreen> {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C2E),
+          color: AppPalette.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
         ),
@@ -273,7 +312,7 @@ class _SchedulePromotionScreenState extends State<SchedulePromotionScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: AppPalette.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppPalette.ochre.withValues(alpha: 0.2)),
       ),
@@ -319,6 +358,8 @@ class _SchedulePromotionScreenState extends State<SchedulePromotionScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _buildBusinessSelector(),
+        const SizedBox(height: 16),
         _buildTextField(
           controller: _titleCtrl,
           label: 'Promotion Title',
@@ -338,7 +379,7 @@ class _SchedulePromotionScreenState extends State<SchedulePromotionScreen> {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1C1C2E),
+              color: AppPalette.surface,
               borderRadius: BorderRadius.circular(14),
               border:
                   Border.all(color: Colors.white.withValues(alpha: 0.05)),
@@ -397,7 +438,7 @@ class _SchedulePromotionScreenState extends State<SchedulePromotionScreen> {
         labelStyle: const TextStyle(color: Colors.white70),
         hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
         filled: true,
-        fillColor: const Color(0xFF1C1C2E),
+        fillColor: AppPalette.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
@@ -415,11 +456,99 @@ class _SchedulePromotionScreenState extends State<SchedulePromotionScreen> {
     );
   }
 
+  Widget _buildBusinessSelector() {
+    if (_isLoadingBusinesses) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppPalette.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text(
+              'Loading your businesses...',
+              style: TextStyle(color: Color(0xFF8B8FA8), fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_ownerBusinesses.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppPalette.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.storefront_rounded, color: Color(0xFF8B8FA8)),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'No active businesses found. Create a business profile before scheduling a promotion.',
+                style: TextStyle(color: Color(0xFF8B8FA8), fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppPalette.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<Business>(
+          isExpanded: true,
+          dropdownColor: AppPalette.surface,
+          value: _selectedBusiness,
+          icon: const Icon(Icons.keyboard_arrow_down_rounded,
+              color: Color(0xFF8B8FA8)),
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          hint: const Text(
+            'Select a business',
+            style: TextStyle(color: Color(0xFF8B8FA8)),
+          ),
+          items: _ownerBusinesses.map((business) {
+            return DropdownMenuItem<Business>(
+              value: business,
+              child: Text(
+                business.businessName,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white),
+              ),
+            );
+          }).toList(),
+          onChanged: (value) {
+            if (value != null) {
+              setState(() => _selectedBusiness = value);
+            }
+          },
+        ),
+      ),
+    );
+  }
+
   Widget _buildWarningCard() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: AppPalette.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: const Color(0xFFF39C12).withValues(alpha: 0.3),

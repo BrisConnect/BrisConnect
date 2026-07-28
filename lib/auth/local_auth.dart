@@ -110,24 +110,24 @@ class LocalUser {
       phone: phone ?? this.phone,
       suburb: suburb ?? this.suburb,
       interestedEventIds: interestedEventIds ?? this.interestedEventIds,
-        interestCategories: interestCategories ?? this.interestCategories,
+      interestCategories: interestCategories ?? this.interestCategories,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
-        eventRemindersEnabled:
+      eventRemindersEnabled:
           eventRemindersEnabled ?? this.eventRemindersEnabled,
-        reminderTiming: reminderTiming ?? this.reminderTiming,
-        eventUpdatesEnabled: eventUpdatesEnabled ?? this.eventUpdatesEnabled,
-        nearbyEventsEnabled: nearbyEventsEnabled ?? this.nearbyEventsEnabled,
-        recommendedEventsEnabled:
+      reminderTiming: reminderTiming ?? this.reminderTiming,
+      eventUpdatesEnabled: eventUpdatesEnabled ?? this.eventUpdatesEnabled,
+      nearbyEventsEnabled: nearbyEventsEnabled ?? this.nearbyEventsEnabled,
+      recommendedEventsEnabled:
           recommendedEventsEnabled ?? this.recommendedEventsEnabled,
-        useCurrentLocation: useCurrentLocation ?? this.useCurrentLocation,
-        locationRadiusKm: locationRadiusKm ?? this.locationRadiusKm,
-        locationAccessEnabled:
+      useCurrentLocation: useCurrentLocation ?? this.useCurrentLocation,
+      locationRadiusKm: locationRadiusKm ?? this.locationRadiusKm,
+      locationAccessEnabled:
           locationAccessEnabled ?? this.locationAccessEnabled,
-        themePreference: themePreference ?? this.themePreference,
-        textScaleFactor: textScaleFactor ?? this.textScaleFactor,
+      themePreference: themePreference ?? this.themePreference,
+      textScaleFactor: textScaleFactor ?? this.textScaleFactor,
       profileImageBase64: profileImageBase64 ?? this.profileImageBase64,
-        profileImageUrl: profileImageUrl ?? this.profileImageUrl,
-        profileImageStoragePath:
+      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      profileImageStoragePath:
           profileImageStoragePath ?? this.profileImageStoragePath,
       approvalStatus: approvalStatus ?? this.approvalStatus,
       notifyTrendingPromotion:
@@ -188,7 +188,8 @@ class LocalAuth {
     }
 
     try {
-        final callable = FirebaseFunctions.instanceFor(region: AppConfig.firebaseFunctionsRegion)
+      final callable = FirebaseFunctions.instanceFor(
+              region: AppConfig.firebaseFunctionsRegion)
           .httpsCallable('resolveUsername');
       final result = await callable.call<Map<String, dynamic>>({
         'username': normalized,
@@ -278,7 +279,8 @@ class LocalAuth {
     final normalizedEmail = email.trim().toLowerCase();
 
     if (emailExists(normalizedEmail)) {
-      _lastErrorMessage = 'This email is already registered as a Local account.';
+      _lastErrorMessage =
+          'This email is already registered as a Local account.';
       return false;
     }
 
@@ -304,7 +306,8 @@ class LocalAuth {
           );
       await fb_auth.FirebaseAuth.instance.signOut();
     } on fb_auth.FirebaseAuthException catch (error) {
-      debugPrint('[LocalAuth] Firebase Auth register failed: code=${error.code}, message=${error.message}');
+      debugPrint(
+          '[LocalAuth] Firebase Auth register failed: code=${error.code}, message=${error.message}');
       switch (error.code) {
         case 'email-already-in-use':
           try {
@@ -350,10 +353,12 @@ class LocalAuth {
           _lastErrorMessage = 'Please enter a valid email address.';
           return false;
         case 'weak-password':
-          _lastErrorMessage = 'Password is too weak. Use at least 6 characters.';
+          _lastErrorMessage =
+              'Password is too weak. Use at least 6 characters.';
           return false;
         case 'network-request-failed':
-          _lastErrorMessage = 'Network error. Check your connection and try again.';
+          _lastErrorMessage =
+              'Network error. Check your connection and try again.';
           return false;
         case 'operation-not-allowed':
           _lastErrorMessage =
@@ -367,7 +372,8 @@ class LocalAuth {
             return false;
           } else {
             if (rawMessage.isNotEmpty) {
-              _lastErrorMessage = 'Unable to create account (${error.code}): $rawMessage';
+              _lastErrorMessage =
+                  'Unable to create account (${error.code}): $rawMessage';
             } else {
               _lastErrorMessage = 'Unable to create account (${error.code}).';
             }
@@ -375,14 +381,16 @@ class LocalAuth {
           }
       }
     } on FirebaseException catch (error) {
-      debugPrint('[LocalAuth] Firestore write failed: code=${error.code}, message=${error.message}');
+      debugPrint(
+          '[LocalAuth] Firestore write failed: code=${error.code}, message=${error.message}');
       if (error.code == 'permission-denied') {
         _lastErrorMessage =
             'Account created in Firebase Auth, but Firestore blocked saving profile (permission denied).';
       } else {
         final rawMessage = (error.message ?? '').trim();
         if (rawMessage.isNotEmpty) {
-          _lastErrorMessage = 'Could not save account profile (${error.code}): $rawMessage';
+          _lastErrorMessage =
+              'Could not save account profile (${error.code}): $rawMessage';
         } else {
           _lastErrorMessage = 'Could not save account profile (${error.code}).';
         }
@@ -412,23 +420,23 @@ class LocalAuth {
       _users.add(localUser);
     }
 
-        LocalEmailNotificationService()
-            .queueRegistrationReceivedEmail(
-              recipientEmail: normalizedEmail,
-              businessName: name.trim(),
-            )
-            .catchError((_) {
-          // Registration should still succeed if queuing email fails.
-        });
+    LocalEmailNotificationService()
+        .queueRegistrationReceivedEmail(
+      recipientEmail: normalizedEmail,
+      businessName: name.trim(),
+    )
+        .catchError((_) {
+      // Registration should still succeed if queuing email fails.
+    });
 
-        SmsNotificationService()
-            .queueLocalAccountRegistrationReceivedSms(
-              recipientPhone: phone.trim(),
-              businessName: name.trim(),
-            )
-            .catchError((_) {
-          // Registration should still succeed if queuing SMS fails.
-        });
+    SmsNotificationService()
+        .queueLocalAccountRegistrationReceivedSms(
+      recipientPhone: phone.trim(),
+      businessName: name.trim(),
+    )
+        .catchError((_) {
+      // Registration should still succeed if queuing SMS fails.
+    });
 
     return true;
   }
@@ -506,16 +514,20 @@ class LocalAuth {
       final role = (data['role'] as String?)?.toLowerCase();
       final accountType = (data['accountType'] as String?)?.toLowerCase();
       if ((role != null && role.isNotEmpty && role != 'local') ||
-          (accountType != null && accountType.isNotEmpty && accountType != 'local')) {
+          (accountType != null &&
+              accountType.isNotEmpty &&
+              accountType != 'local')) {
         await fb_auth.FirebaseAuth.instance.signOut();
-        _lastErrorMessage = 'Access denied: this account is not a Local account.';
+        _lastErrorMessage =
+            'Access denied: this account is not a Local account.';
         return false;
       }
 
       final isActive = (data['active'] as bool?) ?? true;
       if (!isActive) {
         await fb_auth.FirebaseAuth.instance.signOut();
-        _lastErrorMessage = 'This account has been deactivated. Contact support for assistance.';
+        _lastErrorMessage =
+            'This account has been deactivated. Contact support for assistance.';
         return false;
       }
 
@@ -561,8 +573,7 @@ class LocalAuth {
             .whereType<String>()
             .toList(growable: false),
         notificationsEnabled: (data['notificationsEnabled'] as bool?) ?? true,
-        eventRemindersEnabled:
-            (data['eventRemindersEnabled'] as bool?) ?? true,
+        eventRemindersEnabled: (data['eventRemindersEnabled'] as bool?) ?? true,
         reminderTiming: (data['reminderTiming'] as String?) ?? '24h',
         eventUpdatesEnabled: (data['eventUpdatesEnabled'] as bool?) ?? true,
         nearbyEventsEnabled: (data['nearbyEventsEnabled'] as bool?) ?? true,
@@ -570,20 +581,22 @@ class LocalAuth {
             (data['recommendedEventsEnabled'] as bool?) ?? true,
         useCurrentLocation: (data['useCurrentLocation'] as bool?) ?? true,
         locationRadiusKm: (data['locationRadiusKm'] as num?)?.toInt() ?? 20,
-        locationAccessEnabled:
-            (data['locationAccessEnabled'] as bool?) ?? true,
+        locationAccessEnabled: (data['locationAccessEnabled'] as bool?) ?? true,
         themePreference: (data['themePreference'] as String?) ?? 'system',
-        textScaleFactor:
-            (data['textScaleFactor'] as num?)?.toDouble() ?? 1.0,
-        profileImageBase64: (data['profileImageBase64'] as String?)?.trim().isNotEmpty == true
-            ? (data['profileImageBase64'] as String)
-            : null,
-        profileImageUrl: (data['profileImageUrl'] as String?)?.trim().isNotEmpty == true
-            ? (data['profileImageUrl'] as String)
-            : null,
-        profileImageStoragePath: (data['profileImageStoragePath'] as String?)?.trim().isNotEmpty == true
-            ? (data['profileImageStoragePath'] as String)
-            : null,
+        textScaleFactor: (data['textScaleFactor'] as num?)?.toDouble() ?? 1.0,
+        profileImageBase64:
+            (data['profileImageBase64'] as String?)?.trim().isNotEmpty == true
+                ? (data['profileImageBase64'] as String)
+                : null,
+        profileImageUrl:
+            (data['profileImageUrl'] as String?)?.trim().isNotEmpty == true
+                ? (data['profileImageUrl'] as String)
+                : null,
+        profileImageStoragePath:
+            (data['profileImageStoragePath'] as String?)?.trim().isNotEmpty ==
+                    true
+                ? (data['profileImageStoragePath'] as String)
+                : null,
         approvalStatus: _approvalFromString(
           (data['approvalStatus'] as String?) ?? 'pending',
         ),
@@ -591,8 +604,7 @@ class LocalAuth {
             (data['notifyTrendingPromotion'] as bool?) ?? true,
         notifyOfferExpiry: (data['notifyOfferExpiry'] as bool?) ?? true,
         notifyNewReview: (data['notifyNewReview'] as bool?) ?? true,
-        notifyBusinessUpdates:
-            (data['notifyBusinessUpdates'] as bool?) ?? true,
+        notifyBusinessUpdates: (data['notifyBusinessUpdates'] as bool?) ?? true,
       );
 
       final userIndex = _users.indexWhere(
@@ -636,7 +648,8 @@ class LocalAuth {
     }
   }
 
-  static Future<bool> sendPasswordReset({required String emailOrUsername}) async {
+  static Future<bool> sendPasswordReset(
+      {required String emailOrUsername}) async {
     debugPrint('[LocalAuth] sendPasswordReset called with: $emailOrUsername');
     _lastErrorMessage = null;
 
@@ -649,26 +662,30 @@ class LocalAuth {
     }
 
     if (!normalized.contains('@')) {
-      _lastErrorMessage = 'Please enter your email address (not your username) to reset your password.';
+      _lastErrorMessage =
+          'Please enter your email address (not your username) to reset your password.';
       debugPrint('[LocalAuth] email does not contain @');
       return false;
     }
 
     try {
-      debugPrint('[LocalAuth] calling Firebase sendPasswordResetEmail for: $normalized');
+      debugPrint(
+          '[LocalAuth] calling Firebase sendPasswordResetEmail for: $normalized');
       await fb_auth.FirebaseAuth.instance.sendPasswordResetEmail(
         email: normalized,
       );
       debugPrint('[LocalAuth] password reset email sent successfully');
       return true;
     } on fb_auth.FirebaseAuthException catch (error) {
-      debugPrint('[LocalAuth] Firebase error: code=${error.code}, message=${error.message}');
+      debugPrint(
+          '[LocalAuth] Firebase error: code=${error.code}, message=${error.message}');
       switch (error.code) {
         case 'invalid-email':
           _lastErrorMessage = 'Please enter a valid email address.';
           break;
         case 'too-many-requests':
-          _lastErrorMessage = 'Too many reset attempts. Please try again later.';
+          _lastErrorMessage =
+              'Too many reset attempts. Please try again later.';
           break;
         case 'network-request-failed':
           _lastErrorMessage = 'No internet connection. Please try again.';
@@ -756,7 +773,8 @@ class LocalAuth {
       return true;
     } on FirebaseException catch (e) {
       debugPrint('[LocalAuth] updateNotificationPreferences failed: ${e.code}');
-      _lastErrorMessage = 'Could not update notification preferences (${e.code}).';
+      _lastErrorMessage =
+          'Could not update notification preferences (${e.code}).';
       return false;
     } catch (_) {
       _lastErrorMessage = 'Could not update notification preferences.';
@@ -825,33 +843,34 @@ class LocalAuth {
       interestedEventIds: ((data['interestedEventIds'] as List?) ?? const [])
           .whereType<String>()
           .toList(growable: false),
-        interestCategories: ((data['interestCategories'] as List?) ?? const [])
+      interestCategories: ((data['interestCategories'] as List?) ?? const [])
           .whereType<String>()
           .toList(growable: false),
       notificationsEnabled: (data['notificationsEnabled'] as bool?) ?? true,
-        eventRemindersEnabled:
-          (data['eventRemindersEnabled'] as bool?) ?? true,
-        reminderTiming: (data['reminderTiming'] as String?) ?? '24h',
-        eventUpdatesEnabled: (data['eventUpdatesEnabled'] as bool?) ?? true,
-        nearbyEventsEnabled: (data['nearbyEventsEnabled'] as bool?) ?? true,
-        recommendedEventsEnabled:
+      eventRemindersEnabled: (data['eventRemindersEnabled'] as bool?) ?? true,
+      reminderTiming: (data['reminderTiming'] as String?) ?? '24h',
+      eventUpdatesEnabled: (data['eventUpdatesEnabled'] as bool?) ?? true,
+      nearbyEventsEnabled: (data['nearbyEventsEnabled'] as bool?) ?? true,
+      recommendedEventsEnabled:
           (data['recommendedEventsEnabled'] as bool?) ?? true,
-        useCurrentLocation: (data['useCurrentLocation'] as bool?) ?? true,
-        locationRadiusKm: (data['locationRadiusKm'] as num?)?.toInt() ?? 20,
-        locationAccessEnabled: (data['locationAccessEnabled'] as bool?) ?? true,
-        themePreference: (data['themePreference'] as String?) ?? 'system',
-        textScaleFactor:
-          (data['textScaleFactor'] as num?)?.toDouble() ?? 1.0,
-      profileImageBase64: (data['profileImageBase64'] as String?)?.trim().isNotEmpty == true
-          ? (data['profileImageBase64'] as String)
-          : null,
-        profileImageUrl: (data['profileImageUrl'] as String?)?.trim().isNotEmpty == true
-          ? (data['profileImageUrl'] as String)
-          : null,
-        profileImageStoragePath:
-          (data['profileImageStoragePath'] as String?)?.trim().isNotEmpty == true
-            ? (data['profileImageStoragePath'] as String)
-            : null,
+      useCurrentLocation: (data['useCurrentLocation'] as bool?) ?? true,
+      locationRadiusKm: (data['locationRadiusKm'] as num?)?.toInt() ?? 20,
+      locationAccessEnabled: (data['locationAccessEnabled'] as bool?) ?? true,
+      themePreference: (data['themePreference'] as String?) ?? 'system',
+      textScaleFactor: (data['textScaleFactor'] as num?)?.toDouble() ?? 1.0,
+      profileImageBase64:
+          (data['profileImageBase64'] as String?)?.trim().isNotEmpty == true
+              ? (data['profileImageBase64'] as String)
+              : null,
+      profileImageUrl:
+          (data['profileImageUrl'] as String?)?.trim().isNotEmpty == true
+              ? (data['profileImageUrl'] as String)
+              : null,
+      profileImageStoragePath:
+          (data['profileImageStoragePath'] as String?)?.trim().isNotEmpty ==
+                  true
+              ? (data['profileImageStoragePath'] as String)
+              : null,
       approvalStatus: _approvalFromString(
         (data['approvalStatus'] as String?) ?? 'pending',
       ),
@@ -859,8 +878,7 @@ class LocalAuth {
           (data['notifyTrendingPromotion'] as bool?) ?? true,
       notifyOfferExpiry: (data['notifyOfferExpiry'] as bool?) ?? true,
       notifyNewReview: (data['notifyNewReview'] as bool?) ?? true,
-      notifyBusinessUpdates:
-          (data['notifyBusinessUpdates'] as bool?) ?? true,
+      notifyBusinessUpdates: (data['notifyBusinessUpdates'] as bool?) ?? true,
     );
   }
 
@@ -870,10 +888,9 @@ class LocalAuth {
         .where('approvalStatus', isEqualTo: 'pending')
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map(_localUserFromFirestore)
-              .toList()
-            ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase())),
+          (snapshot) => snapshot.docs.map(_localUserFromFirestore).toList()
+            ..sort(
+                (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase())),
         );
   }
 
@@ -883,25 +900,30 @@ class LocalAuth {
         .where('approvalStatus', whereIn: const ['approved', 'rejected'])
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map(_localUserFromFirestore)
-              .toList()
-            ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase())),
+          (snapshot) => snapshot.docs.map(_localUserFromFirestore).toList()
+            ..sort(
+                (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase())),
         );
   }
 
   // Account approval methods
   static List<LocalUser> getPendingAccounts() {
-    return _users.where((u) => u.approvalStatus == AccountApprovalStatus.pending).toList();
+    return _users
+        .where((u) => u.approvalStatus == AccountApprovalStatus.pending)
+        .toList();
   }
 
   static List<LocalUser> getApprovedAccounts() {
-    return _users.where((u) => u.approvalStatus == AccountApprovalStatus.approved).toList();
+    return _users
+        .where((u) => u.approvalStatus == AccountApprovalStatus.approved)
+        .toList();
   }
 
   static List<LocalUser> getReviewedAccounts() {
     return _users
-        .where((u) => u.approvalStatus == AccountApprovalStatus.approved || u.approvalStatus == AccountApprovalStatus.rejected)
+        .where((u) =>
+            u.approvalStatus == AccountApprovalStatus.approved ||
+            u.approvalStatus == AccountApprovalStatus.rejected)
         .toList();
   }
 
@@ -910,15 +932,21 @@ class LocalAuth {
     final normalizedEmail = user.email.trim().toLowerCase();
 
     try {
-      await FirebaseFirestore.instance.collection('local_users').doc(normalizedEmail).set({
+      await FirebaseFirestore.instance
+          .collection('local_users')
+          .doc(normalizedEmail)
+          .set({
         'approvalStatus': 'approved',
         'reviewedAt': FieldValue.serverTimestamp(),
-        'reviewedBy': fb_auth.FirebaseAuth.instance.currentUser?.email?.toLowerCase(),
+        'reviewedBy':
+            fb_auth.FirebaseAuth.instance.currentUser?.email?.toLowerCase(),
       }, SetOptions(merge: true));
 
-      final index = _users.indexWhere((u) => u.email.toLowerCase() == normalizedEmail);
+      final index =
+          _users.indexWhere((u) => u.email.toLowerCase() == normalizedEmail);
       if (index >= 0) {
-        _users[index] = _users[index].copyWith(approvalStatus: AccountApprovalStatus.approved);
+        _users[index] = _users[index]
+            .copyWith(approvalStatus: AccountApprovalStatus.approved);
         if (_currentLocal?.email.toLowerCase() == normalizedEmail) {
           _currentLocal = _users[index];
         }
@@ -926,13 +954,15 @@ class LocalAuth {
       return true;
     } on FirebaseException catch (error) {
       if (error.code == 'permission-denied') {
-        _lastErrorMessage = 'Approval denied by Firestore rules. Sign in as an active admin.';
+        _lastErrorMessage =
+            'Approval denied by Firestore rules. Sign in as an active admin.';
       } else {
         _lastErrorMessage = 'Could not approve account (${error.code}).';
       }
       return false;
     } catch (_) {
-      _lastErrorMessage = 'Could not approve account due to an unexpected error.';
+      _lastErrorMessage =
+          'Could not approve account due to an unexpected error.';
       return false;
     }
   }
@@ -942,15 +972,21 @@ class LocalAuth {
     final normalizedEmail = user.email.trim().toLowerCase();
 
     try {
-      await FirebaseFirestore.instance.collection('local_users').doc(normalizedEmail).set({
+      await FirebaseFirestore.instance
+          .collection('local_users')
+          .doc(normalizedEmail)
+          .set({
         'approvalStatus': 'rejected',
         'reviewedAt': FieldValue.serverTimestamp(),
-        'reviewedBy': fb_auth.FirebaseAuth.instance.currentUser?.email?.toLowerCase(),
+        'reviewedBy':
+            fb_auth.FirebaseAuth.instance.currentUser?.email?.toLowerCase(),
       }, SetOptions(merge: true));
 
-      final index = _users.indexWhere((u) => u.email.toLowerCase() == normalizedEmail);
+      final index =
+          _users.indexWhere((u) => u.email.toLowerCase() == normalizedEmail);
       if (index >= 0) {
-        _users[index] = _users[index].copyWith(approvalStatus: AccountApprovalStatus.rejected);
+        _users[index] = _users[index]
+            .copyWith(approvalStatus: AccountApprovalStatus.rejected);
         if (_currentLocal?.email.toLowerCase() == normalizedEmail) {
           _currentLocal = null;
         }
@@ -958,13 +994,15 @@ class LocalAuth {
       return true;
     } on FirebaseException catch (error) {
       if (error.code == 'permission-denied') {
-        _lastErrorMessage = 'Rejection denied by Firestore rules. Sign in as an active admin.';
+        _lastErrorMessage =
+            'Rejection denied by Firestore rules. Sign in as an active admin.';
       } else {
         _lastErrorMessage = 'Could not reject account (${error.code}).';
       }
       return false;
     } catch (_) {
-      _lastErrorMessage = 'Could not reject account due to an unexpected error.';
+      _lastErrorMessage =
+          'Could not reject account due to an unexpected error.';
       return false;
     }
   }
@@ -983,7 +1021,9 @@ class LocalAuth {
       final role = (data['role'] as String?)?.toLowerCase();
       final accountType = (data['accountType'] as String?)?.toLowerCase();
       if ((role != null && role.isNotEmpty && role != 'local') ||
-          (accountType != null && accountType.isNotEmpty && accountType != 'local')) {
+          (accountType != null &&
+              accountType.isNotEmpty &&
+              accountType != 'local')) {
         return false;
       }
       final approvalStatus = _approvalFromString(
@@ -1004,35 +1044,37 @@ class LocalAuth {
             .whereType<String>()
             .toList(growable: false),
         interestCategories: ((data['interestCategories'] as List?) ?? const [])
-          .whereType<String>()
-          .toList(growable: false),
+            .whereType<String>()
+            .toList(growable: false),
         notificationsEnabled: (data['notificationsEnabled'] as bool?) ?? true,
-        eventRemindersEnabled:
-          (data['eventRemindersEnabled'] as bool?) ?? true,
+        eventRemindersEnabled: (data['eventRemindersEnabled'] as bool?) ?? true,
         reminderTiming: (data['reminderTiming'] as String?) ?? '24h',
         eventUpdatesEnabled: (data['eventUpdatesEnabled'] as bool?) ?? true,
         nearbyEventsEnabled: (data['nearbyEventsEnabled'] as bool?) ?? true,
         recommendedEventsEnabled:
-          (data['recommendedEventsEnabled'] as bool?) ?? true,
+            (data['recommendedEventsEnabled'] as bool?) ?? true,
         useCurrentLocation: (data['useCurrentLocation'] as bool?) ?? true,
         locationRadiusKm: (data['locationRadiusKm'] as num?)?.toInt() ?? 20,
         locationAccessEnabled: (data['locationAccessEnabled'] as bool?) ?? true,
         themePreference: (data['themePreference'] as String?) ?? 'system',
-        textScaleFactor:
-          (data['textScaleFactor'] as num?)?.toDouble() ?? 1.0,
-        profileImageBase64: (data['profileImageBase64'] as String?)?.trim().isNotEmpty == true
-            ? (data['profileImageBase64'] as String)
-            : null,
-        profileImageUrl: (data['profileImageUrl'] as String?)?.trim().isNotEmpty == true
-          ? (data['profileImageUrl'] as String)
-          : null,
+        textScaleFactor: (data['textScaleFactor'] as num?)?.toDouble() ?? 1.0,
+        profileImageBase64:
+            (data['profileImageBase64'] as String?)?.trim().isNotEmpty == true
+                ? (data['profileImageBase64'] as String)
+                : null,
+        profileImageUrl:
+            (data['profileImageUrl'] as String?)?.trim().isNotEmpty == true
+                ? (data['profileImageUrl'] as String)
+                : null,
         profileImageStoragePath:
-          (data['profileImageStoragePath'] as String?)?.trim().isNotEmpty == true
-            ? (data['profileImageStoragePath'] as String)
-            : null,
+            (data['profileImageStoragePath'] as String?)?.trim().isNotEmpty ==
+                    true
+                ? (data['profileImageStoragePath'] as String)
+                : null,
         approvalStatus: approvalStatus,
       );
-      final idx = _users.indexWhere((u) => u.email.toLowerCase() == normalizedEmail);
+      final idx =
+          _users.indexWhere((u) => u.email.toLowerCase() == normalizedEmail);
       if (idx >= 0) {
         _users[idx] = user;
       } else {
@@ -1063,10 +1105,7 @@ class LocalAuth {
     if (normalized.isEmpty) {
       return false;
     }
-    return _currentLocal?.interestedEventIds
-            .map((id) => id.trim())
-            .contains(normalized) ??
-        false;
+    return getInterestedEventIds().contains(normalized);
   }
 
   static bool toggleInterestedEvent(String eventId) {
@@ -1101,16 +1140,13 @@ class LocalAuth {
     _profileVersion.value++;
 
     final currentNormalized = current.interestedEventIds
-      .map((id) => id.trim())
-      .where((id) => id.isNotEmpty)
-      .toSet();
-    final wasAdded =
-      updatedIds.contains(normalized) && !currentNormalized.contains(normalized);
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final wasAdded = updatedIds.contains(normalized) &&
+        !currentNormalized.contains(normalized);
 
-    FirebaseFirestore.instance
-        .collection('local_users')
-        .doc(current.email)
-        .set(
+    FirebaseFirestore.instance.collection('local_users').doc(current.email).set(
       {'interestedEventIds': updatedIds},
       SetOptions(merge: true),
     ).catchError((e) {
@@ -1120,9 +1156,9 @@ class LocalAuth {
     if (wasAdded) {
       SmsNotificationService()
           .queueLocalSavedEventSms(
-            localEmail: current.email,
-            eventId: normalized,
-          )
+        localEmail: current.email,
+        eventId: normalized,
+      )
           .catchError((e) {
         debugPrint('[LocalAuth] Failed to queue saved-event SMS: $e');
         return false;
@@ -1153,8 +1189,13 @@ class LocalAuth {
     return true;
   }
 
-  static void _queueLocalEventSavedEmail(String email, String name, String eventId) {
-    FirebaseFirestore.instance.collection('events').doc(eventId).get().then((doc) {
+  static void _queueLocalEventSavedEmail(
+      String email, String name, String eventId) {
+    FirebaseFirestore.instance
+        .collection('events')
+        .doc(eventId)
+        .get()
+        .then((doc) {
       final data = doc.data() ?? const <String, dynamic>{};
       final title = ((data['title'] as String?) ?? '').trim();
       final date = ((data['date'] as String?) ?? '').trim();
@@ -1162,12 +1203,12 @@ class LocalAuth {
       if (title.isEmpty) return;
       LocalEmailNotificationService()
           .queueEventSavedEmail(
-            recipientEmail: email,
-            businessName: name,
-            eventTitle: title,
-            eventDate: date,
-            eventLocation: location,
-          )
+        recipientEmail: email,
+        businessName: name,
+        eventTitle: title,
+        eventDate: date,
+        eventLocation: location,
+      )
           .catchError((e) {
         debugPrint('[LocalAuth] Failed to queue saved-event email: $e');
       });
@@ -1231,7 +1272,8 @@ class LocalAuth {
   static Future<bool> setInterestCategories(List<String> categories) async {
     return _mergeCurrentLocal(
       firestoreData: {'interestCategories': categories},
-      updatedUser: (current) => current.copyWith(interestCategories: categories),
+      updatedUser: (current) =>
+          current.copyWith(interestCategories: categories),
     );
   }
 

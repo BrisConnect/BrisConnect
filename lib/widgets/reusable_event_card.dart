@@ -1,10 +1,9 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:brisconnect/theme/app_palette.dart';
-import 'package:brisconnect/utils/venue_image_fallback.dart';
+import 'package:brisconnect/widgets/fallback_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ReusableEventCard extends StatelessWidget {
-
   final String imageUrl;
   final String badgeText;
   final String title;
@@ -15,6 +14,12 @@ class ReusableEventCard extends StatelessWidget {
   final String price;
   final String? source;
   final String? venue;
+  final String? phone;
+  final String? website;
+  final String? email;
+  final String? facebookUrl;
+  final String? instagramUrl;
+  final String? onlineOrderUrl;
   final List<String>? categories;
   final String? cuisine;
   final double? rating;
@@ -25,6 +30,7 @@ class ReusableEventCard extends StatelessWidget {
   final VoidCallback? onReviewTap;
   final VoidCallback? onCardTap;
   final Color? cardColor;
+  final BoxBorder? border;
 
   const ReusableEventCard({
     super.key,
@@ -38,6 +44,12 @@ class ReusableEventCard extends StatelessWidget {
     required this.price,
     this.source,
     this.venue,
+    this.phone,
+    this.website,
+    this.email,
+    this.facebookUrl,
+    this.instagramUrl,
+    this.onlineOrderUrl,
     this.categories,
     this.cuisine,
     this.rating,
@@ -48,254 +60,334 @@ class ReusableEventCard extends StatelessWidget {
     this.onReviewTap,
     this.onCardTap,
     this.cardColor,
+    this.border,
   });
 
   @override
   Widget build(BuildContext context) {
-    final venueFallback = VenueImageFallback.forVenue(
-      title: title,
-      section: section,
-      badge: badgeText,
-    );
-    final normalizedImageUrl =
-        imageUrl.trim().isEmpty ? venueFallback : imageUrl.trim();
-
-    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
-    final cardWidth = MediaQuery.sizeOf(context).width;
-    final targetCacheWidth = (cardWidth * devicePixelRatio).round();
-
-    return RepaintBoundary(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onCardTap,
-          borderRadius: BorderRadius.circular(22),
-          child: Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          decoration: BoxDecoration(
-            color: cardColor ?? AppPalette.surface,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return RepaintBoundary(
+            child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onCardTap,
             borderRadius: BorderRadius.circular(22),
-            boxShadow: const [
-              BoxShadow(
-                color: AppPalette.cardShadow,
-                blurRadius: 18,
-                offset: Offset(0, 9),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(22),
-                      topRight: Radius.circular(22),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: cardColor ?? AppPalette.surface,
+                borderRadius: BorderRadius.circular(22),
+                border: border ??
+                    Border.all(
+                      color: const Color(0xFF93C5FD),
+                      width: 1.5,
                     ),
-                    child: CachedNetworkImage(
-                      imageUrl: normalizedImageUrl,
-                      height: 190,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      fadeInDuration: Duration.zero,
-                      fadeOutDuration: Duration.zero,
-                      memCacheWidth: targetCacheWidth,
-                      filterQuality: FilterQuality.low,
-                      placeholder: (context, _) => Container(
-                        height: 190,
-                        color: AppPalette.surfaceAlt,
-                        alignment: Alignment.center,
-                        child: const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                      errorWidget: (context, _, __) => CachedNetworkImage(
-                        imageUrl: venueFallback,
+                boxShadow: const [
+                  BoxShadow(
+                    color: AppPalette.cardShadow,
+                    blurRadius: 18,
+                    offset: Offset(0, 9),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Stack(
+                    children: [
+                      FallbackImage(
+                        imageUrl: imageUrl,
                         height: 190,
                         width: double.infinity,
-                        fit: BoxFit.cover,
-                        fadeInDuration: Duration.zero,
-                        fadeOutDuration: Duration.zero,
-                        memCacheWidth: targetCacheWidth,
-                        filterQuality: FilterQuality.low,
-                        errorWidget: (context, _, __) => Container(
-                          height: 190,
-                          color: AppPalette.surfaceAlt,
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.image_not_supported_rounded,
-                            color: AppPalette.mutedText,
-                            size: 32,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(22),
+                          topRight: Radius.circular(22),
+                        ),
+                        category: section,
+                      ),
+                      if (badgeText.trim().isNotEmpty)
+                        Positioned(
+                          top: 12,
+                          right: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppPalette.ochre,
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                            child: Text(
+                              badgeText,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
                           ),
+                        ),
+                    ],
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+                      child: SingleChildScrollView(
+                        physics: const NeverScrollableScrollPhysics(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: const TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.w800,
+                                color: AppPalette.charcoal,
+                                height: 1.2,
+                              ),
+                            ),
+                            if (description != null &&
+                                description!.trim().isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                description!,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppPalette.mutedText,
+                                  fontSize: 13,
+                                  height: 1.35,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 10),
+                            _DetailRow(
+                                icon: Icons.calendar_today_rounded,
+                                text: dateTime),
+                            const SizedBox(height: 6),
+                            _DetailRow(
+                                icon: Icons.place_rounded, text: location),
+                            if (venue != null &&
+                                venue!.trim().isNotEmpty &&
+                                venue != location) ...[
+                              const SizedBox(height: 6),
+                              _DetailRow(
+                                  icon: Icons.location_city_rounded,
+                                  text: venue!),
+                            ],
+                            const SizedBox(height: 6),
+                            _DetailRow(icon: Icons.sell_rounded, text: price),
+                            if (cuisine != null &&
+                                cuisine!.trim().isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              _DetailRow(
+                                  icon: Icons.restaurant_rounded,
+                                  text: cuisine!),
+                            ],
+                            if (rating != null && rating! > 0) ...[
+                              const SizedBox(height: 6),
+                              _DetailRow(
+                                icon: Icons.star_rounded,
+                                text: '${rating!.toStringAsFixed(1)} rating',
+                              ),
+                            ],
+                            if (source != null &&
+                                source!.trim().isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(Icons.verified_rounded,
+                                      size: 14,
+                                      color: AppPalette.deepBlue
+                                          .withValues(alpha: 0.6)),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      'Source: $source',
+                                      style: TextStyle(
+                                        color: AppPalette.deepBlue
+                                            .withValues(alpha: 0.6),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                            if (categories != null &&
+                                categories!.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: categories!
+                                    .take(4)
+                                    .map(
+                                      (cat) => Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: AppPalette.deepBlue
+                                              .withValues(alpha: 0.08),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          cat,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppPalette.deepBlue,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ),
                   ),
-                  if (badgeText.trim().isNotEmpty)
-                    Positioned(
-                      top: 12,
-                      right: 12,
-                      child: Container(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppPalette.ochre,
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                        child: Text(
-                          badgeText,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800,
-                        color: AppPalette.charcoal,
-                        height: 1.2,
-                      ),
-                    ),
-                    if (description != null && description!.trim().isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        description!,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppPalette.mutedText,
-                          fontSize: 13,
-                          height: 1.35,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    _DetailRow(icon: Icons.calendar_today_rounded, text: dateTime),
-                    const SizedBox(height: 6),
-                    _DetailRow(icon: Icons.place_rounded, text: location),
-                    if (venue != null && venue!.trim().isNotEmpty && venue != location) ...[
-                      const SizedBox(height: 6),
-                      _DetailRow(icon: Icons.location_city_rounded, text: venue!),
-                    ],
-                    const SizedBox(height: 6),
-                    _DetailRow(icon: Icons.sell_rounded, text: price),
-                    if (cuisine != null && cuisine!.trim().isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      _DetailRow(icon: Icons.restaurant_rounded, text: cuisine!),
-                    ],
-                    if (rating != null && rating! > 0) ...[
-                      const SizedBox(height: 6),
-                      _DetailRow(
-                        icon: Icons.star_rounded,
-                        text: '${rating!.toStringAsFixed(1)} rating',
-                      ),
-                    ],
-                    if (source != null && source!.trim().isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Row(
+                  // Quick contact / action chips on the business card itself.
+                  if ((phone ?? '').trim().isNotEmpty ||
+                      (website ?? '').trim().isNotEmpty ||
+                      (email ?? '').trim().isNotEmpty ||
+                      (facebookUrl ?? '').trim().isNotEmpty ||
+                      (instagramUrl ?? '').trim().isNotEmpty ||
+                      (onlineOrderUrl ?? '').trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
-                          Icon(Icons.verified_rounded, size: 14, color: AppPalette.deepBlue.withValues(alpha: 0.6)),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              'Source: $source',
-                              style: TextStyle(
-                                color: AppPalette.deepBlue.withValues(alpha: 0.6),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
+                          if ((phone ?? '').trim().isNotEmpty)
+                            _ContactChip(
+                              icon: Icons.phone_rounded,
+                              label: 'Call',
+                              onTap: () => _launchUrl(
+                                  context,
+                                  Uri(scheme: 'tel', path: phone!.trim()),
+                                  'No phone number available'),
                             ),
-                          ),
+                          if ((website ?? '').trim().isNotEmpty)
+                            _ContactChip(
+                              icon: Icons.language_rounded,
+                              label: 'Website',
+                              onTap: () => _launchUrl(
+                                  context,
+                                  Uri.parse(website!.trim()),
+                                  'No website available'),
+                            ),
+                          if ((email ?? '').trim().isNotEmpty)
+                            _ContactChip(
+                              icon: Icons.email_rounded,
+                              label: 'Email',
+                              onTap: () => _launchUrl(
+                                  context,
+                                  Uri(scheme: 'mailto', path: email!.trim()),
+                                  'No email available'),
+                            ),
+                          if ((onlineOrderUrl ?? '').trim().isNotEmpty)
+                            _ContactChip(
+                              icon: Icons.shopping_bag_rounded,
+                              label: 'Order',
+                              onTap: () => _launchUrl(
+                                  context,
+                                  Uri.parse(onlineOrderUrl!.trim()),
+                                  'No order link available'),
+                            ),
+                          if ((facebookUrl ?? '').trim().isNotEmpty)
+                            _ContactChip(
+                              icon: Icons.facebook,
+                              label: 'Facebook',
+                              onTap: () => _launchUrl(
+                                  context,
+                                  Uri.parse(facebookUrl!.trim()),
+                                  'No Facebook link available'),
+                            ),
+                          if ((instagramUrl ?? '').trim().isNotEmpty)
+                            _ContactChip(
+                              icon: Icons.camera_alt_rounded,
+                              label: 'Instagram',
+                              onTap: () => _launchUrl(
+                                  context,
+                                  Uri.parse(instagramUrl!.trim()),
+                                  'No Instagram link available'),
+                            ),
                         ],
                       ),
-                    ],
-                    if (categories != null && categories!.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: categories!
-                            .take(4)
-                            .map(
-                              (cat) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: AppPalette.deepBlue.withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  cat,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppPalette.deepBlue,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    Row(
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                    child: Row(
                       children: [
                         IconButton.filledTonal(
+                          constraints: const BoxConstraints(
+                            minWidth: 36,
+                            minHeight: 36,
+                          ),
+                          iconSize: 18,
                           onPressed: onShareTap,
                           icon: const Icon(Icons.share_rounded),
                           color: AppPalette.deepBlue,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         IconButton.filledTonal(
+                          constraints: const BoxConstraints(
+                            minWidth: 36,
+                            minHeight: 36,
+                          ),
+                          iconSize: 18,
                           onPressed: onReviewTap,
                           tooltip: 'Add/Edit review',
                           icon: const Icon(Icons.rate_review_rounded),
                           color: AppPalette.deepBlue,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         IconButton.filledTonal(
+                          constraints: const BoxConstraints(
+                            minWidth: 36,
+                            minHeight: 36,
+                          ),
+                          iconSize: 18,
                           onPressed: onWebTap,
                           tooltip: 'More information',
                           icon: const Icon(Icons.info_outline_rounded),
                           color: AppPalette.deepBlue,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         IconButton.filledTonal(
+                          constraints: const BoxConstraints(
+                            minWidth: 36,
+                            minHeight: 36,
+                          ),
+                          iconSize: 18,
                           onPressed: onFavoriteTap,
                           icon: Icon(
                             isFavorite
                                 ? Icons.favorite_rounded
                                 : Icons.favorite_border_rounded,
                           ),
-                          color: isFavorite ? AppPalette.ochre : AppPalette.deepBlue,
+                          color: isFavorite
+                              ? AppPalette.ochre
+                              : AppPalette.deepBlue,
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
-    ));
+        ));
+      },
+    );
   }
 }
 
@@ -323,5 +415,63 @@ class _DetailRow extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _ContactChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  const _ContactChip({
+    required this.icon,
+    required this.label,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ActionChip(
+      avatar: Icon(icon, size: 16, color: Colors.white),
+      label: Text(label),
+      labelStyle: const TextStyle(
+        color: Colors.white,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
+      backgroundColor: AppPalette.ochre,
+      side: BorderSide.none,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      onPressed: onTap,
+    );
+  }
+}
+
+Future<void> _launchUrl(BuildContext context, Uri uri, String fallbackMessage) async {
+  try {
+    // Add a scheme to web links if the stored value is missing one.
+    var resolved = uri;
+    final urlString = uri.toString();
+    if (uri.scheme.isEmpty &&
+        (urlString.startsWith('www.') ||
+            urlString.contains('.') &&
+                !urlString.contains(' '))) {
+      resolved = Uri.parse('https://$urlString');
+    }
+    if (await canLaunchUrl(resolved)) {
+      await launchUrl(resolved, mode: LaunchMode.externalApplication);
+    } else {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(fallbackMessage)),
+        );
+      }
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open link: $e')),
+      );
+    }
   }
 }

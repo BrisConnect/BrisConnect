@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:brisconnect/models/food_business.dart';
 import 'package:brisconnect/services/business_dashboard_service.dart';
 import 'package:brisconnect/services/food_business_service.dart';
@@ -11,9 +12,9 @@ class FoodBusinessDetailScreen extends StatefulWidget {
   final String businessId;
 
   const FoodBusinessDetailScreen({
-    Key? key,
+    super.key,
     required this.businessId,
-  }) : super(key: key);
+  });
 
   @override
   State<FoodBusinessDetailScreen> createState() =>
@@ -178,8 +179,11 @@ class _FoodBusinessDetailScreenState extends State<FoodBusinessDetailScreen> {
                           leading: const Icon(Icons.phone),
                           title: const Text('Phone'),
                           subtitle: Text(business.phone!),
-                          onTap: () {
-                            // TODO: Implement phone dial
+                          onTap: () async {
+                            final url = Uri(scheme: 'tel', path: business.phone!);
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(url);
+                            }
                           },
                         ),
                       if (business.website != null)
@@ -188,8 +192,11 @@ class _FoodBusinessDetailScreenState extends State<FoodBusinessDetailScreen> {
                           leading: const Icon(Icons.language),
                           title: const Text('Website'),
                           subtitle: Text(business.website!),
-                          onTap: () {
-                            // TODO: Implement URL launch
+                          onTap: () async {
+                            final url = Uri.parse(business.website!);
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(url, mode: LaunchMode.externalApplication);
+                            }
                           },
                         ),
                       if (business.operatingHours != null)
@@ -198,6 +205,70 @@ class _FoodBusinessDetailScreenState extends State<FoodBusinessDetailScreen> {
                           leading: const Icon(Icons.schedule),
                           title: const Text('Operating Hours'),
                           subtitle: Text(business.operatingHours!),
+                        ),
+                      if (business.email != null)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.email),
+                          title: const Text('Email'),
+                          subtitle: Text(business.email!),
+                          onTap: () async {
+                            final url = Uri(
+                              scheme: 'mailto',
+                              path: business.email!,
+                            );
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(url);
+                            }
+                          },
+                        ),
+                      if (business.facebookUrl != null)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.facebook),
+                          title: const Text('Facebook'),
+                          subtitle: Text(business.facebookUrl!),
+                          onTap: () async {
+                            final url = Uri.parse(business.facebookUrl!);
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(
+                                url,
+                                mode: LaunchMode.externalApplication,
+                              );
+                            }
+                          },
+                        ),
+                      if (business.instagramUrl != null)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.camera_alt),
+                          title: const Text('Instagram'),
+                          subtitle: Text(business.instagramUrl!),
+                          onTap: () async {
+                            final url = Uri.parse(business.instagramUrl!);
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(
+                                url,
+                                mode: LaunchMode.externalApplication,
+                              );
+                            }
+                          },
+                        ),
+                      if (business.onlineOrderUrl != null)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.shopping_bag),
+                          title: const Text('Order Online'),
+                          subtitle: Text(business.onlineOrderUrl!),
+                          onTap: () async {
+                            final url = Uri.parse(business.onlineOrderUrl!);
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(
+                                url,
+                                mode: LaunchMode.externalApplication,
+                              );
+                            }
+                          },
                         ),
                     ],
                   ),

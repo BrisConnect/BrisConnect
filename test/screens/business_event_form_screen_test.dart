@@ -5,7 +5,6 @@ import 'package:brisconnect/screens/business_event_form_screen.dart';
 import 'package:brisconnect/services/business_event_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockBusinessEventService extends Mock implements BusinessEventService {}

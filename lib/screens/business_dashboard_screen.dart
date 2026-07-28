@@ -7,6 +7,7 @@ import 'package:brisconnect/screens/schedule_promotion_screen.dart';
 import 'package:brisconnect/services/best_time_to_post_service.dart';
 import 'package:brisconnect/services/business_dashboard_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
+import 'package:brisconnect/utils/responsive_utils.dart';
 
 /// Screen 1 of the Local portal — Business Dashboard.
 /// Shows analytics, AI post creation, promotions and notifications.
@@ -20,26 +21,59 @@ class BusinessDashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = LocalAuth.currentLocal;
     final name = user?.name ?? 'Business Owner';
-    final effectiveOwnerId = ownerId.trim().isEmpty ? user?.email ?? '' : ownerId;
+    final effectiveOwnerId =
+        ownerId.trim().isEmpty ? user?.email ?? '' : ownerId;
+    final width = ResponsiveUtils.widthOf(context);
+    final horizontalPadding = width >= Breakpoints.desktop
+        ? 32.0
+        : width >= Breakpoints.mobile && width < Breakpoints.tablet
+            ? 24.0
+            : 16.0;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D1117),
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            SliverToBoxAdapter(child: _buildHeader(name)),
             SliverToBoxAdapter(
-              child: _buildAnalyticsGrid(context, effectiveOwnerId),
-            ),
-            SliverToBoxAdapter(child: _buildAIPostSection(context)),
-            SliverToBoxAdapter(
-              child: _buildBestTimeToPostSection(context, effectiveOwnerId),
+              child: _buildHeader(
+                name,
+                horizontalPadding: horizontalPadding,
+              ),
             ),
             SliverToBoxAdapter(
-              child: _buildPromotionsSection(context, effectiveOwnerId),
+              child: _buildAnalyticsGrid(
+                context,
+                effectiveOwnerId,
+                horizontalPadding: horizontalPadding,
+              ),
             ),
             SliverToBoxAdapter(
-              child: _buildNotificationsSection(context, user?.email),
+              child: _buildAIPostSection(
+                context,
+                horizontalPadding: horizontalPadding,
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: _buildBestTimeToPostSection(
+                context,
+                effectiveOwnerId,
+                horizontalPadding: horizontalPadding,
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: _buildPromotionsSection(
+                context,
+                effectiveOwnerId,
+                horizontalPadding: horizontalPadding,
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: _buildNotificationsSection(
+                context,
+                user?.email,
+                horizontalPadding: horizontalPadding,
+              ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
@@ -49,73 +83,85 @@ class BusinessDashboardScreen extends StatelessWidget {
   }
 
   // ── Header ──────────────────────────────────────────────────────────
-  Widget _buildHeader(String name) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Welcome back,',
-                  style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 13),
+  Widget _buildHeader(String name, {required double horizontalPadding}) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= Breakpoints.desktop;
+        return Padding(
+          padding:
+              EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Welcome back,',
+                      style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: isDesktop ? 15 : 13),
+                    ),
+                    Text(
+                      name,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: isDesktop ? 28 : 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
-                Text(
-                  name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppPalette.ochre.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                      color: AppPalette.ochre.withValues(alpha: 0.4)),
                 ),
-              ],
-            ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.verified_rounded,
+                        color: AppPalette.ochre, size: 14),
+                    SizedBox(width: 4),
+                    Text('Local Business',
+                        style: TextStyle(
+                            color: AppPalette.ochre,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ],
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppPalette.ochre.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(20),
-              border:
-                  Border.all(color: AppPalette.ochre.withValues(alpha: 0.4)),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.verified_rounded,
-                    color: AppPalette.ochre, size: 14),
-                SizedBox(width: 4),
-                Text('Local Business',
-                    style: TextStyle(
-                        color: AppPalette.ochre,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600)),
-              ],
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   // ── Analytics ───────────────────────────────────────────────────────
-  Widget _buildAnalyticsGrid(BuildContext context, String ownerId) {
+  Widget _buildAnalyticsGrid(
+    BuildContext context,
+    String ownerId, {
+    required double horizontalPadding,
+  }) {
     if (ownerId.trim().isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-        child: _DashboardErrorCard(
+      return Padding(
+        padding:
+            EdgeInsets.fromLTRB(horizontalPadding, 12, horizontalPadding, 0),
+        child: const _DashboardErrorCard(
           message: 'Sign in to view your business summary.',
         ),
       );
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: EdgeInsets.fromLTRB(horizontalPadding, 12, horizontalPadding, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -144,14 +190,19 @@ class BusinessDashboardScreen extends StatelessWidget {
 
               return LayoutBuilder(
                 builder: (context, constraints) {
-                  final crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
+                  final crossAxisCount =
+                      constraints.maxWidth >= Breakpoints.desktop
+                          ? 4
+                          : constraints.maxWidth >= Breakpoints.mobile
+                              ? 3
+                              : 2;
                   return GridView.count(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     crossAxisCount: crossAxisCount,
                     mainAxisSpacing: 10,
                     crossAxisSpacing: 10,
-                    childAspectRatio: 1.05,
+                    childAspectRatio: 1.1,
                     children: [
                       _AnalyticCard(
                         icon: Icons.visibility_rounded,
@@ -188,6 +239,24 @@ class BusinessDashboardScreen extends StatelessWidget {
                         change: metrics.upcomingEventsChange,
                         color: const Color(0xFFE74C3C),
                       ),
+                      _AnalyticCard(
+                        icon: Icons.trending_up_rounded,
+                        label: 'Buzz Score',
+                        value: metrics.buzzScore.toStringAsFixed(1),
+                        change: 0,
+                        color: const Color(0xFF3BD0EE),
+                      ),
+                      _AnalyticCard(
+                        icon: Icons.people_rounded,
+                        label: metrics.crowdLevel != null
+                            ? 'Crowd: ${metrics.crowdLevel}'
+                            : 'Live Crowd',
+                        value: metrics.crowdLevel != null
+                            ? '${metrics.crowdReportCount} reports'
+                            : 'No reports',
+                        change: 0,
+                        color: const Color(0xFFF39C12),
+                      ),
                     ],
                   );
                 },
@@ -200,9 +269,12 @@ class BusinessDashboardScreen extends StatelessWidget {
   }
 
   // ── AI Post Creation ────────────────────────────────────────────────
-  Widget _buildAIPostSection(BuildContext context) {
+  Widget _buildAIPostSection(
+    BuildContext context, {
+    required double horizontalPadding,
+  }) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      padding: EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -213,15 +285,15 @@ class BusinessDashboardScreen extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  const Color(0xFF1C1C2E),
+                  AppPalette.surface,
                   AppPalette.ochre.withValues(alpha: 0.08),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                  color: AppPalette.ochre.withValues(alpha: 0.2)),
+              border:
+                  Border.all(color: AppPalette.ochre.withValues(alpha: 0.2)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -287,11 +359,15 @@ class BusinessDashboardScreen extends StatelessWidget {
   }
 
   // ── Best Time to Post ───────────────────────────────────────────────
-  Widget _buildBestTimeToPostSection(BuildContext context, String ownerId) {
+  Widget _buildBestTimeToPostSection(
+    BuildContext context,
+    String ownerId, {
+    required double horizontalPadding,
+  }) {
     if (ownerId.trim().isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      padding: EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -322,10 +398,10 @@ class BusinessDashboardScreen extends StatelessWidget {
                 return Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1C1C2E),
+                    color: AppPalette.surface,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.05)),
+                    border:
+                        Border.all(color: Colors.white.withValues(alpha: 0.05)),
                   ),
                   child: Row(
                     children: [
@@ -369,7 +445,7 @@ class BusinessDashboardScreen extends StatelessWidget {
               return Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1C1C2E),
+                  color: AppPalette.surface,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                       color: AppPalette.ochre.withValues(alpha: 0.2)),
@@ -390,8 +466,7 @@ class BusinessDashboardScreen extends StatelessWidget {
                               width: 32,
                               height: 32,
                               decoration: BoxDecoration(
-                                color:
-                                    AppPalette.ochre.withValues(alpha: 0.15),
+                                color: AppPalette.ochre.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Center(
@@ -467,11 +542,15 @@ class BusinessDashboardScreen extends StatelessWidget {
   }
 
   // ── Promotions ──────────────────────────────────────────────────────
-  Widget _buildPromotionsSection(BuildContext context, String ownerId) {
+  Widget _buildPromotionsSection(
+    BuildContext context,
+    String ownerId, {
+    required double horizontalPadding,
+  }) {
     if (ownerId.trim().isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      padding: EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -487,10 +566,10 @@ class BusinessDashboardScreen extends StatelessWidget {
                 return Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1C1C2E),
+                    color: AppPalette.surface,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.05)),
+                    border:
+                        Border.all(color: Colors.white.withValues(alpha: 0.05)),
                   ),
                   child: Row(
                     children: [
@@ -514,8 +593,7 @@ class BusinessDashboardScreen extends StatelessWidget {
                                     fontWeight: FontWeight.w600,
                                     fontSize: 14)),
                             SizedBox(height: 2),
-                            Text(
-                                'Create a promotion to attract more customers',
+                            Text('Create a promotion to attract more customers',
                                 style: TextStyle(
                                     color: Color(0xFF8B8FA8), fontSize: 12)),
                           ],
@@ -531,7 +609,7 @@ class BusinessDashboardScreen extends StatelessWidget {
               return Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1C1C2E),
+                  color: AppPalette.surface,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                       color: AppPalette.ochre.withValues(alpha: 0.2)),
@@ -581,9 +659,13 @@ class BusinessDashboardScreen extends StatelessWidget {
   }
 
   // ── Notifications ───────────────────────────────────────────────────
-  Widget _buildNotificationsSection(BuildContext context, String? email) {
+  Widget _buildNotificationsSection(
+    BuildContext context,
+    String? email, {
+    required double horizontalPadding,
+  }) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      padding: EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -604,10 +686,10 @@ class BusinessDashboardScreen extends StatelessWidget {
                 return Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1C1C2E),
+                    color: AppPalette.surface,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.05)),
+                    border:
+                        Border.all(color: Colors.white.withValues(alpha: 0.05)),
                   ),
                   child: const Row(
                     children: [
@@ -634,13 +716,18 @@ class BusinessDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _sectionLabel(String text) => Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 15,
-          fontWeight: FontWeight.bold,
-        ),
+  Widget _sectionLabel(String text) => LayoutBuilder(
+        builder: (context, constraints) {
+          final isDesktop = constraints.maxWidth >= Breakpoints.desktop;
+          return Text(
+            text,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: isDesktop ? 17 : 15,
+              fontWeight: FontWeight.bold,
+            ),
+          );
+        },
       );
 }
 
@@ -666,12 +753,14 @@ class _AnalyticCard extends StatelessWidget {
     final changeText = change.isFinite
         ? '${isPositive ? '+' : ''}${(change * 100).toStringAsFixed(0)}%'
         : '0%';
-    final changeColor = isPositive ? const Color(0xFF2ECC71) : const Color(0xFFE74C3C);
+    final changeColor =
+        isPositive ? const Color(0xFF2ECC71) : const Color(0xFFE74C3C);
+    final isDesktop = ResponsiveUtils.widthOf(context) >= Breakpoints.desktop;
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: AppPalette.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
@@ -687,7 +776,9 @@ class _AnalyticCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    isPositive ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                    isPositive
+                        ? Icons.arrow_upward_rounded
+                        : Icons.arrow_downward_rounded,
                     color: changeColor,
                     size: 12,
                   ),
@@ -710,13 +801,18 @@ class _AnalyticCard extends StatelessWidget {
               Text(
                 value,
                 style: TextStyle(
-                    color: color, fontSize: 22, fontWeight: FontWeight.bold),
+                  color: color,
+                  fontSize: isDesktop ? 26 : 22,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 2),
               Text(
                 label,
-                style: const TextStyle(
-                    color: Color(0xFF8B8FA8), fontSize: 11),
+                style: TextStyle(
+                  color: const Color(0xFF8B8FA8),
+                  fontSize: isDesktop ? 13 : 11,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ],
@@ -738,7 +834,7 @@ class _DashboardErrorCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: AppPalette.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
@@ -806,10 +902,9 @@ class _NotificationTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: AppPalette.surface,
         borderRadius: BorderRadius.circular(12),
-        border:
-            Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

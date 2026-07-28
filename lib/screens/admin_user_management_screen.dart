@@ -11,11 +11,12 @@ class AdminUserManagementScreen extends StatefulWidget {
     LocalEmailNotificationService? localEmailNotificationService,
     SmsNotificationService? smsNotificationService,
     this.enforceRoleGuard = true,
-  }) : userManagementService =
-           userManagementService ?? AdminUserManagementService(),
-       localEmailNotificationService =
-           localEmailNotificationService ?? LocalEmailNotificationService(),
-       smsNotificationService = smsNotificationService ?? SmsNotificationService();
+  })  : userManagementService =
+            userManagementService ?? AdminUserManagementService(),
+        localEmailNotificationService =
+            localEmailNotificationService ?? LocalEmailNotificationService(),
+        smsNotificationService =
+            smsNotificationService ?? SmsNotificationService();
 
   final AdminUserManagementService userManagementService;
   final LocalEmailNotificationService localEmailNotificationService;
@@ -30,7 +31,8 @@ class AdminUserManagementScreen extends StatefulWidget {
 class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedRoleFilter = 'all'; // 'all', 'visitor', 'local', 'admin'
-  String _selectedStatusFilter = 'all'; // 'all', 'active', 'inactive', 'pending', 'approved', 'rejected'
+  String _selectedStatusFilter =
+      'all'; // 'all', 'active', 'inactive', 'pending', 'approved', 'rejected'
   String _sortOrder = 'newest'; // 'newest', 'oldest', 'name'
   bool _isLoading = false;
 
@@ -223,7 +225,15 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
     var filtered = users;
 
     // Filter by role
-    if (_selectedRoleFilter != 'all') {
+    if (_selectedRoleFilter == 'business_owner') {
+      filtered = filtered
+          .where((u) => u.role == 'local' && u.isBusinessOwner)
+          .toList();
+    } else if (_selectedRoleFilter == 'local') {
+      filtered = filtered
+          .where((u) => u.role == 'local' && !u.isBusinessOwner)
+          .toList();
+    } else if (_selectedRoleFilter != 'all') {
       filtered = filtered
           .where((u) => u.role.toLowerCase() == _selectedRoleFilter)
           .toList();
@@ -236,23 +246,30 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       filtered = filtered.where((u) => !u.active).toList();
     } else if (_selectedStatusFilter == 'pending') {
       filtered = filtered
-          .where((u) => u.role == 'local' && (u.approvalStatus ?? 'pending') == 'pending')
+          .where((u) =>
+              u.role == 'local' && (u.approvalStatus ?? 'pending') == 'pending')
           .toList();
     } else if (_selectedStatusFilter == 'approved') {
       filtered = filtered
-          .where((u) => u.role == 'local' && (u.approvalStatus ?? 'pending') == 'approved')
+          .where((u) =>
+              u.role == 'local' &&
+              (u.approvalStatus ?? 'pending') == 'approved')
           .toList();
     } else if (_selectedStatusFilter == 'rejected') {
       filtered = filtered
-          .where((u) => u.role == 'local' && (u.approvalStatus ?? 'pending') == 'rejected')
+          .where((u) =>
+              u.role == 'local' &&
+              (u.approvalStatus ?? 'pending') == 'rejected')
           .toList();
     }
 
     // Sort
     if (_sortOrder == 'newest') {
-      filtered.sort((a, b) => (b.createdAt ?? DateTime(2000)).compareTo(a.createdAt ?? DateTime(2000)));
+      filtered.sort((a, b) => (b.createdAt ?? DateTime(2000))
+          .compareTo(a.createdAt ?? DateTime(2000)));
     } else if (_sortOrder == 'oldest') {
-      filtered.sort((a, b) => (a.createdAt ?? DateTime(2000)).compareTo(b.createdAt ?? DateTime(2000)));
+      filtered.sort((a, b) => (a.createdAt ?? DateTime(2000))
+          .compareTo(b.createdAt ?? DateTime(2000)));
     } else {
       filtered.sort((a, b) => a.name.compareTo(b.name));
     }
@@ -288,14 +305,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            shadows: [
-                              Shadow(
-                                offset: Offset(0, 1),
-                                blurRadius: 6,
-                                color: Colors.black45,
-                              ),
-                            ],
+                            color: AppPalette.charcoal,
                           ),
                         ),
                         SizedBox(height: 2),
@@ -304,14 +314,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
-                            color: Colors.white70,
-                            shadows: [
-                              Shadow(
-                                offset: Offset(0, 1),
-                                blurRadius: 4,
-                                color: Colors.black38,
-                              ),
-                            ],
+                            color: AppPalette.mutedText,
                           ),
                         ),
                       ],
@@ -352,8 +355,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                     suffixIcon: const Icon(Icons.mic_rounded,
                         color: AppPalette.mutedText),
                     border: InputBorder.none,
-                    contentPadding:
-                        const EdgeInsets.symmetric(vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
               ),
@@ -371,14 +373,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  shadows: [
-                    Shadow(
-                      offset: Offset(0, 1),
-                      blurRadius: 4,
-                      color: Colors.black38,
-                    ),
-                  ],
+                  color: AppPalette.charcoal,
                 ),
               ),
             ),
@@ -393,24 +388,44 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
               child: Row(
                 children: [
                   _FilterChipStyled(
-                    icon: Icons.check_circle_rounded,
-                    label: 'All Roles',
+                    icon: Icons.groups_rounded,
+                    label: 'All',
                     selected: _selectedRoleFilter == 'all',
                     onTap: () => setState(() => _selectedRoleFilter = 'all'),
                   ),
                   const SizedBox(width: 8),
                   _FilterChipStyled(
-                    icon: Icons.groups_rounded,
+                    icon: Icons.directions_walk_rounded,
                     label: 'Visitors',
                     selected: _selectedRoleFilter == 'visitor',
-                    onTap: () => setState(() => _selectedRoleFilter = 'visitor'),
+                    onTap: () =>
+                        setState(() => _selectedRoleFilter = 'visitor'),
+                  ),
+                  const SizedBox(width: 8),
+                  _FilterChipStyled(
+                    icon: Icons.storefront_rounded,
+                    label: 'Business Owners',
+                    selected: _selectedRoleFilter == 'business_owner',
+                    onTap: () => setState(() => _selectedRoleFilter =
+                        _selectedRoleFilter == 'business_owner'
+                            ? 'all'
+                            : 'business_owner'),
                   ),
                   const SizedBox(width: 8),
                   _FilterChipStyled(
                     icon: Icons.place_rounded,
                     label: 'Locals',
                     selected: _selectedRoleFilter == 'local',
-                    onTap: () => setState(() => _selectedRoleFilter = 'local'),
+                    onTap: () => setState(() => _selectedRoleFilter =
+                        _selectedRoleFilter == 'local' ? 'all' : 'local'),
+                  ),
+                  const SizedBox(width: 8),
+                  _FilterChipStyled(
+                    icon: Icons.shield_rounded,
+                    label: 'Admins',
+                    selected: _selectedRoleFilter == 'admin',
+                    onTap: () => setState(() => _selectedRoleFilter =
+                        _selectedRoleFilter == 'admin' ? 'all' : 'admin'),
                   ),
                 ],
               ),
@@ -428,14 +443,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  shadows: [
-                    Shadow(
-                      offset: Offset(0, 1),
-                      blurRadius: 4,
-                      color: Colors.black38,
-                    ),
-                  ],
+                  color: AppPalette.charcoal,
                 ),
               ),
             ),
@@ -451,43 +459,48 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                 runSpacing: 8,
                 children: [
                   _FilterChipStyled(
-                    icon: Icons.shield_rounded,
-                    label: 'Admins',
-                    selected: _selectedRoleFilter == 'admin',
-                    onTap: () => setState(() => _selectedRoleFilter = _selectedRoleFilter == 'admin' ? 'all' : 'admin'),
-                  ),
-                  _FilterChipStyled(
                     icon: null,
                     dotColor: Colors.green,
                     label: 'Active',
                     selected: _selectedStatusFilter == 'active',
-                    onTap: () => setState(() => _selectedStatusFilter = _selectedStatusFilter == 'active' ? 'all' : 'active'),
+                    onTap: () => setState(() => _selectedStatusFilter =
+                        _selectedStatusFilter == 'active' ? 'all' : 'active'),
                   ),
                   _FilterChipStyled(
                     icon: Icons.radio_button_unchecked,
                     label: 'Inactive',
                     selected: _selectedStatusFilter == 'inactive',
-                    onTap: () => setState(() => _selectedStatusFilter = _selectedStatusFilter == 'inactive' ? 'all' : 'inactive'),
+                    onTap: () => setState(() => _selectedStatusFilter =
+                        _selectedStatusFilter == 'inactive'
+                            ? 'all'
+                            : 'inactive'),
                   ),
                   _FilterChipStyled(
                     icon: Icons.schedule_rounded,
                     label: 'Pending Approval',
                     selected: _selectedStatusFilter == 'pending',
-                    onTap: () => setState(() => _selectedStatusFilter = _selectedStatusFilter == 'pending' ? 'all' : 'pending'),
+                    onTap: () => setState(() => _selectedStatusFilter =
+                        _selectedStatusFilter == 'pending' ? 'all' : 'pending'),
                   ),
                   _FilterChipStyled(
                     icon: Icons.check_circle_rounded,
                     iconColor: Colors.green,
-                    label: 'Approved Locals',
+                    label: 'Approved',
                     selected: _selectedStatusFilter == 'approved',
-                    onTap: () => setState(() => _selectedStatusFilter = _selectedStatusFilter == 'approved' ? 'all' : 'approved'),
+                    onTap: () => setState(() => _selectedStatusFilter =
+                        _selectedStatusFilter == 'approved'
+                            ? 'all'
+                            : 'approved'),
                   ),
                   _FilterChipStyled(
                     icon: Icons.close_rounded,
                     iconColor: Colors.red,
-                    label: 'Rejected Locals',
+                    label: 'Rejected',
                     selected: _selectedStatusFilter == 'rejected',
-                    onTap: () => setState(() => _selectedStatusFilter = _selectedStatusFilter == 'rejected' ? 'all' : 'rejected'),
+                    onTap: () => setState(() => _selectedStatusFilter =
+                        _selectedStatusFilter == 'rejected'
+                            ? 'all'
+                            : 'rejected'),
                   ),
                 ],
               ),
@@ -516,7 +529,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                       child: Text(
                         'Error loading users: ${snapshot.error}',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: AppPalette.charcoal),
                       ),
                     ),
                   ),
@@ -528,7 +541,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                 return const SliverFillRemaining(
                   child: Center(
                     child: Text('No users found',
-                        style: TextStyle(color: Colors.white)),
+                        style: TextStyle(color: AppPalette.charcoal)),
                   ),
                 );
               }
@@ -557,16 +570,20 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: Colors.white.withValues(alpha: 0.9),
+                              color: AppPalette.charcoal,
                             ),
                           ),
                           const Spacer(),
                           PopupMenuButton<String>(
-                            onSelected: (value) => setState(() => _sortOrder = value),
+                            onSelected: (value) =>
+                                setState(() => _sortOrder = value),
                             itemBuilder: (ctx) => [
-                              const PopupMenuItem(value: 'newest', child: Text('Newest')),
-                              const PopupMenuItem(value: 'oldest', child: Text('Oldest')),
-                              const PopupMenuItem(value: 'name', child: Text('Name')),
+                              const PopupMenuItem(
+                                  value: 'newest', child: Text('Newest')),
+                              const PopupMenuItem(
+                                  value: 'oldest', child: Text('Oldest')),
+                              const PopupMenuItem(
+                                  value: 'name', child: Text('Name')),
                             ],
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -576,7 +593,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
-                                    color: Colors.white.withValues(alpha: 0.8),
+                                    color: AppPalette.mutedText,
                                   ),
                                 ),
                                 Text(
@@ -589,12 +606,11 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
                                     fontStyle: FontStyle.italic,
-                                    color: Colors.white.withValues(alpha: 0.9),
+                                    color: AppPalette.charcoal,
                                   ),
                                 ),
                                 Icon(Icons.arrow_drop_down,
-                                    color: Colors.white.withValues(alpha: 0.8),
-                                    size: 20),
+                                    color: AppPalette.mutedText, size: 20),
                               ],
                             ),
                           ),
@@ -608,7 +624,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                     const SliverFillRemaining(
                       child: Center(
                         child: Text('No users match your filters',
-                            style: TextStyle(color: Colors.white)),
+                            style: TextStyle(color: AppPalette.charcoal)),
                       ),
                     )
                   else
@@ -677,12 +693,12 @@ class _FilterChipStyled extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? AppPalette.ochre
-              : Colors.white.withValues(alpha: 0.15),
+              : AppPalette.surface.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: selected
                 ? AppPalette.ochre
-                : Colors.white.withValues(alpha: 0.4),
+                : AppPalette.border.withValues(alpha: 0.6),
           ),
         ),
         child: Row(
@@ -699,8 +715,11 @@ class _FilterChipStyled extends StatelessWidget {
               ),
               const SizedBox(width: 6),
             ] else if (icon != null) ...[
-              Icon(icon, size: 16,
-                  color: selected ? Colors.white : (iconColor ?? Colors.white)),
+              Icon(icon,
+                  size: 16,
+                  color: selected
+                      ? Colors.white
+                      : (iconColor ?? AppPalette.mutedText)),
               const SizedBox(width: 6),
             ],
             Text(
@@ -708,7 +727,7 @@ class _FilterChipStyled extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: selected ? Colors.white : Colors.white,
+                color: selected ? Colors.white : AppPalette.charcoal,
               ),
             ),
           ],
@@ -862,9 +881,8 @@ class _UserCard extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: user.active
-                      ? Colors.green.shade50
-                      : Colors.red.shade50,
+                  color:
+                      user.active ? Colors.green.shade50 : Colors.red.shade50,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: user.active
@@ -954,8 +972,8 @@ class _UserCard extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 ),
                 child: Text(user.active ? 'View' : 'Reactivate'),
               ),

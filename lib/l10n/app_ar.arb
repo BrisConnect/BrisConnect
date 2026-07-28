@@ -1,0 +1,323 @@
+{
+  "appTitle": "BrisConnect+",
+  "welcome": "مرحباً",
+  "signIn": "تسجيل الدخول",
+  "signUp": "التسجيل",
+  "signOut": "تسجيل الخروج",
+  "email": "البريد الإلكتروني",
+  "password": "كلمة المرور",
+  "phone": "الهاتف",
+  "name": "الاسم",
+  "save": "حفظ",
+  "cancel": "إلغاء",
+  "editProfile": "تعديل الملف الشخصي",
+  "profileInfo": "معلومات الملف الشخصي",
+  "preferences": "التفضيلات",
+  "language": "اللغة",
+  "locationRadius": "نطاق الموقع",
+  "appearanceSettings": "إعدادات المظهر",
+  "feedback": "الملاحظات",
+  "myFeedback": "ملاحظاتي",
+  "helpAndSupport": "المساعدة والدعم",
+  "discover": "استكشف",
+  "community": "المجتمع",
+  "map": "الخريطة",
+  "saved": "المحفوظات",
+  "profile": "الملف الشخصي",
+  "food": "طعام",
+  "events": "فعاليات",
+  "businesses": "أعمال",
+  "promotions": "عروض",
+  "photos": "صور",
+  "newPost": "جديد",
+  "search": "بحث",
+  "filter": "تصفية",
+  "clearFilters": "مسح التصفية",
+  "noResults": "لم يتم العثور على نتائج",
+  "loading": "جارٍ التحميل...",
+  "error": "خطأ",
+  "success": "نجاح",
+  "profileUpdated": "تم تحديث الملف الشخصي بنجاح.",
+  "profileUpdateFailed": "تعذر تحديث الملف الشخصي. يرجى المحاولة مرة أخرى.",
+  "guestVisitor": "زائر ضيف",
+  "localUser": "محلي",
+  "filterEventsTitle": "تصفية الأحداث",
+  "priceLabel": "السعر",
+  "dateLabel": "التاريخ",
+  "pickADate": "اختر موعدًا",
+  "resetButton": "إعادة تعيين",
+  "applyButton": "تطبيق",
+  "freeLabel": "مجاني",
+  "paidLabel": "مدفوعة",
+  "eventSavedToInterested": "{eventTitle} تم الحفظ لدى المهتمين.",
+  "@eventSavedToInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "eventRemovedFromInterested": "تمت إزالة {eventTitle} من مهتم.",
+  "@eventRemovedFromInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "savedToAttractions": "{title} تم الحفظ في مناطق الجذب المحفوظة.",
+  "@savedToAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "removedFromAttractions": "تمت إزالة {title} من مناطق الجذب المحفوظة.",
+  "@removedFromAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "pleaseSignInToSaveEvents": "الرجاء تسجيل الدخول كزائر لحفظ الأحداث.",
+  "pleaseSignInToReview": "الرجاء تسجيل الدخول لكتابة مراجعة أو BuzzVote.",
+  "reviewSubmitted": "تم إرسال المراجعة\\! ⭐ {rating} / نبضات ⚡ {buzzRating}",
+  "@reviewSubmitted": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "buzzRating": {
+        "type": "String"
+      }
+    }
+  },
+  "reviewSubmitFailed": "تعذر إرسال المراجعة: {error}",
+  "@reviewSubmitFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noExternalLink": "لا يوجد رابط خارجي متاح لهذا البند حتى الآن.",
+  "unableToOpenLink": "غير قادر على فتح رابط الحدث الآن.",
+  "shareTitle": "مشاركة: {title}",
+  "@shareTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "reportEvent": "الإبلاغ عن الحدث",
+  "reviewsOnlyForFood": "التقييمات متاحة فقط للمواد الغذائية",
+  "chooseFromGallery": "اختر من المعرض",
+  "takeAPhoto": "التقط صورة",
+  "pleaseLoginVisitor": "الرجاء تسجيل الدخول كزائر أولا.",
+  "onlyJpgPng": "يتم دعم صور JPG وPNG فقط.",
+  "imageTooLarge": "الصورة كبيرة جدًا. الرجاء اختيار صورة أصغر.",
+  "profilePictureUpdated": "تم تحديث الصورة الشخصية بنجاح.",
+  "profilePictureUpdateFailed": "لا يمكن تحديث صورة الملف الشخصي. يرجى المحاولة مرة أخرى.",
+  "enterYourName": "أدخل اسمك",
+  "phoneHint": "على سبيل المثال 04xxxxxxxxxx",
+  "nameCannotBeEmpty": "لا يمكن أن يكون الاسم فارغًا.",
+  "nameMinLength": "يجب أن يتكون الاسم من حرفين على الأقل.",
+  "enterValidPhone": "أدخل رقم هاتف صالحًا.",
+  "changeProfilePicture": "تغيير الصورة الشخصية",
+  "uploadProfilePicture": "تحميل الصورة الشخصية",
+  "areYouSureSignOut": "هل أنت متأكد أنك تريد تسجيل الخروج؟",
+  "returnWelcome": "العودة إلى شاشة الترحيب",
+  "setHowFarRecommendations": "تحديد المدى الذي يمكن أن تصل إليه التوصيات",
+  "themeTextSizeFeedback": "الموضوع وحجم النص والتعليقات",
+  "faqsContactAppInfo": "الأسئلة الشائعة، اتصل بنا ومعلومات التطبيق",
+  "viewSubmittedFeedback": "عرض ملاحظاتك المقدمة واستجابات المشرف",
+  "discoverSubtitle": "اكتشف الأطعمة والتجارب المحلية",
+  "searchHintLocalFood": "البحث عن شركات الأغذية المحلية...",
+  "homeLabel": "الصفحة الرئيسية",
+  "recommendedForYou": "موصى به لك",
+  "seeAll": "رؤية الكل",
+  "categories": "الفئات",
+  "nearby": "قريب",
+  "noFoodPlacesFound": "لم يتم العثور على أماكن الطعام",
+  "noFoodPlacesSubtitle": "حاول تغيير اختيارات البحث أو التصفية.",
+  "localFoodBusinesses": "شركات الأغذية المحلية",
+  "localFoodSubtitle": "دعم المؤسسات الغذائية الصغيرة والمتوسطة في بريسبان",
+  "exploreReviewFoodBusinesses": "استكشاف ومراجعة الشركات الغذائية",
+  "noSavedItemsTitle": "لا توجد عناصر محفوظة حتى الآن",
+  "noSavedItemsSubtitle": "اضغط على أيقونة القلب الموجودة على بطاقات العمل الخاصة بالأطعمة أو الإشارة المرجعية الموجودة في ملف تعريف العمل لحفظها هنا.",
+  "savedEvents": "الأحداث المحفوظة",
+  "savedEventsSubtitle": "تذكيرات وخطط الحدث الخاص بك",
+  "savedAttractions": "المعالم المحفوظة",
+  "savedAttractionsSubtitle": "أماكن للزيارة بشكل مستقل عن الأحداث",
+  "savedBusinesses": "الأعمال المحفوظة",
+  "savedBusinessesSubtitle": "الشركات الغذائية التي قمت بوضع إشارة مرجعية عليها",
+  "savedItemsUnavailableTitle": "العناصر المحفوظة غير متوفرة",
+  "savedItemsUnavailableSubtitle": "لم تعد بعض العناصر المحفوظة منشورة في موجز الاكتشاف.",
+  "retryAction": "أعد المحاولة",
+  "unableToLoadDiscover": "غير قادر على تحميل اكتشاف العناصر الآن. يرجى المحاولة مرة أخرى.",
+  "unableToLoadSaved": "غير قادر على تحميل العناصر المحفوظة الآن. يرجى المحاولة مرة أخرى.",
+  "dateTBA": "التاريخ سيتم تحديده",
+  "timeTBA": "الوقت سيتم تحديده",
+  "untitledEvent": "حدث بلا عنوان",
+  "locationTBA": "الموقع سيتم تحديده",
+  "priceTBA": "السعر يحدد لاحقا",
+  "placeFallback": "مكان",
+  "foodExperienceFallback": "تجربة الغذاء",
+  "stadiumFallback": "الملعب",
+  "eventFallback": "حدث",
+  "attractionFallback": "الجذب",
+  "ratingReviewsCount": "{rating} · {count} المراجعات",
+  "@ratingReviewsCount": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "approved": "تمت الموافقة عليه",
+  "audience": "الجمهور",
+  "businessLabel": "الأعمال",
+  "controlDistance": "التحكم في المسافة للفرص القريبة",
+  "dashboard": "لوحة القيادة",
+  "delete": "حذف",
+  "deleteEvent": "حذف الحدث",
+  "deletingEvent": "جارٍ حذف الحدث...",
+  "displayName": "اسم العرض",
+  "errorDeletingEvent": "حدث خطأ أثناء حذف الحدث: {error}",
+  "@errorDeletingEvent": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "errorLoadingMap": "خطأ في تحميل الخريطة: {error}",
+  "@errorLoadingMap": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "eventDeleted": "تم حذف الحدث \"{title}\".",
+  "@eventDeleted": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToDeleteEvent": "فشل في حذف الحدث. يرجى المحاولة مرة أخرى.",
+  "feed": "تغذية",
+  "localBusinessPortal": "بوابة الأعمال المحلية",
+  "pending": "في انتظار",
+  "phoneNumber": "رقم الهاتف",
+  "pleaseLoginLocal": "الرجاء تسجيل الدخول كمستخدم محلي أولاً.",
+  "pleaseLoginToDelete": "الرجاء تسجيل الدخول لحذف الأحداث.",
+  "pushAlerts": "دفع التنبيهات لعملك",
+  "rejected": "مرفوض",
+  "reviews": "التعليقات",
+  "saveChanges": "حفظ التغييرات",
+  "searchHintEvents": "البحث عن الأحداث والحجوزات...",
+  "suburb": "ضاحية",
+  "thisLinkUnavailable": "هذا الرابط غير متوفر حاليا.",
+  "total": "المجموع",
+  "couldNotSaveSettings": "لا يمكن حفظ الإعدادات. يرجى المحاولة مرة أخرى.",
+  "locationAccessDisabled": "تم تعطيل الوصول إلى الموقع بسبب ميزات التطبيق.",
+  "locationPermissionGranted": "تم منح إذن الموقع.",
+  "openSettings": "افتح الإعدادات",
+  "themeDark": "الظلام",
+  "themeLight": "ضوء",
+  "themeSystem": "النظام",
+  "textScalePercent": "{value}%",
+  "@textScalePercent": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "categoryLabel": "الفئة: {category}",
+  "@categoryLabel": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "severityLabel": "الخطورة: {severity}",
+  "@severityLabel": {
+    "placeholders": {
+      "severity": {
+        "type": "String"
+      }
+    }
+  },
+  "languageEnglish": "الإنجليزية",
+  "languageSpanish": "الاسبانية",
+  "languageFrench": "الفرنسية",
+  "languageGerman": "الألمانية",
+  "languageChinese": "صيني",
+  "languageArabic": "العربية",
+  "languageHindi": "الهندية",
+  "languageItalian": "ايطالي",
+  "languageJapanese": "اليابانية",
+  "languageKorean": "الكورية",
+  "languagePortuguese": "البرتغالية",
+  "languageRussian": "الروسية",
+  "languageVietnamese": "الفيتنامية",
+  "languageGreek": "اليونانية",
+  "discoverTitle": "اكتشف الأطعمة المحلية",
+  "openSourceLink": "رابط مفتوح المصدر",
+  "pendingApproval": "في انتظار الموافقة",
+  "deleteEventConfirmation": "هل أنت متأكد أنك تريد حذف \"{title}\"؟ ",
+  "@deleteEventConfirmation": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "myActivity": "نشاطي",
+  "businessNotifications": "إشعارات الأعمال",
+  "about": "عن",
+  "aboutDescription": "BrisConnect+ هو دليل للمدينة الذكية يساعد الزوار والسكان المحليين على اكتشاف الأحداث واستكشاف المعالم السياحية والتقاط تجاربهم في بريسبان في منصة واحدة متصلة.",
+  "versionLabel": "الإصدار {version}",
+  "@versionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "locationPermissions": "أذونات الموقع",
+  "enableLocationAccess": "تمكين الوصول إلى الموقع",
+  "allowNearbyMapFeatures": "السماح بالتوصيات القريبة والميزات المدركة للخريطة.",
+  "locationSettings": "إعدادات الموقع",
+  "setSearchRadius": "قم بتعيين نطاق البحث الخاص بك للأحداث والمعالم السياحية.",
+  "pleaseLoginToViewSettings": "الرجاء تسجيل الدخول لعرض الإعدادات.",
+  "locationPermissionNotGranted": "لم يتم منح إذن تحديد الموقع. يمكنك تمكينه في إعدادات النظام.",
+  "theme": "سمة",
+  "appTheme": "موضوع التطبيق",
+  "chooseHowAppLooks": "اختر كيف يبدو التطبيق.",
+  "textSize": "حجم النص",
+  "adjustTextSize": "ضبط حجم النص عبر التطبيق.",
+  "smaller": "الأصغر",
+  "larger": "أكبر",
+  "support": "يدعم",
+  "sendAppFeedback": "إرسال تعليقات التطبيق",
+  "reportBugsImprovements": "الإبلاغ عن الأخطاء أو المعلومات المضللة أو اقتراحات التحسين.",
+  "noFeedbackYet": "لم ترسل أي تعليقات حتى الآن.",
+  "adminResponse": "رد المشرف",
+  "awaitingAdminResponse": "في انتظار رد الإدارة...",
+  "statusPending": "قيد الانتظار",
+  "statusInProgress": "في تَقَدم",
+  "statusResolved": "تم الحل",
+  "statusWontFix": "لن يتم إصلاحه"
+}

@@ -17,7 +17,7 @@ class AdminModerationService {
     ReportEventService? reportEventService,
     ModerationAuditService? auditService,
     ModerationNotificationService? notificationService,
-    String? currentAdminEmail,
+    this.currentAdminEmail,
   })  : _reviewService = reviewService ??
             ReviewService(
               firestore: firestore,
@@ -27,8 +27,7 @@ class AdminModerationService {
         _reportEventService = reportEventService ?? ReportEventService(firestore: firestore),
         _auditService = auditService ?? ModerationAuditService(firestore: firestore),
         _notificationService = notificationService ??
-            ModerationNotificationService(firestore: firestore),
-        currentAdminEmail = currentAdminEmail;
+            ModerationNotificationService(firestore: firestore);
 
   /// Optional override for admin email, used in tests and headless environments.
   final String? currentAdminEmail;

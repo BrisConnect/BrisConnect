@@ -4,7 +4,6 @@ import 'package:brisconnect/auth/app_user_role.dart';
 import 'package:brisconnect/models/business.dart';
 import 'package:brisconnect/services/business_profile_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
-import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
 
 /// Admin screen for managing local business listings.
@@ -28,7 +27,8 @@ class AdminBusinessManagementScreen extends StatefulWidget {
 
 class _AdminBusinessManagementScreenState
     extends State<AdminBusinessManagementScreen> {
-  String _filter = 'all'; // all, pending, verified, inactive, archived, duplicates
+  String _filter =
+      'all'; // all, pending, verified, inactive, archived, duplicates
 
   Stream<List<Business>> _businessStream() {
     switch (_filter) {
@@ -81,7 +81,8 @@ class _AdminBusinessManagementScreenState
   Future<void> _deactivate(Business business) async {
     final adminEmail = AdminAuth.currentAdminEmail;
     if (adminEmail == null || adminEmail.isEmpty) return;
-    final reason = await _showReasonDialog('Deactivate ${business.businessName}');
+    final reason =
+        await _showReasonDialog('Deactivate ${business.businessName}');
     if (reason == null) return;
     await _runAction(() => widget.businessService.deactivateBusiness(
           businessId: business.id!,
@@ -173,9 +174,18 @@ class _AdminBusinessManagementScreenState
   @override
   Widget build(BuildContext context) {
     final screen = Scaffold(
-      backgroundColor: AppPalette.background,
+      backgroundColor: const Color(0xFFEBF4FF),
       appBar: AppBar(
-        title: const LogoAppBarTitle('Manage Businesses'),
+        backgroundColor: const Color(0xFFEBF4FF),
+        foregroundColor: const Color(0xFF1E3A8A),
+        elevation: 0,
+        title: const Text(
+          'Manage Businesses',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF1E3A8A),
+          ),
+        ),
       ),
       body: Column(
         children: [
@@ -184,12 +194,36 @@ class _AdminBusinessManagementScreenState
             child: Wrap(
               spacing: 8,
               children: [
-                _FilterChip(label: 'All', value: 'all', selected: _filter, onSelected: _setFilter),
-                _FilterChip(label: 'Pending', value: 'pending', selected: _filter, onSelected: _setFilter),
-                _FilterChip(label: 'Verified', value: 'verified', selected: _filter, onSelected: _setFilter),
-                _FilterChip(label: 'Inactive', value: 'inactive', selected: _filter, onSelected: _setFilter),
-                _FilterChip(label: 'Archived', value: 'archived', selected: _filter, onSelected: _setFilter),
-                _FilterChip(label: 'Duplicates', value: 'duplicates', selected: _filter, onSelected: _setFilter),
+                _FilterChip(
+                    label: 'All',
+                    value: 'all',
+                    selected: _filter,
+                    onSelected: _setFilter),
+                _FilterChip(
+                    label: 'Pending',
+                    value: 'pending',
+                    selected: _filter,
+                    onSelected: _setFilter),
+                _FilterChip(
+                    label: 'Verified',
+                    value: 'verified',
+                    selected: _filter,
+                    onSelected: _setFilter),
+                _FilterChip(
+                    label: 'Inactive',
+                    value: 'inactive',
+                    selected: _filter,
+                    onSelected: _setFilter),
+                _FilterChip(
+                    label: 'Archived',
+                    value: 'archived',
+                    selected: _filter,
+                    onSelected: _setFilter),
+                _FilterChip(
+                    label: 'Duplicates',
+                    value: 'duplicates',
+                    selected: _filter,
+                    onSelected: _setFilter),
               ],
             ),
           ),
@@ -204,12 +238,14 @@ class _AdminBusinessManagementScreenState
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
-                      child: Text('Error loading businesses: ${snapshot.error}'),
+                      child:
+                          Text('Error loading businesses: ${snapshot.error}'),
                     ),
                   );
                 }
 
-                final businesses = (snapshot.data ?? []).where(_matchesFilter).toList();
+                final businesses =
+                    (snapshot.data ?? []).where(_matchesFilter).toList();
 
                 if (businesses.isEmpty) {
                   return Center(
@@ -243,7 +279,8 @@ class _AdminBusinessManagementScreenState
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.pushNamed(context, '/business/create', arguments: ''),
+        onPressed: () =>
+            Navigator.pushNamed(context, '/business/create', arguments: ''),
         icon: const Icon(Icons.add_business),
         label: const Text('Add business'),
       ),
@@ -276,10 +313,25 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isSelected = selected == value;
     return FilterChip(
-      label: Text(label),
-      selected: selected == value,
+      label: Text(
+        label,
+        style: TextStyle(
+          fontWeight: FontWeight.w700,
+          color: isSelected ? Colors.white : AppPalette.charcoal,
+        ),
+      ),
+      selected: isSelected,
       onSelected: (_) => onSelected(value),
+      selectedColor: AppPalette.ochre,
+      backgroundColor: AppPalette.surface,
+      checkmarkColor: Colors.white,
+      side: BorderSide(
+        color: isSelected
+            ? AppPalette.ochre
+            : AppPalette.border.withValues(alpha: 0.6),
+      ),
     );
   }
 }
@@ -335,7 +387,8 @@ class _BusinessCard extends StatelessWidget {
                 Chip(
                   label: Text(
                     business.statusLabel.toUpperCase(),
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                   backgroundColor: _statusColor.withValues(alpha: 0.2),
                   side: BorderSide(color: _statusColor),

@@ -126,7 +126,7 @@ class _VendorReviewsScreenState extends State<VendorReviewsScreen>
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: AppPalette.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: TabBar(
@@ -322,7 +322,7 @@ class _VendorReviewsScreenState extends State<VendorReviewsScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: AppPalette.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
@@ -405,7 +405,7 @@ class _ReviewSummaryCard extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFF1C1C2E),
+            AppPalette.surface,
             AppPalette.ochre.withValues(alpha: 0.06),
           ],
           begin: Alignment.topLeft,
@@ -472,7 +472,7 @@ class _ReviewCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: AppPalette.surface,
         borderRadius: BorderRadius.circular(12),
         border:
             Border.all(color: Colors.white.withValues(alpha: 0.05)),
@@ -545,7 +545,7 @@ class _SocialPlatformCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: AppPalette.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),

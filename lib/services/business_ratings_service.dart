@@ -141,6 +141,27 @@ class BusinessRatingsService {
         'reviewCount': snapshot.docs.length,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      // Mirror the same aggregates to the corresponding food_businesses entry
+      // (if one exists) so the discover feed and food detail screen stay in
+      // sync. Fail silently if the document doesn't exist or cannot be updated.
+      try {
+        final foodDoc = await _firestore
+            .collection('food_businesses')
+            .doc(businessId)
+            .get();
+        if (foodDoc.exists) {
+          await _firestore.collection('food_businesses').doc(businessId).update({
+            'averageRating': averageRating,
+            'buzzRating': averageBuzz,
+            'reviewCount': snapshot.docs.length,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+      } catch (_) {
+        // food_businesses may not exist or be writable; reviews live on
+        // businesses collection anyway.
+      }
     } catch (e) {
       throw Exception('Failed to update business rating: $e');
     }

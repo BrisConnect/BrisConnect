@@ -20,6 +20,10 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="BrisConnect+ helps Brisbane visitors and locals discover events, attractions, and experiences through a web-first smart city guide.">
 
+  <!-- Google Sign-In web client ID. Authorized origins must include
+       https://brisconnect-68b78.web.app in Google Cloud Console. -->
+  <meta name="google-signin-client_id" content="2073694703-lm36h8lornphhn7vi2fdg67d93ullvnc.apps.googleusercontent.com">
+
   <!-- Open Graph / social sharing preview tags (static fallback) -->
   <!--
     NOTE: Facebook, Instagram and TikTok crawlers do not execute JavaScript.
@@ -48,6 +52,14 @@
 
   <title>BrisConnect+</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Preload Material Icons font so CanvasKit can draw icons immediately. -->
+  <link rel="preload" href="assets/fonts/MaterialIcons-Regular.otf" as="font" type="font/otf" crossorigin>
+
+  <!-- Google Maps JavaScript API — required for google_maps_flutter_web.
+       Ensure the Maps JavaScript API is enabled in Google Cloud Console
+       and that https://brisconnect-68b78.web.app is in the referrer list. -->
+  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD8zZ0I4E6cCJYZbdnP_P9CthyDqauLTak&loading=async"></script>
 
   <style>
     html, body {

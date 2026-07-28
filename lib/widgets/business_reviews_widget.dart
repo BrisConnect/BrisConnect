@@ -9,11 +9,11 @@ class BusinessReviewsWidget extends StatefulWidget {
   final int? currentReviewCount;
 
   const BusinessReviewsWidget({
-    Key? key,
+    super.key,
     required this.businessId,
     this.currentAverageRating,
     this.currentReviewCount,
-  }) : super(key: key);
+  });
 
   @override
   State<BusinessReviewsWidget> createState() => _BusinessReviewsWidgetState();
@@ -47,6 +47,7 @@ class _BusinessReviewsWidgetState extends State<BusinessReviewsWidget> {
           comment: _ratingController.text,
         )
         .then((_) {
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Review submitted successfully'),
@@ -60,6 +61,7 @@ class _BusinessReviewsWidgetState extends State<BusinessReviewsWidget> {
           });
         })
         .catchError((e) {
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error: $e')),
           );

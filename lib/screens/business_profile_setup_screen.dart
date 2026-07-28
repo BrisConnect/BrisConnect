@@ -133,8 +133,12 @@ class _BusinessProfileSetupScreenState
     if (_phoneCtrl.text.trim().isNotEmpty) filled++;
     if (_instagramCtrl.text.trim().isNotEmpty ||
         _facebookCtrl.text.trim().isNotEmpty ||
-        _tiktokCtrl.text.trim().isNotEmpty) filled++;
-    if (_menuItems.isNotEmpty) filled++;
+        _tiktokCtrl.text.trim().isNotEmpty) {
+      filled++;
+    }
+    if (_menuItems.isNotEmpty) {
+      filled++;
+    }
     return filled / 6;
   }
 
@@ -170,8 +174,11 @@ class _BusinessProfileSetupScreenState
       }
     } catch (e) {
       debugPrint('[BusinessProfileSetup] upload failed: $e');
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed: $e'), backgroundColor: Colors.redAccent));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
     } finally {
       if (mounted) setState(() => isLogo ? _uploadingLogo = false : _uploadingBanner = false);
     }
@@ -383,7 +390,7 @@ class _BusinessProfileSetupScreenState
           // Progress bar
           LinearProgressIndicator(
             value: (_currentPage + 1) / _pages.length,
-            backgroundColor: const Color(0xFF1C1C2E),
+            backgroundColor: AppPalette.surface,
             valueColor:
                 const AlwaysStoppedAnimation<Color>(AppPalette.ochre),
             minHeight: 3,
@@ -448,10 +455,10 @@ class _BusinessProfileSetupScreenState
               physics: const NeverScrollableScrollPhysics(),
               onPageChanged: (i) => setState(() => _currentPage = i),
               children: [
-                _PageBusinessInfo(),
-                _PageLocationHours(),
-                _PageContactSocial(),
-                _PageMenuItems(),
+                _pageBusinessInfo(),
+                _pageLocationHours(),
+                _pageContactSocial(),
+                _pageMenuItems(),
               ],
             ),
           ),
@@ -513,7 +520,7 @@ class _BusinessProfileSetupScreenState
   }
 
   // ── Page 1: Business Info ──────────────────────────────────────────
-  Widget _PageBusinessInfo() {
+  Widget _pageBusinessInfo() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -527,8 +534,8 @@ class _BusinessProfileSetupScreenState
           _label('Category'),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
-            value: _selectedCategory,
-            dropdownColor: const Color(0xFF1C1C2E),
+            initialValue: _selectedCategory,
+            dropdownColor: AppPalette.surface,
             style: const TextStyle(color: Colors.white),
             decoration: _inputDec('Select a category'),
             items: businessCategories
@@ -549,7 +556,7 @@ class _BusinessProfileSetupScreenState
             child: Container(
               height: 120,
               decoration: BoxDecoration(
-                color: const Color(0xFF1C1C2E),
+                color: AppPalette.surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppPalette.ochre.withValues(alpha: 0.3), style: BorderStyle.solid),
                 image: (_bannerUrl ?? '').isNotEmpty
@@ -578,7 +585,7 @@ class _BusinessProfileSetupScreenState
               child: Container(
                 width: 80, height: 80,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1C1C2E),
+                  color: AppPalette.surface,
                   shape: BoxShape.circle,
                   border: Border.all(color: AppPalette.ochre.withValues(alpha: 0.3)),
                   image: (_logoUrl ?? '').isNotEmpty
@@ -604,7 +611,7 @@ class _BusinessProfileSetupScreenState
   }
 
   // ── Page 2: Location & Hours ───────────────────────────────────────
-  Widget _PageLocationHours() {
+  Widget _pageLocationHours() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -637,7 +644,7 @@ class _BusinessProfileSetupScreenState
           ),
           Switch(
             value: !entry.isClosed,
-            activeColor: AppPalette.ochre,
+            activeThumbColor: AppPalette.ochre,
             onChanged: (v) =>
                 setState(() => _hours[day] = entry.copyWith(isClosed: !v)),
           ),
@@ -697,7 +704,7 @@ class _BusinessProfileSetupScreenState
   }
 
   // ── Page 3: Contact & Social ───────────────────────────────────────
-  Widget _PageContactSocial() {
+  Widget _pageContactSocial() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -753,7 +760,7 @@ class _BusinessProfileSetupScreenState
   }
 
   // ── Page 4: Menu Items ─────────────────────────────────────────────
-  Widget _PageMenuItems() {
+  Widget _pageMenuItems() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -795,7 +802,7 @@ class _BusinessProfileSetupScreenState
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF1C1C2E),
+                color: AppPalette.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Center(
@@ -811,7 +818,7 @@ class _BusinessProfileSetupScreenState
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1C1C2E),
+                  color: AppPalette.surface,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                       color: Colors.white.withValues(alpha: 0.05)),
@@ -901,7 +908,7 @@ class _BusinessProfileSetupScreenState
         hintText: hint,
         hintStyle: const TextStyle(color: Color(0xFF8B8FA8), fontSize: 13),
         filled: true,
-        fillColor: const Color(0xFF1C1C2E),
+        fillColor: AppPalette.surface,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         border: OutlineInputBorder(

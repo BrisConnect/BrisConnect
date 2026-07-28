@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:brisconnect/services/best_time_to_post_service.dart';
@@ -71,6 +72,11 @@ class FcmService {
   /// permissions, configures foreground presentation options, and begins
   /// listening for token refreshes and incoming messages.
   Future<void> initialize() async {
+    if (kIsWeb) {
+      debugPrint('[FCM] skipping web initialization');
+      return;
+    }
+
     try {
       FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 

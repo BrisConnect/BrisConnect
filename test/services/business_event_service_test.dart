@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
 import 'package:brisconnect/services/business_event_service.dart';
 
 class _FakeFirebaseStorage extends Fake implements FirebaseStorage {}

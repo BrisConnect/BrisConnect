@@ -3,17 +3,17 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 class AppPalette {
-  static const Color background  = Color(0xFF0D1117);  // deep dark navy
-  static const Color surface     = Color(0xFF1C1C2E);  // dark card surface
-  static const Color surfaceAlt  = Color(0xFF252540);  // slightly lighter card
+  static const Color background  = Color(0xFFFFFFFF);  // clean white
+  static const Color surface     = Color(0xFFF8FAFC);  // light card surface
+  static const Color surfaceAlt  = Color(0xFFE2E8F0);  // slightly darker card
   static const Color ochre       = Color(0xFFFF6B2B);  // vibrant orange (primary CTA)
   static const Color gold        = Color(0xFFF59E0B);  // vibrant amber accent
-  static const Color brown       = Color(0xFFE2E8F0);  // light text on dark bg
-  static const Color deepBlue    = Color(0xFF60A5FA);  // bright blue accent
-  static const Color charcoal    = Color(0xFFF1F5F9);  // near-white body text
-  static const Color mutedText   = Color(0xFF94A3B8);  // muted light text
-  static const Color border      = Color(0xFF2D3748);  // dark card borders
-  static const Color cardShadow  = Color(0x40000000);  // stronger box shadows
+  static const Color brown       = Color(0xFF7C2D12);  // warm brown text accent
+  static const Color deepBlue    = Color(0xFF2563EB);  // bright blue accent
+  static const Color charcoal    = Color(0xFF1E293B);  // near-black body text
+  static const Color mutedText   = Color(0xFF64748B);  // muted grey text
+  static const Color border      = Color(0xFFE2E8F0);  // light card borders
+  static const Color cardShadow  = Color(0x1A000000);  // subtle box shadows
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

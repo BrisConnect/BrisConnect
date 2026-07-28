@@ -17,6 +17,9 @@ class BusinessDashboardMetrics {
   final double activePromotionsChange;
   final double upcomingEventsChange;
   final double newReviewsChange;
+  final double buzzScore;
+  final String? crowdLevel;
+  final int crowdReportCount;
 
   const BusinessDashboardMetrics({
     this.profileViews = 0,
@@ -29,6 +32,9 @@ class BusinessDashboardMetrics {
     this.activePromotionsChange = 0,
     this.upcomingEventsChange = 0,
     this.newReviewsChange = 0,
+    this.buzzScore = 0.0,
+    this.crowdLevel,
+    this.crowdReportCount = 0,
   });
 }
 
@@ -54,6 +60,7 @@ class BusinessDashboardService {
   static const String _businessEventsCollection = 'business_events';
   static const String _reviewsCollection = 'reviews';
   static const String _promotionsCollection = 'promotions';
+  static const String _crowdReportsCollection = 'crowd_reports';
 
   /// Real-time aggregated metrics for all businesses owned by [ownerId].
   Stream<BusinessDashboardMetrics> metricsStream(String ownerId) {
@@ -102,6 +109,8 @@ class BusinessDashboardService {
     final activePromotions = await _activePromotions(ownerId);
     final upcomingEvents = await _upcomingEvents(ownerId, now);
     final reviewsResult = await _newReviews(businessIds, weekAgo, twoWeeksAgo);
+    final buzzScore = await _averageBuzzScore(businesses);
+    final crowdStatus = await _latestCrowdStatus(businessIds);
 
     final currentViews = viewsResult['current'] ?? 0;
     final previousViews = viewsResult['previous'] ?? 0;
@@ -121,6 +130,9 @@ class BusinessDashboardService {
       activePromotionsChange: 0,
       upcomingEventsChange: 0,
       newReviewsChange: _percentageChange(currentReviews, previousReviews),
+      buzzScore: buzzScore,
+      crowdLevel: crowdStatus?.level,
+      crowdReportCount: crowdStatus?.reportCount ?? 0,
     );
   }
 
@@ -218,6 +230,57 @@ class BusinessDashboardService {
       previous += previousSnap.count ?? 0;
     }
     return {'current': current, 'previous': previous};
+  }
+
+  /// Average [Business.buzzScore] across [businesses], weighted by review count.
+  Future<double> _averageBuzzScore(List<Business> businesses) async {
+    if (businesses.isEmpty) return 0.0;
+    var totalScore = 0.0;
+    var totalWeight = 0;
+    for (final b in businesses) {
+      final weight = b.reviewCount > 0 ? b.reviewCount : 1;
+      totalScore += b.buzzScore * weight;
+      totalWeight += weight;
+    }
+    if (totalWeight == 0) return 0.0;
+    return totalScore / totalWeight;
+  }
+
+  /// Latest crowd status across all [businessIds] using reports from the last 2 hours.
+  Future<_CrowdStatusSummary?> _latestCrowdStatus(List<String> businessIds) async {
+    if (businessIds.isEmpty) return null;
+    try {
+      final since = DateTime.now().subtract(const Duration(hours: 2));
+      final query = _firestore
+          .collection(_crowdReportsCollection)
+          .where('businessId', whereIn: businessIds)
+          .where('timestamp', isGreaterThan: Timestamp.fromDate(since))
+          .orderBy('timestamp', descending: true);
+      final snap = await query.get();
+      if (snap.docs.isEmpty) return null;
+
+      var totalWeight = 0;
+      for (final doc in snap.docs) {
+        totalWeight += (doc['weight'] as num?)?.toInt() ?? 2;
+      }
+      final avg = totalWeight / snap.docs.length;
+      String label;
+      if (avg < 1.67) {
+        label = 'Low';
+      } else if (avg < 2.34) {
+        label = 'Moderate';
+      } else {
+        label = 'High';
+      }
+      return _CrowdStatusSummary(
+        level: label,
+        reportCount: snap.docs.length,
+        lastReported: (snap.docs.first['timestamp'] as Timestamp).toDate(),
+      );
+    } catch (e) {
+      debugPrint('[BusinessDashboardService] crowd status aggregation failed: $e');
+      return null;
+    }
   }
 
   int _sumHistoryInRange(
@@ -338,4 +401,16 @@ class BusinessDashboardService {
       debugPrint('[BusinessDashboardService] recordSave failed: $e');
     }
   }
+}
+
+class _CrowdStatusSummary {
+  final String level;
+  final int reportCount;
+  final DateTime lastReported;
+
+  const _CrowdStatusSummary({
+    required this.level,
+    required this.reportCount,
+    required this.lastReported,
+  });
 }

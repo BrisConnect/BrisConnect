@@ -13,9 +13,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// - Notification delivery success rate >= 99%.
 
 class _FastReportEventService implements ReportEventService {
-  _FastReportEventService({this.delay = Duration.zero});
+  _FastReportEventService();
 
-  final Duration delay;
+  final Duration delay = Duration.zero;
 
   @override
   Future<EventReport?> getReportById(String id) async {

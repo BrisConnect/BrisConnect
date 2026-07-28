@@ -111,11 +111,14 @@ class _ReportEventDialogState extends State<ReportEventDialog> {
             Column(
               children: ReportEventService.reportReasons.map((reason) {
                 return RadioListTile<String>(
+                  // ignore: deprecated_member_use
                   title: Text(ReportEventService.getReasonLabel(reason)),
                   value: reason,
+                  // ignore: deprecated_member_use
                   groupValue: _selectedReason,
                   contentPadding: EdgeInsets.zero,
                   dense: true,
+                  // ignore: deprecated_member_use
                   onChanged: _isSubmitting
                       ? null
                       : (value) {
@@ -134,11 +137,14 @@ class _ReportEventDialogState extends State<ReportEventDialog> {
             Column(
               children: ReportEventService.reportSeverities.map((severity) {
                 return RadioListTile<String>(
+                  // ignore: deprecated_member_use
                   title: Text(ReportEventService.getSeverityLabel(severity)),
                   value: severity,
+                  // ignore: deprecated_member_use
                   groupValue: _selectedSeverity,
                   contentPadding: EdgeInsets.zero,
                   dense: true,
+                  // ignore: deprecated_member_use
                   onChanged: _isSubmitting
                       ? null
                       : (value) {

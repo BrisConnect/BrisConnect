@@ -1,6 +1,6 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:brisconnect/theme/app_palette.dart';
+import 'package:brisconnect/widgets/fallback_image.dart';
 
 class ReusableManagementCard extends StatelessWidget {
   final String imageUrl;
@@ -44,37 +44,15 @@ class ReusableManagementCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
+          FallbackImage(
+            imageUrl: imageUrl,
+            height: 170,
+            width: double.infinity,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(20),
               topRight: Radius.circular(20),
             ),
-            child: CachedNetworkImage(
-              imageUrl: imageUrl,
-              height: 170,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              placeholder: (context, _) => Container(
-                height: 170,
-                color: AppPalette.surfaceAlt,
-                alignment: Alignment.center,
-                child: const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-              errorWidget: (context, _, __) => Container(
-                height: 170,
-                color: AppPalette.surfaceAlt,
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.image_not_supported_rounded,
-                  color: AppPalette.mutedText,
-                  size: 32,
-                ),
-              ),
-            ),
+            category: 'event',
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),

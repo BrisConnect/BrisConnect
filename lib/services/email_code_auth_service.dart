@@ -21,13 +21,42 @@ enum SendCodeResult {
 /// never leave the server.
 class EmailCodeAuthService {
   static String? _lastErrorMessage;
+  static String? _lastDetectedUserType;
 
   static String? get lastErrorMessage => _lastErrorMessage;
+
+  /// The user type detected by the server on the most recent [sendCode] call.
+  ///
+  /// Will be `'visitor'`, `'local'`, or `'admin'` when a code was sent
+  /// successfully, otherwise `null`.
+  static String? get lastDetectedUserType => _lastDetectedUserType;
 
   static HttpsCallable _callable(String name) {
     return FirebaseFunctions.instanceFor(
       region: AppConfig.firebaseFunctionsRegion,
     ).httpsCallable(name);
+  }
+
+  /// Calls [operation] up to [maxAttempts] times when a retryable error occurs.
+  static Future<T> _withRetry<T>(
+    Future<T> Function() operation, {
+    int maxAttempts = 3,
+  }) async {
+    var attempt = 0;
+    while (true) {
+      try {
+        return await operation();
+      } catch (e) {
+        attempt++;
+        final retryable = e is FirebaseFunctionsException &&
+                (e.code == 'unavailable' ||
+                    e.code == 'deadline-exceeded' ||
+                    e.code == 'resource-exhausted') ||
+            e.toString().toLowerCase().contains('network');
+        if (attempt >= maxAttempts || !retryable) rethrow;
+        await Future.delayed(Duration(milliseconds: 300 * attempt));
+      }
+    }
   }
 
   /// Sends a one-time login code to [email].
@@ -36,9 +65,10 @@ class EmailCodeAuthService {
   /// the user to the correct Firestore collection after verification.
   static Future<SendCodeResult> sendCode({
     required String email,
-    required String userType,
+    String userType = 'auto',
   }) async {
     _lastErrorMessage = null;
+    _lastDetectedUserType = null;
     final normalized = email.trim().toLowerCase();
     if (normalized.isEmpty || !_looksLikeEmail(normalized)) {
       _lastErrorMessage = 'Please enter a valid email address.';
@@ -47,22 +77,34 @@ class EmailCodeAuthService {
 
     try {
       final callable = _callable('sendEmailLoginCode');
-      await callable.call<Map<String, dynamic>>({
-        'email': normalized,
-        'userType': userType,
-      });
+      final result = await _withRetry(
+        () => callable.call<Map<String, dynamic>>({
+          'email': normalized,
+          'userType': userType,
+        }),
+      );
+      _lastDetectedUserType =
+          (result.data['userType'] as String?)?.trim().toLowerCase();
       return SendCodeResult.sent;
     } on fb_auth.FirebaseAuthException catch (e) {
       _lastErrorMessage = _authErrorMessage(e);
       return _mapAuthError(e);
     } on FirebaseFunctionsException catch (e) {
-      debugPrint('[EmailCodeAuthService] sendCode failed: ${e.code} ${e.message}');
-      _lastErrorMessage = e.message ?? 'Could not send code. Please try again.';
+      debugPrint(
+          '[EmailCodeAuthService] sendCode failed: ${e.code} ${e.message}');
+      final rawMessage = e.message ?? '';
+      _lastErrorMessage = _cleanFunctionError(
+          rawMessage, 'Could not send code. Please try again.');
       if (e.code == 'resource-exhausted' || e.code == 'too-many-requests') {
         return SendCodeResult.tooManyRequests;
       }
       if (e.code == 'invalid-argument') {
         return SendCodeResult.invalidEmail;
+      }
+      if (e.code == 'permission-denied' || e.code == 'unauthenticated') {
+        _lastErrorMessage =
+            'Sign-in blocked. Try disabling browser extensions or VPN, or use a different network.';
+        return SendCodeResult.unknownError;
       }
       return SendCodeResult.unknownError;
     } catch (e) {
@@ -79,9 +121,10 @@ class EmailCodeAuthService {
   static Future<bool> verifyCode({
     required String email,
     required String code,
-    required String userType,
+    String userType = 'auto',
   }) async {
     _lastErrorMessage = null;
+    _lastDetectedUserType = null;
     final normalized = email.trim().toLowerCase();
     final trimmedCode = code.trim();
 
@@ -96,11 +139,13 @@ class EmailCodeAuthService {
 
     try {
       final callable = _callable('verifyEmailLoginCode');
-      final result = await callable.call<Map<String, dynamic>>({
-        'email': normalized,
-        'code': trimmedCode,
-        'userType': userType,
-      });
+      final result = await _withRetry(
+        () => callable.call<Map<String, dynamic>>({
+          'email': normalized,
+          'code': trimmedCode,
+          'userType': userType,
+        }),
+      );
 
       final token = result.data['token'] as String?;
       if (token == null || token.isEmpty) {
@@ -108,14 +153,23 @@ class EmailCodeAuthService {
         return false;
       }
 
+      _lastDetectedUserType =
+          (result.data['userType'] as String?)?.trim().toLowerCase();
       await fb_auth.FirebaseAuth.instance.signInWithCustomToken(token);
       return true;
     } on fb_auth.FirebaseAuthException catch (e) {
       _lastErrorMessage = _authErrorMessage(e);
       return false;
     } on FirebaseFunctionsException catch (e) {
-      debugPrint('[EmailCodeAuthService] verifyCode failed: ${e.code} ${e.message}');
-      _lastErrorMessage = e.message ?? 'Could not verify code. Please try again.';
+      debugPrint(
+          '[EmailCodeAuthService] verifyCode failed: ${e.code} ${e.message}');
+      final rawMessage = e.message ?? '';
+      _lastErrorMessage = _cleanFunctionError(
+          rawMessage, 'Could not verify code. Please try again.');
+      if (e.code == 'permission-denied' || e.code == 'unauthenticated') {
+        _lastErrorMessage =
+            'Sign-in blocked. Try disabling browser extensions or VPN, or use a different network.';
+      }
       return false;
     } catch (e) {
       debugPrint('[EmailCodeAuthService] verifyCode unexpected error: $e');
@@ -154,5 +208,14 @@ class EmailCodeAuthService {
       default:
         return SendCodeResult.unknownError;
     }
+  }
+
+  static String _cleanFunctionError(String rawMessage, String fallback) {
+    final trimmed = rawMessage.trim();
+    if (trimmed.isEmpty) return fallback;
+    if (trimmed.toUpperCase() == 'INTERNAL') {
+      return 'Sign-in service is temporarily unavailable. Please try again later.';
+    }
+    return trimmed;
   }
 }

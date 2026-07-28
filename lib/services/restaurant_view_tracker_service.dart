@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 /// Service for tracking and managing restaurant view counts
 class RestaurantViewTrackerService {
@@ -31,7 +32,7 @@ class RestaurantViewTrackerService {
         });
       }
     } catch (e) {
-      print('Error tracking restaurant view: $e');
+      debugPrint('Error tracking restaurant view: $e');
       // Silently fail to not disrupt user experience
     }
   }
@@ -46,7 +47,7 @@ class RestaurantViewTrackerService {
       }
       return 0;
     } catch (e) {
-      print('Error getting view count: $e');
+      debugPrint('Error getting view count: $e');
       return 0;
     }
   }
@@ -82,7 +83,7 @@ class RestaurantViewTrackerService {
         };
       }).toList();
     } catch (e) {
-      print('Error getting top restaurants: $e');
+      debugPrint('Error getting top restaurants: $e');
       return [];
     }
   }
@@ -109,7 +110,7 @@ class RestaurantViewTrackerService {
         };
       }).toList();
     } catch (e) {
-      print('Error getting recently viewed restaurants: $e');
+      debugPrint('Error getting recently viewed restaurants: $e');
       return [];
     }
   }
@@ -130,7 +131,7 @@ class RestaurantViewTrackerService {
       }
       return [];
     } catch (e) {
-      print('Error getting daily analytics: $e');
+      debugPrint('Error getting daily analytics: $e');
       return [];
     }
   }
@@ -154,7 +155,7 @@ class RestaurantViewTrackerService {
       }
       return {'totalViews': 0};
     } catch (e) {
-      print('Error getting view statistics: $e');
+      debugPrint('Error getting view statistics: $e');
       return {'totalViews': 0};
     }
   }
@@ -182,7 +183,7 @@ class RestaurantViewTrackerService {
         };
       }).toList();
     } catch (e) {
-      print('Error getting trending restaurants: $e');
+      debugPrint('Error getting trending restaurants: $e');
       return [];
     }
   }

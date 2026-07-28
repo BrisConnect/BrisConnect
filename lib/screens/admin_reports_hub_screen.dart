@@ -4,7 +4,6 @@ import 'package:brisconnect/screens/admin_community_feed_screen.dart';
 import 'package:brisconnect/screens/admin_reported_events_screen.dart';
 import 'package:brisconnect/screens/admin_reported_reviews_screen.dart';
 import 'package:brisconnect/theme/app_palette.dart';
-import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
 
 /// Unified admin landing page for trust-and-safety reporting.
@@ -21,9 +20,18 @@ class AdminReportsHubScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screen = Scaffold(
-      backgroundColor: AppPalette.background,
+      backgroundColor: const Color(0xFFEBF4FF),
       appBar: AppBar(
-        title: const LogoAppBarTitle('Reports Hub'),
+        backgroundColor: const Color(0xFFEBF4FF),
+        foregroundColor: const Color(0xFF1E3A8A),
+        elevation: 0,
+        title: const Text(
+          'Reports Hub',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF1E3A8A),
+          ),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -113,7 +121,8 @@ class _HubCard extends StatelessWidget {
           subtitle,
           style: const TextStyle(color: AppPalette.mutedText),
         ),
-        trailing: const Icon(Icons.chevron_right_rounded, color: AppPalette.mutedText),
+        trailing: const Icon(Icons.chevron_right_rounded,
+            color: AppPalette.mutedText),
         onTap: onTap,
       ),
     );

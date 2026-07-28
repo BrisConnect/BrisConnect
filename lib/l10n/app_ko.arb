@@ -1,0 +1,323 @@
+{
+  "appTitle": "BrisConnect+",
+  "welcome": "환영합니다",
+  "signIn": "로그인",
+  "signUp": "회원가입",
+  "signOut": "로그아웃",
+  "email": "이메일",
+  "password": "비밀번호",
+  "phone": "전화",
+  "name": "이름",
+  "save": "저장",
+  "cancel": "취소",
+  "editProfile": "프로필 편집",
+  "profileInfo": "프로필 정보",
+  "preferences": "설정",
+  "language": "언어",
+  "locationRadius": "위치 반경",
+  "appearanceSettings": "외관 설정",
+  "feedback": "피드백",
+  "myFeedback": "내 피드백",
+  "helpAndSupport": "도움말 및 지원",
+  "discover": "발견",
+  "community": "커뮤니티",
+  "map": "지도",
+  "saved": "저장됨",
+  "profile": "프로필",
+  "food": "음식",
+  "events": "이벤트",
+  "businesses": "비즈니스",
+  "promotions": "프로모션",
+  "photos": "사진",
+  "newPost": "신규",
+  "search": "검색",
+  "filter": "필터",
+  "clearFilters": "필터 지우기",
+  "noResults": "결과를 찾을 수 없음",
+  "loading": "로딩 중...",
+  "error": "오류",
+  "success": "성공",
+  "profileUpdated": "프로필이 성공적으로 업데이트되었습니다.",
+  "profileUpdateFailed": "프로필을 업데이트할 수 없습니다. 다시 시도해 주세요.",
+  "guestVisitor": "게스트 방문자",
+  "localUser": "현지의",
+  "filterEventsTitle": "이벤트 필터링",
+  "priceLabel": "가격",
+  "dateLabel": "날짜",
+  "pickADate": "날짜를 선택하세요",
+  "resetButton": "재설정",
+  "applyButton": "적용",
+  "freeLabel": "무료",
+  "paidLabel": "유료",
+  "eventSavedToInterested": "{eventTitle}이(가) 관심 있음에 저장되었습니다.",
+  "@eventSavedToInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "eventRemovedFromInterested": "{eventTitle}이(가) 관심 목록에서 삭제되었습니다.",
+  "@eventRemovedFromInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "savedToAttractions": "{title}이(가) 저장된 명소에 저장되었습니다.",
+  "@savedToAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "removedFromAttractions": "{title}이(가) 저장된 명소에서 삭제되었습니다.",
+  "@removedFromAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "pleaseSignInToSaveEvents": "이벤트를 저장하려면 방문자로 로그인하세요.",
+  "pleaseSignInToReview": "리뷰를 작성하거나 BuzzVote를 작성하려면 로그인하세요.",
+  "reviewSubmitted": "리뷰가 제출되었습니다\\! ⭐ {rating} / 버즈 ⚡ {buzzRating}",
+  "@reviewSubmitted": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "buzzRating": {
+        "type": "String"
+      }
+    }
+  },
+  "reviewSubmitFailed": "리뷰를 제출할 수 없습니다: {error}",
+  "@reviewSubmitFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noExternalLink": "아직 이 항목에 사용할 수 있는 외부 링크가 없습니다.",
+  "unableToOpenLink": "지금은 이벤트 링크를 열 수 없습니다.",
+  "shareTitle": "공유: {title}",
+  "@shareTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "reportEvent": "이벤트 보고",
+  "reviewsOnlyForFood": "리뷰는 식품에만 가능합니다.",
+  "chooseFromGallery": "갤러리에서 선택",
+  "takeAPhoto": "사진을 찍으세요",
+  "pleaseLoginVisitor": "먼저 방문자로 로그인해주세요.",
+  "onlyJpgPng": "JPG 및 PNG 이미지만 지원됩니다.",
+  "imageTooLarge": "이미지가 너무 큽니다. 더 작은 이미지를 선택해 주세요.",
+  "profilePictureUpdated": "프로필 사진이 업데이트되었습니다.",
+  "profilePictureUpdateFailed": "프로필 사진을 업데이트할 수 없습니다. 다시 시도해 주세요.",
+  "enterYourName": "이름을 입력하세요",
+  "phoneHint": "예를 들어 04xxxxxxxx",
+  "nameCannotBeEmpty": "이름은 비워둘 수 없습니다.",
+  "nameMinLength": "이름은 2자 이상이어야 합니다.",
+  "enterValidPhone": "유효한 전화번호를 입력하세요.",
+  "changeProfilePicture": "프로필 사진 변경",
+  "uploadProfilePicture": "프로필 사진 업로드",
+  "areYouSureSignOut": "정말로 로그아웃하시겠습니까?",
+  "returnWelcome": "시작 화면으로 돌아가기",
+  "setHowFarRecommendations": "추천 범위를 설정하세요.",
+  "themeTextSizeFeedback": "테마, 텍스트 크기 및 피드백",
+  "faqsContactAppInfo": "자주 묻는 질문(FAQ), 문의하기, 앱 정보",
+  "viewSubmittedFeedback": "제출된 피드백 및 관리자 응답 보기",
+  "discoverSubtitle": "현지 음식과 체험을 찾아보세요",
+  "searchHintLocalFood": "지역 식품업체 검색...",
+  "homeLabel": "홈",
+  "recommendedForYou": "당신에게 추천",
+  "seeAll": "모두 보기",
+  "categories": "카테고리",
+  "nearby": "주변",
+  "noFoodPlacesFound": "음식점을 찾을 수 없습니다.",
+  "noFoodPlacesSubtitle": "검색 또는 필터 선택을 변경해 보세요.",
+  "localFoodBusinesses": "지역식품 사업",
+  "localFoodSubtitle": "브리즈번 중소 식품 기업 지원",
+  "exploreReviewFoodBusinesses": "식품 사업 탐색 및 검토",
+  "noSavedItemsTitle": "아직 저장된 항목이 없습니다.",
+  "noSavedItemsSubtitle": "음식 명함의 하트 아이콘이나 비즈니스 프로필의 북마크를 탭하여 여기에 저장하세요.",
+  "savedEvents": "저장된 이벤트",
+  "savedEventsSubtitle": "이벤트 알림 및 계획",
+  "savedAttractions": "저장된 명소",
+  "savedAttractionsSubtitle": "행사와 관계없이 방문할 수 있는 장소",
+  "savedBusinesses": "저장된 업체",
+  "savedBusinessesSubtitle": "북마크한 식품 업체",
+  "savedItemsUnavailableTitle": "저장된 항목을 사용할 수 없습니다.",
+  "savedItemsUnavailableSubtitle": "일부 저장된 항목은 더 이상 검색 피드에 게시되지 않습니다.",
+  "retryAction": "재시도",
+  "unableToLoadDiscover": "지금은 검색 항목을 로드할 수 없습니다. 다시 시도해 주세요.",
+  "unableToLoadSaved": "지금은 저장된 항목을 로드할 수 없습니다. 다시 시도해 주세요.",
+  "dateTBA": "날짜 미정",
+  "timeTBA": "시간은 미정",
+  "untitledEvent": "제목 없는 이벤트",
+  "locationTBA": "위치 추후 공지",
+  "priceTBA": "가격 미정",
+  "placeFallback": "장소",
+  "foodExperienceFallback": "음식 체험",
+  "stadiumFallback": "경기장",
+  "eventFallback": "이벤트",
+  "attractionFallback": "명소",
+  "ratingReviewsCount": "{rating} · {count} 리뷰",
+  "@ratingReviewsCount": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "approved": "승인됨",
+  "audience": "청중",
+  "businessLabel": "비즈니스",
+  "controlDistance": "가까운 기회에 대한 거리 제어",
+  "dashboard": "대시보드",
+  "delete": "삭제",
+  "deleteEvent": "이벤트 삭제",
+  "deletingEvent": "일정 삭제 중...",
+  "displayName": "표시 이름",
+  "errorDeletingEvent": "일정 삭제 오류: {error}",
+  "@errorDeletingEvent": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "errorLoadingMap": "지도 로드 중 오류 발생: {error}",
+  "@errorLoadingMap": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "eventDeleted": "이벤트 \"{title}\"이(가) 삭제되었습니다.",
+  "@eventDeleted": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToDeleteEvent": "이벤트를 삭제하지 못했습니다. 다시 시도해 주세요.",
+  "feed": "피드",
+  "localBusinessPortal": "지역 비즈니스 포털",
+  "pending": "보류 중",
+  "phoneNumber": "전화번호",
+  "pleaseLoginLocal": "먼저 로컬 사용자로 로그인하세요.",
+  "pleaseLoginToDelete": "이벤트를 삭제하려면 로그인하세요.",
+  "pushAlerts": "귀하의 비즈니스에 대한 푸시 알림",
+  "rejected": "거부됨",
+  "reviews": "리뷰",
+  "saveChanges": "변경 사항 저장",
+  "searchHintEvents": "이벤트, 예약 검색...",
+  "suburb": "교외",
+  "thisLinkUnavailable": "이 링크는 현재 사용할 수 없습니다.",
+  "total": "합계",
+  "couldNotSaveSettings": "설정을 저장할 수 없습니다. 다시 시도해 주세요.",
+  "locationAccessDisabled": "앱 기능에 대한 위치 액세스가 비활성화되었습니다.",
+  "locationPermissionGranted": "위치 권한이 부여되었습니다.",
+  "openSettings": "설정 열기",
+  "themeDark": "어둠",
+  "themeLight": "빛",
+  "themeSystem": "시스템",
+  "textScalePercent": "{value}%",
+  "@textScalePercent": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "categoryLabel": "카테고리: {category}",
+  "@categoryLabel": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "severityLabel": "심각도: {severity}",
+  "@severityLabel": {
+    "placeholders": {
+      "severity": {
+        "type": "String"
+      }
+    }
+  },
+  "languageEnglish": "영어",
+  "languageSpanish": "스페인어",
+  "languageFrench": "프랑스어",
+  "languageGerman": "독일어",
+  "languageChinese": "중국어",
+  "languageArabic": "아랍어",
+  "languageHindi": "힌디어",
+  "languageItalian": "이탈리아어",
+  "languageJapanese": "일본어",
+  "languageKorean": "한국어",
+  "languagePortuguese": "포르투갈어",
+  "languageRussian": "러시아어",
+  "languageVietnamese": "베트남어",
+  "languageGreek": "그리스어",
+  "discoverTitle": "현지 음식을 발견해보세요",
+  "openSourceLink": "오픈 소스 링크",
+  "pendingApproval": "승인 보류 중",
+  "deleteEventConfirmation": "정말로 \"{title}\"을(를) 삭제하시겠습니까? ",
+  "@deleteEventConfirmation": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "myActivity": "내 활동",
+  "businessNotifications": "비즈니스 알림",
+  "about": "에 대한",
+  "aboutDescription": "BrisConnect+는 방문자와 지역 주민이 이벤트를 발견하고 명소를 탐색하며 하나의 연결된 플랫폼에서 브리즈번 경험을 포착할 수 있도록 돕는 스마트 시티 가이드입니다.",
+  "versionLabel": "버전 {version}",
+  "@versionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "locationPermissions": "위치 권한",
+  "enableLocationAccess": "위치 액세스 활성화",
+  "allowNearbyMapFeatures": "주변 추천 및 지도 인식 기능을 허용합니다.",
+  "locationSettings": "위치 설정",
+  "setSearchRadius": "이벤트 및 명소 검색 반경을 설정하세요.",
+  "pleaseLoginToViewSettings": "설정을 보려면 로그인하세요.",
+  "locationPermissionNotGranted": "위치 권한이 부여되지 않았습니다. 시스템 설정에서 활성화할 수 있습니다.",
+  "theme": "주제",
+  "appTheme": "앱 테마",
+  "chooseHowAppLooks": "앱의 모양을 선택하세요.",
+  "textSize": "텍스트 크기",
+  "adjustTextSize": "앱 전체에서 텍스트 크기를 조정합니다.",
+  "smaller": "더 작게",
+  "larger": "더 크게",
+  "support": "지원하다",
+  "sendAppFeedback": "앱 피드백 보내기",
+  "reportBugsImprovements": "버그, 오해의 소지가 있는 정보 또는 개선 제안을 신고하세요.",
+  "noFeedbackYet": "아직 피드백을 제출하지 않았습니다.",
+  "adminResponse": "관리자 응답",
+  "awaitingAdminResponse": "관리자 응답을 기다리는 중...",
+  "statusPending": "보류 중",
+  "statusInProgress": "진행 중",
+  "statusResolved": "해결됨",
+  "statusWontFix": "수정되지 않음"
+}

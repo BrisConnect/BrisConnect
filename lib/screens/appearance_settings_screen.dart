@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
+import 'package:brisconnect/l10n/app_localizations.dart';
 import 'package:brisconnect/screens/feedback_form_screen.dart';
 import 'package:brisconnect/services/app_display_settings_controller.dart';
 import 'package:brisconnect/theme/app_palette.dart';
@@ -19,6 +20,8 @@ class AppearanceSettingsScreen extends StatefulWidget {
 }
 
 class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
+  AppLocalizations get l10n => AppLocalizations.of(context)!;
+
   late AppThemePreference _themePreference;
   late double _textScaleFactor;
   bool _isSaving = false;
@@ -71,9 +74,9 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
 
     if (!success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not save settings. Please try again.'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(l10n.couldNotSaveSettings),
+          duration: const Duration(seconds: 2),
         ),
       );
       return;
@@ -102,12 +105,12 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
     return Scaffold(
       backgroundColor: AppPalette.background,
       appBar: AppBar(
-        title: const LogoAppBarTitle('Appearance Settings'),
+        title: LogoAppBarTitle(l10n.appearanceSettings),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          const _SectionLabel('Theme'),
+          _SectionLabel(l10n.theme),
           const SizedBox(height: 8),
           Card(
             color: AppPalette.surface,
@@ -121,17 +124,17 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'App Theme',
-                    style: TextStyle(
+                  Text(
+                    l10n.appTheme,
+                    style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       color: AppPalette.charcoal,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Choose how the app looks.',
-                    style: TextStyle(
+                  Text(
+                    l10n.chooseHowAppLooks,
+                    style: const TextStyle(
                       fontSize: 13,
                       color: AppPalette.mutedText,
                     ),
@@ -140,21 +143,21 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: SegmentedButton<AppThemePreference>(
-                      segments: const [
+                      segments: [
                         ButtonSegment(
                           value: AppThemePreference.system,
-                          label: Text('System'),
-                          icon: Icon(Icons.settings_brightness, size: 18),
+                          label: Text(l10n.themeSystem),
+                          icon: const Icon(Icons.settings_brightness, size: 18),
                         ),
                         ButtonSegment(
                           value: AppThemePreference.light,
-                          label: Text('Light'),
-                          icon: Icon(Icons.light_mode_outlined, size: 18),
+                          label: Text(l10n.themeLight),
+                          icon: const Icon(Icons.light_mode_outlined, size: 18),
                         ),
                         ButtonSegment(
                           value: AppThemePreference.dark,
-                          label: Text('Dark'),
-                          icon: Icon(Icons.dark_mode_outlined, size: 18),
+                          label: Text(l10n.themeDark),
+                          icon: const Icon(Icons.dark_mode_outlined, size: 18),
                         ),
                       ],
                       selected: {_themePreference},
@@ -186,7 +189,7 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
           ),
 
           const SizedBox(height: 24),
-          const _SectionLabel('Text Size'),
+          _SectionLabel(l10n.textSize),
           const SizedBox(height: 8),
           Card(
             color: AppPalette.surface,
@@ -203,15 +206,15 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Text Size',
-                        style: TextStyle(
+                      Text(
+                        l10n.textSize,
+                        style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           color: AppPalette.charcoal,
                         ),
                       ),
                       Text(
-                        '${(_textScaleFactor * 100).round()}%',
+                        l10n.textScalePercent('${(_textScaleFactor * 100).round()}'),
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           color: AppPalette.deepBlue,
@@ -220,9 +223,9 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Adjust text size across the app.',
-                    style: TextStyle(
+                  Text(
+                    l10n.adjustTextSize,
+                    style: const TextStyle(
                       fontSize: 13,
                       color: AppPalette.mutedText,
                     ),
@@ -232,7 +235,7 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
                     min: 0.9,
                     max: 1.3,
                     divisions: 8,
-                    label: '${(_textScaleFactor * 100).round()}%',
+                    label: l10n.textScalePercent('${(_textScaleFactor * 100).round()}'),
                     activeColor: AppPalette.deepBlue,
                     onChanged: _isSaving
                         ? null
@@ -243,19 +246,19 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
                         ? null
                         : (value) => _persistSettings(textScaleFactor: value),
                   ),
-                  const Row(
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Smaller',
-                        style: TextStyle(
+                        l10n.smaller,
+                        style: const TextStyle(
                           fontSize: 11,
                           color: AppPalette.mutedText,
                         ),
                       ),
                       Text(
-                        'Larger',
-                        style: TextStyle(
+                        l10n.larger,
+                        style: const TextStyle(
                           fontSize: 11,
                           color: AppPalette.mutedText,
                         ),
@@ -268,7 +271,7 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
           ),
 
           const SizedBox(height: 24),
-          const _SectionLabel('Support'),
+          _SectionLabel(l10n.support),
           const SizedBox(height: 8),
           Card(
             color: AppPalette.surface,
@@ -282,12 +285,12 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
                 Icons.feedback_outlined,
                 color: AppPalette.deepBlue,
               ),
-              title: const Text(
-                'Send App Feedback',
-                style: TextStyle(fontWeight: FontWeight.w700),
+              title: Text(
+                l10n.sendAppFeedback,
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
-              subtitle: const Text(
-                'Report bugs, misleading information, or improvement suggestions.',
+              subtitle: Text(
+                l10n.reportBugsImprovements,
               ),
               trailing: const Icon(Icons.chevron_right_rounded),
               onTap: () {

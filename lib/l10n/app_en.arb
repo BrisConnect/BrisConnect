@@ -1,0 +1,324 @@
+{
+  "@@locale": "en",
+  "appTitle": "BrisConnect+",
+  "welcome": "Welcome",
+  "signIn": "Sign In",
+  "signUp": "Sign Up",
+  "signOut": "Sign Out",
+  "email": "Email",
+  "password": "Password",
+  "phone": "Phone",
+  "name": "Name",
+  "save": "Save",
+  "cancel": "Cancel",
+  "editProfile": "Edit Profile",
+  "profileInfo": "Profile Info",
+  "preferences": "Preferences",
+  "language": "Language",
+  "locationRadius": "Location Radius",
+  "appearanceSettings": "Appearance Settings",
+  "feedback": "Feedback",
+  "myFeedback": "My Feedback",
+  "helpAndSupport": "Help & Support",
+  "discover": "Discover",
+  "community": "Community",
+  "map": "Map",
+  "saved": "Saved",
+  "profile": "Profile",
+  "food": "Food",
+  "events": "Events",
+  "businesses": "Businesses",
+  "promotions": "Promotions",
+  "photos": "Photos",
+  "newPost": "New",
+  "search": "Search",
+  "filter": "Filter",
+  "clearFilters": "Clear filters",
+  "noResults": "No results found",
+  "loading": "Loading...",
+  "error": "Error",
+  "success": "Success",
+  "profileUpdated": "Profile updated successfully.",
+  "profileUpdateFailed": "Could not update profile. Please try again.",
+  "guestVisitor": "Guest Visitor",
+  "localUser": "Local",
+  "filterEventsTitle": "Filter Events",
+  "priceLabel": "Price",
+  "dateLabel": "Date",
+  "pickADate": "Pick a date",
+  "resetButton": "Reset",
+  "applyButton": "Apply",
+  "freeLabel": "Free",
+  "paidLabel": "Paid",
+  "eventSavedToInterested": "{eventTitle} saved to Interested.",
+  "@eventSavedToInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "eventRemovedFromInterested": "{eventTitle} removed from Interested.",
+  "@eventRemovedFromInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "savedToAttractions": "{title} saved to Saved Attractions.",
+  "@savedToAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "removedFromAttractions": "{title} removed from Saved Attractions.",
+  "@removedFromAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "pleaseSignInToSaveEvents": "Please log in as a Visitor to save events.",
+  "pleaseSignInToReview": "Please sign in to write a review or BuzzVote.",
+  "reviewSubmitted": "Review submitted\\! ⭐ {rating} / Buzz ⚡ {buzzRating}",
+  "@reviewSubmitted": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "buzzRating": {
+        "type": "String"
+      }
+    }
+  },
+  "reviewSubmitFailed": "Could not submit review: {error}",
+  "@reviewSubmitFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noExternalLink": "No external link available for this item yet.",
+  "unableToOpenLink": "Unable to open the event link right now.",
+  "shareTitle": "Share: {title}",
+  "@shareTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "reportEvent": "Report Event",
+  "reviewsOnlyForFood": "Reviews are only available for food items",
+  "chooseFromGallery": "Choose from gallery",
+  "takeAPhoto": "Take a photo",
+  "pleaseLoginVisitor": "Please log in as a Visitor first.",
+  "onlyJpgPng": "Only JPG and PNG images are supported.",
+  "imageTooLarge": "Image is too large. Please choose a smaller image.",
+  "profilePictureUpdated": "Profile picture updated successfully.",
+  "profilePictureUpdateFailed": "Could not update profile picture. Please try again.",
+  "enterYourName": "Enter your name",
+  "phoneHint": "e.g. 04xxxxxxxx",
+  "nameCannotBeEmpty": "Name cannot be empty.",
+  "nameMinLength": "Name must be at least 2 characters.",
+  "enterValidPhone": "Enter a valid phone number.",
+  "changeProfilePicture": "Change profile picture",
+  "uploadProfilePicture": "Upload profile picture",
+  "areYouSureSignOut": "Are you sure you want to sign out?",
+  "returnWelcome": "Return to the welcome screen",
+  "setHowFarRecommendations": "Set how far recommendations can be",
+  "themeTextSizeFeedback": "Theme, text size & feedback",
+  "faqsContactAppInfo": "FAQs, contact us & app info",
+  "viewSubmittedFeedback": "View your submitted feedback and admin responses",
+  "discoverSubtitle": "Discover local food and experiences",
+  "searchHintLocalFood": "Search local food businesses...",
+  "homeLabel": "Home",
+  "recommendedForYou": "Recommended For You",
+  "seeAll": "See All",
+  "categories": "Categories",
+  "nearby": "Nearby",
+  "noFoodPlacesFound": "No food places found",
+  "noFoodPlacesSubtitle": "Try changing your search or filter selections.",
+  "localFoodBusinesses": "Local Food Businesses",
+  "localFoodSubtitle": "Support small & medium Brisbane food enterprises",
+  "exploreReviewFoodBusinesses": "Explore & Review Food Businesses",
+  "noSavedItemsTitle": "No saved items yet",
+  "noSavedItemsSubtitle": "Tap the heart icon on food business cards or the bookmark on a business profile to save them here.",
+  "savedEvents": "Saved Events",
+  "savedEventsSubtitle": "Your event reminders and plans",
+  "savedAttractions": "Saved Attractions",
+  "savedAttractionsSubtitle": "Places to visit independently of events",
+  "savedBusinesses": "Saved Businesses",
+  "savedBusinessesSubtitle": "Food businesses you have bookmarked",
+  "savedItemsUnavailableTitle": "Saved items unavailable",
+  "savedItemsUnavailableSubtitle": "Some saved items are no longer published in discovery feed.",
+  "retryAction": "Retry",
+  "unableToLoadDiscover": "Unable to load discover items right now. Please try again.",
+  "unableToLoadSaved": "Unable to load saved items right now. Please try again.",
+  "dateTBA": "Date TBA",
+  "timeTBA": "Time TBA",
+  "untitledEvent": "Untitled Event",
+  "locationTBA": "Location TBA",
+  "priceTBA": "Price TBA",
+  "placeFallback": "Place",
+  "foodExperienceFallback": "Food Experience",
+  "stadiumFallback": "Stadium",
+  "eventFallback": "Event",
+  "attractionFallback": "Attraction",
+  "ratingReviewsCount": "{rating} · {count} reviews",
+  "@ratingReviewsCount": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "approved": "Approved",
+  "audience": "Audience",
+  "businessLabel": "Business",
+  "controlDistance": "Control distance for nearby opportunities",
+  "dashboard": "Dashboard",
+  "delete": "Delete",
+  "deleteEvent": "Delete Event",
+  "deletingEvent": "Deleting event...",
+  "displayName": "Display name",
+  "errorDeletingEvent": "Error deleting event: {error}",
+  "@errorDeletingEvent": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "errorLoadingMap": "Error loading map: {error}",
+  "@errorLoadingMap": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "eventDeleted": "Event \"{title}\" has been deleted.",
+  "@eventDeleted": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToDeleteEvent": "Failed to delete event. Please try again.",
+  "feed": "Feed",
+  "localBusinessPortal": "Local business portal",
+  "pending": "Pending",
+  "phoneNumber": "Phone number",
+  "pleaseLoginLocal": "Please log in as a Local user first.",
+  "pleaseLoginToDelete": "Please log in to delete events.",
+  "pushAlerts": "Push alerts for your business",
+  "rejected": "Rejected",
+  "reviews": "Reviews",
+  "saveChanges": "Save Changes",
+  "searchHintEvents": "Search events, bookings...",
+  "suburb": "Suburb",
+  "thisLinkUnavailable": "This link is not available right now.",
+  "total": "Total",
+  "couldNotSaveSettings": "Could not save settings. Please try again.",
+  "locationAccessDisabled": "Location access disabled for app features.",
+  "locationPermissionGranted": "Location permission granted.",
+  "openSettings": "Open Settings",
+  "themeDark": "Dark",
+  "themeLight": "Light",
+  "themeSystem": "System",
+  "textScalePercent": "{value}%",
+  "@textScalePercent": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "categoryLabel": "Category: {category}",
+  "@categoryLabel": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "severityLabel": "Severity: {severity}",
+  "@severityLabel": {
+    "placeholders": {
+      "severity": {
+        "type": "String"
+      }
+    }
+  },
+  "languageEnglish": "English",
+  "languageSpanish": "Spanish",
+  "languageFrench": "French",
+  "languageGerman": "German",
+  "languageChinese": "Chinese",
+  "languageArabic": "Arabic",
+  "languageHindi": "Hindi",
+  "languageItalian": "Italian",
+  "languageJapanese": "Japanese",
+  "languageKorean": "Korean",
+  "languagePortuguese": "Portuguese",
+  "languageRussian": "Russian",
+  "languageVietnamese": "Vietnamese",
+  "languageGreek": "Greek",
+  "discoverTitle": "Discover Local Food",
+  "openSourceLink": "Open Source Link",
+  "pendingApproval": "Pending Approval",
+  "deleteEventConfirmation": "Are you sure you want to delete \"{title}\"? This action cannot be undone.",
+  "@deleteEventConfirmation": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "myActivity": "My Activity",
+  "businessNotifications": "Business Notifications",
+  "about": "About",
+  "aboutDescription": "BrisConnect+ is a smart city guide that helps visitors and locals discover events, explore attractions, and capture their Brisbane experiences in one connected platform.",
+  "versionLabel": "Version {version}",
+  "@versionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "locationPermissions": "Location Permissions",
+  "enableLocationAccess": "Enable Location Access",
+  "allowNearbyMapFeatures": "Allow nearby recommendations and map-aware features.",
+  "locationSettings": "Location Settings",
+  "setSearchRadius": "Set your search radius for events and attractions.",
+  "pleaseLoginToViewSettings": "Please log in to view settings.",
+  "locationPermissionNotGranted": "Location permission was not granted. You can enable it in system settings.",
+  "theme": "Theme",
+  "appTheme": "App Theme",
+  "chooseHowAppLooks": "Choose how the app looks.",
+  "textSize": "Text Size",
+  "adjustTextSize": "Adjust text size across the app.",
+  "smaller": "Smaller",
+  "larger": "Larger",
+  "support": "Support",
+  "sendAppFeedback": "Send App Feedback",
+  "reportBugsImprovements": "Report bugs, misleading information, or improvement suggestions.",
+  "noFeedbackYet": "You have not submitted any feedback yet.",
+  "adminResponse": "Admin Response",
+  "awaitingAdminResponse": "Awaiting admin response...",
+  "statusPending": "Pending",
+  "statusInProgress": "In Progress",
+  "statusResolved": "Resolved",
+  "statusWontFix": "Won't Fix"
+}

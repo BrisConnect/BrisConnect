@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/services/share/content_share_service.dart';
+import 'package:brisconnect/services/share/instagram_story_service.dart';
 
 /// Shows a platform-specific share bottom sheet for any shareable content.
 ///
@@ -84,13 +85,12 @@ Future<void> showShareBottomSheet({
                   icon: Icons.camera_alt,
                   label: 'Instagram',
                   color: const Color(0xFFE1306C),
-                  badge: 'Copy link',
+                  badge: 'Story',
                   onTap: () {
                     Navigator.pop(ctx);
-                    _share(
+                    _shareToInstagramStory(
                       context: context,
                       service: service,
-                      platform: 'instagram',
                       type: type,
                       id: id,
                       title: title,
@@ -217,6 +217,66 @@ String _subtitleForType(ShareContentType type) {
   }
 }
 
+Future<void> _shareToInstagramStory({
+  required BuildContext context,
+  required ContentShareService service,
+  required ShareContentType type,
+  required String id,
+  required String title,
+  String? description,
+  String? location,
+  String? dateTime,
+}) async {
+  final shareText = service.buildShareText(
+    title: title,
+    url: service.buildShareUrl(type: type, id: id, slug: title),
+    description: description,
+    location: location,
+    dateTime: dateTime,
+  );
+
+  final storyService = InstagramStoryService();
+  final result = await storyService.shareToStory(shareText: shareText);
+
+  if (!context.mounted) return;
+
+  final messenger = ScaffoldMessenger.of(context);
+  switch (result) {
+    case InstagramStoryResult.shared:
+      messenger.showSnackBar(
+        _buildSnackBar(
+          'Opening Instagram Stories… paste the copied link as a sticker.',
+          backgroundColor: const Color(0xFFE1306C),
+          durationSeconds: 4,
+        ),
+      );
+    case InstagramStoryResult.nativeShareFallback:
+      messenger.showSnackBar(
+        _buildSnackBar(
+          'Choose Instagram from the share sheet. Link copied to clipboard.',
+          backgroundColor: const Color(0xFFE1306C),
+          durationSeconds: 4,
+        ),
+      );
+    case InstagramStoryResult.copied:
+      messenger.showSnackBar(
+        _buildSnackBar(
+          'Link copied! Open Instagram and paste it in your Story.',
+          backgroundColor: const Color(0xFFE1306C),
+          durationSeconds: 4,
+        ),
+      );
+    case InstagramStoryResult.cancelled:
+      messenger.showSnackBar(
+        _buildSnackBar('Instagram share cancelled. Link copied to clipboard.'),
+      );
+    case InstagramStoryResult.failed:
+      messenger.showSnackBar(
+        _buildSnackBar('Could not open Instagram. Link copied to clipboard.'),
+      );
+  }
+}
+
 Future<void> _share({
   required BuildContext context,
   required ContentShareService service,
@@ -243,15 +303,7 @@ Future<void> _share({
   final messenger = ScaffoldMessenger.of(context);
   switch (result) {
     case ShareResult.copied:
-      if (platform == 'instagram') {
-        messenger.showSnackBar(
-          _buildSnackBar(
-            'Link copied! Open Instagram and paste it in your Story, Post caption, or DM.',
-            backgroundColor: const Color(0xFFE1306C),
-            durationSeconds: 4,
-          ),
-        );
-      } else if (platform == 'tiktok') {
+      if (platform == 'tiktok') {
         messenger.showSnackBar(
           _buildSnackBar(
             'Link copied! Open TikTok and paste it in your bio or video description.',

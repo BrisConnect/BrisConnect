@@ -5,7 +5,6 @@ import 'package:brisconnect/screens/admin_edit_event_screen.dart';
 import 'package:brisconnect/services/admin_event_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/inline_status_message.dart';
-import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
 
 class AdminEventReviewScreen extends StatefulWidget {
@@ -120,7 +119,8 @@ class _AdminEventReviewScreenState extends State<AdminEventReviewScreen> {
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+              style:
+                  FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
               child: const Text('Delete'),
             ),
           ],
@@ -136,103 +136,120 @@ class _AdminEventReviewScreenState extends State<AdminEventReviewScreen> {
   @override
   Widget build(BuildContext context) {
     final scaffold = Scaffold(
-        backgroundColor: widget.enforceRoleGuard ? AppPalette.background : Colors.transparent,
-        appBar: AppBar(
-          automaticallyImplyLeading: widget.enforceRoleGuard,
-          title: const LogoAppBarTitle('Manage Events'),
-          backgroundColor: widget.enforceRoleGuard ? null : AppPalette.ochre,
+      backgroundColor: widget.enforceRoleGuard
+          ? const Color(0xFFEBF4FF)
+          : Colors.transparent,
+      appBar: AppBar(
+        automaticallyImplyLeading: widget.enforceRoleGuard,
+        backgroundColor: widget.enforceRoleGuard
+            ? const Color(0xFFEBF4FF)
+            : AppPalette.ochre,
+        foregroundColor:
+            widget.enforceRoleGuard ? const Color(0xFF1E3A8A) : Colors.white,
+        elevation: 0,
+        title: Text(
+          'Manage Events',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: widget.enforceRoleGuard
+                ? const Color(0xFF1E3A8A)
+                : Colors.white,
+          ),
         ),
-        body: StreamBuilder<List<EventItem>>(
-          stream: widget.eventService.watchAllEvents(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
+      ),
+      body: StreamBuilder<List<EventItem>>(
+        stream: widget.eventService.watchAllEvents(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-            if (snapshot.hasError) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: InlineStatusMessage(
-                    message:
-                        'Unable to load events right now. Please try again.',
-                    type: InlineStatusType.error,
-                    actionLabel: 'Retry',
-                    onAction: () => setState(() {}),
-                  ),
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: InlineStatusMessage(
+                  message: 'Unable to load events right now. Please try again.',
+                  type: InlineStatusType.error,
+                  actionLabel: 'Retry',
+                  onAction: () => setState(() {}),
                 ),
-              );
-            }
+              ),
+            );
+          }
 
-            final events = snapshot.data ?? const <EventItem>[];
-            final pendingCount = events.where((event) => event.isPending).length;
-            final approvedCount = events.where((event) => event.isApproved).length;
-            final rejectedCount = events.where((event) => event.isRejected).length;
+          final events = snapshot.data ?? const <EventItem>[];
+          final pendingCount = events.where((event) => event.isPending).length;
+          final approvedCount =
+              events.where((event) => event.isApproved).length;
+          final rejectedCount =
+              events.where((event) => event.isRejected).length;
 
-            if (events.isEmpty) {
-              return ListView(
-                physics: const ClampingScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                children: const [
-                  _AdminEventSummary(total: 0, pending: 0, approved: 0, rejected: 0),
-                  SizedBox(height: 16),
-                  Card(
-                    color: Color(0xCCFFFFFF),
-                    child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text('No events found in Firebase.'),
-                    ),
-                  ),
-                ],
-              );
-            }
-
-            return ListView.builder(
+          if (events.isEmpty) {
+            return ListView(
               physics: const ClampingScrollPhysics(),
               padding: const EdgeInsets.all(16),
-              itemCount: events.length + 3, // summary + title + spacer + events
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return _AdminEventSummary(
-                    total: events.length,
-                    pending: pendingCount,
-                    approved: approvedCount,
-                    rejected: rejectedCount,
-                  );
-                }
-                if (index == 1) {
-                  return const Padding(
-                    padding: EdgeInsets.only(top: 16),
-                    child: Text(
-                      'All Events',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppPalette.charcoal,
-                      ),
+              children: const [
+                _AdminEventSummary(
+                    total: 0, pending: 0, approved: 0, rejected: 0),
+                SizedBox(height: 16),
+                Card(
+                  color: Color(0xCCFFFFFF),
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('No events found in Firebase.'),
+                  ),
+                ),
+              ],
+            );
+          }
+
+          return ListView.builder(
+            physics: const ClampingScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            itemCount: events.length + 3, // summary + title + spacer + events
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return _AdminEventSummary(
+                  total: events.length,
+                  pending: pendingCount,
+                  approved: approvedCount,
+                  rejected: rejectedCount,
+                );
+              }
+              if (index == 1) {
+                return const Padding(
+                  padding: EdgeInsets.only(top: 16),
+                  child: Text(
+                    'All Events',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppPalette.charcoal,
                     ),
-                  );
-                }
-                if (index == 2) {
-                  return const SizedBox(height: 12);
-                }
-                final event = events[index - 3];
-                return Padding(
-                  key: ValueKey(event.id),
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _AdminEventCard(
-                    event: event,
-                    onApprove: () => _approveEvent(event),
-                    onReject: () => _rejectEvent(event),
-                    onEdit: () => _openEditForm(event),
-                    onDelete: () => _confirmDelete(event),
                   ),
                 );
-              },
-            );
-          },
-        ),
-      );
+              }
+              if (index == 2) {
+                return const SizedBox(height: 12);
+              }
+              final event = events[index - 3];
+              return Padding(
+                key: ValueKey(event.id),
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _AdminEventCard(
+                  event: event,
+                  onApprove: () => _approveEvent(event),
+                  onReject: () => _rejectEvent(event),
+                  onEdit: () => _openEditForm(event),
+                  onDelete: () => _confirmDelete(event),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
 
     if (!widget.enforceRoleGuard) {
       return scaffold;
@@ -286,10 +303,16 @@ class _AdminEventSummary extends StatelessWidget {
               spacing: 10,
               runSpacing: 10,
               children: [
-                _SummaryChip(label: 'Total', value: total, color: AppPalette.deepBlue),
-                _SummaryChip(label: 'Pending', value: pending, color: Colors.orange),
-                _SummaryChip(label: 'Approved', value: approved, color: Colors.green),
-                _SummaryChip(label: 'Rejected', value: rejected, color: AppPalette.ochre),
+                _SummaryChip(
+                    label: 'Total', value: total, color: AppPalette.deepBlue),
+                _SummaryChip(
+                    label: 'Pending', value: pending, color: Colors.orange),
+                _SummaryChip(
+                    label: 'Approved', value: approved, color: Colors.green),
+                _SummaryChip(
+                    label: 'Rejected',
+                    value: rejected,
+                    color: AppPalette.ochre),
               ],
             ),
           ],
@@ -389,7 +412,8 @@ class _AdminEventCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: badgeColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
@@ -432,7 +456,8 @@ class _AdminEventCard extends StatelessWidget {
               style: const TextStyle(color: AppPalette.charcoal),
             ),
             const SizedBox(height: 14),
-            if (event.isPending) ...[              Row(
+            if (event.isPending) ...[
+              Row(
                 children: [
                   Expanded(
                     child: FilledButton.icon(

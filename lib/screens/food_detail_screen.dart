@@ -1,9 +1,12 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:brisconnect/services/share/content_share_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/audio_guide_widget.dart';
+import 'package:brisconnect/widgets/business_reviews_widget.dart';
+import 'package:brisconnect/widgets/crowd_report_widget.dart';
+import 'package:brisconnect/widgets/fallback_image.dart';
+import 'package:brisconnect/utils/responsive_utils.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 import 'package:brisconnect/widgets/share_bottom_sheet.dart';
 
@@ -23,12 +26,17 @@ class FoodDetailScreen extends StatelessWidget {
     this.price,
     this.mapQuery,
     this.webLink,
+    this.phone,
+    this.email,
+    this.openingHours,
+    this.facebookUrl,
+    this.instagramUrl,
+    this.onlineOrderUrl,
     this.aiAudio,
     this.shareService,
+    this.menu = const [],
+    this.photoGallery = const [],
   });
-
-  static const String _fallbackImage =
-      'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1400&q=80';
 
   final String id;
   final String title;
@@ -43,8 +51,103 @@ class FoodDetailScreen extends StatelessWidget {
   final String? price;
   final String? mapQuery;
   final String? webLink;
+  final String? phone;
+  final String? email;
+  final String? openingHours;
+  final String? facebookUrl;
+  final String? instagramUrl;
+  final String? onlineOrderUrl;
   final String? aiAudio;
   final ContentShareService? shareService;
+  final List<Map<String, dynamic>> menu;
+  final List<String> photoGallery;
+
+  String _buildRichDescription() {
+    if (description.trim().length > 80 &&
+        !description.trim().toLowerCase().startsWith('contemporary') &&
+        !description.trim().toLowerCase().startsWith('premium') &&
+        !description.trim().toLowerCase().startsWith('restaurant') &&
+        !description.trim().toLowerCase().startsWith('cafe')) {
+      return description.trim();
+    }
+    final cuisineLabel = cuisine.trim().isNotEmpty ? cuisine.trim() : 'food';
+    final parts = <String>[
+      'Step into $title, a $cuisineLabel destination in the heart of $location.',
+      if (rating != null && rating! > 0)
+        'Loved by locals and visitors alike, it holds a ${rating!.toStringAsFixed(1)}-star rating.',
+      if (categories.isNotEmpty)
+        'The menu celebrates ${categories.take(3).join(', ')}, crafted with fresh, locally sourced ingredients.',
+      if ((price ?? '').trim().isNotEmpty)
+        'Expect a ${price!.trim()} experience that balances quality and value.',
+      'Whether you are after a relaxed brunch, a business lunch, or a lively dinner, $title offers a welcoming atmosphere and flavours that capture Brisbane\'s dining scene.',
+    ];
+    return parts.where((s) => s.trim().isNotEmpty).join(' ');
+  }
+
+  static final _socialHosts = {
+    'facebook.com',
+    'fb.com',
+    'instagram.com',
+    'instagr.am',
+    'twitter.com',
+    'x.com',
+    'tiktok.com',
+  };
+
+  bool _isSocialMediaUrl(String rawUrl) {
+    final uri = Uri.tryParse(rawUrl.trim().toLowerCase());
+    if (uri == null || uri.host.isEmpty) return true;
+    return _socialHosts
+        .any((host) => uri.host == host || uri.host.endsWith('.$host'));
+  }
+
+  bool get _canBookTable {
+    if ((email ?? '').trim().isNotEmpty) return true;
+    if ((phone ?? '').trim().isNotEmpty) return true;
+    final url = (webLink ?? '').trim();
+    return url.isNotEmpty && !_isSocialMediaUrl(url);
+  }
+
+  bool get _canOrderOnline {
+    final url = (onlineOrderUrl ?? '').trim();
+    if (url.isEmpty) return false;
+    return !_isSocialMediaUrl(url);
+  }
+
+  Future<void> _bookReservation(BuildContext context) async {
+    final subject = Uri.encodeComponent('Reservation request for $title');
+    final body = Uri.encodeComponent(
+        'Hi team at $title,\n\nI would like to make a reservation.\n\nDate: \nTime: \nNumber of guests: \n\nThank you.');
+    if ((email ?? '').trim().isNotEmpty) {
+      final uri =
+          Uri.parse('mailto:${email!.trim()}?subject=$subject&body=$body');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+        return;
+      }
+    }
+    if ((webLink ?? '').trim().isNotEmpty && !_isSocialMediaUrl(webLink!)) {
+      final uri = Uri.parse(webLink!.trim());
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        return;
+      }
+    }
+    if ((phone ?? '').trim().isNotEmpty) {
+      final uri = Uri(scheme: 'tel', path: phone!.trim());
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+        return;
+      }
+    }
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No booking method available for this business.'),
+        ),
+      );
+    }
+  }
 
   String _buildNarrationText() {
     if ((aiAudio ?? '').trim().isNotEmpty) return aiAudio!.trim();
@@ -77,6 +180,28 @@ class FoodDetailScreen extends StatelessWidget {
     if (!launched && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Unable to open this link right now.')),
+      );
+    }
+  }
+
+  Future<void> _callPhone(BuildContext context, String rawNumber) async {
+    final uri = Uri(scheme: 'tel', path: rawNumber.trim());
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to call this number right now.')),
+      );
+    }
+  }
+
+  Future<void> _sendEmail(BuildContext context, String rawEmail) async {
+    final uri = Uri(scheme: 'mailto', path: rawEmail.trim());
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to send email right now.')),
       );
     }
   }
@@ -117,14 +242,12 @@ class FoodDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveImage =
-        imageUrl.trim().isNotEmpty ? imageUrl.trim() : _fallbackImage;
     final narrationText = _buildNarrationText();
 
     return Scaffold(
       backgroundColor: AppPalette.background,
       appBar: AppBar(
-        title: const LogoAppBarTitle('Food Details'),
+        title: const LogoAppBarTitle('Business Details'),
         actions: [
           IconButton(
             tooltip: 'Share',
@@ -133,210 +256,589 @@ class FoodDetailScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView(
-        children: [
-          CachedNetworkImage(
-            imageUrl: effectiveImage,
-            height: 230,
-            width: double.infinity,
-            fit: BoxFit.cover,
-            placeholder: (_, __) => Container(
-              height: 230,
-              color: AppPalette.surfaceAlt,
-              alignment: Alignment.center,
-              child: const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(strokeWidth: 2),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final maxContentWidth =
+              ResponsiveUtils.isDesktop(context) ? 900.0 : double.infinity;
+          final horizontalPadding =
+              ResponsiveUtils.isDesktop(context) ? 32.0 : 16.0;
+
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxContentWidth),
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: FallbackImage(
+                      imageUrl: imageUrl,
+                      height: ResponsiveUtils.isDesktop(context) ? 360 : 260,
+                      width: double.infinity,
+                      category: 'food',
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        horizontalPadding,
+                        24,
+                        horizontalPadding,
+                        40,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildHeaderSection(context),
+                          const SizedBox(height: 20),
+                          const Divider(color: AppPalette.border),
+                          const SizedBox(height: 24),
+                          _buildAboutSection(context),
+                          const SizedBox(height: 24),
+                          if (categories.isNotEmpty) ...[
+                            _buildHighlightsSection(),
+                            const SizedBox(height: 24),
+                          ],
+                          _buildContactActionsSection(context),
+                          const SizedBox(height: 24),
+                          if (photoGallery.isNotEmpty) ...[
+                            _buildGallerySection(),
+                            const SizedBox(height: 24),
+                          ],
+                          if ((openingHours ?? '').trim().isNotEmpty) ...[
+                            _buildOpeningHoursSection(),
+                            const SizedBox(height: 24),
+                          ],
+                          if (menu.isNotEmpty) ...[
+                            _buildMenuSection(),
+                            const SizedBox(height: 24),
+                          ],
+                          if (narrationText.isNotEmpty) ...[
+                            _buildAudioGuideSection(narrationText),
+                            const SizedBox(height: 24),
+                          ],
+                          _buildCrowdReportSection(),
+                          const SizedBox(height: 24),
+                          _buildReviewsSection(),
+                          const SizedBox(height: 24),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            errorWidget: (_, __, ___) => Container(
-              height: 230,
-              color: AppPalette.surfaceAlt,
-              alignment: Alignment.center,
-              child: const Icon(
-                Icons.image_not_supported_rounded,
-                size: 48,
-                color: AppPalette.mutedText,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildHeaderSection(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if ((badge ?? '').trim().isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppPalette.ochre,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    badge!.trim(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: AppPalette.charcoal,
+                  height: 1.2,
+                ),
               ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 16,
+                runSpacing: 8,
+                children: [
+                  if (cuisine.trim().isNotEmpty)
+                    _FoodInfoRow(
+                      icon: Icons.restaurant_menu_rounded,
+                      iconColor: AppPalette.ochre,
+                      text: cuisine,
+                    ),
+                  if (location.trim().isNotEmpty)
+                    _FoodInfoRow(
+                      icon: Icons.place_rounded,
+                      iconColor: AppPalette.deepBlue,
+                      text: location,
+                    ),
+                  if ((dateTime ?? '').trim().isNotEmpty)
+                    _FoodInfoRow(
+                      icon: Icons.schedule_rounded,
+                      iconColor: AppPalette.deepBlue,
+                      text: dateTime!.trim(),
+                    ),
+                  if ((price ?? '').trim().isNotEmpty)
+                    _FoodInfoRow(
+                      icon: Icons.sell_rounded,
+                      iconColor: AppPalette.ochre,
+                      text: price!.trim(),
+                    ),
+                  if (rating != null && rating! > 0)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.star_rounded,
+                          color: AppPalette.gold,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          rating!.toStringAsFixed(1),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: AppPalette.charcoal,
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAboutSection(BuildContext context) {
+    return _ContentSection(
+      title: 'About this Food Experience',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _buildRichDescription(),
+            style: const TextStyle(
+              color: AppPalette.charcoal,
+              height: 1.6,
+              fontSize: 15,
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 16),
+          if (_canBookTable || _canOrderOnline)
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
               children: [
-                if ((badge ?? '').trim().isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: AppPalette.ochre,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      badge!.trim(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
+                if (_canBookTable)
+                  _ActionChip(
+                    icon: Icons.calendar_today_rounded,
+                    label: 'Book a Table',
+                    onTap: () => _bookReservation(context),
                   ),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: AppPalette.charcoal,
-                    height: 1.25,
+                if (_canOrderOnline)
+                  _ActionChip(
+                    icon: Icons.shopping_bag_rounded,
+                    label: 'Order Online',
+                    onTap: () => _openLink(context, onlineOrderUrl!.trim()),
                   ),
-                ),
-                const SizedBox(height: 14),
-                if (cuisine.trim().isNotEmpty) ...[
-                  _FoodInfoRow(
-                    icon: Icons.restaurant_menu_rounded,
-                    iconColor: AppPalette.ochre,
-                    text: cuisine,
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                if (location.trim().isNotEmpty) ...[
-                  _FoodInfoRow(
-                    icon: Icons.place_rounded,
-                    iconColor: AppPalette.deepBlue,
-                    text: location,
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                if ((dateTime ?? '').trim().isNotEmpty) ...[
-                  _FoodInfoRow(
-                    icon: Icons.schedule_rounded,
-                    iconColor: AppPalette.deepBlue,
-                    text: dateTime!.trim(),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                if ((price ?? '').trim().isNotEmpty) ...[
-                  _FoodInfoRow(
-                    icon: Icons.sell_rounded,
-                    iconColor: AppPalette.ochre,
-                    text: price!.trim(),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                if (rating != null && rating! > 0) ...[
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.star_rounded,
-                        color: AppPalette.gold,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        rating!.toStringAsFixed(1),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: AppPalette.charcoal,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                const Divider(color: AppPalette.border),
-                const SizedBox(height: 18),
-                if (description.trim().isNotEmpty) ...[
-                  const _FoodSectionHeader(title: 'About this Food Experience'),
-                  const SizedBox(height: 8),
-                  Text(
-                    description.trim(),
-                    style: const TextStyle(
-                      color: AppPalette.charcoal,
-                      height: 1.55,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-                ],
-                if (categories.isNotEmpty) ...[
-                  const _FoodSectionHeader(title: 'Highlights'),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: categories
-                        .map(
-                          (category) => Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppPalette.surfaceAlt,
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(color: AppPalette.border),
-                            ),
-                            child: Text(
-                              category,
-                              style: const TextStyle(
-                                color: AppPalette.charcoal,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(growable: false),
-                  ),
-                  const SizedBox(height: 22),
-                ],
-                if (narrationText.isNotEmpty) ...[
-                  const _FoodSectionHeader(title: 'AI Tour Guide'),
-                  const SizedBox(height: 10),
-                  AiNarrationWidget(
-                    narrationText: narrationText,
-                    helperText:
-                        'Tap play to hear your AI tour guide describe this food spot and its highlights.',
-                  ),
-                  const SizedBox(height: 22),
-                ],
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _openMap(context),
-                        icon: const Icon(Icons.map_rounded),
-                        label: const Text('View on Map'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppPalette.deepBlue,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ),
-                    if ((webLink ?? '').trim().isNotEmpty) ...[
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _openLink(context, webLink!.trim()),
-                          icon: const Icon(Icons.open_in_browser_rounded),
-                          label: const Text('Website'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppPalette.mutedText,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
               ],
             ),
-          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildHighlightsSection() {
+    return _ContentSection(
+      title: 'Highlights',
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: categories
+            .map(
+              (category) => Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppPalette.surfaceAlt,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: AppPalette.border),
+                ),
+                child: Text(
+                  category,
+                  style: const TextStyle(
+                    color: AppPalette.charcoal,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            )
+            .toList(growable: false),
+      ),
+    );
+  }
+
+  Widget _buildContactActionsSection(BuildContext context) {
+    final contactActions = <Widget>[
+      if ((phone ?? '').trim().isNotEmpty)
+        _ActionChip(
+          icon: Icons.phone_rounded,
+          label: 'Call',
+          onTap: () => _callPhone(context, phone!.trim()),
+        ),
+      if ((email ?? '').trim().isNotEmpty)
+        _ActionChip(
+          icon: Icons.email_rounded,
+          label: 'Email',
+          onTap: () => _sendEmail(context, email!.trim()),
+        ),
+      if ((webLink ?? '').trim().isNotEmpty)
+        _ActionChip(
+          icon: Icons.open_in_browser_rounded,
+          label: 'Website',
+          onTap: () => _openLink(context, webLink!.trim()),
+        ),
+      if ((facebookUrl ?? '').trim().isNotEmpty)
+        _ActionChip(
+          icon: Icons.facebook,
+          label: 'Facebook',
+          onTap: () => _openLink(context, facebookUrl!.trim()),
+        ),
+      if ((instagramUrl ?? '').trim().isNotEmpty)
+        _ActionChip(
+          icon: Icons.camera_alt_rounded,
+          label: 'Instagram',
+          onTap: () => _openLink(context, instagramUrl!.trim()),
+        ),
+      if ((onlineOrderUrl ?? '').trim().isNotEmpty)
+        _ActionChip(
+          icon: Icons.shopping_bag_rounded,
+          label: 'Order Online',
+          onTap: () => _openLink(context, onlineOrderUrl!.trim()),
+        ),
+      _ActionChip(
+        icon: Icons.map_rounded,
+        label: 'View on Map',
+        onTap: () => _openMap(context),
+      ),
+    ];
+
+    if (contactActions.isEmpty) return const SizedBox.shrink();
+
+    return _ContentSection(
+      title: 'Contact & Links',
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: contactActions,
+      ),
+    );
+  }
+
+  Widget _buildGallerySection() {
+    return _ContentSection(
+      title: 'Gallery',
+      child: _PhotoGallery(images: photoGallery),
+    );
+  }
+
+  Widget _buildOpeningHoursSection() {
+    return _ContentSection(
+      title: 'Opening Hours',
+      child: Text(
+        openingHours!.trim(),
+        style: const TextStyle(
+          color: AppPalette.charcoal,
+          height: 1.6,
+          fontSize: 14,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuSection() {
+    return _ContentSection(
+      title: 'Menu',
+      child: _MenuSection(menu: menu),
+    );
+  }
+
+  Widget _buildAudioGuideSection(String narrationText) {
+    return _ContentSection(
+      title: 'AI Tour Guide',
+      child: AiNarrationWidget(
+        narrationText: narrationText,
+        helperText:
+            'Tap play to hear your AI tour guide describe this food spot and its highlights.',
+      ),
+    );
+  }
+
+  Widget _buildCrowdReportSection() {
+    return CrowdReportWidget(eventId: id);
+  }
+
+  Widget _buildReviewsSection() {
+    return BusinessReviewsWidget(
+      businessId: id,
+      currentAverageRating: rating,
+    );
+  }
+}
+
+class _MenuSection extends StatelessWidget {
+  const _MenuSection({required this.menu});
+
+  final List<Map<String, dynamic>> menu;
+
+  Map<String, List<Map<String, dynamic>>> _groupByCategory() {
+    final groups = <String, List<Map<String, dynamic>>>{};
+    for (final item in menu) {
+      final category =
+          ((item['category'] ?? 'Menu') as String).trim().isNotEmpty
+              ? (item['category'] as String).trim()
+              : 'Menu';
+      groups.putIfAbsent(category, () => []).add(item);
+    }
+    return groups;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = _groupByCategory();
+    final categories = groups.keys.toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: categories.expand((category) {
+        final items = groups[category]!;
+        return [
+          if (categories.length > 1)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8, top: 4),
+              child: Text(
+                category,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppPalette.charcoal,
+                ),
+              ),
+            ),
+          ...items.map((item) {
+            final name = (item['name'] as String? ?? '').trim();
+            final price = (item['price'] as String? ?? '').trim();
+            final description = (item['description'] as String? ?? '').trim();
+            final tags = (item['tags'] as List?)?.map((t) => '$t').toList() ??
+                <String>[];
+            if (name.isEmpty) return const SizedBox.shrink();
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppPalette.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppPalette.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppPalette.charcoal,
+                          ),
+                        ),
+                      ),
+                      if (price.isNotEmpty)
+                        Text(
+                          price,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: AppPalette.ochre,
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (description.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.45,
+                        color: AppPalette.mutedText,
+                      ),
+                    ),
+                  ],
+                  if (tags.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: tags
+                          .where((tag) => tag.trim().isNotEmpty)
+                          .map(
+                            (tag) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppPalette.surfaceAlt,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                tag.trim(),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppPalette.charcoal,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }),
+          const SizedBox(height: 8),
+        ];
+      }).toList(growable: false),
+    );
+  }
+}
+
+class _PhotoGallery extends StatelessWidget {
+  const _PhotoGallery({required this.images});
+
+  final List<String> images;
+
+  @override
+  Widget build(BuildContext context) {
+    final displayImages = images.where((url) => url.trim().isNotEmpty).toList();
+    if (displayImages.isEmpty) return const SizedBox.shrink();
+
+    final isDesktop = ResponsiveUtils.isDesktop(context);
+
+    return SizedBox(
+      height: isDesktop ? 220 : 170,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: displayImages.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final url = displayImages[index];
+          return GestureDetector(
+            onTap: () => _openFullscreen(context, index, displayImages),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: FallbackImage(
+                imageUrl: url,
+                width: isDesktop ? 300 : 220,
+                height: isDesktop ? 220 : 170,
+                category: 'food',
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _openFullscreen(
+    BuildContext context,
+    int initialIndex,
+    List<String> displayImages,
+  ) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            PageView.builder(
+              controller: PageController(initialPage: initialIndex),
+              itemCount: displayImages.length,
+              itemBuilder: (_, index) => InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 3.0,
+                child: Center(
+                  child: FallbackImage(
+                    imageUrl: displayImages[index],
+                    width: double.infinity,
+                    height: double.infinity,
+                    category: 'food',
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 12,
+              right: 12,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionChip extends StatelessWidget {
+  const _ActionChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ActionChip(
+      avatar: Icon(icon, size: 18, color: Colors.white),
+      label: Text(label),
+      labelStyle: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w600,
+      ),
+      backgroundColor: AppPalette.ochre,
+      side: BorderSide.none,
+      onPressed: onTap,
     );
   }
 }
@@ -384,10 +886,41 @@ class _FoodSectionHeader extends StatelessWidget {
     return Text(
       title,
       style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
+        fontSize: 18,
+        fontWeight: FontWeight.w800,
         color: AppPalette.deepBlue,
         letterSpacing: 0.2,
+      ),
+    );
+  }
+}
+
+class _ContentSection extends StatelessWidget {
+  const _ContentSection({
+    required this.title,
+    required this.child,
+  });
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppPalette.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppPalette.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _FoodSectionHeader(title: title),
+          const SizedBox(height: 14),
+          child,
+        ],
       ),
     );
   }

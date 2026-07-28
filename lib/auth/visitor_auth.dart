@@ -19,6 +19,7 @@ class VisitorUser {
   final String phone;
   final List<String> interestedEventIds;
   final List<String> savedAttractionIds;
+  final List<String> savedBusinessIds;
   final List<String> interestCategories;
   final List<String> interestPriorities;
   final bool notificationsEnabled;
@@ -33,6 +34,7 @@ class VisitorUser {
   final bool locationAccessEnabled;
   final String themePreference;
   final double textScaleFactor;
+  final String language;
   final String? profileImageBase64;
   final String? profileImageUrl;
   final String? profileImageStoragePath;
@@ -44,6 +46,7 @@ class VisitorUser {
     this.phone = '',
     this.interestedEventIds = const [],
     this.savedAttractionIds = const [],
+    this.savedBusinessIds = const [],
     this.interestCategories = const [],
     this.interestPriorities = const [],
     this.notificationsEnabled = true,
@@ -58,6 +61,7 @@ class VisitorUser {
     this.locationAccessEnabled = true,
     this.themePreference = 'system',
     this.textScaleFactor = 1.0,
+    this.language = 'en',
     this.profileImageBase64,
     this.profileImageUrl,
     this.profileImageStoragePath,
@@ -70,6 +74,7 @@ class VisitorUser {
     String? phone,
     List<String>? interestedEventIds,
     List<String>? savedAttractionIds,
+    List<String>? savedBusinessIds,
     List<String>? interestCategories,
     List<String>? interestPriorities,
     bool? notificationsEnabled,
@@ -84,6 +89,7 @@ class VisitorUser {
     bool? locationAccessEnabled,
     String? themePreference,
     double? textScaleFactor,
+    String? language,
     String? profileImageBase64,
     String? profileImageUrl,
     String? profileImageStoragePath,
@@ -95,6 +101,7 @@ class VisitorUser {
       phone: phone ?? this.phone,
       interestedEventIds: interestedEventIds ?? this.interestedEventIds,
       savedAttractionIds: savedAttractionIds ?? this.savedAttractionIds,
+      savedBusinessIds: savedBusinessIds ?? this.savedBusinessIds,
       interestCategories: interestCategories ?? this.interestCategories,
       interestPriorities: interestPriorities ?? this.interestPriorities,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
@@ -113,6 +120,7 @@ class VisitorUser {
           locationAccessEnabled ?? this.locationAccessEnabled,
       themePreference: themePreference ?? this.themePreference,
       textScaleFactor: textScaleFactor ?? this.textScaleFactor,
+      language: language ?? this.language,
       profileImageBase64: profileImageBase64 ?? this.profileImageBase64,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       profileImageStoragePath:
@@ -124,18 +132,22 @@ class VisitorUser {
 class VisitorAuth {
   static final List<VisitorUser> _users = [];
   static VisitorUser? _currentVisitor;
-  static final ValueNotifier<int> _interestedEventsVersion = ValueNotifier<int>(0);
+  static final ValueNotifier<int> _interestedEventsVersion =
+      ValueNotifier<int>(0);
   static final ValueNotifier<int> _profileVersion = ValueNotifier<int>(0);
-  static final ValueNotifier<int> _savedAttractionsVersion = ValueNotifier<int>(0);
+  static final ValueNotifier<int> _savedAttractionsVersion =
+      ValueNotifier<int>(0);
   static String? _lastErrorMessage;
   static bool _isEmailUnverified = false;
 
   static VisitorUser? get currentVisitor => _currentVisitor;
   static bool get isVisitorLoggedIn => _currentVisitor != null;
   static bool get isEmailUnverified => _isEmailUnverified;
-  static ValueListenable<int> get interestedEventsVersion => _interestedEventsVersion;
+  static ValueListenable<int> get interestedEventsVersion =>
+      _interestedEventsVersion;
   static ValueListenable<int> get profileVersion => _profileVersion;
-  static ValueListenable<int> get savedAttractionsVersion => _savedAttractionsVersion;
+  static ValueListenable<int> get savedAttractionsVersion =>
+      _savedAttractionsVersion;
   static String? get lastErrorMessage => _lastErrorMessage;
 
   static String _passwordHash(String password) {
@@ -157,7 +169,8 @@ class VisitorAuth {
     }
 
     try {
-        final callable = FirebaseFunctions.instanceFor(region: AppConfig.firebaseFunctionsRegion)
+      final callable = FirebaseFunctions.instanceFor(
+              region: AppConfig.firebaseFunctionsRegion)
           .httpsCallable('resolveUsername');
       final result = await callable.call<Map<String, dynamic>>({
         'username': normalized,
@@ -211,6 +224,7 @@ class VisitorAuth {
         'role': 'visitor',
         'interestedEventIds': const <String>[],
         'savedAttractionIds': const <String>[],
+        'savedBusinessIds': const <String>[],
         'interestCategories': const <String>[],
         'interestPriorities': const <String>[],
         'notificationsEnabled': true,
@@ -225,6 +239,7 @@ class VisitorAuth {
         'locationAccessEnabled': true,
         'themePreference': 'system',
         'textScaleFactor': 1.0,
+        'language': 'en',
         'profileImageBase64': null,
         'profileImageUrl': null,
         'profileImageStoragePath': null,
@@ -251,7 +266,8 @@ class VisitorAuth {
             visitorName: name.trim(),
           );
         } catch (error) {
-          debugPrint('[VisitorAuth] Failed to queue visitor welcome SMS: $error');
+          debugPrint(
+              '[VisitorAuth] Failed to queue visitor welcome SMS: $error');
         }
       }
 
@@ -266,18 +282,21 @@ class VisitorAuth {
           _lastErrorMessage = 'Please enter a valid email address.';
           break;
         case 'weak-password':
-          _lastErrorMessage = 'Password is too weak. Use at least 8 characters with upper, lower, and number.';
+          _lastErrorMessage =
+              'Password is too weak. Use at least 8 characters with upper, lower, and number.';
           break;
         case 'network-request-failed':
           _lastErrorMessage = 'No internet connection. Please try again.';
           break;
         default:
-          _lastErrorMessage = 'Could not create visitor account (${error.code}).';
+          _lastErrorMessage =
+              'Could not create visitor account (${error.code}).';
       }
       return false;
     } on FirebaseException catch (error) {
       if (error.code == 'permission-denied') {
-        _lastErrorMessage = 'Could not save visitor profile due to Firestore permissions.';
+        _lastErrorMessage =
+            'Could not save visitor profile due to Firestore permissions.';
       } else if (error.code == 'unavailable') {
         _lastErrorMessage = 'No internet connection. Please try again.';
       } else {
@@ -373,18 +392,38 @@ class VisitorAuth {
       final role = (data['role'] as String?)?.toLowerCase();
       if (role != null && role.isNotEmpty && role != 'visitor') {
         await fb_auth.FirebaseAuth.instance.signOut();
-        _lastErrorMessage = 'Access denied: this account is not a Visitor account.';
+        _lastErrorMessage =
+            'Access denied: this account is not a Visitor account.';
         return false;
       }
 
       final isActive = (data['active'] as bool?) ?? true;
       if (!isActive) {
         await fb_auth.FirebaseAuth.instance.signOut();
-        _lastErrorMessage = 'This account has been deactivated. Contact support for assistance.';
+        _lastErrorMessage =
+            'This account has been deactivated. Contact support for assistance.';
         return false;
       }
 
       _isEmailUnverified = false;
+
+      // Migrate businesses previously stored in savedAttractionIds.
+      final legacyAttractionIds =
+          ((data['savedAttractionIds'] as List?) ?? const [])
+              .map((item) => '$item')
+              .where((item) => item.trim().isNotEmpty)
+              .toList(growable: false);
+      final existingBusinessIds =
+          ((data['savedBusinessIds'] as List?) ?? const [])
+              .map((item) => '$item')
+              .where((item) => item.trim().isNotEmpty)
+              .toList(growable: false);
+      final migratedBusinessIds = <String>{
+        ...existingBusinessIds,
+        ...legacyAttractionIds,
+      }.toList();
+      final hasMigrated =
+          migratedBusinessIds.length > existingBusinessIds.length;
 
       try {
         await FirebaseFirestore.instance
@@ -394,6 +433,8 @@ class VisitorAuth {
           'role': 'visitor',
           'email': normalizedEmail,
           'username': _deriveUsername(normalizedEmail),
+          if (hasMigrated) 'savedBusinessIds': migratedBusinessIds,
+          if (hasMigrated) 'savedAttractionIds': const <String>[],
           if (password != null && password.isNotEmpty)
             'passwordHash': _passwordHash(password),
           if (password != null && password.isNotEmpty)
@@ -414,44 +455,45 @@ class VisitorAuth {
             .map((item) => '$item')
             .where((item) => item.trim().isNotEmpty)
             .toList(growable: false),
-        savedAttractionIds: ((data['savedAttractionIds'] as List?) ?? const [])
-          .map((item) => '$item')
-          .where((item) => item.trim().isNotEmpty)
-          .toList(growable: false),
+        savedAttractionIds:
+            hasMigrated ? const <String>[] : legacyAttractionIds,
+        savedBusinessIds: migratedBusinessIds,
         interestCategories: ((data['interestCategories'] as List?) ?? const [])
-          .map((item) => '$item')
-          .where((item) => item.trim().isNotEmpty)
-          .toList(growable: false),
+            .map((item) => '$item')
+            .where((item) => item.trim().isNotEmpty)
+            .toList(growable: false),
         interestPriorities: ((data['interestPriorities'] as List?) ?? const [])
-          .map((item) => '$item')
-          .where((item) => item.trim().isNotEmpty)
-          .toList(growable: false),
+            .map((item) => '$item')
+            .where((item) => item.trim().isNotEmpty)
+            .toList(growable: false),
         notificationsEnabled: (data['notificationsEnabled'] as bool?) ?? true,
-        eventRemindersEnabled:
-          (data['eventRemindersEnabled'] as bool?) ?? true,
+        eventRemindersEnabled: (data['eventRemindersEnabled'] as bool?) ?? true,
         reminderTiming: (data['reminderTiming'] as String?) ?? '24h',
         eventUpdatesEnabled: (data['eventUpdatesEnabled'] as bool?) ?? true,
         nearbyEventsEnabled: (data['nearbyEventsEnabled'] as bool?) ?? true,
         recommendedEventsEnabled:
-          (data['recommendedEventsEnabled'] as bool?) ?? true,
+            (data['recommendedEventsEnabled'] as bool?) ?? true,
         emailNotificationsEnabled:
-          (data['emailNotificationsEnabled'] as bool?) ?? true,
+            (data['emailNotificationsEnabled'] as bool?) ?? true,
         useCurrentLocation: (data['useCurrentLocation'] as bool?) ?? true,
         locationRadiusKm: (data['locationRadiusKm'] as num?)?.toInt() ?? 20,
         locationAccessEnabled: (data['locationAccessEnabled'] as bool?) ?? true,
         themePreference: (data['themePreference'] as String?) ?? 'system',
-        textScaleFactor:
-          (data['textScaleFactor'] as num?)?.toDouble() ?? 1.0,
-        profileImageBase64: (data['profileImageBase64'] as String?)?.trim().isNotEmpty == true
-          ? (data['profileImageBase64'] as String)
-          : null,
-        profileImageUrl: (data['profileImageUrl'] as String?)?.trim().isNotEmpty == true
-          ? (data['profileImageUrl'] as String)
-          : null,
+        textScaleFactor: (data['textScaleFactor'] as num?)?.toDouble() ?? 1.0,
+        language: (data['language'] as String?) ?? 'en',
+        profileImageBase64:
+            (data['profileImageBase64'] as String?)?.trim().isNotEmpty == true
+                ? (data['profileImageBase64'] as String)
+                : null,
+        profileImageUrl:
+            (data['profileImageUrl'] as String?)?.trim().isNotEmpty == true
+                ? (data['profileImageUrl'] as String)
+                : null,
         profileImageStoragePath:
-          (data['profileImageStoragePath'] as String?)?.trim().isNotEmpty == true
-            ? (data['profileImageStoragePath'] as String)
-            : null,
+            (data['profileImageStoragePath'] as String?)?.trim().isNotEmpty ==
+                    true
+                ? (data['profileImageStoragePath'] as String)
+                : null,
       );
 
       final userIndex = _users.indexWhere(
@@ -470,6 +512,7 @@ class VisitorAuth {
         locationAccessEnabled: user.locationAccessEnabled,
         themePreference: user.themePreference,
         textScaleFactor: user.textScaleFactor,
+        language: user.language,
       );
       return true;
     } on fb_auth.FirebaseAuthException catch (error) {
@@ -506,7 +549,8 @@ class VisitorAuth {
     }
   }
 
-  static Future<bool> sendPasswordReset({required String emailOrUsername}) async {
+  static Future<bool> sendPasswordReset(
+      {required String emailOrUsername}) async {
     debugPrint('[VisitorAuth] sendPasswordReset called with: $emailOrUsername');
     _lastErrorMessage = null;
 
@@ -519,26 +563,30 @@ class VisitorAuth {
     }
 
     if (!normalized.contains('@')) {
-      _lastErrorMessage = 'Please enter your email address (not your username) to reset your password.';
+      _lastErrorMessage =
+          'Please enter your email address (not your username) to reset your password.';
       debugPrint('[VisitorAuth] email does not contain @');
       return false;
     }
 
     try {
-      debugPrint('[VisitorAuth] calling Firebase sendPasswordResetEmail for: $normalized');
+      debugPrint(
+          '[VisitorAuth] calling Firebase sendPasswordResetEmail for: $normalized');
       await fb_auth.FirebaseAuth.instance.sendPasswordResetEmail(
         email: normalized,
       );
       debugPrint('[VisitorAuth] password reset email sent successfully');
       return true;
     } on fb_auth.FirebaseAuthException catch (error) {
-      debugPrint('[VisitorAuth] Firebase error: code=${error.code}, message=${error.message}');
+      debugPrint(
+          '[VisitorAuth] Firebase error: code=${error.code}, message=${error.message}');
       switch (error.code) {
         case 'invalid-email':
           _lastErrorMessage = 'Please enter a valid email address.';
           break;
         case 'too-many-requests':
-          _lastErrorMessage = 'Too many reset attempts. Please try again later.';
+          _lastErrorMessage =
+              'Too many reset attempts. Please try again later.';
           break;
         case 'network-request-failed':
           _lastErrorMessage = 'No internet connection. Please try again.';
@@ -591,10 +639,7 @@ class VisitorAuth {
     if (normalized.isEmpty) {
       return false;
     }
-    return _currentVisitor?.interestedEventIds
-            .map((id) => id.trim())
-            .contains(normalized) ??
-        false;
+    return getInterestedEventIds().contains(normalized);
   }
 
   static bool toggleInterestedEvent(String eventId) {
@@ -643,9 +688,9 @@ class VisitorAuth {
     if (!wasAlreadyInterested) {
       SmsNotificationService()
           .queueVisitorSavedEventSms(
-            visitorEmail: current.email,
-            eventId: normalized,
-          )
+        visitorEmail: current.email,
+        eventId: normalized,
+      )
           .catchError((e) {
         debugPrint('[VisitorAuth] Failed to queue saved-event SMS: $e');
         return false;
@@ -677,7 +722,11 @@ class VisitorAuth {
   }
 
   static void _queueEventSavedEmail(String email, String name, String eventId) {
-    FirebaseFirestore.instance.collection('events').doc(eventId).get().then((doc) {
+    FirebaseFirestore.instance
+        .collection('events')
+        .doc(eventId)
+        .get()
+        .then((doc) {
       final data = doc.data() ?? const <String, dynamic>{};
       final title = ((data['title'] as String?) ?? '').trim();
       final date = ((data['date'] as String?) ?? '').trim();
@@ -685,12 +734,12 @@ class VisitorAuth {
       if (title.isEmpty) return;
       VisitorEmailNotificationService()
           .queueEventSavedEmail(
-            recipientEmail: email,
-            visitorName: name,
-            eventTitle: title,
-            eventDate: date,
-            eventLocation: location,
-          )
+        recipientEmail: email,
+        visitorName: name,
+        eventTitle: title,
+        eventDate: date,
+        eventLocation: location,
+      )
           .catchError((e) {
         debugPrint('[VisitorAuth] Failed to queue saved-event email: $e');
       });
@@ -729,12 +778,14 @@ class VisitorAuth {
   static Future<bool> updateProfileInfo({
     required String newName,
     required String newPhone,
+    String? newLanguage,
   }) async {
     final current = _currentVisitor;
     if (current == null) return false;
 
     final trimmedName = newName.trim();
     final trimmedPhone = newPhone.trim();
+    final trimmedLanguage = (newLanguage ?? current.language).trim();
     if (trimmedName.isEmpty) return false;
 
     try {
@@ -745,6 +796,7 @@ class VisitorAuth {
         {
           'name': trimmedName,
           'phone': trimmedPhone,
+          'language': trimmedLanguage,
         },
         SetOptions(merge: true),
       );
@@ -752,13 +804,22 @@ class VisitorAuth {
       final updated = current.copyWith(
         name: trimmedName,
         phone: trimmedPhone,
+        language: trimmedLanguage,
       );
       _replaceCurrentVisitor(updated);
+      AppDisplaySettingsController.applyFromPersisted(
+        locationAccessEnabled: updated.locationAccessEnabled,
+        themePreference: updated.themePreference,
+        textScaleFactor: updated.textScaleFactor,
+        language: updated.language,
+      );
       return true;
     } on FirebaseException catch (e) {
-      debugPrint('[VisitorAuth] updateProfileInfo failed: ${e.code}');
+      debugPrint(
+          '[VisitorAuth] updateProfileInfo failed: ${e.code} - ${e.message}');
       return false;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[VisitorAuth] updateProfileInfo unexpected error: $e');
       return false;
     }
   }
@@ -778,6 +839,37 @@ class VisitorAuth {
       if (role != null && role.isNotEmpty && role != 'visitor') return false;
       final isActive = (data['active'] as bool?) ?? true;
       if (!isActive) return false;
+
+      // Migrate businesses previously stored in savedAttractionIds.
+      final legacyAttractionIds =
+          ((data['savedAttractionIds'] as List?) ?? const [])
+              .map((item) => '$item')
+              .where((item) => item.trim().isNotEmpty)
+              .toList(growable: false);
+      final existingBusinessIds =
+          ((data['savedBusinessIds'] as List?) ?? const [])
+              .map((item) => '$item')
+              .where((item) => item.trim().isNotEmpty)
+              .toList(growable: false);
+      final migratedBusinessIds = <String>{
+        ...existingBusinessIds,
+        ...legacyAttractionIds,
+      }.toList();
+      final hasMigrated =
+          migratedBusinessIds.length > existingBusinessIds.length;
+      if (hasMigrated) {
+        FirebaseFirestore.instance
+            .collection('visitor_users')
+            .doc(normalizedEmail)
+            .set({
+          'savedBusinessIds': migratedBusinessIds,
+          'savedAttractionIds': const <String>[],
+        }, SetOptions(merge: true)).catchError((error) {
+          debugPrint(
+              '[VisitorAuth] Failed to persist business migration: $error');
+        });
+      }
+
       final user = VisitorUser(
         name: (data['name'] as String?)?.trim().isNotEmpty == true
             ? data['name'] as String
@@ -789,44 +881,45 @@ class VisitorAuth {
             .map((item) => '$item')
             .where((item) => item.trim().isNotEmpty)
             .toList(growable: false),
-        savedAttractionIds: ((data['savedAttractionIds'] as List?) ?? const [])
-          .map((item) => '$item')
-          .where((item) => item.trim().isNotEmpty)
-          .toList(growable: false),
+        savedAttractionIds:
+            hasMigrated ? const <String>[] : legacyAttractionIds,
+        savedBusinessIds: migratedBusinessIds,
         interestCategories: ((data['interestCategories'] as List?) ?? const [])
-          .map((item) => '$item')
-          .where((item) => item.trim().isNotEmpty)
-          .toList(growable: false),
+            .map((item) => '$item')
+            .where((item) => item.trim().isNotEmpty)
+            .toList(growable: false),
         interestPriorities: ((data['interestPriorities'] as List?) ?? const [])
-          .map((item) => '$item')
-          .where((item) => item.trim().isNotEmpty)
-          .toList(growable: false),
+            .map((item) => '$item')
+            .where((item) => item.trim().isNotEmpty)
+            .toList(growable: false),
         notificationsEnabled: (data['notificationsEnabled'] as bool?) ?? true,
-        eventRemindersEnabled:
-          (data['eventRemindersEnabled'] as bool?) ?? true,
+        eventRemindersEnabled: (data['eventRemindersEnabled'] as bool?) ?? true,
         reminderTiming: (data['reminderTiming'] as String?) ?? '24h',
         eventUpdatesEnabled: (data['eventUpdatesEnabled'] as bool?) ?? true,
         nearbyEventsEnabled: (data['nearbyEventsEnabled'] as bool?) ?? true,
         recommendedEventsEnabled:
-          (data['recommendedEventsEnabled'] as bool?) ?? true,
+            (data['recommendedEventsEnabled'] as bool?) ?? true,
         emailNotificationsEnabled:
-          (data['emailNotificationsEnabled'] as bool?) ?? true,
+            (data['emailNotificationsEnabled'] as bool?) ?? true,
         useCurrentLocation: (data['useCurrentLocation'] as bool?) ?? true,
         locationRadiusKm: (data['locationRadiusKm'] as num?)?.toInt() ?? 20,
         locationAccessEnabled: (data['locationAccessEnabled'] as bool?) ?? true,
         themePreference: (data['themePreference'] as String?) ?? 'system',
-        textScaleFactor:
-          (data['textScaleFactor'] as num?)?.toDouble() ?? 1.0,
-        profileImageBase64: (data['profileImageBase64'] as String?)?.trim().isNotEmpty == true
-          ? (data['profileImageBase64'] as String)
-          : null,
-        profileImageUrl: (data['profileImageUrl'] as String?)?.trim().isNotEmpty == true
-          ? (data['profileImageUrl'] as String)
-          : null,
+        textScaleFactor: (data['textScaleFactor'] as num?)?.toDouble() ?? 1.0,
+        language: (data['language'] as String?) ?? 'en',
+        profileImageBase64:
+            (data['profileImageBase64'] as String?)?.trim().isNotEmpty == true
+                ? (data['profileImageBase64'] as String)
+                : null,
+        profileImageUrl:
+            (data['profileImageUrl'] as String?)?.trim().isNotEmpty == true
+                ? (data['profileImageUrl'] as String)
+                : null,
         profileImageStoragePath:
-          (data['profileImageStoragePath'] as String?)?.trim().isNotEmpty == true
-            ? (data['profileImageStoragePath'] as String)
-            : null,
+            (data['profileImageStoragePath'] as String?)?.trim().isNotEmpty ==
+                    true
+                ? (data['profileImageStoragePath'] as String)
+                : null,
       );
       _currentVisitor = user;
       _interestedEventsVersion.value++;
@@ -835,6 +928,7 @@ class VisitorAuth {
         locationAccessEnabled: user.locationAccessEnabled,
         themePreference: user.themePreference,
         textScaleFactor: user.textScaleFactor,
+        language: user.language,
       );
       return true;
     } catch (_) {
@@ -855,7 +949,7 @@ class VisitorAuth {
           .collection('visitor_users')
           .doc(current.email)
           .update({'notificationsEnabled': enabled});
-      
+
       final updated = current.copyWith(notificationsEnabled: enabled);
       _currentVisitor = updated;
       final idx = _users.indexWhere((u) => u.email == current.email);
@@ -902,20 +996,24 @@ class VisitorAuth {
   static Future<bool> setInterestCategories(List<String> categories) async {
     return _mergeCurrentVisitor(
       firestoreData: {'interestCategories': categories},
-      updatedUser: (current) => current.copyWith(interestCategories: categories),
+      updatedUser: (current) =>
+          current.copyWith(interestCategories: categories),
     );
   }
 
   static List<String> getInterestPriorities() {
     return List<String>.from(
-      _currentVisitor?.interestPriorities ?? _currentVisitor?.interestCategories ?? const [],
+      _currentVisitor?.interestPriorities ??
+          _currentVisitor?.interestCategories ??
+          const [],
     );
   }
 
   static Future<bool> setInterestPriorities(List<String> priorities) async {
     return _mergeCurrentVisitor(
       firestoreData: {'interestPriorities': priorities},
-      updatedUser: (current) => current.copyWith(interestPriorities: priorities),
+      updatedUser: (current) =>
+          current.copyWith(interestPriorities: priorities),
     );
   }
 
@@ -924,7 +1022,11 @@ class VisitorAuth {
   }
 
   static bool isAttractionSaved(String attractionId) {
-    return _currentVisitor?.savedAttractionIds.contains(attractionId) ?? false;
+    final normalized = attractionId.trim();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    return getSavedAttractionIds().contains(normalized);
   }
 
   static bool toggleSavedAttraction(String attractionId) {
@@ -947,26 +1049,52 @@ class VisitorAuth {
     FirebaseFirestore.instance
         .collection('visitor_users')
         .doc(current.email)
-        .set({'savedAttractionIds': updatedIds}, SetOptions(merge: true))
-        .catchError((error) {
+        .set({'savedAttractionIds': updatedIds},
+            SetOptions(merge: true)).catchError((error) {
       debugPrint('[VisitorAuth] Failed to persist saved attractions: $error');
     });
 
     return true;
   }
 
-  // Business save helpers reuse the same saved list. Keeping separate names
-  // makes the call sites in business profiles self-documenting.
+  static Set<String> getSavedBusinessIds() {
+    return Set<String>.from(_currentVisitor?.savedBusinessIds ?? const []);
+  }
+
   static bool isBusinessSaved(String businessId) {
-    return isAttractionSaved(businessId);
+    final normalized = businessId.trim();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    return getSavedBusinessIds().contains(normalized);
   }
 
   static bool toggleSavedBusiness(String businessId) {
-    return toggleSavedAttraction(businessId);
-  }
+    final current = _currentVisitor;
+    if (current == null) {
+      return false;
+    }
 
-  static Set<String> getSavedBusinessIds() {
-    return getSavedAttractionIds();
+    final updatedIds = List<String>.from(current.savedBusinessIds);
+    if (updatedIds.contains(businessId)) {
+      updatedIds.remove(businessId);
+    } else {
+      updatedIds.add(businessId);
+    }
+
+    final updated = current.copyWith(savedBusinessIds: updatedIds);
+    _replaceCurrentVisitor(updated);
+    _savedAttractionsVersion.value += 1;
+
+    FirebaseFirestore.instance
+        .collection('visitor_users')
+        .doc(current.email)
+        .set({'savedBusinessIds': updatedIds},
+            SetOptions(merge: true)).catchError((error) {
+      debugPrint('[VisitorAuth] Failed to persist saved businesses: $error');
+    });
+
+    return true;
   }
 
   static Future<bool> setLocationSettings({
@@ -1092,7 +1220,8 @@ class VisitorAuth {
       _replaceCurrentVisitor(updatedUser(current));
       return true;
     } on FirebaseException catch (error) {
-      debugPrint('[VisitorAuth] Failed to persist visitor settings: ${error.code}');
+      debugPrint(
+          '[VisitorAuth] Failed to persist visitor settings: ${error.code}');
       return false;
     } catch (_) {
       return false;

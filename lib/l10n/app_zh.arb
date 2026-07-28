@@ -1,0 +1,323 @@
+{
+  "appTitle": "BrisConnect+",
+  "welcome": "欢迎",
+  "signIn": "登录",
+  "signUp": "注册",
+  "signOut": "退出登录",
+  "email": "电子邮件",
+  "password": "密码",
+  "phone": "电话",
+  "name": "姓名",
+  "save": "保存",
+  "cancel": "取消",
+  "editProfile": "编辑个人资料",
+  "profileInfo": "个人资料信息",
+  "preferences": "偏好设置",
+  "language": "语言",
+  "locationRadius": "位置半径",
+  "appearanceSettings": "外观设置",
+  "feedback": "反馈",
+  "myFeedback": "我的反馈",
+  "helpAndSupport": "帮助与支持",
+  "discover": "发现",
+  "community": "社区",
+  "map": "地图",
+  "saved": "已保存",
+  "profile": "个人资料",
+  "food": "美食",
+  "events": "活动",
+  "businesses": "商家",
+  "promotions": "促销",
+  "photos": "照片",
+  "newPost": "最新",
+  "search": "搜索",
+  "filter": "筛选",
+  "clearFilters": "清除筛选",
+  "noResults": "未找到结果",
+  "loading": "加载中...",
+  "error": "错误",
+  "success": "成功",
+  "profileUpdated": "个人资料更新成功。",
+  "profileUpdateFailed": "无法更新个人资料。请重试。",
+  "guestVisitor": "访客",
+  "localUser": "当地的",
+  "filterEventsTitle": "过滤事件",
+  "priceLabel": "价格",
+  "dateLabel": "日期",
+  "pickADate": "选择日期",
+  "resetButton": "重置",
+  "applyButton": "申请",
+  "freeLabel": "免费",
+  "paidLabel": "付费",
+  "eventSavedToInterested": "{eventTitle} 已保存到“感兴趣”。",
+  "@eventSavedToInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "eventRemovedFromInterested": "{eventTitle} 从“感兴趣”中删除。",
+  "@eventRemovedFromInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "savedToAttractions": "{title} 已保存到已保存的景点。",
+  "@savedToAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "removedFromAttractions": "{title} 已从保存的景点中删除。",
+  "@removedFromAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "pleaseSignInToSaveEvents": "请以访客身份登录以保存活动。",
+  "pleaseSignInToReview": "请登录以撰写评论或 BuzzVote。",
+  "reviewSubmitted": "审核已提交\\! ⭐ {rating} / 嗡嗡声 ⚡ {buzzRating}",
+  "@reviewSubmitted": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "buzzRating": {
+        "type": "String"
+      }
+    }
+  },
+  "reviewSubmitFailed": "无法提交评论：{error}",
+  "@reviewSubmitFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noExternalLink": "该商品尚无可用的外部链接。",
+  "unableToOpenLink": "目前无法打开活动链接。",
+  "shareTitle": "分享：{title}",
+  "@shareTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "reportEvent": "报告事件",
+  "reviewsOnlyForFood": "评论仅适用于食品",
+  "chooseFromGallery": "从画廊中选择",
+  "takeAPhoto": "拍张照片",
+  "pleaseLoginVisitor": "请先以访客身份登录。",
+  "onlyJpgPng": "仅支持 JPG 和 PNG 图像。",
+  "imageTooLarge": "图片太大。请选择较小的图像。",
+  "profilePictureUpdated": "个人资料图片更新成功。",
+  "profilePictureUpdateFailed": "无法更新个人资料图片。请再试一次。",
+  "enterYourName": "输入你的名字",
+  "phoneHint": "例如04xxxxxxxx",
+  "nameCannotBeEmpty": "名称不能为空。",
+  "nameMinLength": "名称必须至少包含 2 个字符。",
+  "enterValidPhone": "输入有效的电话号码。",
+  "changeProfilePicture": "更改个人资料图片",
+  "uploadProfilePicture": "上传个人资料图片",
+  "areYouSureSignOut": "您确定要退出吗？",
+  "returnWelcome": "返回欢迎屏幕",
+  "setHowFarRecommendations": "设置推荐的范围",
+  "themeTextSizeFeedback": "主题、文字大小和反馈",
+  "faqsContactAppInfo": "常见问题解答、联系我们和应用程序信息",
+  "viewSubmittedFeedback": "查看您提交的反馈和管理员回复",
+  "discoverSubtitle": "探索当地美食和体验",
+  "searchHintLocalFood": "搜索当地食品企业...",
+  "homeLabel": "首页",
+  "recommendedForYou": "为您推荐",
+  "seeAll": "查看全部",
+  "categories": "类别",
+  "nearby": "附近",
+  "noFoodPlacesFound": "没有找到吃饭的地方",
+  "noFoodPlacesSubtitle": "尝试更改您的搜索或过滤器选择。",
+  "localFoodBusinesses": "当地食品企业",
+  "localFoodSubtitle": "支持布里斯班中小型食品企业",
+  "exploreReviewFoodBusinesses": "探索和回顾食品企业",
+  "noSavedItemsTitle": "还没有保存的项目",
+  "noSavedItemsSubtitle": "点击食品名片上的心形图标或企业资料上的书签，将其保存在此处。",
+  "savedEvents": "已保存的活动",
+  "savedEventsSubtitle": "您的活动提醒和计划",
+  "savedAttractions": "已保存的景点",
+  "savedAttractionsSubtitle": "与活动无关的参观地点",
+  "savedBusinesses": "已保存的企业",
+  "savedBusinessesSubtitle": "您已添加书签的食品企业",
+  "savedItemsUnavailableTitle": "已保存的项目不可用",
+  "savedItemsUnavailableSubtitle": "某些已保存的项目不再在发现源中发布。",
+  "retryAction": "重试",
+  "unableToLoadDiscover": "目前无法加载发现项目。请再试一次。",
+  "unableToLoadSaved": "现在无法加载已保存的项目。请再试一次。",
+  "dateTBA": "日期待定",
+  "timeTBA": "时间待定",
+  "untitledEvent": "无标题活动",
+  "locationTBA": "地点待定",
+  "priceTBA": "价格待定",
+  "placeFallback": "地点",
+  "foodExperienceFallback": "美食体验",
+  "stadiumFallback": "体育场",
+  "eventFallback": "活动",
+  "attractionFallback": "景点",
+  "ratingReviewsCount": "{rating} · {count} 评论",
+  "@ratingReviewsCount": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "approved": "已批准",
+  "audience": "观众",
+  "businessLabel": "商务",
+  "controlDistance": "控制距离以寻找附近的机会",
+  "dashboard": "仪表板",
+  "delete": "删除",
+  "deleteEvent": "删除事件",
+  "deletingEvent": "正在删除活动...",
+  "displayName": "显示名称",
+  "errorDeletingEvent": "删除事件时出错：{error}",
+  "@errorDeletingEvent": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "errorLoadingMap": "加载地图时出错：{error}",
+  "@errorLoadingMap": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "eventDeleted": "事件“{title}”已被删除。",
+  "@eventDeleted": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToDeleteEvent": "删除事件失败。请再试一次。",
+  "feed": "饲料",
+  "localBusinessPortal": "本地商业门户",
+  "pending": "待定",
+  "phoneNumber": "电话号码",
+  "pleaseLoginLocal": "请先以本地用户身份登录。",
+  "pleaseLoginToDelete": "请登录以删除事件。",
+  "pushAlerts": "为您的企业推送警报",
+  "rejected": "被拒绝",
+  "reviews": "评论",
+  "saveChanges": "保存更改",
+  "searchHintEvents": "搜索活动、预订...",
+  "suburb": "郊区",
+  "thisLinkUnavailable": "此链接目前不可用。",
+  "total": "总计",
+  "couldNotSaveSettings": "无法保存设置。请再试一次。",
+  "locationAccessDisabled": "应用程序功能禁用位置访问。",
+  "locationPermissionGranted": "已授予位置许可。",
+  "openSettings": "打开设置",
+  "themeDark": "黑暗",
+  "themeLight": "光",
+  "themeSystem": "系统",
+  "textScalePercent": "{value}%",
+  "@textScalePercent": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "categoryLabel": "类别： {category}",
+  "@categoryLabel": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "severityLabel": "严重性：{severity}",
+  "@severityLabel": {
+    "placeholders": {
+      "severity": {
+        "type": "String"
+      }
+    }
+  },
+  "languageEnglish": "英语",
+  "languageSpanish": "西班牙语",
+  "languageFrench": "法语",
+  "languageGerman": "德语",
+  "languageChinese": "中文",
+  "languageArabic": "阿拉伯语",
+  "languageHindi": "印地语",
+  "languageItalian": "意大利语",
+  "languageJapanese": "日语",
+  "languageKorean": "韩语",
+  "languagePortuguese": "葡萄牙语",
+  "languageRussian": "俄语",
+  "languageVietnamese": "越南语",
+  "languageGreek": "希腊语",
+  "discoverTitle": "探索当地美食",
+  "openSourceLink": "开源链接",
+  "pendingApproval": "待批准",
+  "deleteEventConfirmation": "您确定要删除“{title}”吗？",
+  "@deleteEventConfirmation": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "myActivity": "我的活动",
+  "businessNotifications": "业务通知",
+  "about": "关于",
+  "aboutDescription": "BrisConnect+ 是一款智能城市指南，可帮助游客和当地人在一个互联平台上发现活动、探索景点并捕捉他们的布里斯班体验。",
+  "versionLabel": "版本 {version}",
+  "@versionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "locationPermissions": "位置权限",
+  "enableLocationAccess": "启用位置访问",
+  "allowNearbyMapFeatures": "允许附近的推荐和地图感知功能。",
+  "locationSettings": "位置设置",
+  "setSearchRadius": "设置活动和景点的搜索半径。",
+  "pleaseLoginToViewSettings": "请登录查看设置。",
+  "locationPermissionNotGranted": "未授予位置许可。您可以在系统设置中启用它。",
+  "theme": "主题",
+  "appTheme": "应用主题",
+  "chooseHowAppLooks": "选择应用程序的外观。",
+  "textSize": "文字大小",
+  "adjustTextSize": "调整整个应用程序的文本大小。",
+  "smaller": "较小",
+  "larger": "较大",
+  "support": "支持",
+  "sendAppFeedback": "发送应用程序反馈",
+  "reportBugsImprovements": "报告错误、误导性信息或改进建议。",
+  "noFeedbackYet": "您尚未提交任何反馈。",
+  "adminResponse": "管理员回应",
+  "awaitingAdminResponse": "等待管理员回复...",
+  "statusPending": "待办的",
+  "statusInProgress": "进行中",
+  "statusResolved": "已解决",
+  "statusWontFix": "不会修复"
+}

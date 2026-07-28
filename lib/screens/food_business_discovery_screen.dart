@@ -4,7 +4,7 @@ import 'package:brisconnect/services/food_business_service.dart';
 import 'package:brisconnect/screens/food_business_detail_screen.dart';
 
 class FoodBusinessDiscoveryScreen extends StatefulWidget {
-  const FoodBusinessDiscoveryScreen({Key? key}) : super(key: key);
+  const FoodBusinessDiscoveryScreen({super.key});
 
   @override
   State<FoodBusinessDiscoveryScreen> createState() =>

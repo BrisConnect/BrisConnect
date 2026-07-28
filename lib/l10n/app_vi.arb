@@ -1,0 +1,323 @@
+{
+  "appTitle": "BrisConnect+",
+  "welcome": "Chào mừng",
+  "signIn": "Đăng nhập",
+  "signUp": "Đăng ký",
+  "signOut": "Đăng xuất",
+  "email": "Email",
+  "password": "Mật khẩu",
+  "phone": "Điện thoại",
+  "name": "Tên",
+  "save": "Lưu",
+  "cancel": "Hủy",
+  "editProfile": "Chỉnh sửa hồ sơ",
+  "profileInfo": "Thông tin hồ sơ",
+  "preferences": "Tùy chọn",
+  "language": "Ngôn ngữ",
+  "locationRadius": "Bán kính vị trí",
+  "appearanceSettings": "Giao diện",
+  "feedback": "Phản hồi",
+  "myFeedback": "Phản hồi của tôi",
+  "helpAndSupport": "Trợ giúp & Hỗ trợ",
+  "discover": "Khám phá",
+  "community": "Cộng đồng",
+  "map": "Bản đồ",
+  "saved": "Đã lưu",
+  "profile": "Hồ sơ",
+  "food": "Ẩm thực",
+  "events": "Sự kiện",
+  "businesses": "Doanh nghiệp",
+  "promotions": "Khuyến mãi",
+  "photos": "Ảnh",
+  "newPost": "Mới",
+  "search": "Tìm kiếm",
+  "filter": "Lọc",
+  "clearFilters": "Xóa bộ lọc",
+  "noResults": "Không tìm thấy kết quả",
+  "loading": "Đang tải...",
+  "error": "Lỗi",
+  "success": "Thành công",
+  "profileUpdated": "Hồ sơ đã được cập nhật.",
+  "profileUpdateFailed": "Không thể cập nhật hồ sơ. Vui lòng thử lại.",
+  "guestVisitor": "Khách tham quan",
+  "localUser": "Địa phương",
+  "filterEventsTitle": "Lọc sự kiện",
+  "priceLabel": "Giá",
+  "dateLabel": "Ngày",
+  "pickADate": "Chọn một ngày",
+  "resetButton": "Đặt lại",
+  "applyButton": "Áp dụng",
+  "freeLabel": "miễn phí",
+  "paidLabel": "Đã trả tiền",
+  "eventSavedToInterested": "{eventTitle} đã lưu vào Quan tâm.",
+  "@eventSavedToInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "eventRemovedFromInterested": "{eventTitle} đã bị xóa khỏi Quan tâm.",
+  "@eventRemovedFromInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "savedToAttractions": "{title} đã lưu vào Điểm tham quan đã lưu.",
+  "@savedToAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "removedFromAttractions": "{title} đã bị xóa khỏi Điểm tham quan đã lưu.",
+  "@removedFromAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "pleaseSignInToSaveEvents": "Vui lòng đăng nhập với tư cách là Khách truy cập để lưu sự kiện.",
+  "pleaseSignInToReview": "Vui lòng đăng nhập để viết đánh giá hoặc BuzzVote.",
+  "reviewSubmitted": "Đã gửi đánh giá\\! ⭐ {rating} / Buzz ⚡ {buzzRating}",
+  "@reviewSubmitted": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "buzzRating": {
+        "type": "String"
+      }
+    }
+  },
+  "reviewSubmitFailed": "Không thể gửi đánh giá: {error}",
+  "@reviewSubmitFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noExternalLink": "Không có liên kết bên ngoài có sẵn cho mục này.",
+  "unableToOpenLink": "Không thể mở liên kết sự kiện ngay bây giờ.",
+  "shareTitle": "Chia sẻ: {title}",
+  "@shareTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "reportEvent": "Báo cáo sự kiện",
+  "reviewsOnlyForFood": "Đánh giá chỉ có sẵn cho các mặt hàng thực phẩm",
+  "chooseFromGallery": "Chọn từ thư viện",
+  "takeAPhoto": "Chụp ảnh",
+  "pleaseLoginVisitor": "Vui lòng đăng nhập với tư cách là Khách truy cập trước.",
+  "onlyJpgPng": "Chỉ hỗ trợ hình ảnh JPG và PNG.",
+  "imageTooLarge": "Hình ảnh quá lớn. Vui lòng chọn một hình ảnh nhỏ hơn.",
+  "profilePictureUpdated": "Ảnh hồ sơ được cập nhật thành công.",
+  "profilePictureUpdateFailed": "Không thể cập nhật ảnh hồ sơ. Vui lòng thử lại.",
+  "enterYourName": "Nhập tên của bạn",
+  "phoneHint": "ví dụ: 04xxxxxxxxx",
+  "nameCannotBeEmpty": "Tên không được để trống.",
+  "nameMinLength": "Tên phải có ít nhất 2 ký tự.",
+  "enterValidPhone": "Nhập số điện thoại hợp lệ.",
+  "changeProfilePicture": "Thay đổi ảnh hồ sơ",
+  "uploadProfilePicture": "Tải ảnh hồ sơ lên",
+  "areYouSureSignOut": "Bạn có chắc chắn muốn đăng xuất không?",
+  "returnWelcome": "Quay lại màn hình chào mừng",
+  "setHowFarRecommendations": "Đặt khoảng cách có thể đưa ra đề xuất",
+  "themeTextSizeFeedback": "Chủ đề, kích thước văn bản và phản hồi",
+  "faqsContactAppInfo": "Câu hỏi thường gặp, liên hệ với chúng tôi và thông tin ứng dụng",
+  "viewSubmittedFeedback": "Xem phản hồi đã gửi của bạn và phản hồi của quản trị viên",
+  "discoverSubtitle": "Khám phá ẩm thực và trải nghiệm địa phương",
+  "searchHintLocalFood": "Tìm kiếm các doanh nghiệp thực phẩm địa phương...",
+  "homeLabel": "Trang chủ",
+  "recommendedForYou": "Đề xuất cho bạn",
+  "seeAll": "Xem Tất Cả",
+  "categories": "Danh mục",
+  "nearby": "lân cận",
+  "noFoodPlacesFound": "Không tìm thấy địa điểm ăn uống nào",
+  "noFoodPlacesSubtitle": "Hãy thử thay đổi lựa chọn tìm kiếm hoặc bộ lọc của bạn.",
+  "localFoodBusinesses": "Doanh nghiệp thực phẩm địa phương",
+  "localFoodSubtitle": "Hỗ trợ các doanh nghiệp thực phẩm vừa và nhỏ ở Brisbane",
+  "exploreReviewFoodBusinesses": "Khám phá và đánh giá các doanh nghiệp thực phẩm",
+  "noSavedItemsTitle": "Chưa có mục nào được lưu",
+  "noSavedItemsSubtitle": "Nhấn vào biểu tượng trái tim trên danh thiếp thực phẩm hoặc dấu trang trên hồ sơ doanh nghiệp để lưu chúng tại đây.",
+  "savedEvents": "Sự kiện đã lưu",
+  "savedEventsSubtitle": "Lời nhắc và kế hoạch sự kiện của bạn",
+  "savedAttractions": "Điểm tham quan đã lưu",
+  "savedAttractionsSubtitle": "Địa điểm tham quan độc lập với các sự kiện",
+  "savedBusinesses": "Doanh nghiệp đã lưu",
+  "savedBusinessesSubtitle": "Các doanh nghiệp thực phẩm bạn đã đánh dấu",
+  "savedItemsUnavailableTitle": "Các mục đã lưu không có sẵn",
+  "savedItemsUnavailableSubtitle": "Một số mục đã lưu không còn được xuất bản trong nguồn cấp dữ liệu khám phá nữa.",
+  "retryAction": "Thử lại",
+  "unableToLoadDiscover": "Không thể tải các mục khám phá ngay bây giờ. Vui lòng thử lại.",
+  "unableToLoadSaved": "Không thể tải các mục đã lưu ngay bây giờ. Vui lòng thử lại.",
+  "dateTBA": "Ngày TBA",
+  "timeTBA": "thời gian TBA",
+  "untitledEvent": "Sự kiện không có tiêu đề",
+  "locationTBA": "Vị trí TBA",
+  "priceTBA": "Giá TBA",
+  "placeFallback": "Địa điểm",
+  "foodExperienceFallback": "Trải nghiệm ẩm thực",
+  "stadiumFallback": "Sân vận động",
+  "eventFallback": "Sự kiện",
+  "attractionFallback": "Sự hấp dẫn",
+  "ratingReviewsCount": "{rating} · {count} đánh giá",
+  "@ratingReviewsCount": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "approved": "Đã được phê duyệt",
+  "audience": "Khán giả",
+  "businessLabel": "Kinh doanh",
+  "controlDistance": "Kiểm soát khoảng cách cho các cơ hội lân cận",
+  "dashboard": "Trang tổng quan",
+  "delete": "Xóa",
+  "deleteEvent": "Xóa sự kiện",
+  "deletingEvent": "Đang xóa sự kiện...",
+  "displayName": "Tên hiển thị",
+  "errorDeletingEvent": "Lỗi xóa sự kiện: {error}",
+  "@errorDeletingEvent": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "errorLoadingMap": "Lỗi tải bản đồ: {error}",
+  "@errorLoadingMap": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "eventDeleted": "Sự kiện \"{title}\" đã bị xóa.",
+  "@eventDeleted": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToDeleteEvent": "Không thể xóa sự kiện. Vui lòng thử lại.",
+  "feed": "Nguồn cấp dữ liệu",
+  "localBusinessPortal": "Cổng thông tin doanh nghiệp địa phương",
+  "pending": "Đang chờ xử lý",
+  "phoneNumber": "Số điện thoại",
+  "pleaseLoginLocal": "Vui lòng đăng nhập với tư cách là người dùng cục bộ trước.",
+  "pleaseLoginToDelete": "Vui lòng đăng nhập để xóa sự kiện.",
+  "pushAlerts": "Đẩy thông báo cho doanh nghiệp của bạn",
+  "rejected": "Bị từ chối",
+  "reviews": "Đánh giá",
+  "saveChanges": "Lưu thay đổi",
+  "searchHintEvents": "Tìm kiếm sự kiện, đặt chỗ...",
+  "suburb": "Ngoại ô",
+  "thisLinkUnavailable": "Liên kết này hiện không có sẵn.",
+  "total": "Tổng cộng",
+  "couldNotSaveSettings": "Không thể lưu cài đặt. Vui lòng thử lại.",
+  "locationAccessDisabled": "Quyền truy cập vị trí bị vô hiệu hóa đối với các tính năng của ứng dụng.",
+  "locationPermissionGranted": "Đã cấp quyền truy cập vị trí.",
+  "openSettings": "Mở cài đặt",
+  "themeDark": "Tối",
+  "themeLight": "Ánh sáng",
+  "themeSystem": "Hệ thống",
+  "textScalePercent": "{value}%",
+  "@textScalePercent": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "categoryLabel": "Danh mục: {category}",
+  "@categoryLabel": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "severityLabel": "Mức độ nghiêm trọng: {severity}",
+  "@severityLabel": {
+    "placeholders": {
+      "severity": {
+        "type": "String"
+      }
+    }
+  },
+  "languageEnglish": "Tiếng Anh",
+  "languageSpanish": "tiếng Tây Ban Nha",
+  "languageFrench": "người Pháp",
+  "languageGerman": "tiếng Đức",
+  "languageChinese": "Tiếng Trung",
+  "languageArabic": "tiếng Ả Rập",
+  "languageHindi": "Tiếng Hindi",
+  "languageItalian": "người Ý",
+  "languageJapanese": "tiếng Nhật",
+  "languageKorean": "Tiếng Hàn",
+  "languagePortuguese": "tiếng Bồ Đào Nha",
+  "languageRussian": "tiếng Nga",
+  "languageVietnamese": "Tiếng Việt",
+  "languageGreek": "tiếng Hy Lạp",
+  "discoverTitle": "Khám phá ẩm thực địa phương",
+  "openSourceLink": "Liên kết nguồn mở",
+  "pendingApproval": "Đang chờ phê duyệt",
+  "deleteEventConfirmation": "Bạn có chắc chắn muốn xóa \"{title}\" không? ",
+  "@deleteEventConfirmation": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "myActivity": "Hoạt động của tôi",
+  "businessNotifications": "Thông báo kinh doanh",
+  "about": "Về",
+  "aboutDescription": "BrisConnect+ là hướng dẫn thành phố thông minh giúp du khách và người dân địa phương khám phá các sự kiện, khám phá các điểm tham quan và ghi lại trải nghiệm Brisbane của họ trong một nền tảng được kết nối.",
+  "versionLabel": "Phiên bản {version}",
+  "@versionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "locationPermissions": "Quyền vị trí",
+  "enableLocationAccess": "Bật quyền truy cập vị trí",
+  "allowNearbyMapFeatures": "Cho phép đề xuất lân cận và các tính năng nhận biết bản đồ.",
+  "locationSettings": "Cài đặt vị trí",
+  "setSearchRadius": "Đặt bán kính tìm kiếm của bạn cho các sự kiện và điểm tham quan.",
+  "pleaseLoginToViewSettings": "Vui lòng đăng nhập để xem cài đặt.",
+  "locationPermissionNotGranted": "Quyền vị trí không được cấp. Bạn có thể kích hoạt nó trong cài đặt hệ thống.",
+  "theme": "chủ đề",
+  "appTheme": "Chủ đề ứng dụng",
+  "chooseHowAppLooks": "Chọn giao diện của ứng dụng.",
+  "textSize": "Kích thước văn bản",
+  "adjustTextSize": "Điều chỉnh kích thước văn bản trên ứng dụng.",
+  "smaller": "Nhỏ hơn",
+  "larger": "lớn hơn",
+  "support": "Ủng hộ",
+  "sendAppFeedback": "Gửi phản hồi về ứng dụng",
+  "reportBugsImprovements": "Báo cáo lỗi, thông tin sai lệch hoặc đề xuất cải tiến.",
+  "noFeedbackYet": "Bạn chưa gửi bất kỳ phản hồi nào.",
+  "adminResponse": "Phản hồi của quản trị viên",
+  "awaitingAdminResponse": "Đang chờ phản hồi của quản trị viên...",
+  "statusPending": "Chưa giải quyết",
+  "statusInProgress": "Đang tiến hành",
+  "statusResolved": "Đã giải quyết",
+  "statusWontFix": "Sẽ không sửa chữa"
+}

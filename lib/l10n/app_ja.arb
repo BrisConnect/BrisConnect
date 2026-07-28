@@ -1,0 +1,323 @@
+{
+  "appTitle": "BrisConnect+",
+  "welcome": "ようこそ",
+  "signIn": "サインイン",
+  "signUp": "サインアップ",
+  "signOut": "サインアウト",
+  "email": "メール",
+  "password": "パスワード",
+  "phone": "電話",
+  "name": "名前",
+  "save": "保存",
+  "cancel": "キャンセル",
+  "editProfile": "プロフィールを編集",
+  "profileInfo": "プロフィール情報",
+  "preferences": "設定",
+  "language": "言語",
+  "locationRadius": "位置の半径",
+  "appearanceSettings": "外観設定",
+  "feedback": "フィードバック",
+  "myFeedback": "マイフィードバック",
+  "helpAndSupport": "ヘルプとサポート",
+  "discover": "発見",
+  "community": "コミュニティ",
+  "map": "地図",
+  "saved": "保存済み",
+  "profile": "プロフィール",
+  "food": "食べ物",
+  "events": "イベント",
+  "businesses": "ビジネス",
+  "promotions": "プロモーション",
+  "photos": "写真",
+  "newPost": "新着",
+  "search": "検索",
+  "filter": "フィルター",
+  "clearFilters": "フィルターをクリア",
+  "noResults": "結果が見つかりません",
+  "loading": "読み込み中...",
+  "error": "エラー",
+  "success": "成功",
+  "profileUpdated": "プロフィールが正常に更新されました。",
+  "profileUpdateFailed": "プロフィールを更新できませんでした。もう一度お試しください。",
+  "guestVisitor": "ゲスト訪問者",
+  "localUser": "地元",
+  "filterEventsTitle": "イベントのフィルタリング",
+  "priceLabel": "価格",
+  "dateLabel": "日付",
+  "pickADate": "日付を選択してください",
+  "resetButton": "リセット",
+  "applyButton": "申し込む",
+  "freeLabel": "無料",
+  "paidLabel": "有料",
+  "eventSavedToInterested": "{eventTitle} は「興味あり」に保存されました。",
+  "@eventSavedToInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "eventRemovedFromInterested": "{eventTitle} が「興味あり」から削除されました。",
+  "@eventRemovedFromInterested": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "savedToAttractions": "{title} が保存された観光スポットに保存されました。",
+  "@savedToAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "removedFromAttractions": "{title} が保存されたアトラクションから削除されました。",
+  "@removedFromAttractions": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "pleaseSignInToSaveEvents": "イベントを保存するには、訪問者としてログインしてください。",
+  "pleaseSignInToReview": "レビューを書くか BuzzVote するにはサインインしてください。",
+  "reviewSubmitted": "レビューが送信されました\\! ⭐ {rating} / バズ ⚡ {buzzRating}",
+  "@reviewSubmitted": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "buzzRating": {
+        "type": "String"
+      }
+    }
+  },
+  "reviewSubmitFailed": "レビューを送信できませんでした: {error}",
+  "@reviewSubmitFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noExternalLink": "このアイテムに利用できる外部リンクはまだありません。",
+  "unableToOpenLink": "現在、イベント リンクを開けません。",
+  "shareTitle": "共有: {title}",
+  "@shareTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "reportEvent": "イベントを報告する",
+  "reviewsOnlyForFood": "レビューは食品のみに適用されます",
+  "chooseFromGallery": "ギャラリーから選ぶ",
+  "takeAPhoto": "写真を撮ってください",
+  "pleaseLoginVisitor": "まずビジターとしてログインしてください。",
+  "onlyJpgPng": "JPG および PNG 画像のみがサポートされています。",
+  "imageTooLarge": "画像が大きすぎます。小さい画像を選択してください。",
+  "profilePictureUpdated": "プロフィール写真が正常に更新されました。",
+  "profilePictureUpdateFailed": "プロフィール写真を更新できませんでした。もう一度試してください。",
+  "enterYourName": "あなたの名前を入力してください",
+  "phoneHint": "例: 04xxxxxxxx",
+  "nameCannotBeEmpty": "名前を空にすることはできません。",
+  "nameMinLength": "名前は少なくとも 2 文字である必要があります。",
+  "enterValidPhone": "有効な電話番号を入力してください。",
+  "changeProfilePicture": "プロフィール写真を変更する",
+  "uploadProfilePicture": "プロフィール写真をアップロードする",
+  "areYouSureSignOut": "サインアウトしてもよろしいですか?",
+  "returnWelcome": "ようこそ画面に戻る",
+  "setHowFarRecommendations": "どこまで推奨できるかを設定する",
+  "themeTextSizeFeedback": "テーマ、テキストサイズ、フィードバック",
+  "faqsContactAppInfo": "FAQ、お問い合わせ、アプリ情報",
+  "viewSubmittedFeedback": "送信されたフィードバックと管理者の応答を表示する",
+  "discoverSubtitle": "地元の食べ物や体験を発見する",
+  "searchHintLocalFood": "地元の飲食店を検索...",
+  "homeLabel": "ホーム",
+  "recommendedForYou": "あなたにおすすめ",
+  "seeAll": "すべて見る",
+  "categories": "カテゴリー",
+  "nearby": "近くの",
+  "noFoodPlacesFound": "食事できる場所が見つかりません",
+  "noFoodPlacesSubtitle": "検索またはフィルターの選択を変更してみてください。",
+  "localFoodBusinesses": "地元の食品ビジネス",
+  "localFoodSubtitle": "ブリスベンの中小規模の食品企業をサポートする",
+  "exploreReviewFoodBusinesses": "食品ビジネスの探索とレビュー",
+  "noSavedItemsTitle": "保存されたアイテムはまだありません",
+  "noSavedItemsSubtitle": "食品の名刺のハートのアイコン、またはビジネス プロフィールのブックマークをタップして、ここに保存します。",
+  "savedEvents": "保存されたイベント",
+  "savedEventsSubtitle": "イベントのリマインダーと計画",
+  "savedAttractions": "保存された観光スポット",
+  "savedAttractionsSubtitle": "イベントとは関係なく訪れるべき場所",
+  "savedBusinesses": "保存されたビジネス",
+  "savedBusinessesSubtitle": "ブックマークした飲食店",
+  "savedItemsUnavailableTitle": "保存されたアイテムは使用できません",
+  "savedItemsUnavailableSubtitle": "一部の保存済みアイテムはディスカバリー フィードで公開されなくなりました。",
+  "retryAction": "再試行",
+  "unableToLoadDiscover": "現在、検出アイテムを読み込むことができません。もう一度試してください。",
+  "unableToLoadSaved": "現在、保存されたアイテムをロードできません。もう一度試してください。",
+  "dateTBA": "日付未定",
+  "timeTBA": "時間未定",
+  "untitledEvent": "無題のイベント",
+  "locationTBA": "場所は未定",
+  "priceTBA": "価格未定",
+  "placeFallback": "場所",
+  "foodExperienceFallback": "食体験",
+  "stadiumFallback": "スタジアム",
+  "eventFallback": "イベント",
+  "attractionFallback": "アトラクション",
+  "ratingReviewsCount": "{rating} · {count} レビュー",
+  "@ratingReviewsCount": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "approved": "承認済み",
+  "audience": "観客",
+  "businessLabel": "ビジネス",
+  "controlDistance": "近くのチャンスに合わせて距離をコントロール",
+  "dashboard": "ダッシュボード",
+  "delete": "削除",
+  "deleteEvent": "イベントの削除",
+  "deletingEvent": "イベントを削除しています...",
+  "displayName": "表示名",
+  "errorDeletingEvent": "イベント削除エラー: {error}",
+  "@errorDeletingEvent": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "errorLoadingMap": "マップのロード中にエラーが発生しました: {error}",
+  "@errorLoadingMap": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "eventDeleted": "イベント「{title}」は削除されました。",
+  "@eventDeleted": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToDeleteEvent": "イベントの削除に失敗しました。もう一度試してください。",
+  "feed": "飼料",
+  "localBusinessPortal": "ローカルビジネスポータル",
+  "pending": "保留中",
+  "phoneNumber": "電話番号",
+  "pleaseLoginLocal": "最初にローカル ユーザーとしてログインしてください。",
+  "pleaseLoginToDelete": "イベントを削除するにはログインしてください。",
+  "pushAlerts": "ビジネス向けのプッシュ アラート",
+  "rejected": "拒否されました",
+  "reviews": "レビュー",
+  "saveChanges": "変更を保存",
+  "searchHintEvents": "イベントや予約を検索...",
+  "suburb": "郊外",
+  "thisLinkUnavailable": "このリンクは現在利用できません。",
+  "total": "合計",
+  "couldNotSaveSettings": "設定を保存できませんでした。もう一度試してください。",
+  "locationAccessDisabled": "アプリ機能の位置情報アクセスが無効になっています。",
+  "locationPermissionGranted": "位置情報の許可が与えられました。",
+  "openSettings": "設定を開く",
+  "themeDark": "暗い",
+  "themeLight": "ライト",
+  "themeSystem": "システム",
+  "textScalePercent": "{value}%",
+  "@textScalePercent": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "categoryLabel": "カテゴリ: {category}",
+  "@categoryLabel": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "severityLabel": "重大度: {severity}",
+  "@severityLabel": {
+    "placeholders": {
+      "severity": {
+        "type": "String"
+      }
+    }
+  },
+  "languageEnglish": "英語",
+  "languageSpanish": "スペイン語",
+  "languageFrench": "フランス語",
+  "languageGerman": "ドイツ語",
+  "languageChinese": "中国語",
+  "languageArabic": "アラビア語",
+  "languageHindi": "ヒンディー語",
+  "languageItalian": "イタリア語",
+  "languageJapanese": "日本語",
+  "languageKorean": "韓国人",
+  "languagePortuguese": "ポルトガル語",
+  "languageRussian": "ロシア語",
+  "languageVietnamese": "ベトナム語",
+  "languageGreek": "ギリシャ語",
+  "discoverTitle": "地元の食べ物を発見する",
+  "openSourceLink": "オープンソースリンク",
+  "pendingApproval": "承認待ち",
+  "deleteEventConfirmation": "「{title}」を削除してもよろしいですか?",
+  "@deleteEventConfirmation": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "myActivity": "私の活動",
+  "businessNotifications": "業務上のお知らせ",
+  "about": "について",
+  "aboutDescription": "BrisConnect+ は、訪問者や地元の人々がイベントを発見し、観光名所を探索し、ブリスベンでの体験を 1 つの接続されたプラットフォームで記録できるようにするスマート シティ ガイドです。",
+  "versionLabel": "バージョン {version}",
+  "@versionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "locationPermissions": "位置情報の許可",
+  "enableLocationAccess": "位置情報アクセスを有効にする",
+  "allowNearbyMapFeatures": "近くのおすすめや地図対応の機能を許可します。",
+  "locationSettings": "位置情報の設定",
+  "setSearchRadius": "イベントや観光スポットの検索範囲を設定します。",
+  "pleaseLoginToViewSettings": "設定を表示するにはログインしてください。",
+  "locationPermissionNotGranted": "位置情報の許可が与えられませんでした。システム設定で有効にすることができます。",
+  "theme": "テーマ",
+  "appTheme": "アプリのテーマ",
+  "chooseHowAppLooks": "アプリの外観を選択します。",
+  "textSize": "文字サイズ",
+  "adjustTextSize": "アプリ全体でテキストのサイズを調整します。",
+  "smaller": "より小さい",
+  "larger": "より大きな",
+  "support": "サポート",
+  "sendAppFeedback": "アプリのフィードバックを送信する",
+  "reportBugsImprovements": "バグ、誤解を招く情報、または改善提案を報告します。",
+  "noFeedbackYet": "まだフィードバックを送信していません。",
+  "adminResponse": "管理者の応答",
+  "awaitingAdminResponse": "管理者の応答を待っています...",
+  "statusPending": "保留中",
+  "statusInProgress": "進行中",
+  "statusResolved": "解決済み",
+  "statusWontFix": "直らない"
+}
