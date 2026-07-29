@@ -63,8 +63,9 @@ class SocialStoryService {
     bool useMedia = true,
   }) async {
     if (kIsWeb) {
-      // Web cannot access native story composers; fall back to link sharing.
-      return _shareLinkOnly(
+      // Web cannot access native story composers. Copy the link and open the
+      // platform's web app so the visitor can log in and paste manually.
+      return _shareOnWeb(
         platform: platform,
         contentType: contentType,
         id: id,
@@ -133,6 +134,52 @@ class SocialStoryService {
       location: location,
       dateTime: dateTime,
     );
+  }
+
+  /// Web-specific story flow. Copies the link and opens the platform's web
+  /// app so the visitor can log in and paste the link as a sticker.
+  Future<StoryShareResult> _shareOnWeb({
+    required StoryPlatform platform,
+    required ShareContentType contentType,
+    required String id,
+    required String title,
+    String? description,
+    String? location,
+    String? dateTime,
+  }) async {
+    final url = _contentShareService.buildShareUrl(
+      type: contentType,
+      id: id,
+      slug: title,
+    );
+    final shareText = _contentShareService.buildShareText(
+      title: title,
+      url: url,
+      description: description,
+      location: location,
+      dateTime: dateTime,
+    );
+    await _copyToClipboard(shareText);
+
+    final webUrl = switch (platform) {
+      StoryPlatform.instagram => 'https://www.instagram.com/',
+      StoryPlatform.facebook => 'https://www.facebook.com/',
+      StoryPlatform.tiktok => 'https://www.tiktok.com/',
+    };
+
+    try {
+      if (await canLaunchUrl(Uri.parse(webUrl))) {
+        await launchUrl(
+          Uri.parse(webUrl),
+          mode: LaunchMode.externalApplication,
+          webViewConfiguration: const WebViewConfiguration(enableJavaScript: true),
+        );
+      }
+    } catch (_) {
+      // Ignore launcher errors; the link is already copied.
+    }
+
+    return StoryShareResult.copied;
   }
 
   /// Shares using only the link/text (no media picker).

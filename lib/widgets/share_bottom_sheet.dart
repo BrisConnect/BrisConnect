@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:brisconnect/services/share/content_share_service.dart';
 import 'package:brisconnect/services/share/social_story_service.dart';
@@ -169,11 +170,13 @@ Future<void> showShareBottomSheet({
               ],
             ),
             const SizedBox(height: 8),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 4),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
-                'You must be logged into Instagram, Facebook or TikTok on this device to post pictures or videos to your story.',
-                style: TextStyle(color: Colors.white38, fontSize: 11),
+                kIsWeb
+                    ? 'On the web, story sharing opens the platform site so you can log in and paste the copied link as a sticker.'
+                    : 'You must be logged into Instagram, Facebook or TikTok on this device to post pictures or videos to your story.',
+                style: const TextStyle(color: Colors.white38, fontSize: 11),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -400,8 +403,10 @@ Future<void> _shareToStory({
     case StoryShareResult.copied:
       messenger.showSnackBar(
         _buildSnackBar(
-          'Link copied! Open $platformName and paste it into your story.',
-          durationSeconds: 4,
+          kIsWeb
+              ? '$platformName web opened in a new tab. Link copied — log in and paste it as a story sticker.'
+              : 'Link copied! Open $platformName and paste it into your story.',
+          durationSeconds: 5,
         ),
       );
     case StoryShareResult.noMediaSelected:
