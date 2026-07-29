@@ -7,7 +7,7 @@ import 'firebase_options.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:brisconnect/screens/home_screen.dart';
 import 'package:brisconnect/theme/app_palette.dart';
-import 'package:brisconnect/screens/welcome_screen_new.dart';
+import 'package:brisconnect/screens/splash_screen.dart';
 import 'package:brisconnect/screens/visitor_portal_screen.dart';
 import 'package:brisconnect/screens/local_portal_screen.dart';
 import 'package:brisconnect/screens/admin_business_management_screen.dart';
@@ -93,7 +93,7 @@ class _BrisConnectAppState extends State<BrisConnectApp> {
           bodySmall: TextStyle(color: AppPalette.mutedText),
         ),
       ),
-      home: const AnimatedWelcomeScreen(),
+      home: const SplashScreen(),
       onGenerateRoute: (settings) {
         switch (settings.name) {
           case '/visitor/portal':
