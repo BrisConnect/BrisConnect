@@ -104,6 +104,7 @@ flutter:
     - assets/Koala1.png
     - assets/Elder.png
     - assets/AB.png
+    - assets/Brisbane banner.webp
   fonts:
     - family: Material Symbols Outlined
       fonts:

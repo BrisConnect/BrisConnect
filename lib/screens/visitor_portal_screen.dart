@@ -3244,32 +3244,56 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
 
   Widget _buildWebCityBanner() {
     if (!kIsWeb) return const SizedBox.shrink();
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF0D1B3F), Color(0xFF1A2E5E)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      height: 140,
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          const Icon(
-            Icons.location_city_rounded,
-            color: AppPalette.ochre,
-            size: 20,
+          Image.asset(
+            'assets/Brisbane banner.webp',
+            fit: BoxFit.cover,
           ),
-          const SizedBox(width: 8),
-          Text(
-            'Brisbane City',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.95),
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.25),
+                  Colors.black.withValues(alpha: 0.55),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            left: 16,
+            bottom: 16,
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.location_city_rounded,
+                  color: AppPalette.ochre,
+                  size: 22,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Brisbane City',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.95),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.6,
+                    shadows: const [
+                      Shadow(
+                        color: Colors.black54,
+                        offset: Offset(0, 1),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ],
