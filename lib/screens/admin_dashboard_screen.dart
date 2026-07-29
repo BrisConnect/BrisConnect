@@ -22,7 +22,27 @@ import 'package:brisconnect/services/admin_dashboard_service.dart';
 import 'package:brisconnect/services/admin_event_service.dart';
 import 'package:brisconnect/services/event_category_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
+import 'package:brisconnect/utils/responsive_utils.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
+
+/// Internal descriptor for a single admin dashboard stat tile.
+class _StatItem {
+  final Stream<int> stream;
+  final Stream<MetricTrend> trendStream;
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final VoidCallback onTap;
+
+  const _StatItem({
+    required this.stream,
+    required this.trendStream,
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.onTap,
+  });
+}
 
 class AdminDashboardScreen extends StatefulWidget {
   AdminDashboardScreen({
@@ -550,7 +570,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             offset: const Offset(0, -24),
             child: Container(
               decoration: const BoxDecoration(
-                color: Colors.white,
+                color: Color(0xFFF8FAFD),
                 borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                 border: Border(
                   top: BorderSide(color: Color(0xFFBFDBFE), width: 1),
@@ -561,8 +581,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 children: [
                   const SizedBox(height: 22),
 
-                  // ── Stats cards row ──
-                  _buildStatsCarousel(),
+                  // ── Stats overview cards ──
+                  _buildStatsOverview(),
                   const SizedBox(height: 28),
 
                   // ── Quick Actions ──
@@ -575,6 +595,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: _buildQuickActions(),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // ── Engagement & Activity row ──
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildEngagementOverview(),
                   ),
                   const SizedBox(height: 28),
 
@@ -606,146 +633,81 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildStatsCarousel() {
-    return SizedBox(
-      height: 154,
-      child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        children: [
-          _buildStatCard(
-            stream: widget.dashboardService.totalUsersCount(),
-            trendStream: widget.dashboardService.usersTrend(),
-            icon: Icons.groups_rounded,
-            iconColor: AppPalette.ochre,
-            label: 'Users',
-            subtext: 'Total Registered',
-            onTap: _openUsersManagement,
-          ),
-          _buildStatCard(
-            stream: widget.dashboardService.totalBusinessesCount(),
-            trendStream: widget.dashboardService.businessesTrend(),
-            icon: Icons.business_rounded,
-            iconColor: AppPalette.deepBlue,
-            label: 'Businesses',
-            subtext: 'Total Listed',
-            onTap: _openBusinessManagement,
-          ),
-          _buildStatCard(
-            stream: widget.dashboardService.totalEventsCount(),
-            trendStream: widget.dashboardService.eventsTrend(),
-            icon: Icons.event_note_rounded,
-            iconColor: AppPalette.gold,
-            label: 'Events',
-            subtext: 'In System',
-            onTap: _openEventsManagement,
-          ),
-          _buildStatCard(
-            stream: widget.dashboardService.pendingEventReportsCount(),
-            trendStream: widget.dashboardService.eventReportsTrend(),
-            icon: Icons.flag_rounded,
-            iconColor: Colors.red.shade700,
-            label: 'Event Reports',
-            subtext: 'Pending Review',
-            onTap: _openReportsHub,
-          ),
-          _buildStatCard(
-            stream: widget.dashboardService.pendingReviewReportsCount(),
-            trendStream: widget.dashboardService.reviewReportsTrend(),
-            icon: Icons.reviews_rounded,
-            iconColor: Colors.orange.shade700,
-            label: 'Reviews',
-            subtext: 'Pending Reports',
-            onTap: _openReportsHub,
-          ),
-          _buildStatCard(
-            stream: widget.dashboardService.pendingLocalUsersCount(),
-            trendStream: widget.dashboardService.approvalsTrend(),
-            icon: Icons.person_add_alt_1_rounded,
-            iconColor: Colors.green.shade600,
-            label: 'Approvals',
-            subtext: 'Pending Accounts',
-            onTap: _openUsersManagement,
-          ),
-          _buildStatCard(
-            stream: widget.dashboardService.totalReviewsCount(),
-            trendStream: widget.dashboardService.reviewsTrend(),
-            icon: Icons.reviews_rounded,
-            iconColor: const Color(0xFF9B59B6),
-            label: 'Reviews',
-            subtext: 'Total Visible',
-            onTap: _openReportsHub,
-          ),
-          _buildStatCard(
-            stream: widget.dashboardService.totalProfileViewsCount(),
-            trendStream: widget.dashboardService.businessesTrend(),
-            icon: Icons.visibility_rounded,
-            iconColor: const Color(0xFF4F8FFF),
-            label: 'Views',
-            subtext: 'Profile Views',
-            onTap: _openBusinessManagement,
-          ),
-          _buildStatCard(
-            stream: widget.dashboardService.totalSavesCount(),
-            trendStream: widget.dashboardService.businessesTrend(),
-            icon: Icons.bookmark_rounded,
-            iconColor: const Color(0xFF2ECC71),
-            label: 'Saves',
-            subtext: 'Total Saves',
-            onTap: _openBusinessManagement,
-          ),
-          _buildStatCard(
-            stream: widget.dashboardService.totalCrowdReportsCount(),
-            trendStream: widget.dashboardService.crowdReportsTrend(),
-            icon: Icons.people_rounded,
-            iconColor: const Color(0xFFF39C12),
-            label: 'Crowd',
-            subtext: 'Reports',
-            onTap: _openReportsHub,
-          ),
-          _buildStatCard(
-            stream: widget.dashboardService.totalBuzzVotesCount(),
-            trendStream: widget.dashboardService.buzzVotesTrend(),
-            icon: Icons.bolt_rounded,
-            iconColor: const Color(0xFF3BD0EE),
-            label: 'Buzz Votes',
-            subtext: 'Total Votes',
-            onTap: _openReportsHub,
-          ),
-        ],
+  /// Top-level platform overview stats in a responsive grid.
+  Widget _buildStatsOverview() {
+    final items = [
+      _StatItem(
+        stream: widget.dashboardService.totalUsersCount(),
+        trendStream: widget.dashboardService.usersTrend(),
+        icon: Icons.groups_rounded,
+        iconColor: const Color(0xFF3B82F6),
+        label: 'Total Users',
+        onTap: _openUsersManagement,
       ),
+      _StatItem(
+        stream: widget.dashboardService.totalBusinessesCount(),
+        trendStream: widget.dashboardService.businessesTrend(),
+        icon: Icons.business_rounded,
+        iconColor: const Color(0xFF1E3A8A),
+        label: 'Businesses',
+        onTap: _openBusinessManagement,
+      ),
+      _StatItem(
+        stream: widget.dashboardService.totalEventsCount(),
+        trendStream: widget.dashboardService.eventsTrend(),
+        icon: Icons.event_note_rounded,
+        iconColor: const Color(0xFFF59E0B),
+        label: 'Events',
+        onTap: _openEventsManagement,
+      ),
+      _StatItem(
+        stream: widget.dashboardService.pendingLocalUsersCount(),
+        trendStream: widget.dashboardService.approvalsTrend(),
+        icon: Icons.person_add_alt_1_rounded,
+        iconColor: const Color(0xFF10B981),
+        label: 'Pending Approvals',
+        onTap: _openUsersManagement,
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth >= Breakpoints.desktop
+            ? 4
+            : constraints.maxWidth >= Breakpoints.tablet
+                ? 2
+                : 2;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 1.55,
+            children:
+                items.map((item) => _buildStatCard(item: item)).toList(),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildStatCard({
-    required Stream<int> stream,
-    required Stream<MetricTrend> trendStream,
-    required IconData icon,
-    required Color iconColor,
-    required String label,
-    required String subtext,
-    required VoidCallback onTap,
-  }) {
+  Widget _buildStatCard({required _StatItem item}) {
     return StreamBuilder<int>(
-      stream: stream,
+      stream: item.stream,
       builder: (context, countSnapshot) {
         return StreamBuilder<MetricTrend>(
-          stream: trendStream,
+          stream: item.trendStream,
           builder: (context, trendSnapshot) {
-            return Padding(
-              padding: const EdgeInsets.only(right: 10),
-              child: SizedBox(
-                width: 148,
-                child: _DashboardStatCard(
-                  icon: icon,
-                  iconColor: iconColor,
-                  value: countSnapshot.data?.toString() ?? '—',
-                  label: label,
-                  subtext: subtext,
-                  trend: trendSnapshot.data,
-                  onTap: onTap,
-                ),
-              ),
+            return _DashboardStatCard(
+              icon: item.icon,
+              iconColor: item.iconColor,
+              value: countSnapshot.data?.toString() ?? '—',
+              label: item.label,
+              trend: trendSnapshot.data,
+              onTap: item.onTap,
             );
           },
         );
@@ -858,56 +820,127 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return FirebaseFirestore.instance;
   }
 
+  /// Wide, tappable quick-action tiles laid out in a responsive grid.
   Widget _buildQuickActions() {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 2.6,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth >= Breakpoints.desktop
+            ? 3
+            : constraints.maxWidth >= Breakpoints.tablet
+                ? 2
+                : 2;
+        return GridView.count(
+          crossAxisCount: crossAxisCount,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 2.4,
+          children: [
+            _QuickActionButton(
+              icon: Icons.business_outlined,
+              color: const Color(0xFF3B82F6),
+              label: 'Add Business',
+              onTap: _openCreateBusiness,
+            ),
+            _QuickActionButton(
+              icon: Icons.verified_outlined,
+              color: const Color(0xFF10B981),
+              label: 'Verify Business',
+              onTap: _openBusinessManagement,
+            ),
+            _QuickActionButton(
+              icon: Icons.event_available_outlined,
+              color: const Color(0xFFF59E0B),
+              label: 'Create Event',
+              onTap: _openCreateEvent,
+            ),
+            _QuickActionButton(
+              icon: Icons.report_outlined,
+              color: const Color(0xFFEF4444),
+              label: 'Review Reports',
+              onTap: _openReportsHub,
+            ),
+            _QuickActionButton(
+              icon: Icons.feedback_outlined,
+              color: const Color(0xFF8B5CF6),
+              label: 'Feedback',
+              onTap: _openFeedbackReview,
+            ),
+            _QuickActionButton(
+              icon: Icons.email_outlined,
+              color: const Color(0xFFEC4899),
+              label: 'Broadcast Email',
+              onTap: _openEmailBroadcast,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Horizontal panel showing engagement metrics with icons and labels.
+  Widget _buildEngagementOverview() {
+    final items = [
+      _EngagementItem(
+        stream: widget.dashboardService.totalProfileViewsCount(),
+        icon: Icons.visibility_rounded,
+        color: const Color(0xFF4F8FFF),
+        label: 'Profile Views',
+      ),
+      _EngagementItem(
+        stream: widget.dashboardService.totalSavesCount(),
+        icon: Icons.bookmark_rounded,
+        color: const Color(0xFF2ECC71),
+        label: 'Saves',
+      ),
+      _EngagementItem(
+        stream: widget.dashboardService.totalReviewsCount(),
+        icon: Icons.reviews_rounded,
+        color: const Color(0xFF9B59B6),
+        label: 'Reviews',
+      ),
+      _EngagementItem(
+        stream: widget.dashboardService.totalBuzzVotesCount(),
+        icon: Icons.bolt_rounded,
+        color: const Color(0xFF3BD0EE),
+        label: 'Buzz Votes',
+      ),
+      _EngagementItem(
+        stream: widget.dashboardService.totalCrowdReportsCount(),
+        icon: Icons.people_rounded,
+        color: const Color(0xFFF39C12),
+        label: 'Crowd Reports',
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _QuickActionButton(
-          icon: Icons.business_outlined,
-          label: 'Add Business',
-          onTap: _openCreateBusiness,
-        ),
-        _QuickActionButton(
-          icon: Icons.verified_outlined,
-          label: 'Verify Business',
-          onTap: _openBusinessManagement,
-        ),
-        _QuickActionButton(
-          icon: Icons.star_border_outlined,
-          label: 'Featured Promotion',
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Featured Promotion coming soon'),
+        _buildSectionHeader('Engagement', onViewAll: _openBusinessManagement),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
-            );
-          },
-        ),
-        _QuickActionButton(
-          icon: Icons.event_available_outlined,
-          label: 'Create Event',
-          onTap: _openCreateEvent,
-        ),
-        _QuickActionButton(
-          icon: Icons.report_outlined,
-          label: 'Review Reports',
-          onTap: _openReportsHub,
-        ),
-        _QuickActionButton(
-          icon: Icons.analytics_outlined,
-          label: 'View Analytics',
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Analytics dashboard coming soon'),
-              ),
-            );
-          },
+            ],
+          ),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: items
+                .map((item) => _EngagementChip(item: item))
+                .toList(),
+          ),
         ),
       ],
     );
@@ -1522,13 +1555,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 }
 
-// ── Stat card for the horizontal carousel ──
+// ── Stat card for the overview grid ──
 class _DashboardStatCard extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final String value;
   final String label;
-  final String subtext;
   final MetricTrend? trend;
   final VoidCallback? onTap;
 
@@ -1537,7 +1569,6 @@ class _DashboardStatCard extends StatelessWidget {
     required this.iconColor,
     required this.value,
     required this.label,
-    required this.subtext,
     this.trend,
     this.onTap,
   });
@@ -1547,86 +1578,100 @@ class _DashboardStatCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppPalette.surface.withValues(alpha: 0.80),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppPalette.border.withValues(alpha: 0.5)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 6,
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
               offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
               children: [
                 Container(
-                  width: 34,
-                  height: 34,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: iconColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(icon, color: iconColor, size: 18),
+                  child: Icon(icon, color: iconColor, size: 22),
                 ),
                 const Spacer(),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                color: iconColor,
-              ),
-            ),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: AppPalette.charcoal,
-              ),
-            ),
-            const SizedBox(height: 3),
-            if (trend != null)
-              Row(
-                children: [
-                  Icon(
-                    trend!.isUp ? Icons.arrow_upward : Icons.arrow_downward,
-                    color: trend!.isUp
-                        ? Colors.green.shade700
-                        : Colors.red.shade700,
-                    size: 11,
-                  ),
-                  const SizedBox(width: 2),
-                  Text(
-                    '${trend!.change.abs()} ${trend!.periodLabel}',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+                if (trend != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
                       color: trend!.isUp
-                          ? Colors.green.shade700
-                          : Colors.red.shade700,
+                          ? Colors.green.shade50
+                          : Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: trend!.isUp
+                            ? Colors.green.shade300
+                            : Colors.red.shade300,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          trend!.isUp
+                              ? Icons.arrow_upward_rounded
+                              : Icons.arrow_downward_rounded,
+                          color: trend!.isUp
+                              ? Colors.green.shade700
+                              : Colors.red.shade700,
+                          size: 10,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${trend!.change.abs()}',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: trend!.isUp
+                                ? Colors.green.shade700
+                                : Colors.red.shade700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              )
-            else
-              Text(
-                subtext,
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: AppPalette.mutedText,
+              ],
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    color: AppPalette.charcoal,
+                    height: 1.1,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppPalette.mutedText,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -1637,11 +1682,13 @@ class _DashboardStatCard extends StatelessWidget {
 // ── Quick action button ──
 class _QuickActionButton extends StatelessWidget {
   final IconData icon;
+  final Color color;
   final String label;
   final VoidCallback onTap;
 
   const _QuickActionButton({
     required this.icon,
+    required this.color,
     required this.label,
     required this.onTap,
   });
@@ -1651,15 +1698,15 @@ class _QuickActionButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: AppPalette.surface.withValues(alpha: 0.80),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppPalette.border.withValues(alpha: 0.5)),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 6,
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
               offset: const Offset(0, 2),
             ),
           ],
@@ -1667,28 +1714,112 @@ class _QuickActionButton extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: AppPalette.ochre.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: AppPalette.ochre, size: 20),
+              child: Icon(icon, color: color, size: 24),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 14),
             Expanded(
               child: Text(
                 label,
                 style: const TextStyle(
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: AppPalette.charcoal,
                 ),
               ),
             ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: AppPalette.mutedText,
+              size: 14,
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Engagement chip descriptor ──
+class _EngagementItem {
+  final Stream<int> stream;
+  final IconData icon;
+  final Color color;
+  final String label;
+
+  const _EngagementItem({
+    required this.stream,
+    required this.icon,
+    required this.color,
+    required this.label,
+  });
+}
+
+// ── Engagement metric chip ──
+class _EngagementChip extends StatelessWidget {
+  final _EngagementItem item;
+
+  const _EngagementChip({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<int>(
+      stream: item.stream,
+      builder: (context, snapshot) {
+        final value = snapshot.data?.toString() ?? '—';
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: item.color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: item.color.withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(item.icon, color: item.color, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: item.color,
+                      height: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.label,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppPalette.mutedText,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
