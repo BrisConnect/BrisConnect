@@ -2940,13 +2940,44 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            displayName,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: AppPalette.charcoal,
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  displayName,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppPalette.charcoal,
+                                  ),
+                                ),
+                              ),
+                              if (visitor == null)
+                                IconButton(
+                                  tooltip: l10n.signOut,
+                                  onPressed: _confirmLogout,
+                                  icon: Icon(
+                                    Icons.logout_rounded,
+                                    color: Colors.red.shade700,
+                                    size: 20,
+                                  ),
+                                )
+                              else
+                                IconButton(
+                                  tooltip: l10n.editProfile,
+                                  onPressed: () => _showEditProfileSheet(
+                                    displayName,
+                                    displayEmail,
+                                    displayPhone,
+                                    displayLanguage,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.edit_rounded,
+                                    color: AppPalette.deepBlue,
+                                    size: 20,
+                                  ),
+                                ),
+                            ],
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -2975,20 +3006,6 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: l10n.editProfile,
-                      onPressed: () => _showEditProfileSheet(
-                        displayName,
-                        displayEmail,
-                        displayPhone,
-                        displayLanguage,
-                      ),
-                      icon: const Icon(
-                        Icons.edit_rounded,
-                        color: AppPalette.deepBlue,
-                        size: 20,
                       ),
                     ),
                   ],
@@ -3154,42 +3171,44 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                 onTap: () => _showHelpSupport(context),
               ),
             ),
-            const SizedBox(height: 24),
-            _buildSectionLabel(l10n.signOut),
-            Card(
-              color: AppPalette.surface.withValues(alpha: 0.88),
-              elevation: 4,
-              shadowColor: AppPalette.cardShadow,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side:
-                    BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
-              ),
-              child: ListTile(
-                leading: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    Icons.logout_rounded,
-                    color: Colors.red.shade700,
-                    size: 20,
-                  ),
+            if (visitor != null) ...[
+              const SizedBox(height: 24),
+              _buildSectionLabel(l10n.signOut),
+              Card(
+                color: AppPalette.surface.withValues(alpha: 0.88),
+                elevation: 4,
+                shadowColor: AppPalette.cardShadow,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side:
+                      BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
                 ),
-                title: Text(
-                  l10n.signOut,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.red.shade700,
+                child: ListTile(
+                  leading: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.logout_rounded,
+                      color: Colors.red.shade700,
+                      size: 20,
+                    ),
                   ),
+                  title: Text(
+                    l10n.signOut,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.red.shade700,
+                    ),
+                  ),
+                  subtitle: Text(l10n.returnWelcome),
+                  onTap: _confirmLogout,
                 ),
-                subtitle: Text(l10n.returnWelcome),
-                onTap: _confirmLogout,
               ),
-            ),
+            ],
           ],
         );
       },
