@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/services/share/content_share_service.dart';
-import 'package:brisconnect/services/share/instagram_story_service.dart';
+import 'package:brisconnect/services/share/social_story_service.dart';
 
 /// Shows a platform-specific share bottom sheet for any shareable content.
 ///
@@ -8,6 +8,14 @@ import 'package:brisconnect/services/share/instagram_story_service.dart';
 /// [title], [description], [location] and [dateTime] are used to build the
 /// share text. The rich preview shown by Facebook/Instagram/TikTok is
 /// controlled by Open Graph meta tags on the generated web URL.
+///
+/// The bottom sheet offers two sections:
+/// 1. Share to Story (Instagram / Facebook / TikTok) with optional media
+///    picker so visitors can post pictures or videos to their stories.
+/// 2. Share Link (Facebook feed, native share, copy link).
+///
+/// Visitors must have the target social app installed and be logged into it
+/// to post to stories. The UI explains this requirement.
 Future<void> showShareBottomSheet({
   required BuildContext context,
   required ShareContentType type,
@@ -17,8 +25,10 @@ Future<void> showShareBottomSheet({
   String? location,
   String? dateTime,
   ContentShareService? shareService,
+  SocialStoryService? storyService,
 }) async {
   final service = shareService ?? ContentShareService();
+  final storySvc = storyService ?? SocialStoryService();
   if (!context.mounted) return;
 
   await showModalBottomSheet(
@@ -32,33 +42,133 @@ Future<void> showShareBottomSheet({
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Handle bar
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(2),
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              'Share $title',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
+            Center(
+              child: Text(
+                'Share $title',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
-            Text(
-              _subtitleForType(type),
-              style: const TextStyle(color: Colors.white54, fontSize: 13),
+            Center(
+              child: Text(
+                _subtitleForType(type),
+                style: const TextStyle(color: Colors.white54, fontSize: 13),
+              ),
             ),
             const SizedBox(height: 20),
+            const Text(
+              'Share to Story',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _ShareButton(
+                  icon: Icons.camera_alt,
+                  label: 'Instagram',
+                  color: const Color(0xFFE1306C),
+                  badge: 'Story',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _shareToStory(
+                      context: context,
+                      storyService: storySvc,
+                      platform: StoryPlatform.instagram,
+                      type: type,
+                      id: id,
+                      title: title,
+                      description: description,
+                      location: location,
+                      dateTime: dateTime,
+                    );
+                  },
+                ),
+                _ShareButton(
+                  icon: Icons.facebook,
+                  label: 'Facebook',
+                  color: const Color(0xFF1877F2),
+                  badge: 'Story',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _shareToStory(
+                      context: context,
+                      storyService: storySvc,
+                      platform: StoryPlatform.facebook,
+                      type: type,
+                      id: id,
+                      title: title,
+                      description: description,
+                      location: location,
+                      dateTime: dateTime,
+                    );
+                  },
+                ),
+                _ShareButton(
+                  icon: Icons.music_note,
+                  label: 'TikTok',
+                  color: const Color(0xFF010101),
+                  badge: 'Story',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _shareToStory(
+                      context: context,
+                      storyService: storySvc,
+                      platform: StoryPlatform.tiktok,
+                      type: type,
+                      id: id,
+                      title: title,
+                      description: description,
+                      location: location,
+                      dateTime: dateTime,
+                    );
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                'You must be logged into Instagram, Facebook or TikTok on this device to post pictures or videos to your story.',
+                style: TextStyle(color: Colors.white38, fontSize: 11),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Share Link',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -82,45 +192,6 @@ Future<void> showShareBottomSheet({
                   },
                 ),
                 _ShareButton(
-                  icon: Icons.camera_alt,
-                  label: 'Instagram',
-                  color: const Color(0xFFE1306C),
-                  badge: 'Story',
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _shareToInstagramStory(
-                      context: context,
-                      service: service,
-                      type: type,
-                      id: id,
-                      title: title,
-                      description: description,
-                      location: location,
-                      dateTime: dateTime,
-                    );
-                  },
-                ),
-                _ShareButton(
-                  icon: Icons.music_note,
-                  label: 'TikTok',
-                  color: const Color(0xFF010101),
-                  badge: 'Copy link',
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _share(
-                      context: context,
-                      service: service,
-                      platform: 'tiktok',
-                      type: type,
-                      id: id,
-                      title: title,
-                      description: description,
-                      location: location,
-                      dateTime: dateTime,
-                    );
-                  },
-                ),
-                _ShareButton(
                   icon: Icons.share_rounded,
                   label: 'More',
                   color: const Color(0xFF7A8FA6),
@@ -130,6 +201,25 @@ Future<void> showShareBottomSheet({
                       context: context,
                       service: service,
                       platform: 'native',
+                      type: type,
+                      id: id,
+                      title: title,
+                      description: description,
+                      location: location,
+                      dateTime: dateTime,
+                    );
+                  },
+                ),
+                _ShareButton(
+                  icon: Icons.copy,
+                  label: 'Copy link',
+                  color: const Color(0xFFFF7A1A),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _share(
+                      context: context,
+                      service: service,
+                      platform: 'copy',
                       type: type,
                       id: id,
                       title: title,
@@ -214,12 +304,15 @@ String _subtitleForType(ShareContentType type) {
       return 'Recommend this food spot';
     case ShareContentType.stadium:
       return 'Share this venue';
+    case ShareContentType.promotion:
+      return 'Share this promotion with your friends';
   }
 }
 
-Future<void> _shareToInstagramStory({
+Future<void> _shareToStory({
   required BuildContext context,
-  required ContentShareService service,
+  required SocialStoryService storyService,
+  required StoryPlatform platform,
   required ShareContentType type,
   required String id,
   required String title,
@@ -227,55 +320,71 @@ Future<void> _shareToInstagramStory({
   String? location,
   String? dateTime,
 }) async {
-  final shareText = service.buildShareText(
+  final result = await storyService.shareToStory(
+    platform: platform,
+    contentType: type,
+    id: id,
     title: title,
-    url: service.buildShareUrl(type: type, id: id, slug: title),
     description: description,
     location: location,
     dateTime: dateTime,
+    useMedia: true,
   );
-
-  final storyService = InstagramStoryService();
-  final result = await storyService.shareToStory(shareText: shareText);
 
   if (!context.mounted) return;
 
   final messenger = ScaffoldMessenger.of(context);
+  final platformName = SocialStoryService.platformLabel(platform);
+
   switch (result) {
-    case InstagramStoryResult.shared:
+    case StoryShareResult.shared:
       messenger.showSnackBar(
         _buildSnackBar(
-          'Opening Instagram Stories… paste the copied link as a sticker.',
-          backgroundColor: const Color(0xFFE1306C),
+          'Opening $platformName… paste the copied link as a sticker if needed.',
+          backgroundColor: _colorForPlatform(platform),
           durationSeconds: 4,
         ),
       );
-    case InstagramStoryResult.nativeShareFallback:
+    case StoryShareResult.copied:
       messenger.showSnackBar(
         _buildSnackBar(
-          'Choose Instagram from the share sheet. Link copied to clipboard.',
-          backgroundColor: const Color(0xFFE1306C),
+          'Link copied! Open $platformName and paste it into your story.',
           durationSeconds: 4,
         ),
       );
-    case InstagramStoryResult.copied:
+    case StoryShareResult.noMediaSelected:
       messenger.showSnackBar(
         _buildSnackBar(
-          'Link copied! Open Instagram and paste it in your Story.',
-          backgroundColor: const Color(0xFFE1306C),
+          'No photo or video selected. Pick one to share to your $platformName story.',
+          durationSeconds: 3,
+        ),
+      );
+    case StoryShareResult.appNotInstalled:
+      messenger.showSnackBar(
+        _buildSnackBar(
+          '$platformName is not installed. Please install it and log in to share to stories.',
           durationSeconds: 4,
         ),
       );
-    case InstagramStoryResult.cancelled:
+    case StoryShareResult.cancelled:
       messenger.showSnackBar(
-        _buildSnackBar('Instagram share cancelled. Link copied to clipboard.'),
+        _buildSnackBar('$platformName share cancelled.'),
       );
-    case InstagramStoryResult.failed:
+    case StoryShareResult.failed:
       messenger.showSnackBar(
-        _buildSnackBar('Could not open Instagram. Link copied to clipboard.'),
+        _buildSnackBar(
+          'Could not open $platformName. Link copied to clipboard so you can paste it manually.',
+          durationSeconds: 4,
+        ),
       );
   }
 }
+
+Color? _colorForPlatform(StoryPlatform platform) => switch (platform) {
+      StoryPlatform.instagram => const Color(0xFFE1306C),
+      StoryPlatform.facebook => const Color(0xFF1877F2),
+      StoryPlatform.tiktok => const Color(0xFF010101),
+    };
 
 Future<void> _share({
   required BuildContext context,

@@ -16,7 +16,7 @@ enum ShareResult {
 typedef ClipboardWriter = Future<void> Function(String text);
 
 /// Shareable content types.
-enum ShareContentType { business, event, food, stadium }
+enum ShareContentType { business, event, food, stadium, promotion }
 
 /// Service for sharing businesses, events, food spots, and venues to social
 /// platforms and other apps.
@@ -53,6 +53,7 @@ class ContentShareService {
       ShareContentType.event => 'event',
       ShareContentType.food => 'food',
       ShareContentType.stadium => 'venue',
+      ShareContentType.promotion => 'promotion',
     };
     final encodedSlug = slug != null && slug.trim().isNotEmpty
         ? '?name=${Uri.encodeComponent(slug.trim())}'

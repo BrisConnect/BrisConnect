@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:brisconnect/models/activity_feed_item.dart';
 import 'package:brisconnect/screens/visitor_event_detail_screen.dart';
 import 'package:brisconnect/services/activity_feed_service.dart';
+import 'package:brisconnect/services/share/content_share_service.dart';
+import 'package:brisconnect/widgets/share_bottom_sheet.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 
 /// Visitor-facing community activity feed.
@@ -254,6 +256,8 @@ class _ActivityFeedCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      if (item.type != ActivityFeedType.all)
+                        _buildShareButton(context),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -319,6 +323,45 @@ class _ActivityFeedCard extends StatelessWidget {
       ActivityFeedType.all => Icons.dynamic_feed_rounded,
     };
     return Icon(icon, color: AppPalette.ochre, size: 16);
+  }
+
+  Widget _buildShareButton(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _shareItem(context),
+        child: const Padding(
+          padding: EdgeInsets.all(6),
+          child: Icon(
+            Icons.share_outlined,
+            color: AppPalette.ochre,
+            size: 18,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _shareItem(BuildContext context) {
+    final type = switch (item.type) {
+      ActivityFeedType.event => ShareContentType.event,
+      ActivityFeedType.business => ShareContentType.business,
+      ActivityFeedType.photo => ShareContentType.business,
+      ActivityFeedType.review => ShareContentType.business,
+      ActivityFeedType.all => null,
+    };
+    if (type == null) return;
+
+    showShareBottomSheet(
+      context: context,
+      type: type,
+      id: item.targetId,
+      title: item.title,
+      description: item.body,
+      dateTime: item.type == ActivityFeedType.event ? item.subtitle : null,
+    );
   }
 
   void _openDetail(BuildContext context) {

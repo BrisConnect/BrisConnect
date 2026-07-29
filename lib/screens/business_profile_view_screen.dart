@@ -4,8 +4,9 @@ import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/models/business.dart';
 import 'package:brisconnect/services/business_dashboard_service.dart';
 import 'package:brisconnect/services/business_profile_service.dart';
-import 'package:brisconnect/services/share/business_share_service.dart';
+import 'package:brisconnect/services/share/content_share_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
+import 'package:brisconnect/widgets/share_bottom_sheet.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Screen to view a business profile
@@ -13,14 +14,12 @@ class BusinessProfileViewScreen extends StatefulWidget {
   final String businessId;
   final bool isOwnProfile;
   final BusinessProfileService? businessProfileService;
-  final BusinessShareService? shareService;
 
   const BusinessProfileViewScreen({
     super.key,
     required this.businessId,
     this.isOwnProfile = false,
     this.businessProfileService,
-    this.shareService,
   });
 
   @override
@@ -30,8 +29,6 @@ class BusinessProfileViewScreen extends StatefulWidget {
 class _BusinessProfileViewScreenState extends State<BusinessProfileViewScreen> {
   late final BusinessProfileService _businessProfileService =
       widget.businessProfileService ?? BusinessProfileService();
-  late final BusinessShareService _shareService =
-      widget.shareService ?? BusinessShareService();
   late final BusinessDashboardService _dashboardService =
       BusinessDashboardService();
   bool _viewTracked = false;
@@ -100,44 +97,6 @@ class _BusinessProfileViewScreenState extends State<BusinessProfileViewScreen> {
     }
   }
 
-  Future<void> _shareToPlatform(String platform, String businessId, String businessName) async {
-    final result = await _shareService.shareToPlatform(
-      platform: platform,
-      businessId: businessId,
-      businessName: businessName,
-    );
-
-    if (!mounted) return;
-
-    switch (result) {
-      case ShareResult.copied:
-        if (platform == 'instagram') {
-          _showSnackBar(
-            'Link copied! Open Instagram and paste it in your Story, Post caption, or DM.',
-            backgroundColor: const Color(0xFFE1306C),
-            durationSeconds: 4,
-          );
-        } else if (platform == 'tiktok') {
-          _showSnackBar(
-            'Link copied! Open TikTok and paste it in your bio or video description.',
-            backgroundColor: const Color(0xFF010101),
-            durationSeconds: 4,
-          );
-        } else {
-          _showSnackBar('Link copied to clipboard!');
-        }
-      case ShareResult.shared:
-        _showSnackBar('Shared to ${_shareService.platformLabel(platform)}!');
-      case ShareResult.timedOut:
-        _showSnackBar(
-          'Share took too long. Link copied to clipboard so you can paste it manually.',
-          durationSeconds: 4,
-        );
-      case ShareResult.failed:
-        _showSnackBar('Could not complete share. Try again.');
-    }
-  }
-
   void _showSnackBar(
     String message, {
     Color? backgroundColor,
@@ -160,189 +119,12 @@ class _BusinessProfileViewScreenState extends State<BusinessProfileViewScreen> {
   }
 
   void _showShareSheet(String businessId, String businessName) {
-    showModalBottomSheet(
+    showShareBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1F2E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Share $businessName',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Let your friends discover this business',
-                style: TextStyle(color: Colors.white54, fontSize: 13),
-              ),
-              const SizedBox(height: 20),
-              // Facebook - direct share
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _shareButton(
-                    icon: Icons.facebook,
-                    label: 'Facebook',
-                    color: const Color(0xFF1877F2),
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      _shareToPlatform('facebook', businessId, businessName);
-                    },
-                  ),
-                  _shareButton(
-                    icon: Icons.camera_alt,
-                    label: 'Instagram',
-                    color: const Color(0xFFE1306C),
-                    badge: 'Open share',
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      _shareToPlatform('instagram', businessId, businessName);
-                    },
-                  ),
-                  _shareButton(
-                    icon: Icons.music_note,
-                    label: 'TikTok',
-                    color: const Color(0xFF010101),
-                    badge: 'Copy link',
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      _shareToPlatform('tiktok', businessId, businessName);
-                    },
-                  ),
-                  _shareButton(
-                    icon: Icons.share_rounded,
-                    label: 'More',
-                    color: const Color(0xFF7A8FA6),
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      _shareToPlatform('native', businessId, businessName);
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Copy link row
-              InkWell(
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _shareToPlatform('copy', businessId, businessName);
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2A2F3F),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.link_rounded, color: Color(0xFFFF7A1A), size: 20),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          _shareService.buildBusinessUrl(businessId, businessName),
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Copy',
-                        style: TextStyle(
-                          color: Color(0xFFFF7A1A),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _shareButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-    String? badge,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(icon, color: Colors.white, size: 28),
-              ),
-              if (badge != null)
-                Positioned(
-                  top: -6,
-                  right: -6,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFF7A1A),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      badge,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 8,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
-          ),
-        ],
-      ),
+      type: ShareContentType.business,
+      id: businessId,
+      title: businessName,
+      description: 'Check out $businessName on BrisConnect+!',
     );
   }
 
