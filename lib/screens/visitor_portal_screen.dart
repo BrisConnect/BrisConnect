@@ -2589,6 +2589,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           ),
           child: StatefulBuilder(
             builder: (_, setSheetState) {
+              final currentVisitor = VisitorAuth.currentVisitor;
+              final sheetProfileImage = _profileImageProvider(currentVisitor);
               return Form(
                 key: formKey,
                 child: Column(
@@ -2604,6 +2606,56 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
+                    Center(
+                      child: GestureDetector(
+                        onTap: () async {
+                          await _uploadVisitorProfileImage();
+                          setSheetState(() {});
+                        },
+                        child: Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            CircleAvatar(
+                              radius: 44,
+                              backgroundColor: AppPalette.deepBlue,
+                              backgroundImage: sheetProfileImage,
+                              child: sheetProfileImage == null
+                                  ? const Icon(
+                                      Icons.person_rounded,
+                                      color: Colors.white,
+                                      size: 44,
+                                    )
+                                  : null,
+                            ),
+                            Container(
+                              padding: const EdgeInsets.all(7),
+                              decoration: BoxDecoration(
+                                color: AppPalette.ochre,
+                                shape: BoxShape.circle,
+                                border:
+                                    Border.all(color: Colors.white, width: 2.5),
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt_rounded,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Center(
+                      child: Text(
+                        'Tap to change profile picture',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppPalette.mutedText,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
                     TextFormField(
                       initialValue: currentName,
                       autofocus: true,
@@ -2848,17 +2900,40 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                 padding: const EdgeInsets.all(20),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor: AppPalette.deepBlue,
-                      backgroundImage: profileImage,
-                      child: profileImage == null
-                          ? const Icon(
-                              Icons.person_rounded,
-                              color: Colors.white,
-                              size: 40,
-                            )
-                          : null,
+                    GestureDetector(
+                      onTap: visitor != null ? _uploadVisitorProfileImage : null,
+                      child: Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          CircleAvatar(
+                            radius: 42,
+                            backgroundColor: AppPalette.deepBlue,
+                            backgroundImage: profileImage,
+                            child: profileImage == null
+                                ? const Icon(
+                                    Icons.person_rounded,
+                                    color: Colors.white,
+                                    size: 42,
+                                  )
+                                : null,
+                          ),
+                          if (visitor != null)
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: AppPalette.ochre,
+                                shape: BoxShape.circle,
+                                border:
+                                    Border.all(color: Colors.white, width: 2.5),
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt_rounded,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -2900,18 +2975,6 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: (visitor?.profileImageUrl?.isNotEmpty == true ||
-                              visitor?.profileImageBase64?.isNotEmpty == true)
-                          ? 'Change profile picture'
-                          : 'Upload profile picture',
-                      onPressed: _uploadVisitorProfileImage,
-                      icon: const Icon(
-                        Icons.photo_camera_outlined,
-                        color: AppPalette.deepBlue,
-                        size: 20,
                       ),
                     ),
                     IconButton(

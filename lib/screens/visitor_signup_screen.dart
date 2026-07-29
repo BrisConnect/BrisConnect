@@ -1,8 +1,14 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
 import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/screens/visitor_login_screen.dart';
+import 'package:brisconnect/services/firebase_media_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/utils/auth_validation.dart';
+import 'package:brisconnect/utils/profile_image_utils.dart';
 import 'package:brisconnect/widgets/inline_status_message.dart';
 
 class VisitorSignUpScreen extends StatefulWidget {
@@ -23,6 +29,8 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
   bool _obscureConfirm = true;
   bool _isSubmitting = false;
   String? _errorMessage;
+  Uint8List? _profileImageBytes;
+  String? _profileImageFileName;
 
   String _toE164Au(String value) {
     var digits = value.replaceAll(RegExp(r'\D'), '');
@@ -33,6 +41,74 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
       digits = digits.substring(1);
     }
     return '+61$digits';
+  }
+
+  Future<ImageSource?> _pickImageSource() {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: AppPalette.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickProfileImage() async {
+    if (_isSubmitting) return;
+
+    final source = await _pickImageSource();
+    if (source == null) return;
+
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: source,
+      imageQuality: 75,
+      maxWidth: 720,
+      maxHeight: 720,
+      preferredCameraDevice: CameraDevice.front,
+    );
+    if (picked == null) return;
+
+    final bytes = await picked.readAsBytes();
+
+    if (!ProfileImageUtils.isSupportedImage(bytes)) {
+      setState(() => _profileImageBytes = null);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Only JPG and PNG images are supported.')),
+      );
+      return;
+    }
+
+    if (bytes.length > ProfileImageUtils.maxImageBytes) {
+      setState(() => _profileImageBytes = null);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile image is too large.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _profileImageBytes = bytes;
+      _profileImageFileName = picked.name;
+    });
   }
 
   @override
@@ -55,11 +131,41 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
       _errorMessage = null;
     });
 
+    String? profileImageUrl;
+    String? profileImageStoragePath;
+
+    if (_profileImageBytes != null && _profileImageFileName != null) {
+      try {
+        final uploaded = await FirebaseMediaService().uploadProfileImage(
+          role: 'visitor',
+          email: _emailController.text.trim().toLowerCase(),
+          bytes: _profileImageBytes!,
+          fileName: _profileImageFileName!,
+        );
+        profileImageUrl = uploaded.downloadUrl;
+        profileImageStoragePath = uploaded.storagePath;
+      } on FormatException catch (error) {
+        setState(() {
+          _isSubmitting = false;
+          _errorMessage = error.message;
+        });
+        return;
+      } catch (error) {
+        setState(() {
+          _isSubmitting = false;
+          _errorMessage = 'Could not upload profile picture. Please try again.';
+        });
+        return;
+      }
+    }
+
     final registered = await VisitorAuth.register(
       name: _nameController.text,
       email: _emailController.text,
       password: _passwordController.text,
       phone: _toE164Au(_phoneController.text),
+      profileImageUrl: profileImageUrl,
+      profileImageStoragePath: profileImageStoragePath,
     );
 
     if (!mounted) {
@@ -199,6 +305,65 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
                                 ),
                                 const SizedBox(height: 10),
                               ],
+
+                              // Profile picture
+                              Center(
+                                child: GestureDetector(
+                                  onTap: _isSubmitting ? null : _pickProfileImage,
+                                  child: Stack(
+                                    alignment: Alignment.bottomRight,
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 54,
+                                        backgroundColor: AppPalette.deepBlue,
+                                        backgroundImage: _profileImageBytes != null
+                                            ? MemoryImage(_profileImageBytes!)
+                                            : null,
+                                        child: _profileImageBytes == null
+                                            ? const Icon(
+                                                Icons.person_rounded,
+                                                color: Colors.white,
+                                                size: 48,
+                                              )
+                                            : null,
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: AppPalette.ochre,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                              color: Colors.white, width: 3),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black
+                                                  .withValues(alpha: 0.15),
+                                              blurRadius: 6,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: const Icon(
+                                          Icons.camera_alt_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Center(
+                                child: Text(
+                                  'Tap to add profile picture',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppPalette.mutedText,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 18),
 
                               // Full Name
                               TextFormField(

@@ -198,6 +198,8 @@ class VisitorAuth {
     required String email,
     required String password,
     String phone = '',
+    String? profileImageUrl,
+    String? profileImageStoragePath,
   }) async {
     _lastErrorMessage = null;
     final normalizedEmail = email.trim().toLowerCase();
@@ -241,8 +243,8 @@ class VisitorAuth {
         'textScaleFactor': 1.0,
         'language': 'en',
         'profileImageBase64': null,
-        'profileImageUrl': null,
-        'profileImageStoragePath': null,
+        'profileImageUrl': profileImageUrl,
+        'profileImageStoragePath': profileImageStoragePath,
         'passwordHash': _passwordHash(password),
         'passwordUpdatedAt': FieldValue.serverTimestamp(),
         'createdAt': FieldValue.serverTimestamp(),
@@ -316,6 +318,8 @@ class VisitorAuth {
           email: normalizedEmail,
           password: password,
           phone: phone.trim(),
+          profileImageUrl: profileImageUrl,
+          profileImageStoragePath: profileImageStoragePath,
         ),
       );
     }
