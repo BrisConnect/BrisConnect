@@ -242,53 +242,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ],
             ),
       extendBody: true,
-      body: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          if (_selectedNavIndex != 0 || kIsWeb) {
-            return false;
-          }
-
-          if (notification is ScrollUpdateNotification) {
-            final delta = notification.scrollDelta ?? 0;
-            if (delta > 8 && _isNavVisible) {
-              _navRestoreTimer?.cancel();
-              setState(() => _isNavVisible = false);
-            } else if (delta < -8 && !_isNavVisible) {
-              _navRestoreTimer?.cancel();
-              setState(() => _isNavVisible = true);
-            }
-          } else if (notification is ScrollEndNotification) {
-            _navRestoreTimer?.cancel();
-            if (!_isNavVisible) {
-              _navRestoreTimer = Timer(const Duration(milliseconds: 900), () {
-                if (mounted && !_isNavVisible) {
-                  setState(() => _isNavVisible = true);
-                }
-              });
-            }
-          }
-          return false;
-        },
-        child: IndexedStack(
-          index: _selectedNavIndex,
-          children: [
-            _buildHomeTab(),
-            _buildUsersTab(),
-            _buildBusinessesTab(),
-            _buildEventsTab(),
-            _buildSettingsTab(),
-          ],
-        ),
-      ),
-      bottomNavigationBar: IgnorePointer(
-        ignoring: !_isNavVisible,
-        child: AnimatedSlide(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          offset: _isNavVisible ? Offset.zero : const Offset(0, 1),
-          child: _buildBottomNav(),
-        ),
-      ),
+      body: _buildBody(),
+      bottomNavigationBar: _buildBottomNavigationBar(),
     );
 
     // Wrap scaffold with light blue background
@@ -309,6 +264,132 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       allowedRoles: const {AppUserRole.admin},
       deniedMessage: 'Access denied. Admin privileges are required.',
       child: withBackground,
+    );
+  }
+
+  Widget _buildBody() {
+    final content = NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (_selectedNavIndex != 0 || kIsWeb) {
+          return false;
+        }
+
+        if (notification is ScrollUpdateNotification) {
+          final delta = notification.scrollDelta ?? 0;
+          if (delta > 8 && _isNavVisible) {
+            _navRestoreTimer?.cancel();
+            setState(() => _isNavVisible = false);
+          } else if (delta < -8 && !_isNavVisible) {
+            _navRestoreTimer?.cancel();
+            setState(() => _isNavVisible = true);
+          }
+        } else if (notification is ScrollEndNotification) {
+          _navRestoreTimer?.cancel();
+          if (!_isNavVisible) {
+            _navRestoreTimer = Timer(const Duration(milliseconds: 900), () {
+              if (mounted && !_isNavVisible) {
+                setState(() => _isNavVisible = true);
+              }
+            });
+          }
+        }
+        return false;
+      },
+      child: IndexedStack(
+        index: _selectedNavIndex,
+        children: [
+          _buildHomeTab(),
+          _buildUsersTab(),
+          _buildBusinessesTab(),
+          _buildEventsTab(),
+          _buildSettingsTab(),
+        ],
+      ),
+    );
+
+    final isDesktop =
+        MediaQuery.sizeOf(context).width >= Breakpoints.desktop;
+    if (!isDesktop) return content;
+
+    return Row(
+      children: [
+        _buildNavRail(),
+        const VerticalDivider(
+          width: 1,
+          color: Color(0xFFBFDBFE),
+        ),
+        Expanded(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1400),
+              child: content,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget? _buildBottomNavigationBar() {
+    final isDesktop =
+        MediaQuery.sizeOf(context).width >= Breakpoints.desktop;
+    if (isDesktop) return null;
+
+    return IgnorePointer(
+      ignoring: !_isNavVisible,
+      child: AnimatedSlide(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        offset: _isNavVisible ? Offset.zero : const Offset(0, 1),
+        child: _buildBottomNav(),
+      ),
+    );
+  }
+
+  Widget _buildNavRail() {
+    return NavigationRail(
+      selectedIndex: _selectedNavIndex,
+      onDestinationSelected: (index) => setState(() {
+        _selectedNavIndex = index;
+        _isNavVisible = true;
+      }),
+      backgroundColor: Colors.white,
+      selectedIconTheme: const IconThemeData(color: AppPalette.ochre, size: 28),
+      unselectedIconTheme: const IconThemeData(color: AppPalette.mutedText),
+      selectedLabelTextStyle: const TextStyle(
+        color: AppPalette.ochre,
+        fontWeight: FontWeight.w600,
+      ),
+      unselectedLabelTextStyle: const TextStyle(color: AppPalette.mutedText),
+      labelType: NavigationRailLabelType.all,
+      destinations: const [
+        NavigationRailDestination(
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home_rounded),
+          label: Text('Home'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.groups_outlined),
+          selectedIcon: Icon(Icons.groups_rounded),
+          label: Text('Users'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.business_outlined),
+          selectedIcon: Icon(Icons.business_rounded),
+          label: Text('Businesses'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.event_outlined),
+          selectedIcon: Icon(Icons.event_rounded),
+          label: Text('Events'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.settings_outlined),
+          selectedIcon: Icon(Icons.settings_rounded),
+          label: Text('Settings'),
+        ),
+      ],
     );
   }
 
