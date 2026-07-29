@@ -25,6 +25,8 @@ import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/utils/responsive_utils.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
 
+const Color _adminDarkMetricBackground = Color(0xFF2A2D35);
+
 /// Internal descriptor for a single admin dashboard stat tile.
 class _StatItem {
   final Stream<int> stream;
@@ -871,7 +873,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w800,
-            color: AppPalette.charcoal,
+            color: Color(0xFFE2E8F0),
           ),
         ),
         if (onViewAll != null)
@@ -910,15 +912,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               return Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: AppPalette.surface.withValues(alpha: 0.75),
+                  color: _adminDarkMetricBackground,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                      color: AppPalette.border.withValues(alpha: 0.5)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                 ),
                 child: const Center(
                   child: Text(
                     'No recent users',
-                    style: TextStyle(color: AppPalette.mutedText),
+                    style: TextStyle(color: Color(0xFFB0B4BE)),
                   ),
                 ),
               );
@@ -1070,16 +1071,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: _adminDarkMetricBackground,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
           child: Wrap(
             spacing: 12,
@@ -1145,7 +1139,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           'New users, business registrations, events and reports',
           style: TextStyle(
             fontSize: 12,
-            color: AppPalette.mutedText,
+            color: Color(0xFFB0B4BE),
           ),
         ),
         const SizedBox(height: 14),
@@ -1157,10 +1151,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 height: 220,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: AppPalette.surface.withValues(alpha: 0.80),
+                  color: _adminDarkMetricBackground,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                      color: AppPalette.border.withValues(alpha: 0.5)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                 ),
                 child: const CircularProgressIndicator(color: AppPalette.ochre),
               );
@@ -1174,17 +1167,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               height: 260,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppPalette.surface.withValues(alpha: 0.80),
+                color: _adminDarkMetricBackground,
                 borderRadius: BorderRadius.circular(18),
-                border:
-                    Border.all(color: AppPalette.border.withValues(alpha: 0.5)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
               child: Column(
                 children: [
@@ -1196,7 +1181,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           drawVerticalLine: false,
                           horizontalInterval: maxY / 5,
                           getDrawingHorizontalLine: (_) => FlLine(
-                            color: Colors.grey.shade300,
+                            color: Color(0xFF4A4F5A),
                             strokeWidth: 1,
                             dashArray: [4, 4],
                           ),
@@ -1252,7 +1237,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     days[index],
                                     style: const TextStyle(
                                       fontSize: 10,
-                                      color: AppPalette.mutedText,
+                                      color: Color(0xFFB0B4BE),
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -1373,7 +1358,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           style: const TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: AppPalette.mutedText,
+            color: Color(0xFFB0B4BE),
           ),
         ),
       ],
@@ -1391,19 +1376,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w800,
-              color: AppPalette.charcoal,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 20),
 
           // ── Profile card (admin profile picture removed) ──
           Card(
-            color: AppPalette.surface,
+            color: _adminDarkMetricBackground,
             elevation: 4,
             shadowColor: AppPalette.cardShadow,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -1421,13 +1406,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
-                            color: AppPalette.charcoal,
+                            color: Colors.white,
                           ),
                         ),
                         if ((AdminAuth.currentAdminEmail ?? '').isNotEmpty)
                           Text(
                             AdminAuth.currentAdminEmail!,
-                            style: const TextStyle(color: AppPalette.mutedText),
+                            style: const TextStyle(color: Color(0xFFB0B4BE)),
                             overflow: TextOverflow.ellipsis,
                           ),
                       ],
@@ -1443,12 +1428,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           // ── Account Settings ──
           _settingsSectionLabel('Account Settings'),
           Card(
-            color: AppPalette.surface,
+            color: _adminDarkMetricBackground,
             elevation: 4,
             shadowColor: AppPalette.cardShadow,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
             ),
             child: Column(
               children: [
@@ -1457,12 +1442,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   title: const Text('Reports Hub',
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: AppPalette.charcoal)),
+                          color: Colors.white)),
                   subtitle: const Text(
                       'Moderate reported events and recommendations',
-                      style: TextStyle(color: AppPalette.mutedText)),
+                      style: TextStyle(color: Color(0xFFB0B4BE))),
                   trailing: const Icon(Icons.chevron_right_rounded,
-                      color: AppPalette.mutedText),
+                      color: Color(0xFFB0B4BE)),
                   onTap: _openReportsHub,
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
@@ -1471,12 +1456,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   title: const Text('Manage Businesses',
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: AppPalette.charcoal)),
+                          color: Colors.white)),
                   subtitle: const Text(
                       'Verify, edit, deactivate and archive listings',
-                      style: TextStyle(color: AppPalette.mutedText)),
+                      style: TextStyle(color: Color(0xFFB0B4BE))),
                   trailing: const Icon(Icons.chevron_right_rounded,
-                      color: AppPalette.mutedText),
+                      color: Color(0xFFB0B4BE)),
                   onTap: _openBusinessManagement,
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
@@ -1485,11 +1470,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   title: const Text('Community Feed',
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: AppPalette.charcoal)),
+                          color: Colors.white)),
                   subtitle: const Text('Pin, highlight and remove feed content',
-                      style: TextStyle(color: AppPalette.mutedText)),
+                      style: TextStyle(color: Color(0xFFB0B4BE))),
                   trailing: const Icon(Icons.chevron_right_rounded,
-                      color: AppPalette.mutedText),
+                      color: Color(0xFFB0B4BE)),
                   onTap: _openCommunityFeed,
                 ),
               ],
@@ -1501,12 +1486,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           // ── App Settings ──
           _settingsSectionLabel('App Settings'),
           Card(
-            color: AppPalette.surface,
+            color: _adminDarkMetricBackground,
             elevation: 4,
             shadowColor: AppPalette.cardShadow,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
             ),
             child: Column(
               children: [
@@ -1515,11 +1500,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   title: const Text('Feedback Review',
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: AppPalette.charcoal)),
+                          color: Colors.white)),
                   subtitle: const Text('Manage user feedback and responses',
-                      style: TextStyle(color: AppPalette.mutedText)),
+                      style: TextStyle(color: Color(0xFFB0B4BE))),
                   trailing: const Icon(Icons.chevron_right_rounded,
-                      color: AppPalette.mutedText),
+                      color: Color(0xFFB0B4BE)),
                   onTap: _openFeedbackReview,
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
@@ -1528,11 +1513,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   title: const Text('Event Categories',
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: AppPalette.charcoal)),
+                          color: Colors.white)),
                   subtitle: const Text('Manage event category taxonomy',
-                      style: TextStyle(color: AppPalette.mutedText)),
+                      style: TextStyle(color: Color(0xFFB0B4BE))),
                   trailing: const Icon(Icons.chevron_right_rounded,
-                      color: AppPalette.mutedText),
+                      color: Color(0xFFB0B4BE)),
                   onTap: _openCategoryManagement,
                 ),
               ],
@@ -1544,12 +1529,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           // ── BrisConnect ──
           _settingsSectionLabel('BrisConnect+'),
           Card(
-            color: AppPalette.surface,
+            color: _adminDarkMetricBackground,
             elevation: 4,
             shadowColor: AppPalette.cardShadow,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
             ),
             child: Column(
               children: [
@@ -1558,11 +1543,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   title: const Text('SMS Broadcast',
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: AppPalette.charcoal)),
+                          color: Colors.white)),
                   subtitle: const Text('Send SMS announcements to users',
-                      style: TextStyle(color: AppPalette.mutedText)),
+                      style: TextStyle(color: Color(0xFFB0B4BE))),
                   trailing: const Icon(Icons.chevron_right_rounded,
-                      color: AppPalette.mutedText),
+                      color: Color(0xFFB0B4BE)),
                   onTap: _openSmsBroadcast,
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
@@ -1571,11 +1556,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   title: const Text('Email Broadcast',
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: AppPalette.charcoal)),
+                          color: Colors.white)),
                   subtitle: const Text('Send email announcements to users',
-                      style: TextStyle(color: AppPalette.mutedText)),
+                      style: TextStyle(color: Color(0xFFB0B4BE))),
                   trailing: const Icon(Icons.chevron_right_rounded,
-                      color: AppPalette.mutedText),
+                      color: Color(0xFFB0B4BE)),
                   onTap: _openEmailBroadcast,
                 ),
               ],
@@ -1587,12 +1572,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           // ── Support ──
           _settingsSectionLabel('Support'),
           Card(
-            color: AppPalette.surface,
+            color: _adminDarkMetricBackground,
             elevation: 4,
             shadowColor: AppPalette.cardShadow,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
             ),
             child: Column(
               children: [
@@ -1601,11 +1586,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   title: const Text('Help & Support',
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: AppPalette.charcoal)),
+                          color: Colors.white)),
                   subtitle: const Text('Get help with admin features',
-                      style: TextStyle(color: AppPalette.mutedText)),
+                      style: TextStyle(color: Color(0xFFB0B4BE))),
                   trailing: const Icon(Icons.chevron_right_rounded,
-                      color: AppPalette.mutedText),
+                      color: Color(0xFFB0B4BE)),
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -1619,11 +1604,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   title: const Text('About BrisConnect+',
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: AppPalette.charcoal)),
+                          color: Colors.white)),
                   subtitle: const Text('Version, credits & legal',
-                      style: TextStyle(color: AppPalette.mutedText)),
+                      style: TextStyle(color: Color(0xFFB0B4BE))),
                   trailing: const Icon(Icons.chevron_right_rounded,
-                      color: AppPalette.mutedText),
+                      color: Color(0xFFB0B4BE)),
                   onTap: () {
                     showAboutDialog(
                       context: context,
@@ -1652,7 +1637,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         style: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w700,
-          color: AppPalette.mutedText,
+          color: Color(0xFFB0B4BE),
           letterSpacing: 0.8,
         ),
       ),
@@ -1697,16 +1682,9 @@ class _DashboardStatCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: _adminDarkMetricBackground,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1718,7 +1696,7 @@ class _DashboardStatCard extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: iconColor.withValues(alpha: 0.12),
+                    color: iconColor.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(icon, color: iconColor, size: 22),
@@ -1729,13 +1707,13 @@ class _DashboardStatCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: trend!.isUp
-                          ? Colors.green.shade50
-                          : Colors.red.shade50,
+                          ? Colors.green.shade900.withValues(alpha: 0.35)
+                          : Colors.red.shade900.withValues(alpha: 0.35),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: trend!.isUp
-                            ? Colors.green.shade300
-                            : Colors.red.shade300,
+                            ? Colors.green.shade400.withValues(alpha: 0.6)
+                            : Colors.red.shade400.withValues(alpha: 0.6),
                       ),
                     ),
                     child: Row(
@@ -1746,8 +1724,8 @@ class _DashboardStatCard extends StatelessWidget {
                               ? Icons.arrow_upward_rounded
                               : Icons.arrow_downward_rounded,
                           color: trend!.isUp
-                              ? Colors.green.shade700
-                              : Colors.red.shade700,
+                              ? Colors.green.shade300
+                              : Colors.red.shade300,
                           size: 10,
                         ),
                         const SizedBox(width: 2),
@@ -1757,8 +1735,8 @@ class _DashboardStatCard extends StatelessWidget {
                             fontSize: 10,
                             fontWeight: FontWeight.w800,
                             color: trend!.isUp
-                                ? Colors.green.shade700
-                                : Colors.red.shade700,
+                                ? Colors.green.shade300
+                                : Colors.red.shade300,
                           ),
                         ),
                       ],
@@ -1771,10 +1749,10 @@ class _DashboardStatCard extends StatelessWidget {
               children: [
                 Text(
                   value,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
-                    color: AppPalette.charcoal,
+                    color: Colors.white,
                     height: 1.1,
                   ),
                 ),
@@ -1784,7 +1762,7 @@ class _DashboardStatCard extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: AppPalette.mutedText,
+                    color: Color(0xFFB0B4BE),
                   ),
                 ),
               ],
@@ -1817,16 +1795,9 @@ class _QuickActionButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: _adminDarkMetricBackground,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         ),
         child: Row(
           children: [
@@ -1834,7 +1805,7 @@ class _QuickActionButton extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
+                color: color.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 24),
@@ -1846,13 +1817,13 @@ class _QuickActionButton extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: AppPalette.charcoal,
+                  color: Colors.white,
                 ),
               ),
             ),
-            Icon(
+            const Icon(
               Icons.arrow_forward_ios_rounded,
-              color: AppPalette.mutedText,
+              color: Color(0xFFB0B4BE),
               size: 14,
             ),
           ],
@@ -1963,15 +1934,15 @@ class _RecentUserCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: AppPalette.surface.withValues(alpha: 0.80),
+          color: _adminDarkMetricBackground,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppPalette.border.withValues(alpha: 0.5)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         ),
         child: Row(
           children: [
             CircleAvatar(
               radius: 22,
-              backgroundColor: AppPalette.ochre.withValues(alpha: 0.15),
+              backgroundColor: AppPalette.ochre.withValues(alpha: 0.18),
               child: Text(
                 name.isNotEmpty ? name[0].toUpperCase() : '?',
                 style: const TextStyle(
@@ -1993,7 +1964,7 @@ class _RecentUserCard extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: AppPalette.charcoal,
+                      color: Colors.white,
                     ),
                   ),
                   if (subtitle.isNotEmpty)
@@ -2003,7 +1974,7 @@ class _RecentUserCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 12,
-                        color: AppPalette.mutedText,
+                        color: Color(0xFFB0B4BE),
                       ),
                     ),
                 ],
