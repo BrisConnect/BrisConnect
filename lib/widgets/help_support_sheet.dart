@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 
 class HelpSupportSheet extends StatelessWidget {
@@ -82,31 +83,43 @@ class HelpSupportSheet extends StatelessWidget {
                       icon: Icons.account_circle_outlined,
                       question: 'How do I update my profile?',
                       answer:
-                          'Go to your Profile tab, tap your name or avatar, and edit your details.',
+                          'Go to the Profile tab, tap Edit Profile or your avatar, and update your details. You can also upload or change your profile photo.',
                     ),
                     _faqTile(
                       icon: Icons.event_outlined,
                       question: 'How do I submit an event?',
                       answer:
-                          'Tap the + button in the navigation bar to add a new event. It will be reviewed before going live.',
+                          'Local and Business accounts can submit events from the Dashboard. Fill in the event details and submit it for review. Events are approved before they go live. Visitor accounts cannot submit events.',
                     ),
                     _faqTile(
                       icon: Icons.notifications_outlined,
                       question: 'How do I manage notifications?',
                       answer:
-                          'Go to Profile → Notification Settings to turn event reminders on or off.',
+                          'Go to Profile → Notification Settings to turn event reminders, nearby event alerts, updates, and email notifications on or off.',
                     ),
                     _faqTile(
                       icon: Icons.map_outlined,
                       question: 'How does the map work?',
                       answer:
-                          'The Map tab shows nearby events and attractions. Tap any pin for details.',
+                          'The Map tab shows nearby events, venues, and attractions. Tap any pin for details, directions, and live crowd info.',
+                    ),
+                    _faqTile(
+                      icon: Icons.how_to_vote_outlined,
+                      question: 'How do I vote in Best in Brisbane?',
+                      answer:
+                          'Open a business or venue profile and tap the Best in Brisbane / Buzz vote button. Votes are counted in real time.',
+                    ),
+                    _faqTile(
+                      icon: Icons.people_outline_rounded,
+                      question: 'How do I report crowd levels?',
+                      answer:
+                          'On a venue or event page, tap Report Crowd to share live crowd info with the community.',
                     ),
                     _faqTile(
                       icon: Icons.lock_outline_rounded,
                       question: 'How do I reset my password?',
                       answer:
-                          'On the login screen tap "Forgot password?" and follow the email instructions.',
+                          'On the login screen tap "Forgot password?" and follow the email instructions to reset it.',
                     ),
                     const SizedBox(height: 24),
                     _sectionTitle('Contact Us'),
@@ -115,11 +128,13 @@ class HelpSupportSheet extends StatelessWidget {
                       icon: Icons.email_outlined,
                       title: 'Email Support',
                       subtitle: 'support@brisconnect.com.au',
+                      onTap: () => _launchUrl('mailto:support@brisconnect.com.au'),
                     ),
                     _contactTile(
                       icon: Icons.language_outlined,
                       title: 'Website',
                       subtitle: 'www.brisconnect.com.au',
+                      onTap: () => _launchUrl('https://www.brisconnect.com.au'),
                     ),
                     const SizedBox(height: 24),
                     _sectionTitle('App Info'),
@@ -141,7 +156,7 @@ class HelpSupportSheet extends StatelessWidget {
                           SizedBox(height: 8),
                           _InfoRow(
                               label: 'Platform',
-                              value: 'iOS / Android'),
+                              value: 'iOS / Android / Web'),
                           SizedBox(height: 8),
                           _InfoRow(
                               label: 'Developer',
@@ -172,6 +187,16 @@ class HelpSupportSheet extends StatelessWidget {
     );
   }
 
+  Future<void> _launchUrl(String urlString) async {
+    final uri = Uri.parse(urlString);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+    }
+  }
+
   Widget _faqTile({
     required IconData icon,
     required String question,
@@ -184,6 +209,7 @@ class HelpSupportSheet extends StatelessWidget {
     required IconData icon,
     required String title,
     required String subtitle,
+    VoidCallback? onTap,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -211,6 +237,7 @@ class HelpSupportSheet extends StatelessWidget {
         subtitle: Text(subtitle,
             style: const TextStyle(
                 fontSize: 13, color: AppPalette.mutedText)),
+        onTap: onTap,
       ),
     );
   }
