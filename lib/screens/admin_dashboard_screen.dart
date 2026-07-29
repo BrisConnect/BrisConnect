@@ -311,6 +311,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         MediaQuery.sizeOf(context).width >= Breakpoints.desktop;
     if (!isDesktop) return content;
 
+    final banneredContent = Column(
+      children: [
+        _buildAdminCityBanner(),
+        Expanded(child: content),
+      ],
+    );
+
     return Row(
       children: [
         _buildNavRail(),
@@ -323,11 +330,70 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 1400),
-              child: content,
+              child: banneredContent,
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAdminCityBanner() {
+    if (!kIsWeb) return const SizedBox.shrink();
+    return SizedBox(
+      width: double.infinity,
+      height: 130,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            'assets/Brisbane banner.webp',
+            fit: BoxFit.cover,
+          ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.25),
+                  Colors.black.withValues(alpha: 0.55),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            left: 20,
+            bottom: 18,
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.location_city_rounded,
+                  color: AppPalette.ochre,
+                  size: 24,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Brisbane City',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.96),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.6,
+                    shadows: const [
+                      Shadow(
+                        color: Colors.black54,
+                        offset: Offset(0, 1),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
