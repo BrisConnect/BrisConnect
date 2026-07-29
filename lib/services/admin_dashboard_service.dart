@@ -123,8 +123,93 @@ class AdminDashboardService {
     );
   }
 
+  /// Total visible reviews across all businesses.
+  Stream<int> totalReviewsCount() {
+    return _countStream(
+      _firestore.collection('reviews').where('visible', isEqualTo: true),
+    );
+  }
+
+  /// Total profile views across all business listings.
+  Stream<int> totalProfileViewsCount() {
+    return _sumNumericFieldStream(
+      _firestore.collection('businesses'),
+      field: 'viewCount',
+    );
+  }
+
+  /// Total saves/favourites across all business listings.
+  Stream<int> totalSavesCount() {
+    return _sumNumericFieldStream(
+      _firestore.collection('businesses'),
+      field: 'savedCount',
+    );
+  }
+
+  /// Total crowd reports submitted.
+  Stream<int> totalCrowdReportsCount() {
+    return _countStream(_firestore.collection('crowd_reports'));
+  }
+
+  /// Total buzz votes (reviews with a non-zero buzzRating).
+  Stream<int> totalBuzzVotesCount() {
+    return _countStream(
+      _firestore
+          .collection('reviews')
+          .where('visible', isEqualTo: true)
+          .where('buzzRating', isGreaterThan: 0),
+    );
+  }
+
   Stream<int> _countStream(Query<Map<String, dynamic>> query) {
     return query.snapshots().map((snapshot) => snapshot.size).distinct();
+  }
+
+  /// Sums a numeric field across all documents in a collection in real-time.
+  Stream<int> _sumNumericFieldStream(
+    Query<Map<String, dynamic>> query, {
+    required String field,
+  }) {
+    return query.snapshots().map((snapshot) {
+      var sum = 0;
+      for (final doc in snapshot.docs) {
+        final value = doc.data()[field];
+        if (value is num) {
+          sum += value.toInt();
+        }
+      }
+      return sum;
+    }).distinct();
+  }
+
+  /// Trend of new reviews created today vs yesterday.
+  Stream<MetricTrend> reviewsTrend() {
+    return _trendStream(
+      _firestore.collection('reviews').where('visible', isEqualTo: true),
+      period: const Duration(days: 1),
+      periodLabel: 'today',
+    );
+  }
+
+  /// Trend of new crowd reports filed today vs yesterday.
+  Stream<MetricTrend> crowdReportsTrend() {
+    return _trendStream(
+      _firestore.collection('crowd_reports'),
+      period: const Duration(days: 1),
+      periodLabel: 'today',
+    );
+  }
+
+  /// Trend of buzz votes submitted today vs yesterday.
+  Stream<MetricTrend> buzzVotesTrend() {
+    return _trendStream(
+      _firestore
+          .collection('reviews')
+          .where('visible', isEqualTo: true)
+          .where('buzzRating', isGreaterThan: 0),
+      period: const Duration(days: 1),
+      periodLabel: 'today',
+    );
   }
 
   /// Weekly per-day analytics (Mon–Sun) combining users, businesses, events and reports.

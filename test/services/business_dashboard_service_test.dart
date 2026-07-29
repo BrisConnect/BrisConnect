@@ -51,17 +51,35 @@ void main() {
       required String businessId,
       required DateTime createdAt,
       bool visible = true,
+      int rating = 5,
+      int buzzRating = 0,
     }) async {
       final ref = fakeFirestore.collection('reviews').doc(id);
       await ref.set({
         'businessId': businessId,
         'visitorId': 'visitor_$id',
         'visitorName': 'User $id',
-        'rating': 5,
+        'rating': rating,
+        'buzzRating': buzzRating,
         'comment': 'Great!',
         'createdAt': Timestamp.fromDate(createdAt),
         'visible': visible,
         'isFlagged': false,
+      });
+      return ref;
+    }
+
+    Future<DocumentReference> addCrowdReport({
+      required String id,
+      required String businessId,
+      required DateTime timestamp,
+      int weight = 2,
+    }) async {
+      final ref = fakeFirestore.collection('crowd_reports').doc(id);
+      await ref.set({
+        'businessId': businessId,
+        'weight': weight,
+        'timestamp': Timestamp.fromDate(timestamp),
       });
       return ref;
     }
@@ -295,6 +313,86 @@ void main() {
 
       final second = await stream.first;
       expect(second.profileViews, 10);
+    });
+
+    test('getMetrics includes total reviews, average rating and buzz votes',
+        () async {
+      await addBusiness(id: 'b1', ownerId: 'owner@test.com');
+      await addReview(
+        id: 'r1',
+        businessId: 'b1',
+        createdAt: DateTime.now(),
+        rating: 4,
+        buzzRating: 5,
+      );
+      await addReview(
+        id: 'r2',
+        businessId: 'b1',
+        createdAt: DateTime.now(),
+        rating: 2,
+        buzzRating: 3,
+      );
+      await addReview(
+        id: 'r3',
+        businessId: 'b1',
+        createdAt: DateTime.now(),
+        rating: 5,
+        buzzRating: 0,
+      );
+
+      final metrics = await service.getMetrics('owner@test.com');
+      expect(metrics.totalReviews, 3);
+      expect(metrics.averageRating, closeTo(3.67, 0.01));
+      expect(metrics.totalBuzzVotes, 2);
+      expect(metrics.averageBuzzRating, closeTo(4.0, 0.01));
+    });
+
+    test('metricsStream emits when a new review is added', () async {
+      await addBusiness(id: 'b1', ownerId: 'owner@test.com');
+      await addReview(
+        id: 'r1',
+        businessId: 'b1',
+        createdAt: DateTime.now(),
+        rating: 4,
+        buzzRating: 5,
+      );
+
+      final stream = service.metricsStream('owner@test.com');
+      final first = await stream.first;
+      expect(first.totalReviews, 1);
+      expect(first.totalBuzzVotes, 1);
+
+      await addReview(
+        id: 'r2',
+        businessId: 'b1',
+        createdAt: DateTime.now(),
+        rating: 2,
+        buzzRating: 3,
+      );
+
+      final second = await stream.first;
+      expect(second.totalReviews, 2);
+      expect(second.totalBuzzVotes, 2);
+      expect(second.averageBuzzRating, closeTo(4.0, 0.01));
+    });
+
+    test('metricsStream emits when a crowd report is added', () async {
+      await addBusiness(id: 'b1', ownerId: 'owner@test.com');
+
+      final stream = service.metricsStream('owner@test.com');
+      final first = await stream.first;
+      expect(first.crowdLevel, isNull);
+
+      await addCrowdReport(
+        id: 'c1',
+        businessId: 'b1',
+        timestamp: DateTime.now(),
+        weight: 3,
+      );
+
+      final second = await stream.first;
+      expect(second.crowdLevel, 'High');
+      expect(second.crowdReportCount, 1);
     });
 
     test('percentageChange handles zero previous values', () async {

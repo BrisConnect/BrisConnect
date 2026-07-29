@@ -25,7 +25,10 @@ class Business {
   final double buzzScore; // Computed engagement score (0-100)
   final bool isTrending; // True when buzzScore meets threshold
   final int viewCount; // Total profile views
+  final int savedCount; // Total saves/favourites
   final int reviewCount; // Total reviews
+  final Map<String, int> viewHistory; // Daily view counts keyed dd-mm-yyyy
+  final Map<String, int> saveHistory; // Daily save counts keyed dd-mm-yyyy
   final bool isActive; // Admin can deactivate without deleting
   final DateTime? deletedAt; // Soft-delete timestamp
   final String? deletedBy; // Admin email that performed soft delete
@@ -55,7 +58,10 @@ class Business {
     this.buzzScore = 0.0,
     this.isTrending = false,
     this.viewCount = 0,
+    this.savedCount = 0,
     this.reviewCount = 0,
+    this.viewHistory = const {},
+    this.saveHistory = const {},
     this.isActive = true,
     this.deletedAt,
     this.deletedBy,
@@ -98,7 +104,10 @@ class Business {
       'buzzScore': buzzScore,
       'isTrending': isTrending,
       'viewCount': viewCount,
+      'savedCount': savedCount,
       'reviewCount': reviewCount,
+      'viewHistory': viewHistory,
+      'saveHistory': saveHistory,
       'isActive': isActive,
       'deletedAt': deletedAt,
       'deletedBy': deletedBy,
@@ -139,11 +148,21 @@ class Business {
       buzzScore: (data['buzzScore'] as num?)?.toDouble() ?? 0.0,
       isTrending: data['isTrending'] ?? false,
       viewCount: (data['viewCount'] as num?)?.toInt() ?? 0,
+      savedCount: (data['savedCount'] as num?)?.toInt() ?? 0,
       reviewCount: (data['reviewCount'] as num?)?.toInt() ?? 0,
+      viewHistory: _parseHistory(data['viewHistory']),
+      saveHistory: _parseHistory(data['saveHistory']),
       isActive: data['isActive'] ?? !(data['deletedAt'] != null),
       deletedAt: (data['deletedAt'] as Timestamp?)?.toDate(),
       deletedBy: data['deletedBy'],
       duplicateOf: data['duplicateOf'],
+    );
+  }
+
+  static Map<String, int> _parseHistory(dynamic value) {
+    if (value is! Map) return const {};
+    return value.map<String, int>(
+      (key, val) => MapEntry(key.toString(), (val as num?)?.toInt() ?? 0),
     );
   }
 
@@ -217,7 +236,10 @@ class Business {
       buzzScore: (data['buzzScore'] as num?)?.toDouble() ?? 0.0,
       isTrending: data['isTrending'] ?? false,
       viewCount: (data['viewCount'] as num?)?.toInt() ?? 0,
+      savedCount: (data['savedCount'] as num?)?.toInt() ?? 0,
       reviewCount: (data['reviewCount'] as num?)?.toInt() ?? 0,
+      viewHistory: _parseHistory(data['viewHistory']),
+      saveHistory: _parseHistory(data['saveHistory']),
       isActive: data['isActive'] ?? !(data['deletedAt'] != null),
       deletedAt: (data['deletedAt'] as Timestamp?)?.toDate(),
     );
@@ -248,7 +270,10 @@ class Business {
     double? buzzScore,
     bool? isTrending,
     int? viewCount,
+    int? savedCount,
     int? reviewCount,
+    Map<String, int>? viewHistory,
+    Map<String, int>? saveHistory,
     bool? isActive,
     DateTime? deletedAt,
     String? deletedBy,
@@ -278,7 +303,10 @@ class Business {
       buzzScore: buzzScore ?? this.buzzScore,
       isTrending: isTrending ?? this.isTrending,
       viewCount: viewCount ?? this.viewCount,
+      savedCount: savedCount ?? this.savedCount,
       reviewCount: reviewCount ?? this.reviewCount,
+      viewHistory: viewHistory ?? this.viewHistory,
+      saveHistory: saveHistory ?? this.saveHistory,
       isActive: isActive ?? this.isActive,
       deletedAt: deletedAt,
       deletedBy: deletedBy,

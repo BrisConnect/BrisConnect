@@ -226,6 +226,13 @@ class BusinessDashboardScreen extends StatelessWidget {
                         color: const Color(0xFF9B59B6),
                       ),
                       _AnalyticCard(
+                        icon: Icons.reviews_rounded,
+                        label: 'Total Reviews',
+                        value: '${metrics.totalReviews}',
+                        change: 0,
+                        color: const Color(0xFF9B59B6),
+                      ),
+                      _AnalyticCard(
                         icon: Icons.local_offer_rounded,
                         label: 'Active Promotions',
                         value: '${metrics.activePromotions}',
@@ -245,6 +252,27 @@ class BusinessDashboardScreen extends StatelessWidget {
                         value: metrics.buzzScore.toStringAsFixed(1),
                         change: 0,
                         color: const Color(0xFF3BD0EE),
+                      ),
+                      _AnalyticCard(
+                        icon: Icons.bolt_rounded,
+                        label: 'Avg Buzz Vote',
+                        value: metrics.averageBuzzRating.toStringAsFixed(1),
+                        change: 0,
+                        color: const Color(0xFF3BD0EE),
+                      ),
+                      _AnalyticCard(
+                        icon: Icons.how_to_vote_rounded,
+                        label: 'Buzz Votes',
+                        value: '${metrics.totalBuzzVotes}',
+                        change: 0,
+                        color: const Color(0xFF3BD0EE),
+                      ),
+                      _AnalyticCard(
+                        icon: Icons.thumb_up_rounded,
+                        label: 'Avg Rating',
+                        value: metrics.averageRating.toStringAsFixed(1),
+                        change: 0,
+                        color: const Color(0xFF2ECC71),
                       ),
                       _AnalyticCard(
                         icon: Icons.people_rounded,
