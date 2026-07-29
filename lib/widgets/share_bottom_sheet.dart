@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/services/share/content_share_service.dart';
 import 'package:brisconnect/services/share/social_story_service.dart';
+import 'package:brisconnect/services/social_share_tracking_service.dart';
 
 /// Shows a platform-specific share bottom sheet for any shareable content.
 ///
@@ -24,11 +25,16 @@ Future<void> showShareBottomSheet({
   String? description,
   String? location,
   String? dateTime,
+  String? businessId,
+  String? businessName,
+  String? imageUrl,
   ContentShareService? shareService,
   SocialStoryService? storyService,
+  SocialShareTrackingService? trackingService,
 }) async {
   final service = shareService ?? ContentShareService();
   final storySvc = storyService ?? SocialStoryService();
+  final tracker = trackingService ?? SocialShareTrackingService();
   if (!context.mounted) return;
 
   await showModalBottomSheet(
@@ -105,6 +111,10 @@ Future<void> showShareBottomSheet({
                       description: description,
                       location: location,
                       dateTime: dateTime,
+                      businessId: businessId,
+                      businessName: businessName,
+                      imageUrl: imageUrl,
+                      trackingService: tracker,
                     );
                   },
                 ),
@@ -125,6 +135,10 @@ Future<void> showShareBottomSheet({
                       description: description,
                       location: location,
                       dateTime: dateTime,
+                      businessId: businessId,
+                      businessName: businessName,
+                      imageUrl: imageUrl,
+                      trackingService: tracker,
                     );
                   },
                 ),
@@ -145,6 +159,10 @@ Future<void> showShareBottomSheet({
                       description: description,
                       location: location,
                       dateTime: dateTime,
+                      businessId: businessId,
+                      businessName: businessName,
+                      imageUrl: imageUrl,
+                      trackingService: tracker,
                     );
                   },
                 ),
@@ -181,6 +199,7 @@ Future<void> showShareBottomSheet({
                     _share(
                       context: context,
                       service: service,
+                      trackingService: tracker,
                       platform: 'facebook',
                       type: type,
                       id: id,
@@ -188,6 +207,9 @@ Future<void> showShareBottomSheet({
                       description: description,
                       location: location,
                       dateTime: dateTime,
+                      businessId: businessId,
+                      businessName: businessName,
+                      imageUrl: imageUrl,
                     );
                   },
                 ),
@@ -200,6 +222,7 @@ Future<void> showShareBottomSheet({
                     _share(
                       context: context,
                       service: service,
+                      trackingService: tracker,
                       platform: 'native',
                       type: type,
                       id: id,
@@ -207,6 +230,9 @@ Future<void> showShareBottomSheet({
                       description: description,
                       location: location,
                       dateTime: dateTime,
+                      businessId: businessId,
+                      businessName: businessName,
+                      imageUrl: imageUrl,
                     );
                   },
                 ),
@@ -219,6 +245,7 @@ Future<void> showShareBottomSheet({
                     _share(
                       context: context,
                       service: service,
+                      trackingService: tracker,
                       platform: 'copy',
                       type: type,
                       id: id,
@@ -226,6 +253,9 @@ Future<void> showShareBottomSheet({
                       description: description,
                       location: location,
                       dateTime: dateTime,
+                      businessId: businessId,
+                      businessName: businessName,
+                      imageUrl: imageUrl,
                     );
                   },
                 ),
@@ -238,6 +268,7 @@ Future<void> showShareBottomSheet({
                 _share(
                   context: context,
                   service: service,
+                  trackingService: tracker,
                   platform: 'copy',
                   type: type,
                   id: id,
@@ -245,6 +276,9 @@ Future<void> showShareBottomSheet({
                   description: description,
                   location: location,
                   dateTime: dateTime,
+                  businessId: businessId,
+                  businessName: businessName,
+                  imageUrl: imageUrl,
                 );
               },
               borderRadius: BorderRadius.circular(12),
@@ -319,6 +353,10 @@ Future<void> _shareToStory({
   String? description,
   String? location,
   String? dateTime,
+  String? businessId,
+  String? businessName,
+  String? imageUrl,
+  SocialShareTrackingService? trackingService,
 }) async {
   final result = await storyService.shareToStory(
     platform: platform,
@@ -329,6 +367,20 @@ Future<void> _shareToStory({
     location: location,
     dateTime: dateTime,
     useMedia: true,
+  );
+
+  _recordShare(
+    trackingService: trackingService,
+    platform: SocialStoryService.platformLabel(platform).toLowerCase(),
+    shareKind: 'story',
+    type: type,
+    id: id,
+    title: title,
+    description: description,
+    businessId: businessId,
+    businessName: businessName,
+    imageUrl: imageUrl,
+    shareUrl: ContentShareService().buildShareUrl(type: type, id: id, slug: title),
   );
 
   if (!context.mounted) return;
@@ -396,6 +448,10 @@ Future<void> _share({
   String? description,
   String? location,
   String? dateTime,
+  String? businessId,
+  String? businessName,
+  String? imageUrl,
+  SocialShareTrackingService? trackingService,
 }) async {
   final result = await service.shareToPlatform(
     platform: platform,
@@ -405,6 +461,20 @@ Future<void> _share({
     description: description,
     location: location,
     dateTime: dateTime,
+  );
+
+  _recordShare(
+    trackingService: trackingService,
+    platform: platform,
+    shareKind: platform == 'copy' ? 'copy_link' : 'link',
+    type: type,
+    id: id,
+    title: title,
+    description: description,
+    businessId: businessId,
+    businessName: businessName,
+    imageUrl: imageUrl,
+    shareUrl: service.buildShareUrl(type: type, id: id, slug: title),
   );
 
   if (!context.mounted) return;
@@ -441,6 +511,34 @@ Future<void> _share({
         _buildSnackBar('Could not complete share. Try again.'),
       );
   }
+}
+
+void _recordShare({
+  required SocialShareTrackingService? trackingService,
+  required String platform,
+  required String shareKind,
+  required ShareContentType type,
+  required String id,
+  required String title,
+  String? description,
+  String? businessId,
+  String? businessName,
+  String? imageUrl,
+  String? shareUrl,
+}) {
+  final effectiveBusinessId = businessId ?? id;
+  trackingService?.recordShare(
+    businessId: effectiveBusinessId,
+    businessName: businessName,
+    contentId: id,
+    contentType: type,
+    platform: platform,
+    shareKind: shareKind,
+    title: title,
+    description: description,
+    imageUrl: imageUrl,
+    shareUrl: shareUrl,
+  );
 }
 
 SnackBar _buildSnackBar(

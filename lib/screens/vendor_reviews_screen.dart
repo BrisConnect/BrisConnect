@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/local_auth.dart';
+import 'package:brisconnect/models/social_share_event.dart';
 import 'package:brisconnect/services/business_profile_service.dart';
+import 'package:brisconnect/services/social_share_tracking_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 
 /// Screen 2 of the Local portal — Vendor Reviews & Engagement.
@@ -17,6 +19,8 @@ class _VendorReviewsScreenState extends State<VendorReviewsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tab;
   String? _businessId;
+  late final SocialShareTrackingService _shareTrackingService =
+      SocialShareTrackingService();
 
   @override
   void initState() {
@@ -219,56 +223,48 @@ class _VendorReviewsScreenState extends State<VendorReviewsScreen>
 
   // ── Social Mentions ─────────────────────────────────────────────────
   Widget _buildSocialMentions() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _SocialPlatformCard(
-          platform: 'Instagram',
-          icon: Icons.camera_alt_rounded,
-          color: const Color(0xFFE1306C),
-          description: 'Connect your Instagram account to see mentions and tags.',
-        ),
-        const SizedBox(height: 12),
-        _SocialPlatformCard(
-          platform: 'Facebook',
-          icon: Icons.facebook_rounded,
-          color: const Color(0xFF1877F2),
-          description:
-              'Link your Facebook page to monitor comments and recommendations.',
-        ),
-        const SizedBox(height: 12),
-        _SocialPlatformCard(
-          platform: 'TikTok',
-          icon: Icons.music_note_rounded,
-          color: Colors.white,
-          description:
-              'Connect TikTok to track videos that feature your business.',
-        ),
-        const SizedBox(height: 20),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppPalette.ochre.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: AppPalette.ochre.withValues(alpha: 0.3)),
-          ),
-          child: const Row(
-            children: [
-              Icon(Icons.info_outline_rounded,
-                  color: AppPalette.ochre, size: 18),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Social media integration coming soon. Add your links from your Business Profile to get started.',
-                  style: TextStyle(
-                      color: Colors.white70, fontSize: 12, height: 1.4),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+    if (_businessId == null) {
+      return _emptyState(
+        icon: Icons.share_outlined,
+        title: 'No business profile yet',
+        subtitle:
+            'Complete your Business Profile to see when visitors share your content.',
+      );
+    }
+
+    return StreamBuilder<List<SocialShareEvent>>(
+      stream: _shareTrackingService.streamForBusiness(_businessId!),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: AppPalette.ochre),
+          );
+        }
+
+        if (snap.hasError) {
+          return _emptyState(
+            icon: Icons.error_outline_rounded,
+            title: 'Could not load social shares',
+            subtitle: snap.error.toString(),
+          );
+        }
+
+        final events = snap.data ?? [];
+        if (events.isEmpty) {
+          return _emptyState(
+            icon: Icons.share_outlined,
+            title: 'No social shares yet',
+            subtitle:
+                'When visitors share your business, event or promotion to social media, it will appear here live.',
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: events.length,
+          itemBuilder: (context, index) => _SocialShareCard(event: events[index]),
+        );
+      },
     );
   }
 
@@ -527,72 +523,109 @@ class _ReviewCard extends StatelessWidget {
   }
 }
 
-// ── Social Platform Card ──────────────────────────────────────────────
-class _SocialPlatformCard extends StatelessWidget {
-  const _SocialPlatformCard({
-    required this.platform,
-    required this.icon,
-    required this.color,
-    required this.description,
-  });
-  final String platform;
-  final IconData icon;
-  final Color color;
-  final String description;
+// ── Social Share Card ────────────────────────────────────────────────
+class _SocialShareCard extends StatelessWidget {
+  const _SocialShareCard({required this.event});
+
+  final SocialShareEvent event;
 
   @override
   Widget build(BuildContext context) {
+    final (icon, color) = _platformIcon(event.platform);
+    final visitor = event.visitorName?.trim().isNotEmpty == true
+        ? event.visitorName!
+        : 'A visitor';
+
     return Container(
+      margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppPalette.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(platform,
-                    style: const TextStyle(
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$visitor shared to ${event.platform}',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
-                        fontSize: 14)),
-                Text(description,
-                    style: const TextStyle(
+                        fontSize: 13,
+                      ),
+                    ),
+                    Text(
+                      '${event.shareKind.toUpperCase()} • ${event.contentType.name}',
+                      style: const TextStyle(
                         color: Color(0xFF8B8FA8),
                         fontSize: 11,
-                        height: 1.3)),
-              ],
-            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                _formatTimeAgo(event.createdAt),
+                style: const TextStyle(
+                  color: Color(0xFF8B8FA8),
+                  fontSize: 11,
+                ),
+              ),
+            ],
           ),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: color.withValues(alpha: 0.3)),
+          if (event.title.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              event.title,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                height: 1.4,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            child: Text('Connect',
-                style: TextStyle(
-                    color: color,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
-          ),
+          ],
         ],
       ),
     );
+  }
+
+  (IconData, Color) _platformIcon(String platform) {
+    final lower = platform.toLowerCase();
+    if (lower.contains('instagram')) {
+      return (Icons.camera_alt_rounded, const Color(0xFFE1306C));
+    }
+    if (lower.contains('facebook')) {
+      return (Icons.facebook_rounded, const Color(0xFF1877F2));
+    }
+    if (lower.contains('tiktok')) {
+      return (Icons.music_note_rounded, Colors.white);
+    }
+    return (Icons.share_rounded, AppPalette.ochre);
+  }
+
+  String _formatTimeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
   }
 }

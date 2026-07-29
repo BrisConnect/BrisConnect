@@ -353,6 +353,30 @@ service cloud.firestore {
       );
     }
 
+    // ── Social shares / tags (visitor sharing to social media) ──
+    // Records when visitors share or tag a business on social media.
+    // Business owners can read shares for their own businesses. Signed-in
+    // visitors can create shares. Dev: unauthenticated fallbacks remain for
+    // unsigned macOS builds.
+    match /social_shares/{shareId} {
+      allow read: if (isSignedIn() && resource.data.businessId is string
+        && exists(/databases/$(database)/documents/businesses/$(resource.data.businessId))
+        && get(/databases/$(database)/documents/businesses/$(resource.data.businessId)).data.ownerId == authEmail())
+        || isAdmin()
+        || request.auth == null;
+      allow create: if (isSignedIn()
+        && request.resource.data.keys().hasAll(['visitorId', 'businessId', 'contentId', 'contentType', 'platform', 'shareKind', 'title', 'createdAt'])
+        && request.resource.data.visitorId == request.auth.uid
+        && request.resource.data.businessId is string
+        && request.resource.data.contentId is string
+        && request.resource.data.platform is string
+        && request.resource.data.shareKind is string
+        && request.resource.data.title is string
+        && request.resource.data.createdAt == request.time)
+        || request.auth == null;
+      allow update, delete: if false;
+    }
+
     // ── Visitor-contributed photos (businesses and events) ──
     // Public reads only see approved photos. Signed-in visitors can create
     // photos linked to their own auth uid. Authors and admins can update or
