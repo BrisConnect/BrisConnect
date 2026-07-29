@@ -333,33 +333,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _NavItem(
-                icon: Icons.home_rounded,
-                label: 'Home',
-                isSelected: _selectedNavIndex == 0,
-                onTap: () => setState(() {
-                  _selectedNavIndex = 0;
-                  _isNavVisible = true;
-                }),
-              ),
-              _NavItem(
-                icon: Icons.groups_rounded,
-                label: 'Users',
-                isSelected: _selectedNavIndex == 1,
-                onTap: () => setState(() {
-                  _selectedNavIndex = 1;
-                  _isNavVisible = true;
-                }),
-              ),
-              _NavItem(
-                icon: Icons.business_rounded,
-                label: 'Businesses',
-                isSelected: _selectedNavIndex == 2,
-                onTap: () => setState(() {
-                  _selectedNavIndex = 2;
-                  _isNavVisible = true;
-                }),
-              ),
               // Center Events button
               GestureDetector(
                 onTap: () => setState(() {
@@ -400,6 +373,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ],
                   ),
                 ),
+              ),
+              _NavItem(
+                icon: Icons.home_rounded,
+                label: 'Home',
+                isSelected: _selectedNavIndex == 0,
+                onTap: () => setState(() {
+                  _selectedNavIndex = 0;
+                  _isNavVisible = true;
+                }),
+              ),
+              _NavItem(
+                icon: Icons.groups_rounded,
+                label: 'Users',
+                isSelected: _selectedNavIndex == 1,
+                onTap: () => setState(() {
+                  _selectedNavIndex = 1;
+                  _isNavVisible = true;
+                }),
+              ),
+              _NavItem(
+                icon: Icons.business_rounded,
+                label: 'Businesses',
+                isSelected: _selectedNavIndex == 2,
+                onTap: () => setState(() {
+                  _selectedNavIndex = 2;
+                  _isNavVisible = true;
+                }),
               ),
               _NavItem(
                 icon: Icons.settings_rounded,
