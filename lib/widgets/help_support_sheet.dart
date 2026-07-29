@@ -101,7 +101,7 @@ class HelpSupportSheet extends StatelessWidget {
                       icon: Icons.map_outlined,
                       question: 'How does the map work?',
                       answer:
-                          'The Map tab shows nearby events, venues, and attractions. Tap any pin for details, directions, and live crowd info.',
+                          'The Map tab shows nearby local food businesses, restaurants, and cafés. Tap any pin for details, opening hours, directions, and live crowd info.',
                     ),
                     _faqTile(
                       icon: Icons.how_to_vote_outlined,
