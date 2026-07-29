@@ -127,14 +127,14 @@ class HelpSupportSheet extends StatelessWidget {
                     _contactTile(
                       icon: Icons.email_outlined,
                       title: 'Email Support',
-                      subtitle: 'support@brisconnect.com.au',
-                      onTap: () => _launchUrl('mailto:support@brisconnect.com.au'),
+                      subtitle: 'brisconnect0@gmail.com',
+                      onTap: () => _launchUrl('mailto:brisconnect0@gmail.com'),
                     ),
                     _contactTile(
                       icon: Icons.language_outlined,
                       title: 'Website',
-                      subtitle: 'www.brisconnect.com.au',
-                      onTap: () => _launchUrl('https://www.brisconnect.com.au'),
+                      subtitle: 'brisconnect-68b78.web.app',
+                      onTap: () => _launchUrl('https://brisconnect-68b78.web.app'),
                     ),
                     const SizedBox(height: 24),
                     _sectionTitle('App Info'),
