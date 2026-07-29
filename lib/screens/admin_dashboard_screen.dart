@@ -1639,36 +1639,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ),
 
-          const SizedBox(height: 32),
-
-          // ── Logout ──
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                await AdminAuth.logout();
-                if (!mounted) return;
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                      builder: (_) => const AnimatedWelcomeScreen()),
-                  (route) => false,
-                );
-              },
-              icon: const Icon(Icons.logout_rounded, size: 20),
-              label: const Text('Logout',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade50.withValues(alpha: 0.9),
-                foregroundColor: Colors.red.shade700,
-                elevation: 0,
-                side: BorderSide(color: Colors.red.shade300, width: 1.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
