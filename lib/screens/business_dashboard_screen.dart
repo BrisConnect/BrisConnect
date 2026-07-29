@@ -788,9 +788,9 @@ class _AnalyticCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2D35),
+        color: const Color(0xFFE2E8F0),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: AppPalette.charcoal.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -802,7 +802,7 @@ class _AnalyticCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
+                  color: color.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: color, size: 20),
@@ -836,7 +836,7 @@ class _AnalyticCard extends StatelessWidget {
               Text(
                 value,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppPalette.charcoal,
                   fontSize: isDesktop ? 26 : 22,
                   fontWeight: FontWeight.bold,
                 ),
@@ -844,9 +844,9 @@ class _AnalyticCard extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 label,
-                style: TextStyle(
-                  color: const Color(0xFFB0B4BE),
-                  fontSize: isDesktop ? 13 : 11,
+                style: const TextStyle(
+                  color: Color(0xFF5A6372),
+                  fontSize: 11,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
