@@ -20,7 +20,6 @@ import 'package:brisconnect/screens/create_business_screen.dart';
 import 'package:brisconnect/screens/welcome_screen_new.dart';
 import 'package:brisconnect/services/admin_dashboard_service.dart';
 import 'package:brisconnect/services/admin_event_service.dart';
-import 'package:brisconnect/services/event_category_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/utils/responsive_utils.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
@@ -67,7 +66,6 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  final EventCategoryService _categoryService = EventCategoryService();
   final AdminEventService _adminEventService = AdminEventService();
   bool _isNavVisible = true;
   Timer? _navRestoreTimer;
@@ -193,30 +191,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => AdminEmailBroadcastScreen(),
-      ),
-    );
-  }
-
-  Future<void> _openCategoryManagement() async {
-    final categories = await _categoryService.fetchCategories();
-    if (!mounted) return;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppPalette.background,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => _CategoryManagementSheet(
-        initialCategories: categories,
-        onSave: (updated) async {
-          await _categoryService.saveCategories(updated);
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Event categories updated.')),
-          );
-        },
       ),
     );
   }
@@ -1509,19 +1483,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   trailing: const Icon(Icons.chevron_right_rounded,
                       color: _adminMetricSubtext),
                   onTap: _openFeedbackReview,
-                ),
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                ListTile(
-                  leading: _settingsIcon(Icons.category_rounded),
-                  title: const Text('Event Categories',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: _adminMetricText)),
-                  subtitle: const Text('Manage event category taxonomy',
-                      style: TextStyle(color: _adminMetricSubtext)),
-                  trailing: const Icon(Icons.chevron_right_rounded,
-                      color: _adminMetricSubtext),
-                  onTap: _openCategoryManagement,
                 ),
               ],
             ),
