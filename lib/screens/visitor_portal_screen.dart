@@ -3242,6 +3242,41 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     );
   }
 
+  Widget _buildWebCityBanner() {
+    if (!kIsWeb) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0D1B3F), Color(0xFF1A2E5E)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.location_city_rounded,
+            color: AppPalette.ochre,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Brisbane City',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.95),
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isDiscover = _selectedIndex == 0;
@@ -3296,7 +3331,14 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                       foregroundColor: AppPalette.charcoal,
                       elevation: 0,
                     ),
-          body: isDesktop ? _buildDesktopBody() : _buildMobileBody(),
+          body: Column(
+            children: [
+              _buildWebCityBanner(),
+              Expanded(
+                child: isDesktop ? _buildDesktopBody() : _buildMobileBody(),
+              ),
+            ],
+          ),
           bottomNavigationBar: isDesktop ? null : _buildBottomNav(),
         );
       },
