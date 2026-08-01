@@ -649,4 +649,134 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get statusWontFix => '不会修复';
+
+  @override
+  String get foodBusinessDetails => '商家详情';
+
+  @override
+  String get aboutThisFoodExperience => '关于此美食体验';
+
+  @override
+  String get highlights => '亮点';
+
+  @override
+  String get contactAndLinks => '联系方式与链接';
+
+  @override
+  String get gallery => '图库';
+
+  @override
+  String get openingHours => '营业时间';
+
+  @override
+  String get menu => '菜单';
+
+  @override
+  String get menuFallback => '菜单';
+
+  @override
+  String get call => '致电';
+
+  @override
+  String get website => '网站';
+
+  @override
+  String get orderOnline => '在线订购';
+
+  @override
+  String get viewOnMap => '在地图上查看';
+
+  @override
+  String get foodDiscoveryGuide => '美食探索指南';
+
+  @override
+  String get foodDiscoveryGuideHelper => '点击播放，让美食探索指南为您介绍这个美食地点及其亮点。';
+
+  @override
+  String get stop => '停止';
+
+  @override
+  String get unableToStartNarration => '目前无法开始美食探索指南语音介绍。';
+
+  @override
+  String get unableToCallNumber => '目前无法拨打此号码。';
+
+  @override
+  String get unableToSendEmail => '目前无法发送邮件。';
+
+  @override
+  String get foodSpotCannotBeShared => '目前无法分享此美食地点。';
+
+  @override
+  String foodDescriptionIntro(String title, String cuisine, String location) {
+    return '走进$title，这是位于$location中心的一家$cuisine餐厅。';
+  }
+
+  @override
+  String foodDescriptionRating(String rating) {
+    return '深受当地居民和游客喜爱，评分为$rating星。';
+  }
+
+  @override
+  String foodDescriptionCategories(String categories) {
+    return '菜单主打$categories，采用新鲜的本地食材精心烹制。';
+  }
+
+  @override
+  String foodDescriptionPrice(String price) {
+    return '期待一次物有所值的$price体验。';
+  }
+
+  @override
+  String foodDescriptionOutro(String title) {
+    return '无论是悠闲的早午餐、商务午餐还是热闹的晚餐，$title都能为您提供温馨的氛围和体现布里斯班餐饮风情的美味。';
+  }
+
+  @override
+  String foodNarrationWelcome(String title) {
+    return '欢迎来到$title';
+  }
+
+  @override
+  String foodNarrationBadge(String badge) {
+    return '这是一个值得加入布里斯班美食之旅的$badge站点';
+  }
+
+  @override
+  String foodNarrationCuisine(String cuisine) {
+    return '它以$cuisine最为出名';
+  }
+
+  @override
+  String foodNarrationLocation(String location) {
+    return '您可以在$location找到它，那里的当地餐饮氛围十分活跃';
+  }
+
+  @override
+  String foodNarrationDateTime(String dateTime) {
+    return '您通常可以在$dateTime期间光临';
+  }
+
+  @override
+  String foodNarrationDescription(String description) {
+    return '以下是此体验的感受。$description';
+  }
+
+  @override
+  String get foodNarrationPriceFree => '探索这个美食地点无需入场费用';
+
+  @override
+  String foodNarrationPrice(String price) {
+    return '价格标注为$price';
+  }
+
+  @override
+  String foodNarrationRating(String rating) {
+    return '游客目前给它评分为$rating分（满分5分）';
+  }
+
+  @override
+  String foodNarrationCategories(String categories) {
+    return '可以品尝到$categories等多种风味';
+  }
 }

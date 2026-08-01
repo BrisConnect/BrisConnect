@@ -666,4 +666,138 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get statusWontFix => 'لن يتم إصلاحه';
+
+  @override
+  String get foodBusinessDetails => 'تفاصيل العمل';
+
+  @override
+  String get aboutThisFoodExperience => 'عن هذه التجربة الغذائية';
+
+  @override
+  String get highlights => 'أبرز المعالم';
+
+  @override
+  String get contactAndLinks => 'جهات الاتصال والروابط';
+
+  @override
+  String get gallery => 'المعرض';
+
+  @override
+  String get openingHours => 'ساعات العمل';
+
+  @override
+  String get menu => 'القائمة';
+
+  @override
+  String get menuFallback => 'القائمة';
+
+  @override
+  String get call => 'اتصال';
+
+  @override
+  String get website => 'الموقع الإلكتروني';
+
+  @override
+  String get orderOnline => 'اطلب عبر الإنترنت';
+
+  @override
+  String get viewOnMap => 'عرض على الخريطة';
+
+  @override
+  String get foodDiscoveryGuide => 'دليل اكتشاف الطعام';
+
+  @override
+  String get foodDiscoveryGuideHelper =>
+      'اضغط على التشغيل لسماع دليل اكتشاف الطعام يصف لك هذا المكان ونقاطه البارزة.';
+
+  @override
+  String get stop => 'إيقاف';
+
+  @override
+  String get unableToStartNarration =>
+      'تعذر بدء الرواية الصوتية لدليل اكتشاف الطعام الآن.';
+
+  @override
+  String get unableToCallNumber => 'تعذر الاتصال بهذا الرقم الآن.';
+
+  @override
+  String get unableToSendEmail => 'تعذر إرسال البريد الإلكتروني الآن.';
+
+  @override
+  String get foodSpotCannotBeShared =>
+      'لا يمكن مشاركة هذا المكان الغذائي الآن.';
+
+  @override
+  String foodDescriptionIntro(String title, String cuisine, String location) {
+    return 'تفضل بزيارة $title، وجهة $cuisine في قلب $location.';
+  }
+
+  @override
+  String foodDescriptionRating(String rating) {
+    return 'يحظى بإعجاب السكان المحليين والزوار على حد سواء، ويحمل تصنيفًا بقدر $rating نجوم.';
+  }
+
+  @override
+  String foodDescriptionCategories(String categories) {
+    return 'تتباهى القائمة بـ $categories، المُحضَّرة بمكونات طازجة ومُصنَّعة محليًا.';
+  }
+
+  @override
+  String foodDescriptionPrice(String price) {
+    return 'توقع تجربة $price التي توازن بين الجودة والقيمة.';
+  }
+
+  @override
+  String foodDescriptionOutro(String title) {
+    return 'سواء كنت تبحث عن فطور هادئ أو غداء عمل أو عشاء حيوي، يقدم لك $title أجواءً ترحيبية ونكهات تعكس مشهد الطعام في بريزبان.';
+  }
+
+  @override
+  String foodNarrationWelcome(String title) {
+    return 'مرحبًا بك في $title';
+  }
+
+  @override
+  String foodNarrationBadge(String badge) {
+    return 'هذه محطة $badge تستحق الإضافة إلى مسار الطعام في بريزبان';
+  }
+
+  @override
+  String foodNarrationCuisine(String cuisine) {
+    return 'يشتهر بـ $cuisine';
+  }
+
+  @override
+  String foodNarrationLocation(String location) {
+    return 'ستجده في $location، حيث تنبض مشهد الطعام المحلي بالحياة';
+  }
+
+  @override
+  String foodNarrationDateTime(String dateTime) {
+    return 'عادةً ما يمكنك الزيارة خلال $dateTime';
+  }
+
+  @override
+  String foodNarrationDescription(String description) {
+    return 'إليك شعور هذه التجربة. $description';
+  }
+
+  @override
+  String get foodNarrationPriceFree =>
+      'لا توجد تكلفة دخول لاستكشاف هذا المكان الغذائي';
+
+  @override
+  String foodNarrationPrice(String price) {
+    return 'السعر مدرج بأنه $price';
+  }
+
+  @override
+  String foodNarrationRating(String rating) {
+    return 'يصنفه الزوار حاليًا بـ $rating من أصل 5';
+  }
+
+  @override
+  String foodNarrationCategories(String categories) {
+    return 'توقع مزيجًا من $categories';
+  }
 }

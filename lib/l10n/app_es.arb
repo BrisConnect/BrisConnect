@@ -319,5 +319,111 @@
   "statusPending": "Pendiente",
   "statusInProgress": "En curso",
   "statusResolved": "Resuelto",
-  "statusWontFix": "No se arreglará"
+  "statusWontFix": "No se arreglará",
+  "foodBusinessDetails": "Detalles del negocio",
+  "aboutThisFoodExperience": "Acerca de esta experiencia gastronómica",
+  "highlights": "Destacados",
+  "contactAndLinks": "Contacto y enlaces",
+  "gallery": "Galería",
+  "openingHours": "Horario de apertura",
+  "menu": "Menú",
+  "menuFallback": "Menú",
+  "call": "Llamar",
+  "website": "Sitio web",
+  "orderOnline": "Ordenar en línea",
+  "viewOnMap": "Ver en el mapa",
+  "foodDiscoveryGuide": "Guía de descubrimiento gastronómico",
+  "foodDiscoveryGuideHelper": "Toca reproducir para escuchar a tu Guía de descubrimiento gastronómico describir este lugar y sus puntos destacados.",
+  "stop": "Detener",
+  "unableToStartNarration": "No se puede iniciar la narración de la Guía de descubrimiento gastronómico en este momento.",
+  "unableToCallNumber": "No se puede llamar a este número en este momento.",
+  "unableToSendEmail": "No se puede enviar el correo electrónico en este momento.",
+  "foodSpotCannotBeShared": "Este lugar gastronómico no se puede compartir en este momento.",
+  "foodDescriptionIntro": "Adéntrate en {title}, un destino de {cuisine} en el corazón de {location}.",
+  "@foodDescriptionIntro": {
+    "placeholders": {
+      "title": {"type": "String"},
+      "cuisine": {"type": "String"},
+      "location": {"type": "String"}
+    }
+  },
+  "foodDescriptionRating": "Amado por lugareños y visitantes por igual, cuenta con una calificación de {rating} estrellas.",
+  "@foodDescriptionRating": {
+    "placeholders": {
+      "rating": {"type": "String"}
+    }
+  },
+  "foodDescriptionCategories": "El menú celebra {categories}, elaborados con ingredientes frescos y de origen local.",
+  "@foodDescriptionCategories": {
+    "placeholders": {
+      "categories": {"type": "String"}
+    }
+  },
+  "foodDescriptionPrice": "Espera una experiencia {price} que equilibra calidad y valor.",
+  "@foodDescriptionPrice": {
+    "placeholders": {
+      "price": {"type": "String"}
+    }
+  },
+  "foodDescriptionOutro": "Ya sea que busques un brunch relajado, un almuerzo de negocios o una cena animada, {title} ofrece un ambiente acogedor y sabores que capturan la escena gastronómica de Brisbane.",
+  "@foodDescriptionOutro": {
+    "placeholders": {
+      "title": {"type": "String"}
+    }
+  },
+  "foodNarrationWelcome": "Bienvenido a {title}",
+  "@foodNarrationWelcome": {
+    "placeholders": {
+      "title": {"type": "String"}
+    }
+  },
+  "foodNarrationBadge": "Esta es una parada {badge} que vale la pena agregar a tu ruta gastronómica de Brisbane",
+  "@foodNarrationBadge": {
+    "placeholders": {
+      "badge": {"type": "String"}
+    }
+  },
+  "foodNarrationCuisine": "Es mejor conocido por su {cuisine}",
+  "@foodNarrationCuisine": {
+    "placeholders": {
+      "cuisine": {"type": "String"}
+    }
+  },
+  "foodNarrationLocation": "Lo encontrarás en {location}, donde la escena gastronómica local cobra vida",
+  "@foodNarrationLocation": {
+    "placeholders": {
+      "location": {"type": "String"}
+    }
+  },
+  "foodNarrationDateTime": "Generalmente puedes visitar durante {dateTime}",
+  "@foodNarrationDateTime": {
+    "placeholders": {
+      "dateTime": {"type": "String"}
+    }
+  },
+  "foodNarrationDescription": "Así se siente la experiencia. {description}",
+  "@foodNarrationDescription": {
+    "placeholders": {
+      "description": {"type": "String"}
+    }
+  },
+  "foodNarrationPriceFree": "No hay costo de entrada para explorar este lugar gastronómico",
+  "foodNarrationPrice": "El precio se indica como {price}",
+  "@foodNarrationPrice": {
+    "placeholders": {
+      "price": {"type": "String"}
+    }
+  },
+  "foodNarrationRating": "Los visitantes actualmente lo califican con {rating} de 5",
+  "@foodNarrationRating": {
+    "placeholders": {
+      "rating": {"type": "String"}
+    }
+  },
+  "foodNarrationCategories": "Espera una mezcla de {categories}",
+  "@foodNarrationCategories": {
+    "placeholders": {
+      "categories": {"type": "String"}
+    }
+  }
 }

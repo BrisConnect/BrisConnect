@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:brisconnect/l10n/app_localizations.dart';
 import 'package:brisconnect/services/share/content_share_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/audio_guide_widget.dart';
@@ -62,7 +63,7 @@ class FoodDetailScreen extends StatelessWidget {
   final List<Map<String, dynamic>> menu;
   final List<String> photoGallery;
 
-  String _buildRichDescription() {
+  String _buildRichDescription(AppLocalizations l10n) {
     if (description.trim().length > 80 &&
         !description.trim().toLowerCase().startsWith('contemporary') &&
         !description.trim().toLowerCase().startsWith('premium') &&
@@ -70,16 +71,18 @@ class FoodDetailScreen extends StatelessWidget {
         !description.trim().toLowerCase().startsWith('cafe')) {
       return description.trim();
     }
-    final cuisineLabel = cuisine.trim().isNotEmpty ? cuisine.trim() : 'food';
+    final cuisineLabel = cuisine.trim().isNotEmpty
+        ? cuisine.trim()
+        : l10n.foodExperienceFallback;
     final parts = <String>[
-      'Step into $title, a $cuisineLabel destination in the heart of $location.',
+      l10n.foodDescriptionIntro(title, cuisineLabel, location),
       if (rating != null && rating! > 0)
-        'Loved by locals and visitors alike, it holds a ${rating!.toStringAsFixed(1)}-star rating.',
+        l10n.foodDescriptionRating(rating!.toStringAsFixed(1)),
       if (categories.isNotEmpty)
-        'The menu celebrates ${categories.take(3).join(', ')}, crafted with fresh, locally sourced ingredients.',
+        l10n.foodDescriptionCategories(categories.take(3).join(', ')),
       if ((price ?? '').trim().isNotEmpty)
-        'Expect a ${price!.trim()} experience that balances quality and value.',
-      'Whether you are after a relaxed brunch, a business lunch, or a lively dinner, $title offers a welcoming atmosphere and flavours that capture Brisbane\'s dining scene.',
+        l10n.foodDescriptionPrice(price!.trim()),
+      l10n.foodDescriptionOutro(title),
     ];
     return parts.where((s) => s.trim().isNotEmpty).join(' ');
   }
@@ -107,26 +110,26 @@ class FoodDetailScreen extends StatelessWidget {
     return !_isSocialMediaUrl(url);
   }
 
-  String _buildNarrationText() {
+  String _buildNarrationText(AppLocalizations l10n) {
     if ((aiAudio ?? '').trim().isNotEmpty) return aiAudio!.trim();
     final parts = <String>[
-      'Welcome to $title',
+      l10n.foodNarrationWelcome(title),
       if ((badge ?? '').trim().isNotEmpty)
-        'This is a ${badge!.trim().toLowerCase()} stop worth adding to your Brisbane food trail',
-      if (cuisine.trim().isNotEmpty) 'It is best known for $cuisine',
-      if (location.trim().isNotEmpty)
-        'You will find it in $location, where the local dining scene comes alive',
+        l10n.foodNarrationBadge(badge!.trim().toLowerCase()),
+      if (cuisine.trim().isNotEmpty) l10n.foodNarrationCuisine(cuisine),
+      if (location.trim().isNotEmpty) l10n.foodNarrationLocation(location),
       if ((dateTime ?? '').trim().isNotEmpty)
-        'You can usually visit during ${dateTime!.trim()}',
+        l10n.foodNarrationDateTime(dateTime!.trim()),
       if (description.trim().isNotEmpty)
-        'Here\'s what the experience feels like. ${description.trim()}',
+        l10n.foodNarrationDescription(description.trim()),
       if ((price ?? '').trim().isNotEmpty)
         price!.toLowerCase().contains('free')
-            ? 'There is no entry cost to explore this food spot'
-            : 'Pricing is listed as ${price!.trim()}',
+            ? l10n.foodNarrationPriceFree
+            : l10n.foodNarrationPrice(price!.trim()),
       if (rating != null && rating! > 0)
-        'Visitors currently rate it ${rating!.toStringAsFixed(1)} out of 5',
-      if (categories.isNotEmpty) 'Expect a mix of ${categories.join(', ')}',
+        l10n.foodNarrationRating(rating!.toStringAsFixed(1)),
+      if (categories.isNotEmpty)
+        l10n.foodNarrationCategories(categories.join(', ')),
     ];
     return '${parts.where((part) => part.trim().isNotEmpty).join('. ')}.';
   }
@@ -137,7 +140,7 @@ class FoodDetailScreen extends StatelessWidget {
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to open this link right now.')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.thisLinkUnavailable)),
       );
     }
   }
@@ -147,8 +150,9 @@ class FoodDetailScreen extends StatelessWidget {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     } else if (context.mounted) {
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to call this number right now.')),
+        SnackBar(content: Text(l10n.unableToCallNumber)),
       );
     }
   }
@@ -158,8 +162,9 @@ class FoodDetailScreen extends StatelessWidget {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     } else if (context.mounted) {
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to send email right now.')),
+        SnackBar(content: Text(l10n.unableToSendEmail)),
       );
     }
   }
@@ -177,9 +182,10 @@ class FoodDetailScreen extends StatelessWidget {
   Future<void> _share(BuildContext context) async {
     if (id.trim().isEmpty) {
       if (context.mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('This food spot cannot be shared right now.'),
+          SnackBar(
+            content: Text(l10n.foodSpotCannotBeShared),
           ),
         );
       }
@@ -201,12 +207,13 @@ class FoodDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final narrationText = _buildNarrationText();
+    final l10n = AppLocalizations.of(context)!;
+    final narrationText = _buildNarrationText(l10n);
 
     return Scaffold(
       backgroundColor: AppPalette.background,
       appBar: AppBar(
-        title: const LogoAppBarTitle('Business Details'),
+        title: LogoAppBarTitle(l10n.foodBusinessDetails),
         actions: [
           IconButton(
             tooltip: 'Share',
@@ -250,28 +257,28 @@ class FoodDetailScreen extends StatelessWidget {
                           const SizedBox(height: 20),
                           const Divider(color: AppPalette.border),
                           const SizedBox(height: 24),
-                          _buildAboutSection(context),
+                          _buildAboutSection(context, l10n),
                           const SizedBox(height: 24),
                           if (categories.isNotEmpty) ...[
-                            _buildHighlightsSection(),
+                            _buildHighlightsSection(l10n),
                             const SizedBox(height: 24),
                           ],
-                          _buildContactActionsSection(context),
+                          _buildContactActionsSection(context, l10n),
                           const SizedBox(height: 24),
                           if (photoGallery.isNotEmpty) ...[
-                            _buildGallerySection(),
+                            _buildGallerySection(l10n),
                             const SizedBox(height: 24),
                           ],
                           if ((openingHours ?? '').trim().isNotEmpty) ...[
-                            _buildOpeningHoursSection(),
+                            _buildOpeningHoursSection(l10n),
                             const SizedBox(height: 24),
                           ],
                           if (menu.isNotEmpty) ...[
-                            _buildMenuSection(),
+                            _buildMenuSection(l10n),
                             const SizedBox(height: 24),
                           ],
                           if (narrationText.isNotEmpty) ...[
-                            _buildAudioGuideSection(narrationText),
+                            _buildAudioGuideSection(narrationText, l10n),
                             const SizedBox(height: 24),
                           ],
                           _buildCrowdReportSection(),
@@ -384,14 +391,14 @@ class FoodDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAboutSection(BuildContext context) {
+  Widget _buildAboutSection(BuildContext context, AppLocalizations l10n) {
     return _ContentSection(
-      title: 'About this Food Experience',
+      title: l10n.aboutThisFoodExperience,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _buildRichDescription(),
+            _buildRichDescription(l10n),
             style: const TextStyle(
               color: AppPalette.charcoal,
               height: 1.6,
@@ -416,9 +423,9 @@ class FoodDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHighlightsSection() {
+  Widget _buildHighlightsSection(AppLocalizations l10n) {
     return _ContentSection(
-      title: 'Highlights',
+      title: l10n.highlights,
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
@@ -448,24 +455,24 @@ class FoodDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildContactActionsSection(BuildContext context) {
+  Widget _buildContactActionsSection(BuildContext context, AppLocalizations l10n) {
     final contactActions = <Widget>[
       if ((phone ?? '').trim().isNotEmpty)
         _ActionChip(
           icon: Icons.phone_rounded,
-          label: 'Call',
+          label: l10n.call,
           onTap: () => _callPhone(context, phone!.trim()),
         ),
       if ((email ?? '').trim().isNotEmpty)
         _ActionChip(
           icon: Icons.email_rounded,
-          label: 'Email',
+          label: l10n.email,
           onTap: () => _sendEmail(context, email!.trim()),
         ),
       if ((webLink ?? '').trim().isNotEmpty)
         _ActionChip(
           icon: Icons.open_in_browser_rounded,
-          label: 'Website',
+          label: l10n.website,
           onTap: () => _openLink(context, webLink!.trim()),
         ),
       if ((facebookUrl ?? '').trim().isNotEmpty)
@@ -483,12 +490,12 @@ class FoodDetailScreen extends StatelessWidget {
       if ((onlineOrderUrl ?? '').trim().isNotEmpty)
         _ActionChip(
           icon: Icons.shopping_bag_rounded,
-          label: 'Order Online',
+          label: l10n.orderOnline,
           onTap: () => _openLink(context, onlineOrderUrl!.trim()),
         ),
       _ActionChip(
         icon: Icons.map_rounded,
-        label: 'View on Map',
+        label: l10n.viewOnMap,
         onTap: () => _openMap(context),
       ),
     ];
@@ -496,7 +503,7 @@ class FoodDetailScreen extends StatelessWidget {
     if (contactActions.isEmpty) return const SizedBox.shrink();
 
     return _ContentSection(
-      title: 'Contact & Links',
+      title: l10n.contactAndLinks,
       child: Wrap(
         spacing: 12,
         runSpacing: 12,
@@ -505,16 +512,16 @@ class FoodDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildGallerySection() {
+  Widget _buildGallerySection(AppLocalizations l10n) {
     return _ContentSection(
-      title: 'Gallery',
+      title: l10n.gallery,
       child: _PhotoGallery(images: photoGallery),
     );
   }
 
-  Widget _buildOpeningHoursSection() {
+  Widget _buildOpeningHoursSection(AppLocalizations l10n) {
     return _ContentSection(
-      title: 'Opening Hours',
+      title: l10n.openingHours,
       child: Text(
         openingHours!.trim(),
         style: const TextStyle(
@@ -526,20 +533,19 @@ class FoodDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuSection() {
+  Widget _buildMenuSection(AppLocalizations l10n) {
     return _ContentSection(
-      title: 'Menu',
+      title: l10n.menu,
       child: _MenuSection(menu: menu),
     );
   }
 
-  Widget _buildAudioGuideSection(String narrationText) {
+  Widget _buildAudioGuideSection(String narrationText, AppLocalizations l10n) {
     return _ContentSection(
-      title: 'Food Discovery Guide',
+      title: l10n.foodDiscoveryGuide,
       child: AiNarrationWidget(
         narrationText: narrationText,
-        helperText:
-            'Tap play to hear your Food Discovery Guide describe this food spot and its highlights.',
+        helperText: l10n.foodDiscoveryGuideHelper,
       ),
     );
   }
@@ -561,13 +567,13 @@ class _MenuSection extends StatelessWidget {
 
   final List<Map<String, dynamic>> menu;
 
-  Map<String, List<Map<String, dynamic>>> _groupByCategory() {
+  Map<String, List<Map<String, dynamic>>> _groupByCategory(String fallback) {
     final groups = <String, List<Map<String, dynamic>>>{};
     for (final item in menu) {
       final category =
-          ((item['category'] ?? 'Menu') as String).trim().isNotEmpty
+          ((item['category'] ?? fallback) as String).trim().isNotEmpty
               ? (item['category'] as String).trim()
-              : 'Menu';
+              : fallback;
       groups.putIfAbsent(category, () => []).add(item);
     }
     return groups;
@@ -575,7 +581,8 @@ class _MenuSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final groups = _groupByCategory();
+    final l10n = AppLocalizations.of(context)!;
+    final groups = _groupByCategory(l10n.menuFallback);
     final categories = groups.keys.toList();
 
     return Column(

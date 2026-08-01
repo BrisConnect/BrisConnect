@@ -319,5 +319,111 @@
   "statusPending": "قيد الانتظار",
   "statusInProgress": "في تَقَدم",
   "statusResolved": "تم الحل",
-  "statusWontFix": "لن يتم إصلاحه"
+  "statusWontFix": "لن يتم إصلاحه",
+  "foodBusinessDetails": "تفاصيل العمل",
+  "aboutThisFoodExperience": "عن هذه التجربة الغذائية",
+  "highlights": "أبرز المعالم",
+  "contactAndLinks": "جهات الاتصال والروابط",
+  "gallery": "المعرض",
+  "openingHours": "ساعات العمل",
+  "menu": "القائمة",
+  "menuFallback": "القائمة",
+  "call": "اتصال",
+  "website": "الموقع الإلكتروني",
+  "orderOnline": "اطلب عبر الإنترنت",
+  "viewOnMap": "عرض على الخريطة",
+  "foodDiscoveryGuide": "دليل اكتشاف الطعام",
+  "foodDiscoveryGuideHelper": "اضغط على التشغيل لسماع دليل اكتشاف الطعام يصف لك هذا المكان ونقاطه البارزة.",
+  "stop": "إيقاف",
+  "unableToStartNarration": "تعذر بدء الرواية الصوتية لدليل اكتشاف الطعام الآن.",
+  "unableToCallNumber": "تعذر الاتصال بهذا الرقم الآن.",
+  "unableToSendEmail": "تعذر إرسال البريد الإلكتروني الآن.",
+  "foodSpotCannotBeShared": "لا يمكن مشاركة هذا المكان الغذائي الآن.",
+  "foodDescriptionIntro": "تفضل بزيارة {title}، وجهة {cuisine} في قلب {location}.",
+  "@foodDescriptionIntro": {
+    "placeholders": {
+      "title": {"type": "String"},
+      "cuisine": {"type": "String"},
+      "location": {"type": "String"}
+    }
+  },
+  "foodDescriptionRating": "يحظى بإعجاب السكان المحليين والزوار على حد سواء، ويحمل تصنيفًا بقدر {rating} نجوم.",
+  "@foodDescriptionRating": {
+    "placeholders": {
+      "rating": {"type": "String"}
+    }
+  },
+  "foodDescriptionCategories": "تتباهى القائمة بـ {categories}، المُحضَّرة بمكونات طازجة ومُصنَّعة محليًا.",
+  "@foodDescriptionCategories": {
+    "placeholders": {
+      "categories": {"type": "String"}
+    }
+  },
+  "foodDescriptionPrice": "توقع تجربة {price} التي توازن بين الجودة والقيمة.",
+  "@foodDescriptionPrice": {
+    "placeholders": {
+      "price": {"type": "String"}
+    }
+  },
+  "foodDescriptionOutro": "سواء كنت تبحث عن فطور هادئ أو غداء عمل أو عشاء حيوي، يقدم لك {title} أجواءً ترحيبية ونكهات تعكس مشهد الطعام في بريزبان.",
+  "@foodDescriptionOutro": {
+    "placeholders": {
+      "title": {"type": "String"}
+    }
+  },
+  "foodNarrationWelcome": "مرحبًا بك في {title}",
+  "@foodNarrationWelcome": {
+    "placeholders": {
+      "title": {"type": "String"}
+    }
+  },
+  "foodNarrationBadge": "هذه محطة {badge} تستحق الإضافة إلى مسار الطعام في بريزبان",
+  "@foodNarrationBadge": {
+    "placeholders": {
+      "badge": {"type": "String"}
+    }
+  },
+  "foodNarrationCuisine": "يشتهر بـ {cuisine}",
+  "@foodNarrationCuisine": {
+    "placeholders": {
+      "cuisine": {"type": "String"}
+    }
+  },
+  "foodNarrationLocation": "ستجده في {location}، حيث تنبض مشهد الطعام المحلي بالحياة",
+  "@foodNarrationLocation": {
+    "placeholders": {
+      "location": {"type": "String"}
+    }
+  },
+  "foodNarrationDateTime": "عادةً ما يمكنك الزيارة خلال {dateTime}",
+  "@foodNarrationDateTime": {
+    "placeholders": {
+      "dateTime": {"type": "String"}
+    }
+  },
+  "foodNarrationDescription": "إليك شعور هذه التجربة. {description}",
+  "@foodNarrationDescription": {
+    "placeholders": {
+      "description": {"type": "String"}
+    }
+  },
+  "foodNarrationPriceFree": "لا توجد تكلفة دخول لاستكشاف هذا المكان الغذائي",
+  "foodNarrationPrice": "السعر مدرج بأنه {price}",
+  "@foodNarrationPrice": {
+    "placeholders": {
+      "price": {"type": "String"}
+    }
+  },
+  "foodNarrationRating": "يصنفه الزوار حاليًا بـ {rating} من أصل 5",
+  "@foodNarrationRating": {
+    "placeholders": {
+      "rating": {"type": "String"}
+    }
+  },
+  "foodNarrationCategories": "توقع مزيجًا من {categories}",
+  "@foodNarrationCategories": {
+    "placeholders": {
+      "categories": {"type": "String"}
+    }
+  }
 }

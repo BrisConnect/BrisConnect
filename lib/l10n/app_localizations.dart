@@ -1339,6 +1339,210 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Won\'t Fix'**
   String get statusWontFix;
+
+  /// No description provided for @foodBusinessDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Business Details'**
+  String get foodBusinessDetails;
+
+  /// No description provided for @aboutThisFoodExperience.
+  ///
+  /// In en, this message translates to:
+  /// **'About this Food Experience'**
+  String get aboutThisFoodExperience;
+
+  /// No description provided for @highlights.
+  ///
+  /// In en, this message translates to:
+  /// **'Highlights'**
+  String get highlights;
+
+  /// No description provided for @contactAndLinks.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact & Links'**
+  String get contactAndLinks;
+
+  /// No description provided for @gallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Gallery'**
+  String get gallery;
+
+  /// No description provided for @openingHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening Hours'**
+  String get openingHours;
+
+  /// No description provided for @menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Menu'**
+  String get menu;
+
+  /// No description provided for @menuFallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Menu'**
+  String get menuFallback;
+
+  /// No description provided for @call.
+  ///
+  /// In en, this message translates to:
+  /// **'Call'**
+  String get call;
+
+  /// No description provided for @website.
+  ///
+  /// In en, this message translates to:
+  /// **'Website'**
+  String get website;
+
+  /// No description provided for @orderOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'Order Online'**
+  String get orderOnline;
+
+  /// No description provided for @viewOnMap.
+  ///
+  /// In en, this message translates to:
+  /// **'View on Map'**
+  String get viewOnMap;
+
+  /// No description provided for @foodDiscoveryGuide.
+  ///
+  /// In en, this message translates to:
+  /// **'Food Discovery Guide'**
+  String get foodDiscoveryGuide;
+
+  /// No description provided for @foodDiscoveryGuideHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap play to hear your Food Discovery Guide describe this food spot and its highlights.'**
+  String get foodDiscoveryGuideHelper;
+
+  /// No description provided for @stop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop'**
+  String get stop;
+
+  /// No description provided for @unableToStartNarration.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to start Food Discovery Guide narration right now.'**
+  String get unableToStartNarration;
+
+  /// No description provided for @unableToCallNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to call this number right now.'**
+  String get unableToCallNumber;
+
+  /// No description provided for @unableToSendEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to send email right now.'**
+  String get unableToSendEmail;
+
+  /// No description provided for @foodSpotCannotBeShared.
+  ///
+  /// In en, this message translates to:
+  /// **'This food spot cannot be shared right now.'**
+  String get foodSpotCannotBeShared;
+
+  /// No description provided for @foodDescriptionIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Step into {title}, a {cuisine} destination in the heart of {location}.'**
+  String foodDescriptionIntro(String title, String cuisine, String location);
+
+  /// No description provided for @foodDescriptionRating.
+  ///
+  /// In en, this message translates to:
+  /// **'Loved by locals and visitors alike, it holds a {rating}-star rating.'**
+  String foodDescriptionRating(String rating);
+
+  /// No description provided for @foodDescriptionCategories.
+  ///
+  /// In en, this message translates to:
+  /// **'The menu celebrates {categories}, crafted with fresh, locally sourced ingredients.'**
+  String foodDescriptionCategories(String categories);
+
+  /// No description provided for @foodDescriptionPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Expect a {price} experience that balances quality and value.'**
+  String foodDescriptionPrice(String price);
+
+  /// No description provided for @foodDescriptionOutro.
+  ///
+  /// In en, this message translates to:
+  /// **'Whether you are after a relaxed brunch, a business lunch, or a lively dinner, {title} offers a welcoming atmosphere and flavours that capture Brisbane\'s dining scene.'**
+  String foodDescriptionOutro(String title);
+
+  /// No description provided for @foodNarrationWelcome.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome to {title}'**
+  String foodNarrationWelcome(String title);
+
+  /// No description provided for @foodNarrationBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'This is a {badge} stop worth adding to your Brisbane food trail'**
+  String foodNarrationBadge(String badge);
+
+  /// No description provided for @foodNarrationCuisine.
+  ///
+  /// In en, this message translates to:
+  /// **'It is best known for {cuisine}'**
+  String foodNarrationCuisine(String cuisine);
+
+  /// No description provided for @foodNarrationLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'You will find it in {location}, where the local dining scene comes alive'**
+  String foodNarrationLocation(String location);
+
+  /// No description provided for @foodNarrationDateTime.
+  ///
+  /// In en, this message translates to:
+  /// **'You can usually visit during {dateTime}'**
+  String foodNarrationDateTime(String dateTime);
+
+  /// No description provided for @foodNarrationDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Here\'s what the experience feels like. {description}'**
+  String foodNarrationDescription(String description);
+
+  /// No description provided for @foodNarrationPriceFree.
+  ///
+  /// In en, this message translates to:
+  /// **'There is no entry cost to explore this food spot'**
+  String get foodNarrationPriceFree;
+
+  /// No description provided for @foodNarrationPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Pricing is listed as {price}'**
+  String foodNarrationPrice(String price);
+
+  /// No description provided for @foodNarrationRating.
+  ///
+  /// In en, this message translates to:
+  /// **'Visitors currently rate it {rating} out of 5'**
+  String foodNarrationRating(String rating);
+
+  /// No description provided for @foodNarrationCategories.
+  ///
+  /// In en, this message translates to:
+  /// **'Expect a mix of {categories}'**
+  String foodNarrationCategories(String categories);
 }
 
 class _AppLocalizationsDelegate

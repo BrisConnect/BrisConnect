@@ -686,4 +686,138 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get statusWontFix => 'Wird nicht repariert';
+
+  @override
+  String get foodBusinessDetails => 'Business Details';
+
+  @override
+  String get aboutThisFoodExperience => 'About this Food Experience';
+
+  @override
+  String get highlights => 'Highlights';
+
+  @override
+  String get contactAndLinks => 'Contact & Links';
+
+  @override
+  String get gallery => 'Gallery';
+
+  @override
+  String get openingHours => 'Opening Hours';
+
+  @override
+  String get menu => 'Menu';
+
+  @override
+  String get menuFallback => 'Menu';
+
+  @override
+  String get call => 'Call';
+
+  @override
+  String get website => 'Website';
+
+  @override
+  String get orderOnline => 'Order Online';
+
+  @override
+  String get viewOnMap => 'View on Map';
+
+  @override
+  String get foodDiscoveryGuide => 'Food Discovery Guide';
+
+  @override
+  String get foodDiscoveryGuideHelper =>
+      'Tap play to hear your Food Discovery Guide describe this food spot and its highlights.';
+
+  @override
+  String get stop => 'Stop';
+
+  @override
+  String get unableToStartNarration =>
+      'Unable to start Food Discovery Guide narration right now.';
+
+  @override
+  String get unableToCallNumber => 'Unable to call this number right now.';
+
+  @override
+  String get unableToSendEmail => 'Unable to send email right now.';
+
+  @override
+  String get foodSpotCannotBeShared =>
+      'This food spot cannot be shared right now.';
+
+  @override
+  String foodDescriptionIntro(String title, String cuisine, String location) {
+    return 'Step into $title, a $cuisine destination in the heart of $location.';
+  }
+
+  @override
+  String foodDescriptionRating(String rating) {
+    return 'Loved by locals and visitors alike, it holds a $rating-star rating.';
+  }
+
+  @override
+  String foodDescriptionCategories(String categories) {
+    return 'The menu celebrates $categories, crafted with fresh, locally sourced ingredients.';
+  }
+
+  @override
+  String foodDescriptionPrice(String price) {
+    return 'Expect a $price experience that balances quality and value.';
+  }
+
+  @override
+  String foodDescriptionOutro(String title) {
+    return 'Whether you are after a relaxed brunch, a business lunch, or a lively dinner, $title offers a welcoming atmosphere and flavours that capture Brisbane\'s dining scene.';
+  }
+
+  @override
+  String foodNarrationWelcome(String title) {
+    return 'Welcome to $title';
+  }
+
+  @override
+  String foodNarrationBadge(String badge) {
+    return 'This is a $badge stop worth adding to your Brisbane food trail';
+  }
+
+  @override
+  String foodNarrationCuisine(String cuisine) {
+    return 'It is best known for $cuisine';
+  }
+
+  @override
+  String foodNarrationLocation(String location) {
+    return 'You will find it in $location, where the local dining scene comes alive';
+  }
+
+  @override
+  String foodNarrationDateTime(String dateTime) {
+    return 'You can usually visit during $dateTime';
+  }
+
+  @override
+  String foodNarrationDescription(String description) {
+    return 'Here\'s what the experience feels like. $description';
+  }
+
+  @override
+  String get foodNarrationPriceFree =>
+      'There is no entry cost to explore this food spot';
+
+  @override
+  String foodNarrationPrice(String price) {
+    return 'Pricing is listed as $price';
+  }
+
+  @override
+  String foodNarrationRating(String rating) {
+    return 'Visitors currently rate it $rating out of 5';
+  }
+
+  @override
+  String foodNarrationCategories(String categories) {
+    return 'Expect a mix of $categories';
+  }
 }

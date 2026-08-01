@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
+import 'package:brisconnect/l10n/app_localizations.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 
 class AiNarrationWidget extends StatefulWidget {
@@ -176,9 +177,10 @@ class _AiNarrationWidgetState extends State<AiNarrationWidget> {
       await _tts.speak(narration);
     } catch (_) {
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to start Food Discovery Guide narration right now.'),
+        SnackBar(
+          content: Text(l10n.unableToStartNarration),
         ),
       );
       setState(() {
@@ -190,10 +192,11 @@ class _AiNarrationWidgetState extends State<AiNarrationWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final buttonIcon = _speaking
         ? Icons.stop_circle_rounded
         : Icons.record_voice_over_rounded;
-    final buttonLabel = _speaking ? 'Stop' : 'Food Discovery Guide';
+    final buttonLabel = _speaking ? l10n.stop : l10n.foodDiscoveryGuide;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

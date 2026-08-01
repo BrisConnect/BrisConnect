@@ -683,4 +683,141 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get statusWontFix => 'No se arreglará';
+
+  @override
+  String get foodBusinessDetails => 'Detalles del negocio';
+
+  @override
+  String get aboutThisFoodExperience =>
+      'Acerca de esta experiencia gastronómica';
+
+  @override
+  String get highlights => 'Destacados';
+
+  @override
+  String get contactAndLinks => 'Contacto y enlaces';
+
+  @override
+  String get gallery => 'Galería';
+
+  @override
+  String get openingHours => 'Horario de apertura';
+
+  @override
+  String get menu => 'Menú';
+
+  @override
+  String get menuFallback => 'Menú';
+
+  @override
+  String get call => 'Llamar';
+
+  @override
+  String get website => 'Sitio web';
+
+  @override
+  String get orderOnline => 'Ordenar en línea';
+
+  @override
+  String get viewOnMap => 'Ver en el mapa';
+
+  @override
+  String get foodDiscoveryGuide => 'Guía de descubrimiento gastronómico';
+
+  @override
+  String get foodDiscoveryGuideHelper =>
+      'Toca reproducir para escuchar a tu Guía de descubrimiento gastronómico describir este lugar y sus puntos destacados.';
+
+  @override
+  String get stop => 'Detener';
+
+  @override
+  String get unableToStartNarration =>
+      'No se puede iniciar la narración de la Guía de descubrimiento gastronómico en este momento.';
+
+  @override
+  String get unableToCallNumber =>
+      'No se puede llamar a este número en este momento.';
+
+  @override
+  String get unableToSendEmail =>
+      'No se puede enviar el correo electrónico en este momento.';
+
+  @override
+  String get foodSpotCannotBeShared =>
+      'Este lugar gastronómico no se puede compartir en este momento.';
+
+  @override
+  String foodDescriptionIntro(String title, String cuisine, String location) {
+    return 'Adéntrate en $title, un destino de $cuisine en el corazón de $location.';
+  }
+
+  @override
+  String foodDescriptionRating(String rating) {
+    return 'Amado por lugareños y visitantes por igual, cuenta con una calificación de $rating estrellas.';
+  }
+
+  @override
+  String foodDescriptionCategories(String categories) {
+    return 'El menú celebra $categories, elaborados con ingredientes frescos y de origen local.';
+  }
+
+  @override
+  String foodDescriptionPrice(String price) {
+    return 'Espera una experiencia $price que equilibra calidad y valor.';
+  }
+
+  @override
+  String foodDescriptionOutro(String title) {
+    return 'Ya sea que busques un brunch relajado, un almuerzo de negocios o una cena animada, $title ofrece un ambiente acogedor y sabores que capturan la escena gastronómica de Brisbane.';
+  }
+
+  @override
+  String foodNarrationWelcome(String title) {
+    return 'Bienvenido a $title';
+  }
+
+  @override
+  String foodNarrationBadge(String badge) {
+    return 'Esta es una parada $badge que vale la pena agregar a tu ruta gastronómica de Brisbane';
+  }
+
+  @override
+  String foodNarrationCuisine(String cuisine) {
+    return 'Es mejor conocido por su $cuisine';
+  }
+
+  @override
+  String foodNarrationLocation(String location) {
+    return 'Lo encontrarás en $location, donde la escena gastronómica local cobra vida';
+  }
+
+  @override
+  String foodNarrationDateTime(String dateTime) {
+    return 'Generalmente puedes visitar durante $dateTime';
+  }
+
+  @override
+  String foodNarrationDescription(String description) {
+    return 'Así se siente la experiencia. $description';
+  }
+
+  @override
+  String get foodNarrationPriceFree =>
+      'No hay costo de entrada para explorar este lugar gastronómico';
+
+  @override
+  String foodNarrationPrice(String price) {
+    return 'El precio se indica como $price';
+  }
+
+  @override
+  String foodNarrationRating(String rating) {
+    return 'Los visitantes actualmente lo califican con $rating de 5';
+  }
+
+  @override
+  String foodNarrationCategories(String categories) {
+    return 'Espera una mezcla de $categories';
+  }
 }

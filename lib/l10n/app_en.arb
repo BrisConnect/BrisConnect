@@ -320,5 +320,111 @@
   "statusPending": "Pending",
   "statusInProgress": "In Progress",
   "statusResolved": "Resolved",
-  "statusWontFix": "Won't Fix"
+  "statusWontFix": "Won't Fix",
+  "foodBusinessDetails": "Business Details",
+  "aboutThisFoodExperience": "About this Food Experience",
+  "highlights": "Highlights",
+  "contactAndLinks": "Contact & Links",
+  "gallery": "Gallery",
+  "openingHours": "Opening Hours",
+  "menu": "Menu",
+  "menuFallback": "Menu",
+  "call": "Call",
+  "website": "Website",
+  "orderOnline": "Order Online",
+  "viewOnMap": "View on Map",
+  "foodDiscoveryGuide": "Food Discovery Guide",
+  "foodDiscoveryGuideHelper": "Tap play to hear your Food Discovery Guide describe this food spot and its highlights.",
+  "stop": "Stop",
+  "unableToStartNarration": "Unable to start Food Discovery Guide narration right now.",
+  "unableToCallNumber": "Unable to call this number right now.",
+  "unableToSendEmail": "Unable to send email right now.",
+  "foodSpotCannotBeShared": "This food spot cannot be shared right now.",
+  "foodDescriptionIntro": "Step into {title}, a {cuisine} destination in the heart of {location}.",
+  "@foodDescriptionIntro": {
+    "placeholders": {
+      "title": {"type": "String"},
+      "cuisine": {"type": "String"},
+      "location": {"type": "String"}
+    }
+  },
+  "foodDescriptionRating": "Loved by locals and visitors alike, it holds a {rating}-star rating.",
+  "@foodDescriptionRating": {
+    "placeholders": {
+      "rating": {"type": "String"}
+    }
+  },
+  "foodDescriptionCategories": "The menu celebrates {categories}, crafted with fresh, locally sourced ingredients.",
+  "@foodDescriptionCategories": {
+    "placeholders": {
+      "categories": {"type": "String"}
+    }
+  },
+  "foodDescriptionPrice": "Expect a {price} experience that balances quality and value.",
+  "@foodDescriptionPrice": {
+    "placeholders": {
+      "price": {"type": "String"}
+    }
+  },
+  "foodDescriptionOutro": "Whether you are after a relaxed brunch, a business lunch, or a lively dinner, {title} offers a welcoming atmosphere and flavours that capture Brisbane's dining scene.",
+  "@foodDescriptionOutro": {
+    "placeholders": {
+      "title": {"type": "String"}
+    }
+  },
+  "foodNarrationWelcome": "Welcome to {title}",
+  "@foodNarrationWelcome": {
+    "placeholders": {
+      "title": {"type": "String"}
+    }
+  },
+  "foodNarrationBadge": "This is a {badge} stop worth adding to your Brisbane food trail",
+  "@foodNarrationBadge": {
+    "placeholders": {
+      "badge": {"type": "String"}
+    }
+  },
+  "foodNarrationCuisine": "It is best known for {cuisine}",
+  "@foodNarrationCuisine": {
+    "placeholders": {
+      "cuisine": {"type": "String"}
+    }
+  },
+  "foodNarrationLocation": "You will find it in {location}, where the local dining scene comes alive",
+  "@foodNarrationLocation": {
+    "placeholders": {
+      "location": {"type": "String"}
+    }
+  },
+  "foodNarrationDateTime": "You can usually visit during {dateTime}",
+  "@foodNarrationDateTime": {
+    "placeholders": {
+      "dateTime": {"type": "String"}
+    }
+  },
+  "foodNarrationDescription": "Here's what the experience feels like. {description}",
+  "@foodNarrationDescription": {
+    "placeholders": {
+      "description": {"type": "String"}
+    }
+  },
+  "foodNarrationPriceFree": "There is no entry cost to explore this food spot",
+  "foodNarrationPrice": "Pricing is listed as {price}",
+  "@foodNarrationPrice": {
+    "placeholders": {
+      "price": {"type": "String"}
+    }
+  },
+  "foodNarrationRating": "Visitors currently rate it {rating} out of 5",
+  "@foodNarrationRating": {
+    "placeholders": {
+      "rating": {"type": "String"}
+    }
+  },
+  "foodNarrationCategories": "Expect a mix of {categories}",
+  "@foodNarrationCategories": {
+    "placeholders": {
+      "categories": {"type": "String"}
+    }
+  }
 }
