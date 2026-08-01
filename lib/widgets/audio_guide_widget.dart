@@ -96,6 +96,8 @@ class _AiNarrationWidgetState extends State<AiNarrationWidget> {
       'russian': 'ru-RU',
       'vi': 'vi-VN',
       'vietnamese': 'vi-VN',
+      'pa': 'pa-IN',
+      'punjabi': 'pa-IN',
     };
     return localeMap[normalized] ?? 'en-AU';
   }

@@ -575,6 +575,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get languageGreek => 'Греческий';
 
   @override
+  String get languagePunjabi => 'Punjabi';
+
+  @override
   String get discoverTitle => 'Откройте для себя местную еду';
 
   @override

@@ -15,6 +15,7 @@ import 'app_localizations_hi.dart';
 import 'app_localizations_it.dart';
 import 'app_localizations_ja.dart';
 import 'app_localizations_ko.dart';
+import 'app_localizations_pa.dart';
 import 'app_localizations_pt.dart';
 import 'app_localizations_ru.dart';
 import 'app_localizations_vi.dart';
@@ -116,6 +117,7 @@ abstract class AppLocalizations {
     Locale('it'),
     Locale('ja'),
     Locale('ko'),
+    Locale('pa'),
     Locale('pt'),
     Locale('ru'),
     Locale('vi'),
@@ -1142,6 +1144,12 @@ abstract class AppLocalizations {
   /// **'Greek'**
   String get languageGreek;
 
+  /// No description provided for @languagePunjabi.
+  ///
+  /// In en, this message translates to:
+  /// **'Punjabi'**
+  String get languagePunjabi;
+
   /// No description provided for @discoverTitle.
   ///
   /// In en, this message translates to:
@@ -1566,6 +1574,7 @@ class _AppLocalizationsDelegate
         'it',
         'ja',
         'ko',
+        'pa',
         'pt',
         'ru',
         'vi',
@@ -1599,6 +1608,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
       return AppLocalizationsJa();
     case 'ko':
       return AppLocalizationsKo();
+    case 'pa':
+      return AppLocalizationsPa();
     case 'pt':
       return AppLocalizationsPt();
     case 'ru':

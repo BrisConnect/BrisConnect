@@ -560,6 +560,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get languageGreek => 'اليونانية';
 
   @override
+  String get languagePunjabi => 'Punjabi';
+
+  @override
   String get discoverTitle => 'اكتشف الأطعمة المحلية';
 
   @override

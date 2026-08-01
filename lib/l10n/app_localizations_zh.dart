@@ -547,6 +547,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get languageGreek => '希腊语';
 
   @override
+  String get languagePunjabi => 'Punjabi';
+
+  @override
   String get discoverTitle => '探索当地美食';
 
   @override

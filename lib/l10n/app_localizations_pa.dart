@@ -4,160 +4,160 @@ import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
 
-/// The translations for English (`en`).
-class AppLocalizationsEn extends AppLocalizations {
-  AppLocalizationsEn([String locale = 'en']) : super(locale);
+/// The translations for Panjabi Punjabi (`pa`).
+class AppLocalizationsPa extends AppLocalizations {
+  AppLocalizationsPa([String locale = 'pa']) : super(locale);
 
   @override
   String get appTitle => 'BrisConnect+';
 
   @override
-  String get welcome => 'Welcome';
+  String get welcome => 'ਸਵਾਗਤ ਹੈ';
 
   @override
-  String get signIn => 'Sign In';
+  String get signIn => 'ਸਾਈਨ ਇਨ';
 
   @override
-  String get signUp => 'Sign Up';
+  String get signUp => 'ਸਾਈਨ ਅਪ';
 
   @override
-  String get signOut => 'Sign Out';
+  String get signOut => 'ਸਾਈਨ ਆਊਟ';
 
   @override
-  String get email => 'Email';
+  String get email => 'ਈ-ਮੇਲ';
 
   @override
-  String get password => 'Password';
+  String get password => 'ਪਾਸਵਰਡ';
 
   @override
-  String get phone => 'Phone';
+  String get phone => 'ਫ਼ੋਨ';
 
   @override
-  String get name => 'Name';
+  String get name => 'ਨਾਮ';
 
   @override
-  String get save => 'Save';
+  String get save => 'ਸੰਭਾਲੋ';
 
   @override
-  String get cancel => 'Cancel';
+  String get cancel => 'ਰੱਦ ਕਰੋ';
 
   @override
-  String get editProfile => 'Edit Profile';
+  String get editProfile => 'ਪ੍ਰੋਫਾਇਲ ਸੰਪਾਦਿਤ ਕਰੋ';
 
   @override
-  String get profileInfo => 'Profile Info';
+  String get profileInfo => 'ਪ੍ਰੋਫਾਇਲ ਜਾਣਕਾਰੀ';
 
   @override
-  String get preferences => 'Preferences';
+  String get preferences => 'ਤਰਜੀਹਾਂ';
 
   @override
-  String get language => 'Language';
+  String get language => 'ਭਾਸ਼ਾ';
 
   @override
-  String get locationRadius => 'Location Radius';
+  String get locationRadius => 'ਸਥਾਨ ਦੀ ਰੇਡੀਅਸ';
 
   @override
-  String get appearanceSettings => 'Appearance Settings';
+  String get appearanceSettings => 'ਦਿੱਖ ਸੈਟਿੰਗਜ਼';
 
   @override
-  String get feedback => 'Feedback';
+  String get feedback => 'ਪ੍ਰਤੀਕਿਰਿਆ';
 
   @override
-  String get myFeedback => 'My Feedback';
+  String get myFeedback => 'ਮੇਰੀ ਪ੍ਰਤੀਕਿਰਿਆ';
 
   @override
-  String get helpAndSupport => 'Help & Support';
+  String get helpAndSupport => 'ਮਦਦ ਅਤੇ ਸਹਾਇਤਾ';
 
   @override
-  String get discover => 'Discover';
+  String get discover => 'ਖੋਜ';
 
   @override
-  String get community => 'Community';
+  String get community => 'ਸਮਾਜ';
 
   @override
-  String get map => 'Map';
+  String get map => 'ਨਕਸ਼ਾ';
 
   @override
-  String get saved => 'Saved';
+  String get saved => 'ਸੰਭਾਲਿਆ';
 
   @override
-  String get profile => 'Profile';
+  String get profile => 'ਪ੍ਰੋਫਾਇਲ';
 
   @override
-  String get food => 'Food';
+  String get food => 'ਖਾਣਾ';
 
   @override
-  String get events => 'Events';
+  String get events => 'ਅਨੁ਷ਠਾਨ';
 
   @override
-  String get businesses => 'Businesses';
+  String get businesses => 'ਕਾਰੋਬਾਰ';
 
   @override
-  String get promotions => 'Promotions';
+  String get promotions => 'ਪ੍ਰਚਾਰ';
 
   @override
-  String get photos => 'Photos';
+  String get photos => 'ਫ਼ੋਟੋਆਂ';
 
   @override
-  String get newPost => 'New';
+  String get newPost => 'ਨਵਾਂ';
 
   @override
-  String get search => 'Search';
+  String get search => 'ਖੋਜ';
 
   @override
-  String get filter => 'Filter';
+  String get filter => 'ਫਿਲਟਰ';
 
   @override
-  String get clearFilters => 'Clear filters';
+  String get clearFilters => 'ਫਿਲਟਰ ਸਾਫ਼ ਕਰੋ';
 
   @override
-  String get noResults => 'No results found';
+  String get noResults => 'ਕੋਈ ਨਤੀਜਾ ਨਹੀਂ ਮਿਲਿਆ';
 
   @override
-  String get loading => 'Loading...';
+  String get loading => 'ਲੋਡ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...';
 
   @override
-  String get error => 'Error';
+  String get error => 'ਗਲਤੀ';
 
   @override
-  String get success => 'Success';
+  String get success => 'ਸਫਲ';
 
   @override
-  String get profileUpdated => 'Profile updated successfully.';
+  String get profileUpdated => 'ਪ੍ਰੋਫਾਇਲ ਸਫਲਤਾ ਨਾਲ ਅਪਡੇਟ ਹੋ ਗਈ ਹੈ।';
 
   @override
   String get profileUpdateFailed =>
-      'Could not update profile. Please try again.';
+      'ਪ੍ਰੋਫਾਇਲ ਅਪਡੇਟ ਨਹੀਂ ਹੋ ਸਕਦੀ। ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰਿਓ।';
 
   @override
-  String get guestVisitor => 'Guest Visitor';
+  String get guestVisitor => 'ਮਹਿਮਾਨ ਮੁਲਾਕਾਤੀ';
 
   @override
-  String get localUser => 'Local';
+  String get localUser => 'ਸਥਾਨਕ';
 
   @override
-  String get filterEventsTitle => 'Filter Events';
+  String get filterEventsTitle => 'ਅਨੁ਷ਠਾਨ ਫਿਲਟਰ ਕਰੋ';
 
   @override
-  String get priceLabel => 'Price';
+  String get priceLabel => 'ਮੁੱਲ';
 
   @override
-  String get dateLabel => 'Date';
+  String get dateLabel => 'ਮਿਤੀ';
 
   @override
-  String get pickADate => 'Pick a date';
+  String get pickADate => 'ਇੱਕ ਮਿਤੀ ਚੁਣੋ';
 
   @override
-  String get resetButton => 'Reset';
+  String get resetButton => 'ਮੁੜ ਨਿਰਧਾਰਤ ਕਰੋ';
 
   @override
-  String get applyButton => 'Apply';
+  String get applyButton => 'ਲਾਗੂ ਕਰੋ';
 
   @override
-  String get freeLabel => 'Free';
+  String get freeLabel => 'ਮੁਫ਼ਤ';
 
   @override
-  String get paidLabel => 'Paid';
+  String get paidLabel => 'ਅਦਾ ਕੀਤਾ';
 
   @override
   String eventSavedToInterested(String eventTitle) {
@@ -238,7 +238,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Could not update profile picture. Please try again.';
 
   @override
-  String get enterYourName => 'Enter your name';
+  String get enterYourName => 'ਆਪਣਾ ਨਾਮ ਦਰਜ ਕਰੋ';
 
   @override
   String get phoneHint => 'e.g. 04xxxxxxxx';
@@ -284,7 +284,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchHintLocalFood => 'Search local food businesses...';
 
   @override
-  String get homeLabel => 'Home';
+  String get homeLabel => 'ਘਰ';
 
   @override
   String get recommendedForYou => 'Recommended For You';
@@ -296,7 +296,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get categories => 'Categories';
 
   @override
-  String get nearby => 'Nearby';
+  String get nearby => 'ਨੇੜੇ';
 
   @override
   String get noFoodPlacesFound => 'No food places found';
@@ -349,7 +349,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Some saved items are no longer published in discovery feed.';
 
   @override
-  String get retryAction => 'Retry';
+  String get retryAction => 'ਮੁੜ ਕੋਸ਼ਿਸ਼ ਕਰੋ';
 
   @override
   String get unableToLoadDiscover =>
@@ -395,10 +395,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get approved => 'Approved';
+  String get approved => 'ਮਨਜ਼ੂਰ';
 
   @override
-  String get audience => 'Audience';
+  String get audience => 'ਦਰਸ਼ਕ';
 
   @override
   String get businessLabel => 'Business';
@@ -407,10 +407,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get controlDistance => 'Control distance for nearby opportunities';
 
   @override
-  String get dashboard => 'Dashboard';
+  String get dashboard => 'ਡੈਸ਼ਬੋਰਡ';
 
   @override
-  String get delete => 'Delete';
+  String get delete => 'ਮਿਟਾਓ';
 
   @override
   String get deleteEvent => 'Delete Event';
@@ -446,10 +446,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get localBusinessPortal => 'Local business portal';
 
   @override
-  String get pending => 'Pending';
+  String get pending => 'ਬਕਾਇਾ';
 
   @override
-  String get phoneNumber => 'Phone number';
+  String get phoneNumber => 'ਫ਼ੋਨ ਨੰਬਰ';
 
   @override
   String get pleaseLoginLocal => 'Please log in as a Local user first.';
@@ -461,10 +461,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pushAlerts => 'Push alerts for your business';
 
   @override
-  String get rejected => 'Rejected';
+  String get rejected => 'ਅਸਵੀਕਾਰ';
 
   @override
-  String get reviews => 'Reviews';
+  String get reviews => 'ਸਮੀਖਿਆਵਾਂ';
 
   @override
   String get saveChanges => 'Save Changes';
@@ -496,13 +496,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get openSettings => 'Open Settings';
 
   @override
-  String get themeDark => 'Dark';
+  String get themeDark => 'ਹਨੇਰਾ';
 
   @override
-  String get themeLight => 'Light';
+  String get themeLight => 'ਹਲਕਾ';
 
   @override
-  String get themeSystem => 'System';
+  String get themeSystem => 'ਸਿਸਟਮ';
 
   @override
   String textScalePercent(String value) {
@@ -520,52 +520,52 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get languageEnglish => 'English';
+  String get languageEnglish => 'ਅੰਗਰੇਜ਼ੀ';
 
   @override
-  String get languageSpanish => 'Spanish';
+  String get languageSpanish => 'ਸਪੇਨੀ';
 
   @override
-  String get languageFrench => 'French';
+  String get languageFrench => 'ਫਰਾਂਸੀਸੀ';
 
   @override
-  String get languageGerman => 'German';
+  String get languageGerman => 'ਜਰਮਨ';
 
   @override
-  String get languageChinese => 'Chinese';
+  String get languageChinese => 'ਚੀਨੀ';
 
   @override
-  String get languageArabic => 'Arabic';
+  String get languageArabic => 'ਅਰਬੀ';
 
   @override
-  String get languageHindi => 'Hindi';
+  String get languageHindi => 'ਹਿੰਦੀ';
 
   @override
-  String get languageItalian => 'Italian';
+  String get languageItalian => 'ਇਤਾਲਵੀ';
 
   @override
-  String get languageJapanese => 'Japanese';
+  String get languageJapanese => 'ਜਾਪਾਨੀ';
 
   @override
-  String get languageKorean => 'Korean';
+  String get languageKorean => 'ਕੋਰੀਆਈ';
 
   @override
-  String get languagePortuguese => 'Portuguese';
+  String get languagePortuguese => 'ਪੁਰਤਗਾਲੀ';
 
   @override
-  String get languageRussian => 'Russian';
+  String get languageRussian => 'ਰੂਸੀ';
 
   @override
-  String get languageVietnamese => 'Vietnamese';
+  String get languageVietnamese => 'ਵੀਅਤਨਾਮੀ';
 
   @override
-  String get languageGreek => 'Greek';
+  String get languageGreek => 'ਗ੍ਰੀਕ';
 
   @override
-  String get languagePunjabi => 'Punjabi';
+  String get languagePunjabi => 'ਪੰਜਾਬੀ';
 
   @override
-  String get discoverTitle => 'Discover Local Food';
+  String get discoverTitle => 'ਸਥਾਨਕ ਖਾਣਾ ਖੋਜੋ';
 
   @override
   String get openSourceLink => 'Open Source Link';
@@ -585,7 +585,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get businessNotifications => 'Business Notifications';
 
   @override
-  String get about => 'About';
+  String get about => 'ਬਾਰੇ';
 
   @override
   String get aboutDescription =>
@@ -621,7 +621,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Location permission was not granted. You can enable it in system settings.';
 
   @override
-  String get theme => 'Theme';
+  String get theme => 'ਥੀਮ';
 
   @override
   String get appTheme => 'App Theme';
@@ -642,7 +642,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get larger => 'Larger';
 
   @override
-  String get support => 'Support';
+  String get support => 'ਸਹਾਇਤਾ';
 
   @override
   String get sendAppFeedback => 'Send App Feedback';
@@ -661,7 +661,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get awaitingAdminResponse => 'Awaiting admin response...';
 
   @override
-  String get statusPending => 'Pending';
+  String get statusPending => 'ਬਕਾਇਾ';
 
   @override
   String get statusInProgress => 'In Progress';
@@ -685,22 +685,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get contactAndLinks => 'Contact & Links';
 
   @override
-  String get gallery => 'Gallery';
+  String get gallery => 'ਗੈਲਰੀ';
 
   @override
-  String get openingHours => 'Opening Hours';
+  String get openingHours => 'ਖੁੱਲ੍ਹਣ ਦੇ ਸਮੇਂ';
 
   @override
-  String get menu => 'Menu';
+  String get menu => 'ਮੇਨੂ';
 
   @override
-  String get menuFallback => 'Menu';
+  String get menuFallback => 'ਮੇਨੂ';
 
   @override
-  String get call => 'Call';
+  String get call => 'ਕਾਲ ਕਰੋ';
 
   @override
-  String get website => 'Website';
+  String get website => 'ਵੈੱਬਸਾਈਟ';
 
   @override
   String get orderOnline => 'Order Online';
@@ -709,7 +709,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get viewOnMap => 'View on Map';
 
   @override
-  String get foodDiscoveryGuide => 'Food Discovery Guide';
+  String get foodDiscoveryGuide => 'ਖਾਣੇ ਦੀ ਖੋਜ ਗਾਈਡ';
 
   @override
   String get foodDiscoveryGuideHelper =>

@@ -570,6 +570,9 @@ class AppLocalizationsVi extends AppLocalizations {
   String get languageGreek => 'tiếng Hy Lạp';
 
   @override
+  String get languagePunjabi => 'Punjabi';
+
+  @override
   String get discoverTitle => 'Khám phá ẩm thực địa phương';
 
   @override

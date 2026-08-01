@@ -1,55 +1,55 @@
 {
-  "@@locale": "en",
+  "@@locale": "pa",
   "appTitle": "BrisConnect+",
-  "welcome": "Welcome",
-  "signIn": "Sign In",
-  "signUp": "Sign Up",
-  "signOut": "Sign Out",
-  "email": "Email",
-  "password": "Password",
-  "phone": "Phone",
-  "name": "Name",
-  "save": "Save",
-  "cancel": "Cancel",
-  "editProfile": "Edit Profile",
-  "profileInfo": "Profile Info",
-  "preferences": "Preferences",
-  "language": "Language",
-  "locationRadius": "Location Radius",
-  "appearanceSettings": "Appearance Settings",
-  "feedback": "Feedback",
-  "myFeedback": "My Feedback",
-  "helpAndSupport": "Help & Support",
-  "discover": "Discover",
-  "community": "Community",
-  "map": "Map",
-  "saved": "Saved",
-  "profile": "Profile",
-  "food": "Food",
-  "events": "Events",
-  "businesses": "Businesses",
-  "promotions": "Promotions",
-  "photos": "Photos",
-  "newPost": "New",
-  "search": "Search",
-  "filter": "Filter",
-  "clearFilters": "Clear filters",
-  "noResults": "No results found",
-  "loading": "Loading...",
-  "error": "Error",
-  "success": "Success",
-  "profileUpdated": "Profile updated successfully.",
-  "profileUpdateFailed": "Could not update profile. Please try again.",
-  "guestVisitor": "Guest Visitor",
-  "localUser": "Local",
-  "filterEventsTitle": "Filter Events",
-  "priceLabel": "Price",
-  "dateLabel": "Date",
-  "pickADate": "Pick a date",
-  "resetButton": "Reset",
-  "applyButton": "Apply",
-  "freeLabel": "Free",
-  "paidLabel": "Paid",
+  "welcome": "ਸਵਾਗਤ ਹੈ",
+  "signIn": "ਸਾਈਨ ਇਨ",
+  "signUp": "ਸਾਈਨ ਅਪ",
+  "signOut": "ਸਾਈਨ ਆਊਟ",
+  "email": "ਈ-ਮੇਲ",
+  "password": "ਪਾਸਵਰਡ",
+  "phone": "ਫ਼ੋਨ",
+  "name": "ਨਾਮ",
+  "save": "ਸੰਭਾਲੋ",
+  "cancel": "ਰੱਦ ਕਰੋ",
+  "editProfile": "ਪ੍ਰੋਫਾਇਲ ਸੰਪਾਦਿਤ ਕਰੋ",
+  "profileInfo": "ਪ੍ਰੋਫਾਇਲ ਜਾਣਕਾਰੀ",
+  "preferences": "ਤਰਜੀਹਾਂ",
+  "language": "ਭਾਸ਼ਾ",
+  "locationRadius": "ਸਥਾਨ ਦੀ ਰੇਡੀਅਸ",
+  "appearanceSettings": "ਦਿੱਖ ਸੈਟਿੰਗਜ਼",
+  "feedback": "ਪ੍ਰਤੀਕਿਰਿਆ",
+  "myFeedback": "ਮੇਰੀ ਪ੍ਰਤੀਕਿਰਿਆ",
+  "helpAndSupport": "ਮਦਦ ਅਤੇ ਸਹਾਇਤਾ",
+  "discover": "ਖੋਜ",
+  "community": "ਸਮਾਜ",
+  "map": "ਨਕਸ਼ਾ",
+  "saved": "ਸੰਭਾਲਿਆ",
+  "profile": "ਪ੍ਰੋਫਾਇਲ",
+  "food": "ਖਾਣਾ",
+  "events": "ਅਨੁ਷ਠਾਨ",
+  "businesses": "ਕਾਰੋਬਾਰ",
+  "promotions": "ਪ੍ਰਚਾਰ",
+  "photos": "ਫ਼ੋਟੋਆਂ",
+  "newPost": "ਨਵਾਂ",
+  "search": "ਖੋਜ",
+  "filter": "ਫਿਲਟਰ",
+  "clearFilters": "ਫਿਲਟਰ ਸਾਫ਼ ਕਰੋ",
+  "noResults": "ਕੋਈ ਨਤੀਜਾ ਨਹੀਂ ਮਿਲਿਆ",
+  "loading": "ਲੋਡ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
+  "error": "ਗਲਤੀ",
+  "success": "ਸਫਲ",
+  "profileUpdated": "ਪ੍ਰੋਫਾਇਲ ਸਫਲਤਾ ਨਾਲ ਅਪਡੇਟ ਹੋ ਗਈ ਹੈ।",
+  "profileUpdateFailed": "ਪ੍ਰੋਫਾਇਲ ਅਪਡੇਟ ਨਹੀਂ ਹੋ ਸਕਦੀ। ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰਿਓ।",
+  "guestVisitor": "ਮਹਿਮਾਨ ਮੁਲਾਕਾਤੀ",
+  "localUser": "ਸਥਾਨਕ",
+  "filterEventsTitle": "ਅਨੁ਷ਠਾਨ ਫਿਲਟਰ ਕਰੋ",
+  "priceLabel": "ਮੁੱਲ",
+  "dateLabel": "ਮਿਤੀ",
+  "pickADate": "ਇੱਕ ਮਿਤੀ ਚੁਣੋ",
+  "resetButton": "ਮੁੜ ਨਿਰਧਾਰਤ ਕਰੋ",
+  "applyButton": "ਲਾਗੂ ਕਰੋ",
+  "freeLabel": "ਮੁਫ਼ਤ",
+  "paidLabel": "ਅਦਾ ਕੀਤਾ",
   "eventSavedToInterested": "{eventTitle} saved to Interested.",
   "@eventSavedToInterested": {
     "placeholders": {
@@ -122,7 +122,7 @@
   "imageTooLarge": "Image is too large. Please choose a smaller image.",
   "profilePictureUpdated": "Profile picture updated successfully.",
   "profilePictureUpdateFailed": "Could not update profile picture. Please try again.",
-  "enterYourName": "Enter your name",
+  "enterYourName": "ਆਪਣਾ ਨਾਮ ਦਰਜ ਕਰੋ",
   "phoneHint": "e.g. 04xxxxxxxx",
   "nameCannotBeEmpty": "Name cannot be empty.",
   "nameMinLength": "Name must be at least 2 characters.",
@@ -137,11 +137,11 @@
   "viewSubmittedFeedback": "View your submitted feedback and admin responses",
   "discoverSubtitle": "Discover local food and experiences",
   "searchHintLocalFood": "Search local food businesses...",
-  "homeLabel": "Home",
+  "homeLabel": "ਘਰ",
   "recommendedForYou": "Recommended For You",
   "seeAll": "See All",
   "categories": "Categories",
-  "nearby": "Nearby",
+  "nearby": "ਨੇੜੇ",
   "noFoodPlacesFound": "No food places found",
   "noFoodPlacesSubtitle": "Try changing your search or filter selections.",
   "localFoodBusinesses": "Local Food Businesses",
@@ -157,7 +157,7 @@
   "savedBusinessesSubtitle": "Food businesses you have bookmarked",
   "savedItemsUnavailableTitle": "Saved items unavailable",
   "savedItemsUnavailableSubtitle": "Some saved items are no longer published in discovery feed.",
-  "retryAction": "Retry",
+  "retryAction": "ਮੁੜ ਕੋਸ਼ਿਸ਼ ਕਰੋ",
   "unableToLoadDiscover": "Unable to load discover items right now. Please try again.",
   "unableToLoadSaved": "Unable to load saved items right now. Please try again.",
   "dateTBA": "Date TBA",
@@ -181,12 +181,12 @@
       }
     }
   },
-  "approved": "Approved",
-  "audience": "Audience",
+  "approved": "ਮਨਜ਼ੂਰ",
+  "audience": "ਦਰਸ਼ਕ",
   "businessLabel": "Business",
   "controlDistance": "Control distance for nearby opportunities",
-  "dashboard": "Dashboard",
-  "delete": "Delete",
+  "dashboard": "ਡੈਸ਼ਬੋਰਡ",
+  "delete": "ਮਿਟਾਓ",
   "deleteEvent": "Delete Event",
   "deletingEvent": "Deleting event...",
   "displayName": "Display name",
@@ -217,13 +217,13 @@
   "failedToDeleteEvent": "Failed to delete event. Please try again.",
   "feed": "Feed",
   "localBusinessPortal": "Local business portal",
-  "pending": "Pending",
-  "phoneNumber": "Phone number",
+  "pending": "ਬਕਾਇਾ",
+  "phoneNumber": "ਫ਼ੋਨ ਨੰਬਰ",
   "pleaseLoginLocal": "Please log in as a Local user first.",
   "pleaseLoginToDelete": "Please log in to delete events.",
   "pushAlerts": "Push alerts for your business",
-  "rejected": "Rejected",
-  "reviews": "Reviews",
+  "rejected": "ਅਸਵੀਕਾਰ",
+  "reviews": "ਸਮੀਖਿਆਵਾਂ",
   "saveChanges": "Save Changes",
   "searchHintEvents": "Search events, bookings...",
   "suburb": "Suburb",
@@ -233,9 +233,9 @@
   "locationAccessDisabled": "Location access disabled for app features.",
   "locationPermissionGranted": "Location permission granted.",
   "openSettings": "Open Settings",
-  "themeDark": "Dark",
-  "themeLight": "Light",
-  "themeSystem": "System",
+  "themeDark": "ਹਨੇਰਾ",
+  "themeLight": "ਹਲਕਾ",
+  "themeSystem": "ਸਿਸਟਮ",
   "textScalePercent": "{value}%",
   "@textScalePercent": {
     "placeholders": {
@@ -260,22 +260,22 @@
       }
     }
   },
-  "languageEnglish": "English",
-  "languageSpanish": "Spanish",
-  "languageFrench": "French",
-  "languageGerman": "German",
-  "languageChinese": "Chinese",
-  "languageArabic": "Arabic",
-  "languageHindi": "Hindi",
-  "languageItalian": "Italian",
-  "languageJapanese": "Japanese",
-  "languageKorean": "Korean",
-  "languagePortuguese": "Portuguese",
-  "languageRussian": "Russian",
-  "languageVietnamese": "Vietnamese",
-  "languageGreek": "Greek",
-  "languagePunjabi": "Punjabi",
-  "discoverTitle": "Discover Local Food",
+  "languageEnglish": "ਅੰਗਰੇਜ਼ੀ",
+  "languageSpanish": "ਸਪੇਨੀ",
+  "languageFrench": "ਫਰਾਂਸੀਸੀ",
+  "languageGerman": "ਜਰਮਨ",
+  "languageChinese": "ਚੀਨੀ",
+  "languageArabic": "ਅਰਬੀ",
+  "languageHindi": "ਹਿੰਦੀ",
+  "languageItalian": "ਇਤਾਲਵੀ",
+  "languageJapanese": "ਜਾਪਾਨੀ",
+  "languageKorean": "ਕੋਰੀਆਈ",
+  "languagePortuguese": "ਪੁਰਤਗਾਲੀ",
+  "languageRussian": "ਰੂਸੀ",
+  "languageVietnamese": "ਵੀਅਤਨਾਮੀ",
+  "languageGreek": "ਗ੍ਰੀਕ",
+  "languagePunjabi": "ਪੰਜਾਬੀ",
+  "discoverTitle": "ਸਥਾਨਕ ਖਾਣਾ ਖੋਜੋ",
   "openSourceLink": "Open Source Link",
   "pendingApproval": "Pending Approval",
   "deleteEventConfirmation": "Are you sure you want to delete \"{title}\"? This action cannot be undone.",
@@ -288,7 +288,7 @@
   },
   "myActivity": "My Activity",
   "businessNotifications": "Business Notifications",
-  "about": "About",
+  "about": "ਬਾਰੇ",
   "aboutDescription": "BrisConnect+ is a smart city guide that helps visitors and locals discover events, explore attractions, and capture their Brisbane experiences in one connected platform.",
   "versionLabel": "Version {version}",
   "@versionLabel": {
@@ -305,20 +305,20 @@
   "setSearchRadius": "Set your search radius for events and attractions.",
   "pleaseLoginToViewSettings": "Please log in to view settings.",
   "locationPermissionNotGranted": "Location permission was not granted. You can enable it in system settings.",
-  "theme": "Theme",
+  "theme": "ਥੀਮ",
   "appTheme": "App Theme",
   "chooseHowAppLooks": "Choose how the app looks.",
   "textSize": "Text Size",
   "adjustTextSize": "Adjust text size across the app.",
   "smaller": "Smaller",
   "larger": "Larger",
-  "support": "Support",
+  "support": "ਸਹਾਇਤਾ",
   "sendAppFeedback": "Send App Feedback",
   "reportBugsImprovements": "Report bugs, misleading information, or improvement suggestions.",
   "noFeedbackYet": "You have not submitted any feedback yet.",
   "adminResponse": "Admin Response",
   "awaitingAdminResponse": "Awaiting admin response...",
-  "statusPending": "Pending",
+  "statusPending": "ਬਕਾਇਾ",
   "statusInProgress": "In Progress",
   "statusResolved": "Resolved",
   "statusWontFix": "Won't Fix",
@@ -326,15 +326,15 @@
   "aboutThisFoodExperience": "About this Food Experience",
   "highlights": "Highlights",
   "contactAndLinks": "Contact & Links",
-  "gallery": "Gallery",
-  "openingHours": "Opening Hours",
-  "menu": "Menu",
-  "menuFallback": "Menu",
-  "call": "Call",
-  "website": "Website",
+  "gallery": "ਗੈਲਰੀ",
+  "openingHours": "ਖੁੱਲ੍ਹਣ ਦੇ ਸਮੇਂ",
+  "menu": "ਮੇਨੂ",
+  "menuFallback": "ਮੇਨੂ",
+  "call": "ਕਾਲ ਕਰੋ",
+  "website": "ਵੈੱਬਸਾਈਟ",
   "orderOnline": "Order Online",
   "viewOnMap": "View on Map",
-  "foodDiscoveryGuide": "Food Discovery Guide",
+  "foodDiscoveryGuide": "ਖਾਣੇ ਦੀ ਖੋਜ ਗਾਈਡ",
   "foodDiscoveryGuideHelper": "Tap play to hear your Food Discovery Guide describe this food spot and its highlights.",
   "stop": "Stop",
   "unableToStartNarration": "Unable to start Food Discovery Guide narration right now.",
@@ -344,88 +344,120 @@
   "foodDescriptionIntro": "Step into {title}, a {cuisine} destination in the heart of {location}.",
   "@foodDescriptionIntro": {
     "placeholders": {
-      "title": {"type": "String"},
-      "cuisine": {"type": "String"},
-      "location": {"type": "String"}
+      "title": {
+        "type": "String"
+      },
+      "cuisine": {
+        "type": "String"
+      },
+      "location": {
+        "type": "String"
+      }
     }
   },
   "foodDescriptionRating": "Loved by locals and visitors alike, it holds a {rating}-star rating.",
   "@foodDescriptionRating": {
     "placeholders": {
-      "rating": {"type": "String"}
+      "rating": {
+        "type": "String"
+      }
     }
   },
   "foodDescriptionCategories": "The menu celebrates {categories}, crafted with fresh, locally sourced ingredients.",
   "@foodDescriptionCategories": {
     "placeholders": {
-      "categories": {"type": "String"}
+      "categories": {
+        "type": "String"
+      }
     }
   },
   "foodDescriptionPrice": "Expect a {price} experience that balances quality and value.",
   "@foodDescriptionPrice": {
     "placeholders": {
-      "price": {"type": "String"}
+      "price": {
+        "type": "String"
+      }
     }
   },
   "foodDescriptionOutro": "Whether you are after a relaxed brunch, a business lunch, or a lively dinner, {title} offers a welcoming atmosphere and flavours that capture Brisbane's dining scene.",
   "@foodDescriptionOutro": {
     "placeholders": {
-      "title": {"type": "String"}
+      "title": {
+        "type": "String"
+      }
     }
   },
   "foodNarrationWelcome": "Welcome to {title}",
   "@foodNarrationWelcome": {
     "placeholders": {
-      "title": {"type": "String"}
+      "title": {
+        "type": "String"
+      }
     }
   },
   "foodNarrationBadge": "This is a {badge} stop worth adding to your Brisbane food trail",
   "@foodNarrationBadge": {
     "placeholders": {
-      "badge": {"type": "String"}
+      "badge": {
+        "type": "String"
+      }
     }
   },
   "foodNarrationCuisine": "It is best known for {cuisine}",
   "@foodNarrationCuisine": {
     "placeholders": {
-      "cuisine": {"type": "String"}
+      "cuisine": {
+        "type": "String"
+      }
     }
   },
   "foodNarrationLocation": "You will find it in {location}, where the local dining scene comes alive",
   "@foodNarrationLocation": {
     "placeholders": {
-      "location": {"type": "String"}
+      "location": {
+        "type": "String"
+      }
     }
   },
   "foodNarrationDateTime": "You can usually visit during {dateTime}",
   "@foodNarrationDateTime": {
     "placeholders": {
-      "dateTime": {"type": "String"}
+      "dateTime": {
+        "type": "String"
+      }
     }
   },
   "foodNarrationDescription": "Here's what the experience feels like. {description}",
   "@foodNarrationDescription": {
     "placeholders": {
-      "description": {"type": "String"}
+      "description": {
+        "type": "String"
+      }
     }
   },
   "foodNarrationPriceFree": "There is no entry cost to explore this food spot",
   "foodNarrationPrice": "Pricing is listed as {price}",
   "@foodNarrationPrice": {
     "placeholders": {
-      "price": {"type": "String"}
+      "price": {
+        "type": "String"
+      }
     }
   },
   "foodNarrationRating": "Visitors currently rate it {rating} out of 5",
   "@foodNarrationRating": {
     "placeholders": {
-      "rating": {"type": "String"}
+      "rating": {
+        "type": "String"
+      }
     }
   },
   "foodNarrationCategories": "Expect a mix of {categories}",
   "@foodNarrationCategories": {
     "placeholders": {
-      "categories": {"type": "String"}
+      "categories": {
+        "type": "String"
+      }
     }
   }
 }

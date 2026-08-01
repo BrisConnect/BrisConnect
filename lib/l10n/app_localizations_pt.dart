@@ -570,6 +570,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get languageGreek => 'Grego';
 
   @override
+  String get languagePunjabi => 'Punjabi';
+
+  @override
   String get discoverTitle => 'Descubra comida local';
 
   @override

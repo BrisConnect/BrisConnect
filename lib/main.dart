@@ -79,6 +79,7 @@ class BrisConnectAppState extends State<BrisConnectApp> {
         Locale('ru'),
         Locale('vi'),
         Locale('el'),
+        Locale('pa'),
       ],
       theme: ThemeData(
         useMaterial3: true,

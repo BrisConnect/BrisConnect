@@ -549,6 +549,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get languageGreek => 'ギリシャ語';
 
   @override
+  String get languagePunjabi => 'Punjabi';
+
+  @override
   String get discoverTitle => '地元の食べ物を発見する';
 
   @override

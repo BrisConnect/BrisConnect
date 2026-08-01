@@ -91,6 +91,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
         return l10n.languageVietnamese;
       case 'el':
         return l10n.languageGreek;
+      case 'pa':
+        return l10n.languagePunjabi;
       default:
         return l10n.languageEnglish;
     }

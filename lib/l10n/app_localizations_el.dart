@@ -577,6 +577,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get languageGreek => 'Έλληνας';
 
   @override
+  String get languagePunjabi => 'Punjabi';
+
+  @override
   String get discoverTitle => 'Ανακαλύψτε το τοπικό φαγητό';
 
   @override

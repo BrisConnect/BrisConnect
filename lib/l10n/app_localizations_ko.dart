@@ -549,6 +549,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get languageGreek => '그리스어';
 
   @override
+  String get languagePunjabi => 'Punjabi';
+
+  @override
   String get discoverTitle => '현지 음식을 발견해보세요';
 
   @override
