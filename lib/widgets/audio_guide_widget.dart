@@ -66,11 +66,11 @@ class _AiNarrationWidgetState extends State<AiNarrationWidget> {
     try {
       await _tts.awaitSpeakCompletion(true);
       await _tts.setLanguage('en-AU');
-      // Professional, clear Food Discovery Guide voice: moderate pace with
-      // confident articulation. Rate 0.62 is faster than the previous 0.45
-      // while remaining easy to follow.
-      await _tts.setPitch(1.0);
-      await _tts.setSpeechRate(0.62);
+      // Natural, conversational Food Discovery Guide voice. Rate 0.82 is
+      // closer to everyday human speech and avoids the slow, robotic feel of
+      // lower rates. Slightly elevated pitch (1.05) keeps it lively and clear.
+      await _tts.setPitch(1.05);
+      await _tts.setSpeechRate(0.82);
       await _tts.setVolume(1.0);
       // iOS: play audio even when the device is on silent/ring switch
       await _tts.setSharedInstance(true);
