@@ -101,52 +101,10 @@ class FoodDetailScreen extends StatelessWidget {
         .any((host) => uri.host == host || uri.host.endsWith('.$host'));
   }
 
-  bool get _canBookTable {
-    if ((email ?? '').trim().isNotEmpty) return true;
-    if ((phone ?? '').trim().isNotEmpty) return true;
-    final url = (webLink ?? '').trim();
-    return url.isNotEmpty && !_isSocialMediaUrl(url);
-  }
-
   bool get _canOrderOnline {
     final url = (onlineOrderUrl ?? '').trim();
     if (url.isEmpty) return false;
     return !_isSocialMediaUrl(url);
-  }
-
-  Future<void> _bookReservation(BuildContext context) async {
-    final subject = Uri.encodeComponent('Reservation request for $title');
-    final body = Uri.encodeComponent(
-        'Hi team at $title,\n\nI would like to make a reservation.\n\nDate: \nTime: \nNumber of guests: \n\nThank you.');
-    if ((email ?? '').trim().isNotEmpty) {
-      final uri =
-          Uri.parse('mailto:${email!.trim()}?subject=$subject&body=$body');
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-        return;
-      }
-    }
-    if ((webLink ?? '').trim().isNotEmpty && !_isSocialMediaUrl(webLink!)) {
-      final uri = Uri.parse(webLink!.trim());
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-        return;
-      }
-    }
-    if ((phone ?? '').trim().isNotEmpty) {
-      final uri = Uri(scheme: 'tel', path: phone!.trim());
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-        return;
-      }
-    }
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No booking method available for this business.'),
-        ),
-      );
-    }
   }
 
   String _buildNarrationText() {
@@ -441,23 +399,16 @@ class FoodDetailScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          if (_canBookTable || _canOrderOnline)
+          if (_canOrderOnline)
             Wrap(
               spacing: 12,
               runSpacing: 12,
               children: [
-                if (_canBookTable)
-                  _ActionChip(
-                    icon: Icons.calendar_today_rounded,
-                    label: 'Book a Table',
-                    onTap: () => _bookReservation(context),
-                  ),
-                if (_canOrderOnline)
-                  _ActionChip(
-                    icon: Icons.shopping_bag_rounded,
-                    label: 'Order Online',
-                    onTap: () => _openLink(context, onlineOrderUrl!.trim()),
-                  ),
+                _ActionChip(
+                  icon: Icons.shopping_bag_rounded,
+                  label: 'Order Online',
+                  onTap: () => _openLink(context, onlineOrderUrl!.trim()),
+                ),
               ],
             ),
         ],
