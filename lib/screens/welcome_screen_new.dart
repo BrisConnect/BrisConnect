@@ -8,8 +8,6 @@ import 'package:brisconnect/auth/admin_auth.dart';
 import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/screens/local_login_screen.dart';
-import 'package:brisconnect/screens/privacy_policy_screen.dart';
-import 'package:brisconnect/screens/terms_of_service_screen.dart';
 import 'package:brisconnect/screens/visitor_login_screen.dart';
 import 'package:brisconnect/services/email_code_auth_service.dart';
 import 'package:brisconnect/services/phone_auth_service.dart';
@@ -624,79 +622,6 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
             },
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildLegalLinks() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-      decoration: BoxDecoration(
-        color: _cardDark,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _white.withValues(alpha: 0.25)),
-      ),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const PrivacyPolicyScreen(),
-                ),
-              );
-            },
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: const Text(
-              'Privacy Policy',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: _white,
-                decoration: TextDecoration.underline,
-                decorationColor: _white70,
-              ),
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 6),
-            child: Text(
-              '•',
-              style: TextStyle(fontSize: 13, color: _white50),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const TermsOfServiceScreen(),
-                ),
-              );
-            },
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: const Text(
-              'Terms of Service',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: _white,
-                decoration: TextDecoration.underline,
-                decorationColor: _white70,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
