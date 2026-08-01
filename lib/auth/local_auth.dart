@@ -308,7 +308,8 @@ class LocalAuth {
             ),
             SetOptions(merge: true),
           );
-      await fb_auth.FirebaseAuth.instance.signOut();
+      // Do NOT sign out here — notification queuing below writes to
+      // mail/sms_queue and Firestore rules require the user to be signed in.
     } on fb_auth.FirebaseAuthException catch (error) {
       debugPrint(
           '[LocalAuth] Firebase Auth register failed: code=${error.code}, message=${error.message}');
@@ -336,7 +337,8 @@ class LocalAuth {
                   SetOptions(merge: true),
                 );
 
-            await fb_auth.FirebaseAuth.instance.signOut();
+            // Stay signed in so the notification queuing below can write
+            // to mail/sms_queue; sign-out happens after queuing.
             _lastErrorMessage = null;
             break;
           } on fb_auth.FirebaseAuthException catch (_) {
@@ -358,7 +360,7 @@ class LocalAuth {
           return false;
         case 'weak-password':
           _lastErrorMessage =
-              'Password is too weak. Use at least 6 characters.';
+              'Password is too weak. Use at least 8 characters with upper, lower, and number.';
           return false;
         case 'network-request-failed':
           _lastErrorMessage =
@@ -424,23 +426,31 @@ class LocalAuth {
       _users.add(localUser);
     }
 
-    LocalEmailNotificationService()
-        .queueRegistrationReceivedEmail(
-      recipientEmail: normalizedEmail,
-      businessName: name.trim(),
-    )
-        .catchError((_) {
-      // Registration should still succeed if queuing email fails.
-    });
+    try {
+      await LocalEmailNotificationService()
+          .queueRegistrationReceivedEmail(
+        recipientEmail: normalizedEmail,
+        businessName: name.trim(),
+      );
+    } catch (error) {
+      debugPrint('[LocalAuth] Failed to queue registration email: $error');
+    }
 
-    SmsNotificationService()
-        .queueLocalAccountRegistrationReceivedSms(
-      recipientPhone: phone.trim(),
-      businessName: name.trim(),
-    )
-        .catchError((_) {
-      // Registration should still succeed if queuing SMS fails.
-    });
+    try {
+      await SmsNotificationService()
+          .queueLocalAccountRegistrationReceivedSms(
+        recipientPhone: phone.trim(),
+        businessName: name.trim(),
+      );
+    } catch (error) {
+      debugPrint('[LocalAuth] Failed to queue registration SMS: $error');
+    }
+
+    try {
+      await fb_auth.FirebaseAuth.instance.signOut();
+    } catch (error) {
+      debugPrint('[LocalAuth] Sign out after registration failed: $error');
+    }
 
     return true;
   }
@@ -449,6 +459,7 @@ class LocalAuth {
     required String email,
     String? password,
     String? code,
+    String method = 'email',
   }) async {
     _lastErrorMessage = null;
     final normalizedEmail = await _resolveLoginEmail(email);
@@ -463,6 +474,7 @@ class LocalAuth {
         email: normalizedEmail,
         code: code,
         userType: 'local',
+        method: method,
       );
       if (!verified) {
         _lastErrorMessage = EmailCodeAuthService.lastErrorMessage ??

@@ -238,6 +238,6 @@ class InstagramStoryService {
       caseSensitive: false,
     );
     final match = urlPattern.firstMatch(text);
-    return match?.group(0) ?? 'https://www.brisconnect.com.au';
+    return match?.group(0) ?? 'https://brisconnect-68b78.web.app';
   }
 }

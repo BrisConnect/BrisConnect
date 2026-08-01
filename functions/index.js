@@ -3,21 +3,16 @@ const crypto = require('node:crypto');
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
-const { defineSecret, defineString } = require('firebase-functions/params');
+const { defineSecret } = require('firebase-functions/params');
 const logger = require('firebase-functions/logger');
-const twilio = require('twilio');
 const { ogProxy } = require('./og_proxy');
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
-const twilioAccountSid = defineString('TWILIO_ACCOUNT_SID');
-const twilioMessagingServiceSid = defineString('TWILIO_MESSAGING_SERVICE_SID');
-const twilioAuthToken = defineSecret('TWILIO_AUTH_TOKEN');
-const twilioApiKeySid = defineSecret('TWILIO_API_KEY_SID');
-const twilioApiKeySecret = defineSecret('TWILIO_API_KEY_SECRET');
 const googlePlacesApiKey = defineSecret('GOOGLE_PLACES_API_KEY');
+const brevoApiKey = defineSecret('BREVO_API_KEY');
 
 const BRISBANE_CBD = {
   lat: -27.4679,
@@ -56,266 +51,6 @@ const BCC_CULTURE_SOURCES = [
   'https://www.brisbane.qld.gov.au/things-to-see-and-do/arts-and-culture',
   'https://www.brisbane.qld.gov.au/things-to-see-and-do/history-and-heritage',
 ];
-
-function createTwilioClient() {
-  const accountSid = twilioAccountSid.value();
-  const apiKeySid = twilioApiKeySid.value();
-  const apiKeySecret = twilioApiKeySecret.value();
-  const authToken = twilioAuthToken.value();
-
-  if (apiKeySid && apiKeySecret && apiKeySid.startsWith('SK')) {
-    return twilio(apiKeySid, apiKeySecret, { accountSid });
-  }
-
-  if (authToken && authToken.length > 10) {
-    return twilio(accountSid, authToken);
-  }
-
-  throw new Error(
-    'Missing Twilio credentials. Set TWILIO_AUTH_TOKEN or TWILIO_API_KEY_SID/TWILIO_API_KEY_SECRET.',
-  );
-}
-
-function normalizePhone(value) {
-  const raw = String(value || '').trim();
-  if (!raw) {
-    return null;
-  }
-
-  const compact = raw.replace(/[\s()-]/g, '');
-  if (/^\+[1-9]\d{7,14}$/.test(compact)) {
-    return compact;
-  }
-
-  const digits = compact.replace(/\D/g, '');
-  if (!digits) {
-    return null;
-  }
-
-  if (digits.startsWith('61') && digits.length === 11) {
-    return `+${digits}`;
-  }
-
-  if (digits.startsWith('04') && digits.length === 10) {
-    return `+61${digits.slice(1)}`;
-  }
-
-  if (digits.startsWith('614') && digits.length === 11) {
-    return `+${digits}`;
-  }
-
-  return /^\d{8,15}$/.test(digits) ? `+${digits}` : null;
-}
-
-function extractPhone(data) {
-  return normalizePhone(data.phone || data.phoneNumber || data.mobile || '');
-}
-
-async function sendWelcomeSms(event, source) {
-  logger.info('sendWelcomeSms triggered.', { source });
-
-  const snapshot = event.data;
-  if (!snapshot) {
-    logger.warn('No snapshot data found for trigger.', { source });
-    return;
-  }
-
-  const user = snapshot.data() || {};
-  logger.info('User document data keys.', {
-    source,
-    document: snapshot.ref.path,
-    keys: Object.keys(user),
-  });
-
-  const phone = extractPhone(user);
-  if (!phone) {
-    logger.info('Skipping SMS because no valid phone was found.', {
-      source,
-      document: snapshot.ref.path,
-      rawPhone: user.phone || user.phoneNumber || user.mobile || '(none)',
-    });
-    return;
-  }
-
-  logger.info('Attempting to send SMS.', { source, phone });
-
-  let client;
-  try {
-    client = createTwilioClient();
-  } catch (err) {
-    logger.error('Failed to create Twilio client.', {
-      source,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return;
-  }
-
-  const messagingServiceSid = twilioMessagingServiceSid.value();
-  const body = 'Welcome to BrisConnect! Your account has been created successfully.';
-
-  try {
-    const message = await client.messages.create({
-      body,
-      messagingServiceSid,
-      to: phone,
-    });
-
-    await snapshot.ref.set(
-      {
-        welcomeSms: {
-          sentAt: admin.firestore.FieldValue.serverTimestamp(),
-          status: message.status || 'queued',
-          sid: message.sid,
-          to: message.to,
-          from: message.from,
-          source,
-        },
-      },
-      { merge: true },
-    );
-
-    logger.info('SMS sent successfully.', {
-      source,
-      document: snapshot.ref.path,
-      sid: message.sid,
-      to: message.to,
-      status: message.status,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-
-    await snapshot.ref.set(
-      {
-        welcomeSms: {
-          failedAt: admin.firestore.FieldValue.serverTimestamp(),
-          error: message,
-          source,
-        },
-      },
-      { merge: true },
-    );
-
-    logger.error('SMS delivery failed.', {
-      source,
-      document: snapshot.ref.path,
-      phone,
-      error: message,
-    });
-  }
-}
-
-function createRegistrationTrigger(documentPath, source) {
-  return onDocumentCreated(
-    {
-      document: documentPath,
-      region: 'australia-southeast1',
-      secrets: [twilioAuthToken, twilioApiKeySid, twilioApiKeySecret],
-    },
-    (event) => sendWelcomeSms(event, source),
-  );
-}
-
-exports.sendSmsOnLocalRegister = createRegistrationTrigger(
-  'local_users/{userId}',
-  'local_users',
-);
-
-exports.sendSmsOnVisitorRegister = createRegistrationTrigger(
-  'visitor_users/{userId}',
-  'visitor_users',
-);
-
-exports.processSmsQueue = onDocumentCreated(
-  {
-    document: 'sms_queue/{docId}',
-    region: 'australia-southeast1',
-    secrets: [twilioAuthToken, twilioApiKeySid, twilioApiKeySecret],
-  },
-  async (event) => {
-    logger.info('processSmsQueue triggered.', { docId: event.params.docId });
-
-    const snapshot = event.data;
-    if (!snapshot) {
-      logger.warn('processSmsQueue: No snapshot data.');
-      return;
-    }
-
-    const data = snapshot.data() || {};
-    const to = data.to;
-    const message = data.message;
-
-    if (!to || !message) {
-      logger.warn('processSmsQueue: Missing to or message field.', {
-        document: snapshot.ref.path,
-        hasTo: !!to,
-        hasMessage: !!message,
-      });
-      await snapshot.ref.set({ status: 'failed', error: 'Missing to or message' }, { merge: true });
-      return;
-    }
-
-    let client;
-    try {
-      client = createTwilioClient();
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      logger.error('processSmsQueue: Failed to create Twilio client.', { error: errMsg });
-      await snapshot.ref.set(
-        { status: 'failed', error: errMsg, processedAt: admin.firestore.FieldValue.serverTimestamp() },
-        { merge: true },
-      );
-      return;
-    }
-
-    const messagingServiceSid = twilioMessagingServiceSid.value();
-
-    try {
-      // Always route through the Messaging Service so the registered
-      // BrisConnect alpha sender ID in the sender pool is used automatically.
-      const rawBody = String(message);
-      const prefixedBody = rawBody.startsWith('BrisConnect') ? rawBody : `BrisConnect: ${rawBody}`;
-      const msgParams = {
-        body: prefixedBody,
-        to: String(to),
-        messagingServiceSid,
-      };
-      const result = await client.messages.create(msgParams);
-
-      await snapshot.ref.set(
-        {
-          status: result.status || 'queued',
-          sid: result.sid,
-          processedAt: admin.firestore.FieldValue.serverTimestamp(),
-        },
-        { merge: true },
-      );
-
-      logger.info('processSmsQueue: SMS sent.', {
-        document: snapshot.ref.path,
-        sid: result.sid,
-        to,
-        status: result.status,
-      });
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-
-      await snapshot.ref.set(
-        {
-          status: 'failed',
-          error: errMsg,
-          processedAt: admin.firestore.FieldValue.serverTimestamp(),
-        },
-        { merge: true },
-      );
-
-      logger.error('processSmsQueue: SMS delivery failed.', {
-        document: snapshot.ref.path,
-        to,
-        error: errMsg,
-      });
-    }
-  },
-);
 
 function truncateText(value, maxLength = 180) {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
@@ -1395,63 +1130,7 @@ exports.syncBrisbaneCouncilCatalog = onCall(
   },
 );
 
-exports.testSmsSend = onCall(
-  {
-    region: 'australia-southeast1',
-    secrets: [twilioAuthToken, twilioApiKeySid, twilioApiKeySecret],
-  },
-  async (request) => {
-    await assertAdminCaller(request);
 
-    const phone = request.data?.phone;
-    if (!phone) {
-      throw new HttpsError('invalid-argument', 'phone is required.');
-    }
-
-    const normalized = normalizePhone(phone);
-    if (!normalized) {
-      throw new HttpsError('invalid-argument', `Invalid phone: ${phone}`);
-    }
-
-    logger.info('testSmsSend: Starting.', { phone: normalized });
-
-    let client;
-    try {
-      client = createTwilioClient();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logger.error('testSmsSend: Twilio client failed.', { error: msg });
-      return { success: false, error: msg };
-    }
-
-    const messagingServiceSid = twilioMessagingServiceSid.value();
-    logger.info('testSmsSend: Sending via Twilio.', {
-      phone: normalized,
-      messagingServiceSid,
-      accountSid: twilioAccountSid.value(),
-    });
-
-    try {
-      const result = await client.messages.create({
-        body: 'BrisConnect test SMS. If you receive this, SMS delivery is working.',
-        messagingServiceSid,
-        to: normalized,
-      });
-
-      logger.info('testSmsSend: Success.', {
-        sid: result.sid,
-        status: result.status,
-        to: result.to,
-      });
-
-      return { success: true, sid: result.sid, status: result.status, to: result.to };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logger.error('testSmsSend: Failed.', { error: msg, phone: normalized });
-      return { success: false, error: msg };
-    }
-  },
-);
 
 exports.scheduledSyncBrisbaneCouncilCatalog = onSchedule(
   {
@@ -2576,10 +2255,44 @@ function getLoginEmailHtml(code, userType) {
   `;
 }
 
+/**
+ * Sends a transactional email via Brevo. Returns the provider response.
+ * Throws on API failure so the caller can fall back to queueing.
+ */
+async function sendEmailViaBrevo({ apiKey, to, subject, html, senderEmail, senderName }) {
+  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'api-key': apiKey,
+    },
+    body: JSON.stringify({
+      sender: { email: senderEmail, name: senderName },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
+  });
+
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`Brevo API error ${response.status}: ${text}`);
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (_) {
+    parsed = { raw: text };
+  }
+  return parsed;
+}
+
 exports.sendEmailLoginCode = onCall(
   {
     region: 'australia-southeast1',
     enforceAppCheck: false,
+    secrets: [brevoApiKey],
   },
   async (request) => {
     const email = String(request.data.email || '').trim().toLowerCase();
@@ -2633,22 +2346,140 @@ exports.sendEmailLoginCode = onCall(
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
 
-    // Queue the email in the existing mail collection.
-    await admin.firestore().collection('mail').doc(`login-code-${email}-${now}`).set({
-      to: email,
-      message: {
-        subject: 'Your BrisConnect+ sign-in code',
-        html: getLoginEmailHtml(code, userType),
-      },
-      meta: {
-        type: 'login_code',
-        userType,
-      },
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    const html = getLoginEmailHtml(code, userType);
+    const subject = 'Your BrisConnect+ sign-in code';
 
-    logger.info('Login code queued', { email, userType });
-    return { sent: true, userType };
+    // Attempt synchronous delivery via Brevo so the user receives the code
+    // immediately. If Brevo is not configured or the call fails, fall back to
+    // queueing the email in `mail` for the worker / Trigger Email extension.
+    let delivered = false;
+    let providerResponse = null;
+    const apiKey = brevoApiKey.value();
+    if (apiKey && apiKey.trim().length > 0) {
+      try {
+        providerResponse = await sendEmailViaBrevo({
+          apiKey: apiKey.trim(),
+          to: email,
+          subject,
+          html,
+          senderEmail: process.env.BREVO_SENDER_EMAIL || 'noreply@brisconnect.app',
+          senderName: process.env.BREVO_SENDER_NAME || 'BrisConnect+',
+        });
+        delivered = true;
+      } catch (brevoError) {
+        logger.error('Brevo direct send failed; falling back to mail queue', {
+          email,
+          error: brevoError instanceof Error ? brevoError.message : String(brevoError),
+        });
+      }
+    }
+
+    if (delivered) {
+      // Write an audit record to a separate collection so we don't trigger the
+      // Firebase Trigger Email extension (or the local worker) to send again.
+      await admin.firestore().collection('email_audit').doc(`login-code-${email}-${now}`).set({
+        to: email,
+        subject,
+        meta: { type: 'login_code', userType },
+        status: 'sent',
+        delivered: true,
+        provider: 'brevo',
+        providerResponse,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } else {
+      await admin.firestore().collection('mail').doc(`login-code-${email}-${now}`).set({
+        to: email,
+        message: { subject, html },
+        meta: { type: 'login_code', userType },
+        status: 'pending',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    logger.info('Login code processed', { email, userType, delivered });
+    return { sent: true, userType, delivered };
+  },
+);
+
+/**
+ * Sends the visitor "account created" welcome email directly via Brevo.
+ * Falls back to writing the `mail` collection if Brevo is unavailable.
+ */
+exports.sendVisitorWelcomeEmail = onCall(
+  {
+    region: 'australia-southeast1',
+    enforceAppCheck: false,
+    secrets: [brevoApiKey],
+  },
+  async (request) => {
+    const email = String(request.data.email || '').trim().toLowerCase();
+    const name = String(request.data.name || 'Visitor').trim();
+
+    if (!email || !email.includes('@')) {
+      throw new HttpsError('invalid-argument', 'A valid email address is required.');
+    }
+
+    const subject = 'Welcome to BrisConnect+';
+    const html = `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+        <div style="background-color:#E8820C;padding:20px 24px;border-radius:8px 8px 0 0;text-align:center;">
+          <span style="font-size:24px;font-weight:900;color:#ffffff;letter-spacing:1px;">BrisConnect+</span>
+        </div>
+        <div style="background-color:#ffffff;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e0e0e0;border-top:none;">
+          <p style="font-size:16px;color:#333333;">Hello ${name},</p>
+          <p style="font-size:16px;color:#333333;">Your BrisConnect+ visitor account has been created successfully.</p>
+          <p style="font-size:16px;color:#333333;">You can now sign in and explore events, attractions, and notifications.</p>
+        </div>
+        <p style="text-align:center;font-size:11px;color:#999999;margin-top:16px;">&copy; 2026 BrisConnect+. All rights reserved.</p>
+      </div>
+    `;
+
+    let delivered = false;
+    let providerResponse = null;
+    const apiKey = brevoApiKey.value();
+    if (apiKey && apiKey.trim().length > 0) {
+      try {
+        providerResponse = await sendEmailViaBrevo({
+          apiKey: apiKey.trim(),
+          to: email,
+          subject,
+          html,
+          senderEmail: process.env.BREVO_SENDER_EMAIL || 'noreply@brisconnect.app',
+          senderName: process.env.BREVO_SENDER_NAME || 'BrisConnect+',
+        });
+        delivered = true;
+      } catch (brevoError) {
+        logger.error('Brevo welcome email failed; falling back to mail queue', {
+          email,
+          error: brevoError instanceof Error ? brevoError.message : String(brevoError),
+        });
+      }
+    }
+
+    if (delivered) {
+      await admin.firestore().collection('email_audit').doc(`visitor-welcome-${email}-${Date.now()}`).set({
+        to: email,
+        subject,
+        meta: { type: 'visitor_registration_received' },
+        status: 'sent',
+        delivered: true,
+        provider: 'brevo',
+        providerResponse,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } else {
+      await admin.firestore().collection('mail').doc(`visitor-welcome-${email}-${Date.now()}`).set({
+        to: email,
+        message: { subject, html },
+        meta: { type: 'visitor_registration_received' },
+        status: 'pending',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    logger.info('Visitor welcome email processed', { email, delivered });
+    return { sent: true, delivered };
   },
 );
 
@@ -2660,6 +2491,7 @@ exports.verifyEmailLoginCode = onCall(
   async (request) => {
     const email = String(request.data.email || '').trim().toLowerCase();
     const code = String(request.data.code || '').trim();
+    const method = String(request.data.method || 'email').trim().toLowerCase();
 
     if (!email || !email.includes('@')) {
       throw new HttpsError('invalid-argument', 'A valid email address is required.');
@@ -2772,6 +2604,212 @@ exports.verifyEmailLoginCode = onCall(
 
     logger.info('Login code verified', { email, userType });
     return { token, userType };
+  },
+);
+
+/**
+ * Looks up the registered phone number for an account so the client can
+ * trigger Firebase Phone Auth. This function does NOT send an SMS itself;
+ * Firebase Auth sends the verification text directly.
+ */
+exports.sendSmsLoginCode = onCall(
+  {
+    region: 'australia-southeast1',
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    const email = String(request.data.email || '').trim().toLowerCase();
+    let userType = String(request.data.userType || '').trim().toLowerCase();
+
+    if (!email || !email.includes('@')) {
+      throw new HttpsError('invalid-argument', 'A valid email address is required.');
+    }
+    if (userType && !['visitor', 'local', 'admin'].includes(userType)) {
+      throw new HttpsError('invalid-argument', 'userType must be visitor, local, or admin.');
+    }
+
+    // Auto-detect role and look up the registered phone number.
+    const adminDoc = await admin.firestore().collection('admins').doc(email).get();
+    if (adminDoc.exists && (adminDoc.data().active !== false)) {
+      userType = 'admin';
+    } else {
+      const localDoc = await admin.firestore().collection('local_users').doc(email).get();
+      if (localDoc.exists) {
+        userType = 'local';
+      } else {
+        const visitorDoc = await admin.firestore().collection('visitor_users').doc(email).get();
+        if (visitorDoc.exists) {
+          userType = 'visitor';
+        } else {
+          throw new HttpsError('not-found', 'No account found for this email.');
+        }
+      }
+    }
+
+    const profileDoc = await admin.firestore()
+      .collection(userType === 'admin' ? 'admins' : userType === 'local' ? 'local_users' : 'visitor_users')
+      .doc(email)
+      .get();
+    const profile = profileDoc.data() || {};
+    const phone = String(profile.phone || profile.contactNumber || '').trim();
+
+    if (!phone) {
+      throw new HttpsError('failed-precondition', 'No phone number on file. Use email sign-in instead.');
+    }
+
+    return { phone, userType, method: 'firebase_phone' };
+  },
+);
+
+/**
+ * Exchanges a verified Firebase Phone Auth ID token for a BrisConnect custom
+ * token tied to the registered local/visitor profile.
+ */
+exports.exchangePhoneIdTokenForCustomToken = onCall(
+  {
+    region: 'australia-southeast1',
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    const idToken = String(request.data.idToken || '').trim();
+    let userType = String(request.data.userType || '').trim().toLowerCase();
+
+    if (!idToken) {
+      throw new HttpsError('invalid-argument', 'ID token is required.');
+    }
+    if (userType && !['visitor', 'local', 'admin'].includes(userType)) {
+      throw new HttpsError('invalid-argument', 'userType must be visitor, local, or admin.');
+    }
+
+    let phoneUser;
+    try {
+      phoneUser = await admin.auth().verifyIdToken(idToken, true);
+    } catch (error) {
+      logger.error('Invalid phone ID token', { error: error instanceof Error ? error.message : String(error) });
+      throw new HttpsError('unauthenticated', 'Invalid phone credentials.');
+    }
+
+    const phoneNumber = String(phoneUser.phone_number || '').trim();
+    const authUid = phoneUser.uid;
+    if (!phoneNumber) {
+      throw new HttpsError('failed-precondition', 'Phone number not available in ID token.');
+    }
+
+    // Find a profile with this phone number.
+    let profileEmail = null;
+    let detectedUserType = userType;
+
+    if (!detectedUserType || detectedUserType === 'auto') {
+      const collections = ['local_users', 'visitor_users', 'admins'];
+      for (const collection of collections) {
+        const snap = await admin.firestore()
+          .collection(collection)
+          .where('phone', '==', phoneNumber)
+          .limit(1)
+          .get();
+        if (!snap.empty) {
+          profileEmail = snap.docs[0].id;
+          detectedUserType = collection === 'admins' ? 'admin' : collection === 'local_users' ? 'local' : 'visitor';
+          break;
+        }
+      }
+    } else {
+      const collection = detectedUserType === 'admin' ? 'admins' : detectedUserType === 'local' ? 'local_users' : 'visitor_users';
+      const snap = await admin.firestore()
+        .collection(collection)
+        .where('phone', '==', phoneNumber)
+        .limit(1)
+        .get();
+      if (!snap.empty) {
+        profileEmail = snap.docs[0].id;
+      }
+    }
+
+    if (!profileEmail) {
+      throw new HttpsError('not-found', 'No BrisConnect account found for this phone number.');
+    }
+
+    // Ensure a Firebase Auth user exists for the profile email.
+    let authUser;
+    try {
+      authUser = await admin.auth().getUserByEmail(profileEmail);
+    } catch (error) {
+      if (error.code === 'auth/user-not-found') {
+        authUser = await admin.auth().createUser({ email: profileEmail });
+      } else {
+        throw error;
+      }
+    }
+
+    if (detectedUserType === 'admin') {
+      const adminDoc = await admin.firestore().collection('admins').doc(profileEmail).get();
+      if (!adminDoc.exists) {
+        throw new HttpsError('permission-denied', 'Not authorized as admin.');
+      }
+      const adminData = adminDoc.data() || {};
+      if (adminData.active === false) {
+        throw new HttpsError('permission-denied', 'Admin account is disabled.');
+      }
+      await admin.firestore().collection('admins').doc(profileEmail).set({
+        lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+    } else {
+      const collection = detectedUserType === 'visitor' ? 'visitor_users' : 'local_users';
+      const profileRef = admin.firestore().collection(collection).doc(profileEmail);
+      const profileSnap = await profileRef.get();
+      if (!profileSnap.exists) {
+        const username = profileEmail.split('@')[0];
+        const baseProfile = {
+          email: profileEmail,
+          username,
+          role: detectedUserType,
+          accountType: detectedUserType,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          active: true,
+          notificationsEnabled: true,
+          emailNotificationsEnabled: true,
+        };
+        if (detectedUserType === 'local') {
+          baseProfile.approvalStatus = 'pending';
+        }
+        await profileRef.set(baseProfile);
+      }
+    }
+
+    // Link the phone auth UID to the profile email auth user so future logins
+    // via either method resolve to the same account.
+    try {
+      await admin.auth().updateUser(authUser.uid, {
+        email: profileEmail,
+        phoneNumber: phoneNumber,
+      });
+    } catch (error) {
+      logger.warn('Could not link phone to profile auth user', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    // Delete the temporary phone-only user created by Firebase Phone Auth.
+    try {
+      await admin.auth().deleteUser(authUid);
+    } catch (error) {
+      logger.warn('Could not delete temporary phone user', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    const token = await admin.auth().createCustomToken(authUser.uid, {
+      email: profileEmail,
+      userType: detectedUserType,
+      role: detectedUserType,
+    });
+
+    logger.info('Phone sign-in exchanged for custom token', {
+      email: profileEmail,
+      userType: detectedUserType,
+    });
+    return { token, userType: detectedUserType, email: profileEmail };
   },
 );
 

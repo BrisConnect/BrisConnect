@@ -495,7 +495,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                     AiNarrationWidget(
                       narrationText: narrationText,
                       helperText:
-                          'Tap play to hear your AI tour guide walk you through this event.',
+                          'Tap play to hear your Food Discovery Guide walk you through this event.',
                     ),
                   ],
                   const SizedBox(height: 18),

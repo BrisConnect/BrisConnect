@@ -141,8 +141,8 @@ class Business {
       photos: data['photos'] != null
           ? List<String>.from(data['photos'] as List)
           : null,
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      createdAt: _parseTimestamp(data['createdAt']),
+      updatedAt: _parseTimestamp(data['updatedAt']),
       isVerified: data['isVerified'] ?? false,
       rating: (data['rating'] as num?)?.toInt(),
       buzzScore: (data['buzzScore'] as num?)?.toDouble() ?? 0.0,
@@ -153,10 +153,21 @@ class Business {
       viewHistory: _parseHistory(data['viewHistory']),
       saveHistory: _parseHistory(data['saveHistory']),
       isActive: data['isActive'] ?? !(data['deletedAt'] != null),
-      deletedAt: (data['deletedAt'] as Timestamp?)?.toDate(),
+      deletedAt: _parseTimestamp(data['deletedAt']),
       deletedBy: data['deletedBy'],
       duplicateOf: data['duplicateOf'],
     );
+  }
+
+  static DateTime? _parseTimestamp(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) {
+      final parsed = DateTime.tryParse(value);
+      if (parsed != null) return parsed;
+    }
+    return null;
   }
 
   static Map<String, int> _parseHistory(dynamic value) {
@@ -209,8 +220,8 @@ class Business {
     final photos = photoGalleryRaw is List
         ? photoGalleryRaw.whereType<String>().toList()
         : <String>[];
-    final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
-    final updatedAt = (data['updatedAt'] as Timestamp?)?.toDate();
+    final createdAt = _parseTimestamp(data['createdAt']);
+    final updatedAt = _parseTimestamp(data['updatedAt']);
 
     return Business(
       id: doc.id,
@@ -241,7 +252,7 @@ class Business {
       viewHistory: _parseHistory(data['viewHistory']),
       saveHistory: _parseHistory(data['saveHistory']),
       isActive: data['isActive'] ?? !(data['deletedAt'] != null),
-      deletedAt: (data['deletedAt'] as Timestamp?)?.toDate(),
+      deletedAt: _parseTimestamp(data['deletedAt']),
     );
   }
 

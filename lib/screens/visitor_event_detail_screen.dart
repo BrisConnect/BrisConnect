@@ -12,8 +12,8 @@ import 'package:brisconnect/widgets/share_bottom_sheet.dart';
 import 'package:brisconnect/widgets/visitor_photo_gallery_widget.dart';
 
 /// Full-page event detail screen shown when a Visitor taps an event card.
-/// Displays hero image, cultural background description, optional AI narration,
-/// and navigation actions (map, website, share, save/interested).
+/// Displays hero image, cultural background description, optional Food Discovery
+/// Guide narration, and navigation actions (map, website, share, save/interested).
 class VisitorEventDetailScreen extends StatefulWidget {
   /// The raw Firestore discover-item map for the event.
   final Map<String, dynamic> event;
@@ -119,6 +119,7 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
     final dateTime = (widget.event['dateTime'] as String? ?? '').trim();
     final location = (widget.event['location'] as String? ?? '').trim();
     final description = (widget.event['description'] as String? ?? '').trim();
+    final imageUrl = (widget.event['imageUrl'] as String? ?? '').trim();
 
     if (id.isEmpty) {
       if (!mounted) return;
@@ -137,6 +138,7 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
       description: description,
       location: location,
       dateTime: dateTime,
+      imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
     );
   }
 
@@ -374,16 +376,16 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
                       const SizedBox(height: 22),
                     ],
 
-                    // AI tour guide narration
+                    // Food Discovery Guide narration
                     if (narrationText.isNotEmpty) ...[
                       _SectionHeader(
-                        title: 'AI Tour Guide',
+                        title: 'Food Discovery Guide',
                       ),
                       const SizedBox(height: 10),
                       AiNarrationWidget(
                         narrationText: narrationText,
                         helperText:
-                            'Tap play to hear your personal AI tour guide walk you through this event.',
+                            'Tap play to hear your personal Food Discovery Guide walk you through this event.',
                       ),
                       const SizedBox(height: 22),
                     ],

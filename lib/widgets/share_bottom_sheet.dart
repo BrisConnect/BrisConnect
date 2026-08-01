@@ -41,12 +41,18 @@ Future<void> showShareBottomSheet({
   await showModalBottomSheet(
     context: context,
     backgroundColor: const Color(0xFF1C1F2E),
+    isScrollControlled: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (ctx) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      child: SingleChildScrollView(
+        padding: EdgeInsets.only(
+          left: 20,
+          top: 12,
+          right: 20,
+          bottom: 24 + MediaQuery.of(ctx).viewInsets.bottom,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -175,7 +181,7 @@ Future<void> showShareBottomSheet({
               child: Text(
                 kIsWeb
                     ? 'On the web, story sharing opens the platform site so you can log in and paste the copied link as a sticker.'
-                    : 'You must be logged into Instagram, Facebook or TikTok on this device to post pictures or videos to your story.',
+                    : 'Instagram and Facebook open directly with the image. TikTok uses your phone\'s share sheet — choose TikTok and paste the copied link.',
                 style: const TextStyle(color: Colors.white38, fontSize: 11),
                 textAlign: TextAlign.center,
               ),
@@ -369,6 +375,7 @@ Future<void> _shareToStory({
     description: description,
     location: location,
     dateTime: dateTime,
+    imageUrl: imageUrl,
     useMedia: true,
   );
 

@@ -22,7 +22,7 @@ void main() {
         );
         expect(
           url,
-          'https://www.brisconnect.com.au/business/biz_123?name=${Uri.encodeComponent('Café Brisbane')}',
+          'https://brisconnect-68b78.web.app/business/biz_123?name=${Uri.encodeComponent('Café Brisbane')}',
         );
       });
 
@@ -34,7 +34,7 @@ void main() {
         );
         expect(
           url,
-          'https://www.brisconnect.com.au/event/evt_456?name=${Uri.encodeComponent('Night Market')}',
+          'https://brisconnect-68b78.web.app/event/evt_456?name=${Uri.encodeComponent('Night Market')}',
         );
       });
 
@@ -46,7 +46,7 @@ void main() {
         );
         expect(
           url,
-          'https://www.brisconnect.com.au/food/food_789?name=${Uri.encodeComponent('Best Tacos')}',
+          'https://brisconnect-68b78.web.app/food/food_789?name=${Uri.encodeComponent('Best Tacos')}',
         );
       });
 
@@ -58,7 +58,7 @@ void main() {
         );
         expect(
           url,
-          'https://www.brisconnect.com.au/venue/venue_000?name=${Uri.encodeComponent('Suncorp Stadium')}',
+          'https://brisconnect-68b78.web.app/venue/venue_000?name=${Uri.encodeComponent('Suncorp Stadium')}',
         );
       });
 
@@ -67,7 +67,7 @@ void main() {
           type: ShareContentType.event,
           id: 'evt_456',
         );
-        expect(url, 'https://www.brisconnect.com.au/event/evt_456');
+        expect(url, 'https://brisconnect-68b78.web.app/event/evt_456');
       });
     });
 
@@ -163,7 +163,7 @@ void main() {
         );
         expect(
           clipboardHistory.last,
-          contains('https://www.brisconnect.com.au/food/food_123'),
+          contains('https://brisconnect-68b78.web.app/food/food_123'),
         );
       });
 

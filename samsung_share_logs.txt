@@ -1,0 +1,9 @@
+--------- beginning of main
+--------- beginning of system
+07-31 10:37:04.436 I/flutter (12599): [IMPORTANT:flutter/shell/platform/android/android_context_gl_impeller.cc(104)] Using the Impeller rendering backend (OpenGLES).
+07-31 10:37:08.312 I/flutter (12599): [FCM] authorization status: AuthorizationStatus.authorized
+07-31 10:37:08.347 I/flutter (12599): [IMPORTANT:flutter/shell/platform/android/android_context_gl_impeller.cc(104)] Using the Impeller rendering backend (OpenGLES).
+07-31 10:37:09.711 I/flutter (12599): [FCM] token stored for brisconnect0@gmail.com
+07-31 10:37:12.914 I/flutter (12599): Welcome sound not found, continuing without sound
+07-31 10:38:18.773 I/flutter (12599): [EmailCodeAuthService] verifyCode failed: permission-denied Invalid code.
+07-31 10:38:18.776 I/flutter (12599): [EmailCodeAuthService] verifyCode failed: permission-denied Invalid code.

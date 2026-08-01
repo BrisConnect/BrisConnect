@@ -31,7 +31,9 @@ enum ShareContentType { business, event, food, stadium, promotion }
 /// the same canonical URLs that those crawlers will fetch.
 class ContentShareService {
   static const Duration shareTimeout = Duration(seconds: 2);
-  static const String _baseUrl = 'https://www.brisconnect.com.au';
+  // Use the live Firebase Hosting domain so shared links resolve immediately.
+  // Replace with the custom domain once DNS and SSL are fully configured.
+  static const String _baseUrl = 'https://brisconnect-68b78.web.app';
 
   final ClipboardWriter _clipboardWriter;
 

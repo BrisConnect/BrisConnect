@@ -66,9 +66,11 @@ class _AiNarrationWidgetState extends State<AiNarrationWidget> {
     try {
       await _tts.awaitSpeakCompletion(true);
       await _tts.setLanguage('en-AU');
-      // Warm, natural tour-guide voice: slightly lower pitch, relaxed pace
-      await _tts.setPitch(0.92);
-      await _tts.setSpeechRate(0.45);
+      // Professional, clear Food Discovery Guide voice: moderate pace with
+      // confident articulation. Rate 0.62 is faster than the previous 0.45
+      // while remaining easy to follow.
+      await _tts.setPitch(1.0);
+      await _tts.setSpeechRate(0.62);
       await _tts.setVolume(1.0);
       // iOS: play audio even when the device is on silent/ring switch
       await _tts.setSharedInstance(true);
@@ -134,7 +136,7 @@ class _AiNarrationWidgetState extends State<AiNarrationWidget> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Unable to start AI narration right now.'),
+          content: Text('Unable to start Food Discovery Guide narration right now.'),
         ),
       );
       setState(() {
@@ -149,7 +151,7 @@ class _AiNarrationWidgetState extends State<AiNarrationWidget> {
     final buttonIcon = _speaking
         ? Icons.stop_circle_rounded
         : Icons.record_voice_over_rounded;
-    final buttonLabel = _speaking ? 'Stop' : 'AI Tour Guide';
+    final buttonLabel = _speaking ? 'Stop' : 'Food Discovery Guide';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

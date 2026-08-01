@@ -17,7 +17,7 @@ void main() {
       final url = shareService.buildBusinessUrl('biz_123', 'Café Brisbane');
       expect(
         url,
-        'https://www.brisconnect.com.au/business/biz_123?name=${Uri.encodeComponent('Café Brisbane')}',
+        'https://brisconnect-68b78.web.app/business/biz_123?name=${Uri.encodeComponent('Café Brisbane')}',
       );
     });
 

@@ -36,7 +36,7 @@
 		</dict>
 	</array>
 	<key>GMSApiKey</key>
-	<string>AIzaSyD8zZ0I4E6cCJYZbdnP_P9CthyDqauLTak</string>
+	<string>AIzaSyDh0PHiARbQM8WCeGHtppQEcIKOfyPGMhU</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
@@ -92,5 +92,19 @@
 		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>instagram</string>
+		<string>instagram-stories</string>
+		<string>fb</string>
+		<string>facebook</string>
+		<string>facebook-stories</string>
+		<string>tiktok</string>
+		<string>tiktokopensdk</string>
+	</array>
+	<key>FacebookAppID</key>
+	<string>822209667547948</string>
+	<key>FacebookDisplayName</key>
+	<string>BrisConnect+</string>
 </dict>
 </plist>

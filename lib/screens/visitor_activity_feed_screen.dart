@@ -361,6 +361,7 @@ class _ActivityFeedCard extends StatelessWidget {
       title: item.title,
       description: item.body,
       dateTime: item.type == ActivityFeedType.event ? item.subtitle : null,
+      imageUrl: item.imageUrl.isNotEmpty ? item.imageUrl : null,
     );
   }
 

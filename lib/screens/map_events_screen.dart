@@ -13,6 +13,7 @@ import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/models/business.dart';
 import 'package:brisconnect/screens/business_profile_view_screen.dart';
+import 'package:brisconnect/screens/food_business_detail_screen.dart';
 import 'package:brisconnect/screens/visitor_event_detail_screen.dart';
 import 'package:brisconnect/services/business_profile_service.dart';
 import 'package:brisconnect/services/firestore_service.dart';
@@ -117,6 +118,8 @@ class _MapEventsScreenState extends State<MapEventsScreen>
   String _searchQuery = '';
   _MapPinType? _selectedType;
   bool _showOnlyFavourites = false;
+  final Set<String> _selectedFoodCategories = <String>{};
+  List<String> _foodCategories = <String>[];
 
   static const LatLng _defaultCenter = LatLng(-27.4698, 153.0251);
 
@@ -434,8 +437,24 @@ class _MapEventsScreenState extends State<MapEventsScreen>
     final events = _latestEvents ?? <Map<String, dynamic>>[];
     final foodBusinesses = _latestFoodBusinesses ?? <Map<String, dynamic>>[];
     final items = _buildDiscoverItems(businesses, events, foodBusinesses);
+
+    // Rebuild the unique, sorted list of food categories from food businesses.
+    final categories = foodBusinesses
+        .expand((food) {
+          final list = food['categories'];
+          if (list is List) {
+            return list.map((v) => '$v'.trim()).where((c) => c.isNotEmpty);
+          }
+          final single = food['category'] as String? ?? '';
+          return single.trim().isNotEmpty ? [single.trim()] : <String>[];
+        })
+        .toSet()
+        .toList();
+    categories.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    _foodCategories = categories;
+
     debugPrint(
-        '[MapEventsScreen] Built ${items.length} discover items (radiusKm=$_radiusKm)');
+        '[MapEventsScreen] Built ${items.length} discover items (radiusKm=$_radiusKm), ${_foodCategories.length} food categories');
     _discoverItemsController.add(items);
   }
 
@@ -517,8 +536,9 @@ class _MapEventsScreenState extends State<MapEventsScreen>
 
   List<_MapPin> _getFilteredPins(List<_MapPin> allPins) {
     final selectedTypeName = _selectedType?.name ?? 'all';
+    final foodCategorySignature = _selectedFoodCategories.toList()..sort();
     final signature =
-        '${_cachedAllPinsSignature ?? 'none'}:$_searchQuery:$selectedTypeName';
+        '${_cachedAllPinsSignature ?? 'none'}:$_searchQuery:$selectedTypeName:$_showOnlyFavourites:${foodCategorySignature.join(',')}';
     if (_cachedFilteredPins != null &&
         _cachedFilteredPinsSignature == signature) {
       return _cachedFilteredPins!;
@@ -662,17 +682,30 @@ class _MapEventsScreenState extends State<MapEventsScreen>
 
   List<_MapPin> _filteredPins(List<_MapPin> allPins) {
     final query = _searchQuery;
-    final savedIds = <String>{
-      ...VisitorAuth.getSavedBusinessIds(),
-      ...VisitorAuth.getInterestedEventIds(),
-    };
-    return allPins.where((pin) {
+    final savedBusinessIds = VisitorAuth.getSavedBusinessIds();
+    final filtered = allPins.where((pin) {
       if (_selectedType != null && pin.type != _selectedType) {
         return false;
       }
 
-      if (_showOnlyFavourites && !savedIds.contains(pin.id)) {
-        return false;
+      if (_showOnlyFavourites) {
+        // Visitor favourites on the map should only show saved Local Food
+        // Businesses, not events or other saved places.
+        if (pin.type != _MapPinType.food ||
+            !savedBusinessIds.contains(pin.id)) {
+          return false;
+        }
+      }
+
+      if (_selectedType == _MapPinType.food &&
+          _selectedFoodCategories.isNotEmpty) {
+        final pinCategories = pin.categories ?? [];
+        final matchesCategory = _selectedFoodCategories.any(
+          (category) => pinCategories.any(
+            (pinCat) => pinCat.toLowerCase() == category.toLowerCase(),
+          ),
+        );
+        if (!matchesCategory) return false;
       }
 
       if (query.isEmpty) {
@@ -683,6 +716,146 @@ class _MapEventsScreenState extends State<MapEventsScreen>
           pin.location.toLowerCase().contains(query) ||
           _pinTypeLabel(pin.type).toLowerCase().contains(query);
     }).toList(growable: false);
+
+    if (_showOnlyFavourites) {
+      debugPrint(
+        '[MapEventsScreen] Favourites filter: ${savedBusinessIds.length} saved IDs, ${filtered.length} pins shown',
+      );
+    }
+    return filtered;
+  }
+
+  /// Show a bottom sheet with food categories extracted from the loaded pins.
+  /// Tapping a category toggles it; the map then only shows food pins that
+  /// match at least one selected category.
+  void _showFoodCategorySelector(List<_MapPin> allPins) {
+    final categories = allPins
+        .where((pin) => pin.type == _MapPinType.food)
+        .expand((pin) => pin.categories ?? const <String>[])
+        .map((c) => c.trim())
+        .where((c) => c.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    if (categories.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No food categories available.')),
+      );
+      return;
+    }
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _FoodCategorySheet(
+        categories: categories,
+        selectedCategories: _selectedFoodCategories,
+        onToggle: (category) {
+          setState(() {
+            if (_selectedFoodCategories.contains(category)) {
+              _selectedFoodCategories.remove(category);
+            } else {
+              _selectedFoodCategories.add(category);
+            }
+          });
+        },
+        onClear: () => setState(() => _selectedFoodCategories.clear()),
+      ),
+    );
+  }
+
+  Widget _buildSelectedCategoryTags() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFDEE3EA)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.filter_list_rounded,
+                  size: 14, color: AppPalette.deepBlue),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  'Selected food categories',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppPalette.charcoal,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: () => setState(() => _selectedFoodCategories.clear()),
+                child: Text(
+                  'Clear',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppPalette.ochre,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: (_selectedFoodCategories.toList()
+                  ..sort(
+                      (a, b) => a.toLowerCase().compareTo(b.toLowerCase())))
+                .map(
+                  (category) => Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppPalette.ochre.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppPalette.ochre.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          category,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppPalette.ochre,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTap: () => setState(
+                              () => _selectedFoodCategories.remove(category)),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            size: 14,
+                            color: AppPalette.ochre,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Haversine distance from a reference point to a given lat/lng, in km.
@@ -785,6 +958,10 @@ class _MapEventsScreenState extends State<MapEventsScreen>
   }
 
   void _openPinDetail(_MapPin pin) {
+    debugPrint(
+      '[MapEventsScreen] Opening pin detail: id=${pin.id}, source=${pin.source}, type=${pin.type.name}',
+    );
+
     if (pin.type == _MapPinType.event) {
       final raw = pin.rawItem;
       if (raw != null) {
@@ -797,6 +974,21 @@ class _MapEventsScreenState extends State<MapEventsScreen>
       return;
     }
 
+    // Food pins come from either the canonical 'businesses' collection or the
+    // visitor-focused 'food_businesses' collection. Route to the dedicated
+    // food-business detail screen first; it handles the food_businesses lookup
+    // directly and gives a richer food-specific UI.
+    if (pin.type == _MapPinType.food) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => FoodBusinessDetailScreen(businessId: pin.id),
+        ),
+      );
+      return;
+    }
+
+    // Attractions, stadiums and venues fall back to the generic business
+    // profile, which also tries food_businesses if businesses is empty.
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => BusinessProfileViewScreen(
@@ -977,7 +1169,7 @@ class _MapEventsScreenState extends State<MapEventsScreen>
                 markers: markers,
                 use3dMode: _use3dMode,
                 useVibrantMap: _useVibrantMap,
-                myLocationEnabled: _userLocation != null,
+                myLocationEnabled: true,
                 onMapCreated: (controller) => _mapController = controller,
                 onTap: () => setState(() {
                   _selectedPin = null;
@@ -1090,6 +1282,9 @@ class _MapEventsScreenState extends State<MapEventsScreen>
                           ),
                         ),
                       ),
+                    if (_selectedType == _MapPinType.food &&
+                        _selectedFoodCategories.isNotEmpty)
+                      _buildSelectedCategoryTags(),
                   ],
                 ),
               ),
@@ -1519,10 +1714,17 @@ class _MapEventsScreenState extends State<MapEventsScreen>
                         icon: Icons.restaurant_rounded,
                         label: 'Food',
                         isActive: _selectedType == _MapPinType.food,
-                        onTap: () => setState(() => _selectedType =
-                            _selectedType == _MapPinType.food
-                                ? null
-                                : _MapPinType.food),
+                        onTap: () {
+                          if (_selectedType == _MapPinType.food) {
+                            setState(() {
+                              _selectedType = null;
+                              _selectedFoodCategories.clear();
+                            });
+                          } else {
+                            setState(() => _selectedType = _MapPinType.food);
+                            _showFoodCategorySelector(allPins);
+                          }
+                        },
                       ),
                       _MapActionButton(
                         icon: Icons.favorite_rounded,
@@ -1918,6 +2120,161 @@ class _NavModeSheet extends StatelessWidget {
                 .toList(),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Bottom sheet that lists available food categories and lets the user
+/// toggle which ones are shown on the map.
+class _FoodCategorySheet extends StatelessWidget {
+  const _FoodCategorySheet({
+    required this.categories,
+    required this.selectedCategories,
+    required this.onToggle,
+    required this.onClear,
+  });
+
+  final List<String> categories;
+  final Set<String> selectedCategories;
+  final ValueChanged<String> onToggle;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppPalette.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Food Categories',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: AppPalette.deepBlue,
+                  ),
+                ),
+                if (selectedCategories.isNotEmpty)
+                  TextButton(
+                    onPressed: onClear,
+                    child: const Text(
+                      'Clear all',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: AppPalette.ochre,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Tap categories to show matching food pins on the map.',
+              style: TextStyle(fontSize: 13, color: AppPalette.mutedText),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: categories.map((category) {
+                final isSelected = selectedCategories.contains(category);
+                return GestureDetector(
+                  onTap: () => onToggle(category),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppPalette.ochre
+                          : Colors.white.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppPalette.ochre
+                            : AppPalette.border,
+                      ),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: AppPalette.ochre.withValues(alpha: 0.25),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isSelected) ...[
+                          const Icon(
+                            Icons.check_rounded,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        Text(
+                          category,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isSelected ? Colors.white : AppPalette.charcoal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppPalette.ochre,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+                child: Text(
+                  selectedCategories.isEmpty
+                      ? 'Show all food pins'
+                      : 'Show ${selectedCategories.length} selected',
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

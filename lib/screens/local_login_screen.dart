@@ -6,15 +6,24 @@ import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/screens/business_profile_setup_screen.dart';
 import 'package:brisconnect/screens/local_signup_screen.dart';
 import 'package:brisconnect/services/email_code_auth_service.dart';
+import 'package:brisconnect/services/phone_auth_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/utils/auth_validation.dart';
+import 'package:brisconnect/utils/phone_validation.dart';
 import 'package:brisconnect/widgets/enhanced_button_styles.dart';
 import 'package:brisconnect/widgets/inline_status_message.dart';
 
 class LocalLoginScreen extends StatefulWidget {
   final String? initialEmail;
+  final String? statusMessage;
+  final InlineStatusType? statusType;
 
-  const LocalLoginScreen({super.key, this.initialEmail});
+  const LocalLoginScreen({
+    super.key,
+    this.initialEmail,
+    this.statusMessage,
+    this.statusType,
+  });
 
   @override
   State<LocalLoginScreen> createState() => _LocalLoginScreenState();
@@ -24,27 +33,41 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _identifierController;
   final TextEditingController _codeController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
   bool _isSubmitting = false;
   bool _isSendingCode = false;
   bool _codeSent = false;
+  bool _usePhone = false;
   String? _statusMessage;
   InlineStatusType _statusType = InlineStatusType.error;
 
   @override
   void initState() {
     super.initState();
-    _identifierController = TextEditingController(text: widget.initialEmail ?? '');
+    _identifierController =
+        TextEditingController(text: widget.initialEmail ?? '');
+    if (widget.statusMessage != null) {
+      _statusMessage = widget.statusMessage;
+      _statusType = widget.statusType ?? InlineStatusType.success;
+      _codeSent = _statusType == InlineStatusType.success;
+    }
   }
 
   @override
   void dispose() {
     _identifierController.dispose();
     _codeController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
   Future<void> _sendCode() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_usePhone) {
+      await _sendPhoneCode();
+      return;
+    }
 
     setState(() {
       _isSendingCode = true;
@@ -54,6 +77,7 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
     final result = await EmailCodeAuthService.sendCode(
       email: _identifierController.text,
       userType: 'local',
+      method: 'email',
     );
 
     if (!mounted) return;
@@ -90,6 +114,51 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
     }
   }
 
+  Future<void> _sendPhoneCode() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSendingCode = true;
+      _statusMessage = null;
+    });
+
+    final phone = PhoneValidation.toE164Au(_phoneController.text)!;
+    final result = await PhoneAuthService.sendCodeToPhone(phone);
+
+    if (!mounted) return;
+
+    setState(() {
+      _isSendingCode = false;
+    });
+
+    switch (result) {
+      case PhoneAuthSendResult.codeSent:
+        setState(() {
+          _codeSent = true;
+          _statusMessage = 'Code sent! Check your phone.';
+          _statusType = InlineStatusType.success;
+        });
+      case PhoneAuthSendResult.invalidPhone:
+        setState(() {
+          _statusMessage = PhoneAuthService.lastErrorMessage;
+          _statusType = InlineStatusType.error;
+        });
+      case PhoneAuthSendResult.tooManyRequests:
+        setState(() {
+          _statusMessage = PhoneAuthService.lastErrorMessage ??
+              'Please wait before requesting another code.';
+          _statusType = InlineStatusType.info;
+        });
+      case PhoneAuthSendResult.networkError:
+      case PhoneAuthSendResult.unknownError:
+        setState(() {
+          _statusMessage = PhoneAuthService.lastErrorMessage ??
+              'Could not send code. Please try again.';
+          _statusType = InlineStatusType.error;
+        });
+    }
+  }
+
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -99,10 +168,18 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
     });
 
     try {
-      final success = await LocalAuth.login(
-        email: _identifierController.text,
-        code: _codeController.text,
-      ).timeout(const Duration(seconds: 20));
+      final bool success;
+      if (_usePhone) {
+        success = await PhoneAuthService.verifyCodeAndSignIn(
+          _codeController.text,
+        ).timeout(const Duration(seconds: 30));
+      } else {
+        success = await LocalAuth.login(
+          email: _identifierController.text,
+          code: _codeController.text,
+          method: 'email',
+        ).timeout(const Duration(seconds: 20));
+      }
 
       if (!mounted) {
         return;
@@ -248,7 +325,8 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                   child: Column(
                     children: [
                       // Logo
@@ -315,27 +393,77 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
                                 InlineStatusMessage(
                                   message: _statusMessage!,
                                   type: _statusType,
-                                  actionLabel: _statusType == InlineStatusType.error
-                                      ? 'Retry'
-                                      : null,
-                                  onAction: _statusType == InlineStatusType.error
-                                      ? (_isSubmitting ? null : _login)
-                                      : null,
+                                  actionLabel:
+                                      _statusType == InlineStatusType.error
+                                          ? 'Retry'
+                                          : null,
+                                  onAction:
+                                      _statusType == InlineStatusType.error
+                                          ? (_isSubmitting ? null : _login)
+                                          : null,
                                 ),
                                 const SizedBox(height: 10),
                               ],
 
-                              // Email
-                              TextFormField(
-                                controller: _identifierController,
-                                keyboardType: TextInputType.emailAddress,
-                                style: const TextStyle(color: AppPalette.charcoal),
-                                decoration: _fieldDecoration(
-                                  hintText: 'Email',
-                                  prefixIcon: Icons.mail_outline,
-                                ),
-                                validator: AuthValidation.emailOrUsername,
+                              // Email or phone toggle
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  ChoiceChip(
+                                    label: const Text('Email'),
+                                    selected: !_usePhone,
+                                    onSelected: (_) =>
+                                        setState(() => _usePhone = false),
+                                    selectedColor: AppPalette.ochre,
+                                    labelStyle: TextStyle(
+                                      color: !_usePhone
+                                          ? Colors.white
+                                          : AppPalette.charcoal,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ChoiceChip(
+                                    label: const Text('Phone'),
+                                    selected: _usePhone,
+                                    onSelected: (_) =>
+                                        setState(() => _usePhone = true),
+                                    selectedColor: AppPalette.ochre,
+                                    labelStyle: TextStyle(
+                                      color: _usePhone
+                                          ? Colors.white
+                                          : AppPalette.charcoal,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
+                              const SizedBox(height: 14),
+
+                              if (_usePhone)
+                                TextFormField(
+                                  controller: _phoneController,
+                                  keyboardType: TextInputType.phone,
+                                  style: const TextStyle(
+                                      color: AppPalette.charcoal),
+                                  decoration: _fieldDecoration(
+                                    hintText: 'Phone (e.g. 0405 800 214)',
+                                    prefixIcon: Icons.phone_outlined,
+                                  ),
+                                  validator: PhoneValidation.validate,
+                                )
+                              else
+                                TextFormField(
+                                  controller: _identifierController,
+                                  keyboardType: TextInputType.emailAddress,
+                                  style: const TextStyle(
+                                      color: AppPalette.charcoal),
+                                  decoration: _fieldDecoration(
+                                    hintText: 'Email',
+                                    prefixIcon: Icons.mail_outline,
+                                  ),
+                                  validator: AuthValidation.emailOrUsername,
+                                ),
                               const SizedBox(height: 14),
 
                               // Code
@@ -343,7 +471,8 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
                                 controller: _codeController,
                                 keyboardType: TextInputType.number,
                                 textInputAction: TextInputAction.done,
-                                style: const TextStyle(color: AppPalette.charcoal),
+                                style:
+                                    const TextStyle(color: AppPalette.charcoal),
                                 decoration: _fieldDecoration(
                                   hintText: 'Enter 6-digit code',
                                   prefixIcon: Icons.vpn_key_outlined,
@@ -351,7 +480,9 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
                                 validator: (v) =>
                                     AuthValidation.requiredField(v, 'Code'),
                               ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 10),
+
+                              const SizedBox(height: 8),
 
                               // Send code / Log In buttons
                               SizedBox(
@@ -359,7 +490,8 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
                                 height: 52,
                                 child: ElevatedButton(
                                   onPressed: _isSendingCode ? null : _sendCode,
-                                  style: EnhancedButtonStyles.fullWidthPrimaryButton(),
+                                  style: EnhancedButtonStyles
+                                      .fullWidthPrimaryButton(),
                                   child: _isSendingCode
                                       ? const SizedBox(
                                           height: 20,
@@ -370,7 +502,9 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
                                           ),
                                         )
                                       : Text(
-                                          _codeSent ? 'Resend Code' : 'Send Code',
+                                          _codeSent
+                                              ? 'Resend Code'
+                                              : 'Send Code',
                                           style: const TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.w600,
@@ -387,11 +521,13 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppPalette.surfaceAlt,
                                     foregroundColor: AppPalette.ochre,
-                                    disabledBackgroundColor:
-                                        AppPalette.surfaceAlt.withValues(alpha: 0.5),
+                                    disabledBackgroundColor: AppPalette
+                                        .surfaceAlt
+                                        .withValues(alpha: 0.5),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(14),
-                                      side: const BorderSide(color: AppPalette.ochre),
+                                      side: const BorderSide(
+                                          color: AppPalette.ochre),
                                     ),
                                   ),
                                   child: _isSubmitting

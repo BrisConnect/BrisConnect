@@ -250,17 +250,35 @@ class VisitorAuth {
         'createdAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
+      // Send the "account created" welcome email directly via Brevo. If the
+      // Cloud Function fails, fall back to queueing through the mail collection
+      // so the email is still delivered by the worker / Trigger Email extension.
       try {
-        await VisitorEmailNotificationService().queueRegistrationReceivedEmail(
-          recipientEmail: normalizedEmail,
-          visitorName: name.trim(),
-        );
+        final callable = FirebaseFunctions.instanceFor(
+                region: AppConfig.firebaseFunctionsRegion)
+            .httpsCallable('sendVisitorWelcomeEmail');
+        await callable.call<Map<String, dynamic>>({
+          'email': normalizedEmail,
+          'name': name.trim(),
+        });
       } catch (error) {
         debugPrint(
-          '[VisitorAuth] Failed to queue visitor welcome email: $error',
+          '[VisitorAuth] Direct welcome email failed, falling back to queue: $error',
         );
+        try {
+          await VisitorEmailNotificationService().queueRegistrationReceivedEmail(
+            recipientEmail: normalizedEmail,
+            visitorName: name.trim(),
+          );
+        } catch (fallbackError) {
+          debugPrint(
+            '[VisitorAuth] Failed to queue visitor welcome email: $fallbackError',
+          );
+        }
       }
 
+      // SMS welcome notification is intentionally disabled (Twilio removed).
+      // The service logs clearly that no SMS was sent.
       if (phone.trim().isNotEmpty) {
         try {
           await SmsNotificationService().queueVisitorRegistrationReceivedSms(
@@ -268,8 +286,7 @@ class VisitorAuth {
             visitorName: name.trim(),
           );
         } catch (error) {
-          debugPrint(
-              '[VisitorAuth] Failed to queue visitor welcome SMS: $error');
+          debugPrint('[VisitorAuth] Visitor welcome SMS log failed: $error');
         }
       }
 

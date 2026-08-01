@@ -63,9 +63,11 @@ class EmailCodeAuthService {
   ///
   /// [userType] must be 'visitor' or 'local' so the Cloud Function can route
   /// the user to the correct Firestore collection after verification.
+  /// Set [method] to 'sms' to send the code via SMS to the registered phone.
   static Future<SendCodeResult> sendCode({
     required String email,
     String userType = 'auto',
+    String method = 'email',
   }) async {
     _lastErrorMessage = null;
     _lastDetectedUserType = null;
@@ -75,8 +77,11 @@ class EmailCodeAuthService {
       return SendCodeResult.invalidEmail;
     }
 
+    final functionName =
+        method.trim().toLowerCase() == 'sms' ? 'sendSmsLoginCode' : 'sendEmailLoginCode';
+
     try {
-      final callable = _callable('sendEmailLoginCode');
+      final callable = _callable(functionName);
       final result = await _withRetry(
         () => callable.call<Map<String, dynamic>>({
           'email': normalized,
@@ -103,7 +108,7 @@ class EmailCodeAuthService {
       }
       if (e.code == 'permission-denied' || e.code == 'unauthenticated') {
         _lastErrorMessage =
-            'Sign-in blocked. Try disabling browser extensions or VPN, or use a different network.';
+            'Sign-in service unavailable. Please check your connection and try again.';
         return SendCodeResult.unknownError;
       }
       return SendCodeResult.unknownError;
@@ -118,10 +123,12 @@ class EmailCodeAuthService {
   /// a custom token returned by the Cloud Function.
   ///
   /// Returns `true` if sign-in succeeded and a Firebase user now exists.
+  /// Set [method] to 'sms' when the code was delivered by SMS.
   static Future<bool> verifyCode({
     required String email,
     required String code,
     String userType = 'auto',
+    String method = 'email',
   }) async {
     _lastErrorMessage = null;
     _lastDetectedUserType = null;
@@ -133,7 +140,9 @@ class EmailCodeAuthService {
       return false;
     }
     if (trimmedCode.isEmpty || trimmedCode.length < 4) {
-      _lastErrorMessage = 'Please enter the code sent to your email.';
+      _lastErrorMessage = method.trim().toLowerCase() == 'sms'
+          ? 'Please enter the code sent to your phone.'
+          : 'Please enter the code sent to your email.';
       return false;
     }
 
@@ -144,6 +153,7 @@ class EmailCodeAuthService {
           'email': normalized,
           'code': trimmedCode,
           'userType': userType,
+          'method': method,
         }),
       );
 
@@ -166,9 +176,14 @@ class EmailCodeAuthService {
       final rawMessage = e.message ?? '';
       _lastErrorMessage = _cleanFunctionError(
           rawMessage, 'Could not verify code. Please try again.');
-      if (e.code == 'permission-denied' || e.code == 'unauthenticated') {
-        _lastErrorMessage =
-            'Sign-in blocked. Try disabling browser extensions or VPN, or use a different network.';
+      if (e.code == 'permission-denied') {
+        _lastErrorMessage = 'Invalid code. Please check your email and try again, or request a new code.';
+      } else if (e.code == 'unauthenticated') {
+        _lastErrorMessage = 'Sign-in session expired. Please request a new code.';
+      } else if (e.code == 'deadline-exceeded') {
+        _lastErrorMessage = 'This code has expired. Please request a new one.';
+      } else if (e.code == 'resource-exhausted') {
+        _lastErrorMessage = 'Too many failed attempts. Please request a new code.';
       }
       return false;
     } catch (e) {

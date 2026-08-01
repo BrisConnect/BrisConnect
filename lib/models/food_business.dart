@@ -89,13 +89,20 @@ class FoodBusiness {
       facebookUrl: facebookUrl is String ? facebookUrl : null,
       instagramUrl: instagramUrl is String ? instagramUrl : null,
       onlineOrderUrl: onlineOrderUrl is String ? onlineOrderUrl : null,
-      createdAt: data['createdAt'] != null
-          ? (data['createdAt'] as Timestamp).toDate()
-          : null,
-      updatedAt: data['updatedAt'] != null
-          ? (data['updatedAt'] as Timestamp).toDate()
-          : null,
+      createdAt: _parseTimestamp(data['createdAt']),
+      updatedAt: _parseTimestamp(data['updatedAt']),
     );
+  }
+
+  static DateTime? _parseTimestamp(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) {
+      final parsed = DateTime.tryParse(value);
+      if (parsed != null) return parsed;
+    }
+    return null;
   }
 
   Map<String, dynamic> toMap() {

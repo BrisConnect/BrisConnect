@@ -6,13 +6,9 @@ class FoodBusinessService {
 
   /// Get all food businesses
   Stream<List<FoodBusiness>> getAllBusinesses() {
-    return _firestore
-        .collection('businesses')
-        .snapshots()
-        .map((snapshot) {
-      List<FoodBusiness> businesses = snapshot.docs
-          .map((doc) => FoodBusiness.fromFirestore(doc))
-          .toList();
+    return _firestore.collection('food_businesses').snapshots().map((snapshot) {
+      List<FoodBusiness> businesses =
+          snapshot.docs.map((doc) => FoodBusiness.fromFirestore(doc)).toList();
       // Sort by average rating in Dart instead of Firestore to handle missing fields
       businesses.sort((a, b) {
         final ratingA = a.averageRating ?? 0;
@@ -26,10 +22,7 @@ class FoodBusinessService {
   /// Search businesses by name or cuisine type
   Stream<List<FoodBusiness>> searchBusinesses(String query) {
     final lowerQuery = query.toLowerCase();
-    return _firestore
-        .collection('businesses')
-        .snapshots()
-        .map((snapshot) {
+    return _firestore.collection('food_businesses').snapshots().map((snapshot) {
       return snapshot.docs
           .map((doc) => FoodBusiness.fromFirestore(doc))
           .where((business) {
@@ -46,7 +39,7 @@ class FoodBusinessService {
   Future<FoodBusiness?> getBusinessById(String businessId) async {
     try {
       final doc =
-          await _firestore.collection('businesses').doc(businessId).get();
+          await _firestore.collection('food_businesses').doc(businessId).get();
       if (doc.exists) {
         return FoodBusiness.fromFirestore(doc);
       }
@@ -59,13 +52,12 @@ class FoodBusinessService {
   /// Get businesses by cuisine type
   Stream<List<FoodBusiness>> getBusinessesByCuisine(String cuisineType) {
     return _firestore
-        .collection('businesses')
+        .collection('food_businesses')
         .where('cuisineTypes', arrayContains: cuisineType)
         .snapshots()
         .map((snapshot) {
-      List<FoodBusiness> businesses = snapshot.docs
-          .map((doc) => FoodBusiness.fromFirestore(doc))
-          .toList();
+      List<FoodBusiness> businesses =
+          snapshot.docs.map((doc) => FoodBusiness.fromFirestore(doc)).toList();
       // Sort by rating in Dart
       businesses.sort((a, b) {
         final ratingA = a.averageRating ?? 0;
@@ -78,10 +70,7 @@ class FoodBusinessService {
 
   /// Get top rated businesses
   Stream<List<FoodBusiness>> getTopRatedBusinesses({int limit = 10}) {
-    return _firestore
-        .collection('businesses')
-        .snapshots()
-        .map((snapshot) {
+    return _firestore.collection('food_businesses').snapshots().map((snapshot) {
       List<FoodBusiness> businesses = snapshot.docs
           .map((doc) => FoodBusiness.fromFirestore(doc))
           .where((b) => (b.averageRating ?? 0) > 0)
@@ -98,7 +87,7 @@ class FoodBusinessService {
   /// Get newly added businesses
   Stream<List<FoodBusiness>> getNewBusinesses({int limit = 10}) {
     return _firestore
-        .collection('businesses')
+        .collection('food_businesses')
         .orderBy('createdAt', descending: true)
         .limit(limit)
         .snapshots()

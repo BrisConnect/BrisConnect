@@ -44,7 +44,7 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBosCAp3VFaZZ01YIEyhSZLSMn8L3--NIs',
+    apiKey: 'AIzaSyBRbM0learc_LW8lFMmbg7M4m35BBVxf2M',
     appId: '1:2073694703:web:72dea72558f80bcbfa261a',
     messagingSenderId: '2073694703',
     projectId: 'brisconnect-68b78',
@@ -53,7 +53,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAEVyIedbCHom8SImaasL4e7ahFeldBBBY',
+    apiKey: 'AIzaSyBRbM0learc_LW8lFMmbg7M4m35BBVxf2M',
     appId: '1:2073694703:android:78082838113cac65fa261a',
     messagingSenderId: '2073694703',
     projectId: 'brisconnect-68b78',
@@ -61,7 +61,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDh0PHiARbQM8WCeGHtppQEcIKOfyPGMhU',
+    apiKey: 'AIzaSyBRbM0learc_LW8lFMmbg7M4m35BBVxf2M',
     appId: '1:2073694703:ios:28fa782e5fe1479cfa261a',
     messagingSenderId: '2073694703',
     projectId: 'brisconnect-68b78',
@@ -70,7 +70,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyDh0PHiARbQM8WCeGHtppQEcIKOfyPGMhU',
+    apiKey: 'AIzaSyBRbM0learc_LW8lFMmbg7M4m35BBVxf2M',
     appId: '1:2073694703:ios:28fa782e5fe1479cfa261a',
     messagingSenderId: '2073694703',
     projectId: 'brisconnect-68b78',

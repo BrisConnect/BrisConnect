@@ -1,6 +1,4 @@
-import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +9,8 @@ import 'package:share_plus/share_plus.dart' hide ShareResult;
 import 'package:url_launcher/url_launcher.dart';
 
 import 'content_share_service.dart';
+
+const MethodChannel _socialStoryChannel = MethodChannel('com.brisconnect/social_story');
 
 /// Supported social story platforms.
 enum StoryPlatform { instagram, facebook, tiktok }
@@ -25,17 +25,14 @@ enum StoryShareResult {
   failed,
 }
 
-/// Service for sharing BrisConnect content directly to social media stories.
+/// Service for sharing BrisConnect content to social media stories.
 ///
-/// The service supports picking an image or video from the gallery and then
-/// handing it off to the selected platform. On iOS it attempts to open the
-/// native story composer (Instagram/Facebook) via URL schemes for the best
-/// experience. On Android and as a fallback it uses the native share sheet so
-/// the visitor can choose the app where they are already logged in.
-///
-/// Visitors must have the target social app installed and be logged into it
-/// before they can post a picture or video to their story. The UI is expected
-/// to explain this requirement before calling the service.
+/// Instagram, Facebook and TikTok do not expose reliable public APIs for
+/// posting directly to stories from Flutter without a Facebook App ID and
+/// native SDK integrations. This service uses the dependable cross-platform
+/// path: open the device's native share sheet with the content image attached,
+/// copy the BrisConnect link to the clipboard, and let the user pick
+/// Instagram/Facebook/TikTok and paste the link as a story sticker.
 class SocialStoryService {
   final ImagePicker _imagePicker;
   final ContentShareService _contentShareService;
@@ -48,10 +45,10 @@ class SocialStoryService {
 
   /// Shares the given [title]/[url] to the selected [platform]'s story flow.
   ///
-  /// If [useMedia] is true, the user is prompted to pick an image or video.
-  /// The media is then attached to the share so it can be posted as a story.
-  /// When no media is selected the share falls back to copying the link/text
-  /// to the clipboard and opening the platform (if a public flow exists).
+  /// If [imageUrl] is provided, that image is downloaded and used as the story
+  /// background. On mobile the user can also pick their own media when
+  /// [useMedia] is true and no [imageUrl] is supplied. The link and text are
+  /// always copied to the clipboard as a fallback.
   Future<StoryShareResult> shareToStory({
     required StoryPlatform platform,
     required ShareContentType contentType,
@@ -60,92 +57,8 @@ class SocialStoryService {
     String? description,
     String? location,
     String? dateTime,
+    String? imageUrl,
     bool useMedia = true,
-  }) async {
-    if (kIsWeb) {
-      // Web cannot access native story composers. Copy the link and open the
-      // platform's web app so the visitor can log in and paste manually.
-      return _shareOnWeb(
-        platform: platform,
-        contentType: contentType,
-        id: id,
-        title: title,
-        description: description,
-        location: location,
-        dateTime: dateTime,
-      );
-    }
-
-    if (useMedia) {
-      final picked = await _pickMedia();
-      if (picked == null) return StoryShareResult.noMediaSelected;
-
-      final mediaFile = File(picked.path);
-      if (!await mediaFile.exists()) return StoryShareResult.failed;
-
-      final url = _contentShareService.buildShareUrl(
-        type: contentType,
-        id: id,
-        slug: title,
-      );
-      final shareText = _contentShareService.buildShareText(
-        title: title,
-        url: url,
-        description: description,
-        location: location,
-        dateTime: dateTime,
-      );
-
-      // Attempt platform-specific story composer first.
-      final directResult = await _tryDirectStoryShare(
-        platform: platform,
-        mediaFile: mediaFile,
-        shareText: shareText,
-      );
-
-      if (directResult != null) {
-        // Copy the link as a fallback even if the direct share was attempted.
-        await _copyToClipboard(shareText);
-        return directResult;
-      }
-
-      // Fall back to the native share sheet with the media attached.
-      try {
-        await SharePlus.instance.share(
-          ShareParams(
-            files: [XFile(mediaFile.path)],
-            text: shareText,
-            subject: 'Check out $title on BrisConnect+',
-          ),
-        );
-        return StoryShareResult.shared;
-      } catch (_) {
-        await _copyToClipboard(shareText);
-        return StoryShareResult.copied;
-      }
-    }
-
-    return _shareLinkOnly(
-      platform: platform,
-      contentType: contentType,
-      id: id,
-      title: title,
-      description: description,
-      location: location,
-      dateTime: dateTime,
-    );
-  }
-
-  /// Web-specific story flow. Copies the link and opens the platform's web
-  /// app so the visitor can log in and paste the link as a sticker.
-  Future<StoryShareResult> _shareOnWeb({
-    required StoryPlatform platform,
-    required ShareContentType contentType,
-    required String id,
-    required String title,
-    String? description,
-    String? location,
-    String? dateTime,
   }) async {
     final url = _contentShareService.buildShareUrl(
       type: contentType,
@@ -159,6 +72,117 @@ class SocialStoryService {
       location: location,
       dateTime: dateTime,
     );
+
+    if (kIsWeb) {
+      return _shareOnWeb(platform: platform, shareText: shareText);
+    }
+
+    // Always copy the link first so the user can paste it even if the
+    // platform composer fails to open.
+    await _copyToClipboard(shareText);
+
+    File? mediaFile;
+
+    // Prefer the provided remote image.
+    if (imageUrl != null && imageUrl.trim().isNotEmpty) {
+      debugPrint('[SocialStoryService] downloading image: $imageUrl');
+      mediaFile = await _downloadRemoteMedia(imageUrl);
+      debugPrint('[SocialStoryService] downloaded file: ${mediaFile?.path}');
+    }
+
+    // Otherwise let the user pick media if requested.
+    if (mediaFile == null && useMedia) {
+      debugPrint('[SocialStoryService] showing media picker');
+      final picked = await _pickMedia();
+      if (picked != null) {
+        mediaFile = File(picked.path);
+        debugPrint('[SocialStoryService] picked file: ${mediaFile.path}');
+      }
+    }
+
+    // No media: open the platform app/website with the copied link.
+    if (mediaFile == null || !await mediaFile.exists()) {
+      debugPrint('[SocialStoryService] no media, opening platform app');
+      return _openPlatformApp(platform, fallback: shareText);
+    }
+
+    // On iOS, try to open Instagram's or Facebook's story composer directly
+    // with the image pre-populated using the Facebook App ID.
+    if (Platform.isIOS &&
+        (platform == StoryPlatform.instagram || platform == StoryPlatform.facebook)) {
+      final directResult = await _shareToMetaStoryDirect(
+        platform: platform,
+        mediaFile: mediaFile,
+        link: url,
+      );
+      if (directResult == StoryShareResult.shared) {
+        return StoryShareResult.shared;
+      }
+      // Fall back to the native share sheet if the direct path fails.
+    }
+
+    // Primary fallback: native share sheet with the image attached.
+    // The user picks Instagram/Facebook/TikTok from the sheet. The link is
+    // already copied for sticker pasting. This is the most reliable approach
+    // for Facebook/TikTok because direct story composer APIs require platform
+    // SDKs and a Facebook App ID that BrisConnect does not currently have.
+    debugPrint('[SocialStoryService] opening native share sheet');
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(mediaFile.path)],
+          text: shareText,
+          subject: 'Check out $title on BrisConnect+',
+        ),
+      );
+      debugPrint('[SocialStoryService] native share sheet completed');
+      return StoryShareResult.shared;
+    } catch (e, st) {
+      debugPrint('[SocialStoryService] native share sheet error: $e\n$st');
+      return StoryShareResult.copied;
+    }
+  }
+
+  /// Directly opens the iOS Instagram or Facebook story composer with the
+  /// provided image and optional link sticker URL via a platform channel.
+  Future<StoryShareResult> _shareToMetaStoryDirect({
+    required StoryPlatform platform,
+    required File mediaFile,
+    required String link,
+  }) async {
+    try {
+      final bytes = await mediaFile.readAsBytes();
+      final methodName = platform == StoryPlatform.instagram
+          ? 'shareToInstagramStory'
+          : 'shareToFacebookStory';
+      final ok = await _socialStoryChannel.invokeMethod<bool>(
+        methodName,
+        <String, dynamic>{
+          'imageData': Uint8List.fromList(bytes),
+          'link': link,
+        },
+      );
+      if (ok == true) {
+        debugPrint('[SocialStoryService] $platform direct share launched');
+        return StoryShareResult.shared;
+      }
+    } on PlatformException catch (e) {
+      debugPrint('[SocialStoryService] $platform direct share error: ${e.code}: ${e.message}');
+      if (e.code == 'APP_NOT_INSTALLED') {
+        return StoryShareResult.appNotInstalled;
+      }
+    } catch (e, st) {
+      debugPrint('[SocialStoryService] $platform direct share unexpected error: $e\n$st');
+    }
+    return StoryShareResult.failed;
+  }
+
+  /// Web-specific story flow. Copies the link and opens the platform's web
+  /// app so the visitor can log in and paste the link as a sticker.
+  Future<StoryShareResult> _shareOnWeb({
+    required StoryPlatform platform,
+    required String shareText,
+  }) async {
     await _copyToClipboard(shareText);
 
     final webUrl = switch (platform) {
@@ -168,13 +192,11 @@ class SocialStoryService {
     };
 
     try {
-      if (await canLaunchUrl(Uri.parse(webUrl))) {
-        await launchUrl(
-          Uri.parse(webUrl),
-          mode: LaunchMode.externalApplication,
-          webViewConfiguration: const WebViewConfiguration(enableJavaScript: true),
-        );
-      }
+      await launchUrl(
+        Uri.parse(webUrl),
+        mode: LaunchMode.externalApplication,
+        webViewConfiguration: const WebViewConfiguration(enableJavaScript: true),
+      );
     } catch (_) {
       // Ignore launcher errors; the link is already copied.
     }
@@ -182,31 +204,29 @@ class SocialStoryService {
     return StoryShareResult.copied;
   }
 
-  /// Shares using only the link/text (no media picker).
-  Future<StoryShareResult> _shareLinkOnly({
-    required StoryPlatform platform,
-    required ShareContentType contentType,
-    required String id,
-    required String title,
-    String? description,
-    String? location,
-    String? dateTime,
+  /// Tries to open the target platform app directly. If that fails, the link
+  /// is already on the clipboard.
+  Future<StoryShareResult> _openPlatformApp(
+    StoryPlatform platform, {
+    required String fallback,
   }) async {
-    final result = await _contentShareService.shareToPlatform(
-      platform: _platformName(platform),
-      type: contentType,
-      id: id,
-      title: title,
-      description: description,
-      location: location,
-      dateTime: dateTime,
-    );
-    return switch (result) {
-      ShareResult.shared => StoryShareResult.shared,
-      ShareResult.copied => StoryShareResult.copied,
-      ShareResult.timedOut => StoryShareResult.failed,
-      ShareResult.failed => StoryShareResult.failed,
+    final scheme = switch (platform) {
+      StoryPlatform.instagram => 'instagram://',
+      StoryPlatform.facebook => 'fb://',
+      StoryPlatform.tiktok => 'tiktok://',
     };
+
+    try {
+      final uri = Uri.parse(scheme);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        return StoryShareResult.shared;
+      }
+    } catch (_) {
+      // Ignore and fall back to copied link.
+    }
+
+    return StoryShareResult.copied;
   }
 
   /// Picks an image or video from the device gallery.
@@ -223,155 +243,8 @@ class SocialStoryService {
     }
   }
 
-  /// Attempts a platform-specific direct story share.
-  ///
-  /// Returns null when no direct flow is available and the caller should fall
-  /// back to the native share sheet.
-  Future<StoryShareResult?> _tryDirectStoryShare({
-    required StoryPlatform platform,
-    required File mediaFile,
-    required String shareText,
-  }) async {
-    if (Platform.isIOS) {
-      return await _shareToStoryIOS(
-        platform: platform,
-        mediaFile: mediaFile,
-        shareText: shareText,
-      );
-    }
-    // Android direct story composers require the platform SDKs. Use the
-    // native share sheet fallback instead.
-    return null;
-  }
-
-  /// iOS direct story share using documented URL schemes.
-  Future<StoryShareResult?> _shareToStoryIOS({
-    required StoryPlatform platform,
-    required File mediaFile,
-    required String shareText,
-  }) async {
-    final bytes = await mediaFile.readAsBytes();
-    if (bytes.isEmpty) return StoryShareResult.failed;
-
-    final ext = mediaFile.path.split('.').lastOrNull?.toLowerCase() ?? '';
-    final isVideo = const {'mp4', 'mov', 'm4v'}.contains(ext);
-
-    switch (platform) {
-      case StoryPlatform.instagram:
-        return await _shareToInstagramStoriesIOS(bytes: bytes, isVideo: isVideo);
-      case StoryPlatform.facebook:
-        return await _shareToFacebookStoriesIOS(
-          bytes: bytes,
-          isVideo: isVideo,
-          shareText: shareText,
-        );
-      case StoryPlatform.tiktok:
-        // TikTok does not expose a public iOS story URL scheme.
-        return null;
-    }
-  }
-
-  /// Opens Instagram Stories on iOS with the picked media.
-  ///
-  /// See https://developers.facebook.com/docs/instagram/sharing-to-stories/
-  Future<StoryShareResult> _shareToInstagramStoriesIOS({
-    required Uint8List bytes,
-    required bool isVideo,
-  }) async {
-    final tempDir = await getTemporaryDirectory();
-    final fileName =
-        'brisconnect_ig_story_${DateTime.now().millisecondsSinceEpoch}.${isVideo ? 'mp4' : 'jpg'}';
-    final file = File('${tempDir.path}/$fileName');
-    await file.writeAsBytes(bytes, flush: true);
-
-    final pasteboard = <String, dynamic>{
-      'com.instagram.sharedSticker.stickerImage': isVideo ? null : file.path,
-      if (isVideo) 'com.instagram.sharedSticker.backgroundVideo': file.path,
-    };
-
-    // Remove null entries so JSON encoding is clean.
-    pasteboard.removeWhere((_, value) => value == null);
-
-    final encoded = Uri.encodeComponent(jsonEncode(pasteboard));
-    final scheme = 'instagram-stories://share?source_application=com.brisconnect&data=$encoded';
-
-    try {
-      final uri = Uri.parse(scheme);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-        return StoryShareResult.shared;
-      }
-      return StoryShareResult.appNotInstalled;
-    } catch (_) {
-      return StoryShareResult.failed;
-    }
-  }
-
-  /// Opens Facebook Stories on iOS with the picked media.
-  ///
-  /// Facebook stories URL scheme is undocumented but widely used. If it is
-  /// unavailable we fall back to the native share sheet.
-  Future<StoryShareResult> _shareToFacebookStoriesIOS({
-    required Uint8List bytes,
-    required bool isVideo,
-    required String shareText,
-  }) async {
-    final tempDir = await getTemporaryDirectory();
-    final fileName =
-        'brisconnect_fb_story_${DateTime.now().millisecondsSinceEpoch}.${isVideo ? 'mp4' : 'jpg'}';
-    final file = File('${tempDir.path}/$fileName');
-    await file.writeAsBytes(bytes, flush: true);
-
-    // Facebook expects asset identifiers via the pasteboard. Build a JSON
-    // payload similar to Instagram's documented format.
-    final pasteboard = <String, dynamic>{
-      'com.facebook.sharedSticker.backgroundImage': isVideo ? null : file.path,
-      if (isVideo) 'com.facebook.sharedSticker.backgroundVideo': file.path,
-      'com.facebook.sharedSticker.appID': 'brisconnect',
-    };
-    pasteboard.removeWhere((_, value) => value == null);
-
-    final encoded = Uri.encodeComponent(jsonEncode(pasteboard));
-    final scheme = 'facebook-stories://share?source_application=com.brisconnect&data=$encoded';
-
-    try {
-      final uri = Uri.parse(scheme);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-        return StoryShareResult.shared;
-      }
-      return StoryShareResult.appNotInstalled;
-    } catch (_) {
-      return StoryShareResult.failed;
-    }
-  }
-
-  /// Convenience helper to share a remote image URL as a story.
-  ///
-  /// Downloads the image at [imageUrl] to a temporary file, then shares it.
-  /// If the download fails the link is still shared via the native sheet.
-  Future<StoryShareResult> shareRemoteImage({
-    required StoryPlatform platform,
-    required ShareContentType contentType,
-    required String id,
-    required String title,
-    required String imageUrl,
-    String? description,
-    String? location,
-    String? dateTime,
-  }) async {
-    if (kIsWeb) {
-      return _shareLinkOnly(
-        platform: platform,
-        contentType: contentType,
-        id: id,
-        title: title,
-        description: description,
-        location: location,
-        dateTime: dateTime,
-      );
-    }
-
+  /// Downloads remote media to a temporary file.
+  Future<File?> _downloadRemoteMedia(String imageUrl) async {
     try {
       final response = await http
           .get(Uri.parse(imageUrl))
@@ -383,52 +256,12 @@ class SocialStoryService {
             'brisconnect_remote_${DateTime.now().millisecondsSinceEpoch}.$ext';
         final file = File('${tempDir.path}/$fileName');
         await file.writeAsBytes(response.bodyBytes, flush: true);
-
-        final url = _contentShareService.buildShareUrl(
-          type: contentType,
-          id: id,
-          slug: title,
-        );
-        final shareText = _contentShareService.buildShareText(
-          title: title,
-          url: url,
-          description: description,
-          location: location,
-          dateTime: dateTime,
-        );
-
-        final directResult = await _tryDirectStoryShare(
-          platform: platform,
-          mediaFile: file,
-          shareText: shareText,
-        );
-        if (directResult != null) {
-          await _copyToClipboard(shareText);
-          return directResult;
-        }
-
-        await SharePlus.instance.share(
-          ShareParams(
-            files: [XFile(file.path)],
-            text: shareText,
-            subject: 'Check out $title on BrisConnect+',
-          ),
-        );
-        return StoryShareResult.shared;
+        return file;
       }
     } catch (_) {
-      // Fall through to link-only share.
+      // Fall through to picker/fallback.
     }
-
-    return _shareLinkOnly(
-      platform: platform,
-      contentType: contentType,
-      id: id,
-      title: title,
-      description: description,
-      location: location,
-      dateTime: dateTime,
-    );
+    return null;
   }
 
   Future<void> _copyToClipboard(String text) async {
@@ -438,12 +271,6 @@ class SocialStoryService {
       // Ignore clipboard errors.
     }
   }
-
-  String _platformName(StoryPlatform platform) => switch (platform) {
-        StoryPlatform.instagram => 'instagram',
-        StoryPlatform.facebook => 'facebook',
-        StoryPlatform.tiktok => 'tiktok',
-      };
 
   /// Human-readable platform label.
   static String platformLabel(StoryPlatform platform) => switch (platform) {

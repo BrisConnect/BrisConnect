@@ -36,8 +36,8 @@
   <meta property="og:site_name" content="BrisConnect+">
   <meta property="og:title" content="BrisConnect+ — Discover Brisbane">
   <meta property="og:description" content="Discover local food events, businesses and experiences in Brisbane with BrisConnect+">
-  <meta property="og:image" content="https://www.brisconnect.com.au/assets/assets/brisconnect_icon.png">
-  <meta property="og:url" content="https://www.brisconnect.com.au">
+  <meta property="og:image" content="https://brisconnect-68b78.web.app/assets/assets/brisconnect_icon.png">
+  <meta property="og:url" content="https://brisconnect-68b78.web.app">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
 
@@ -55,6 +55,16 @@
 
   <!-- Preload Material Icons font so CanvasKit can draw icons immediately. -->
   <link rel="preload" href="assets/fonts/MaterialIcons-Regular.otf" as="font" type="font/otf" crossorigin>
+
+  <!-- Explicit font-face for Material Icons to fix missing icons on web. -->
+  <style>
+    @font-face {
+      font-family: 'MaterialIcons';
+      src: url('assets/fonts/MaterialIcons-Regular.otf') format('opentype');
+      font-weight: normal;
+      font-style: normal;
+    }
+  </style>
 
   <!-- Google Maps JavaScript API — required for google_maps_flutter_web.
        Ensure the Maps JavaScript API is enabled in Google Cloud Console
@@ -79,10 +89,60 @@
       width: 100%;
       height: 100%;
     }
+
+    /* Safari-friendly fallback so legal links are always visible
+       even if the Flutter canvas has layout/rendering issues. */
+    #legal-fallback {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 9999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: rgba(8, 27, 75, 0.92);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      font-size: 13px;
+      font-weight: 600;
+      color: #ffffff;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    #legal-fallback a {
+      color: #ffffff;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+
+    #legal-fallback a:hover,
+    #legal-fallback a:active {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    #legal-fallback .separator {
+      color: rgba(255, 255, 255, 0.55);
+    }
   </style>
 </head>
 <body>
   <div id="app"></div>
+
+  <!-- Always-visible legal links fallback for Safari and other browsers.
+       This overlay sits above the Flutter canvas and links directly to
+       the Flutter named routes handled by onGenerateRoute. -->
+  <div id="legal-fallback" aria-label="Legal links">
+    <a href="/privacy-policy">Privacy Policy</a>
+    <span class="separator">•</span>
+    <a href="/terms-of-service">Terms of Service</a>
+  </div>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

@@ -118,13 +118,14 @@ class _BusinessProfileViewScreenState extends State<BusinessProfileViewScreen> {
     );
   }
 
-  void _showShareSheet(String businessId, String businessName) {
+  void _showShareSheet(Business business) {
     showShareBottomSheet(
       context: context,
       type: ShareContentType.business,
-      id: businessId,
-      title: businessName,
-      description: 'Check out $businessName on BrisConnect+!',
+      id: business.id ?? widget.businessId,
+      title: business.businessName,
+      description: 'Check out ${business.businessName} on BrisConnect+!',
+      imageUrl: business.coverImageUrl ?? business.logoUrl,
     );
   }
 
@@ -184,7 +185,7 @@ class _BusinessProfileViewScreenState extends State<BusinessProfileViewScreen> {
                   IconButton(
                     icon: const Icon(Icons.share_rounded),
                     tooltip: 'Share this business',
-                    onPressed: () => _showShareSheet(business.id ?? widget.businessId, business.businessName),
+                    onPressed: () => _showShareSheet(business),
                   ),
                 ],
               );
@@ -410,7 +411,7 @@ class _BusinessProfileViewScreenState extends State<BusinessProfileViewScreen> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: ElevatedButton.icon(
-                                  onPressed: () => _showShareSheet(business.id ?? widget.businessId, business.businessName),
+                                  onPressed: () => _showShareSheet(business),
                                   icon: const Icon(Icons.share_rounded),
                                   label: const Text('Share'),
                                   style: ElevatedButton.styleFrom(

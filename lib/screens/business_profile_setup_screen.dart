@@ -840,7 +840,7 @@ class _BusinessProfileSetupScreenState
               Expanded(
                 child: TextField(
                   controller: _menuItemCtrl,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: AppPalette.charcoal),
                   decoration: _inputDec('e.g. Flat White – \$5.50'),
                   onSubmitted: (_) => _addMenuItem(),
                 ),
@@ -958,7 +958,7 @@ class _BusinessProfileSetupScreenState
           controller: ctrl,
           maxLines: maxLines,
           keyboardType: keyboardType,
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: AppPalette.charcoal),
           onChanged: (_) => setState(() {}),
           decoration: _inputDec(hint ?? ''),
         ),

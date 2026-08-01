@@ -8,8 +8,12 @@ import 'package:brisconnect/auth/admin_auth.dart';
 import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/screens/local_login_screen.dart';
+import 'package:brisconnect/screens/privacy_policy_screen.dart';
+import 'package:brisconnect/screens/terms_of_service_screen.dart';
 import 'package:brisconnect/screens/visitor_login_screen.dart';
 import 'package:brisconnect/services/email_code_auth_service.dart';
+import 'package:brisconnect/services/phone_auth_service.dart';
+import 'package:brisconnect/utils/phone_validation.dart';
 import 'package:brisconnect/widgets/inline_status_message.dart';
 
 // Premium dark navy theme.
@@ -425,182 +429,274 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final maxSquare = math.min(
-                constraints.maxWidth - (horizontalPadding * 2),
-                constraints.maxHeight - 32,
-              );
-              final cardSize = maxSquare < 320
-                  ? constraints.maxWidth - (horizontalPadding * 2)
-                  : maxSquare;
+              // macOS (and other desktop platforms) can pass zero-size
+              // constraints during the initial window frame. Skip layout
+              // until we have real dimensions to avoid assertion cascades
+              // from hit-testing widgets that have not been laid out.
+              if (constraints.maxWidth <= 0 || constraints.maxHeight <= 0) {
+                return const SizedBox.shrink();
+              }
 
-              return Center(
-                child: Container(
-                  width: cardSize,
-                  height: cardSize,
-                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                  decoration: BoxDecoration(
-                    color: _cardDark,
-                    borderRadius: BorderRadius.circular(28),
-                    border:
-                        Border.all(color: _cardBorder.withValues(alpha: 0.6)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.25),
-                        blurRadius: 40,
-                        offset: const Offset(0, 16),
-                      ),
-                    ],
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const SizedBox(height: 30),
+              final maxCardWidth =
+                  constraints.maxWidth - (horizontalPadding * 2);
+              final cardWidth = (maxCardWidth < 380 ? maxCardWidth : 520)
+                  .toDouble()
+                  .clamp(320.0, maxCardWidth);
 
-                        // Logo with hidden admin tap
-                        FadeTransition(
-                          opacity: _logoController,
-                          child: GestureDetector(
-                            onTap: _onLogoTap,
-                            child: Column(
-                              children: [
-                                Container(
-                                  width: isSmall ? 110 : 130,
-                                  height: isSmall ? 110 : 130,
-                                  decoration: BoxDecoration(
-                                    color: _cardDark,
-                                    borderRadius: BorderRadius.circular(28),
-                                    border: Border.all(
-                                        color: _cardBorder, width: 1.5),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: _accentOrange.withValues(
-                                            alpha: 0.15),
-                                        blurRadius: 40,
-                                        offset: const Offset(0, 12),
+              // Use a Column instead of Stack/Positioned so the card
+              // renders predictably on Safari and other web browsers.
+              return Column(
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: Container(
+                        width: cardWidth,
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: horizontalPadding,
+                          vertical: 20,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _cardDark,
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(
+                              color: _cardBorder.withValues(alpha: 0.6)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              blurRadius: 40,
+                              offset: const Offset(0, 16),
+                            ),
+                          ],
+                        ),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const SizedBox(height: 16),
+
+                              // Logo with hidden admin tap
+                              FadeTransition(
+                                opacity: _logoController,
+                                child: GestureDetector(
+                                  onTap: _onLogoTap,
+                                  child: Column(
+                                    children: [
+                                      Container(
+                                        width: isSmall ? 110 : 130,
+                                        height: isSmall ? 110 : 130,
+                                        decoration: BoxDecoration(
+                                          color: _cardDark,
+                                          borderRadius:
+                                              BorderRadius.circular(30),
+                                          border: Border.all(
+                                              color: _cardBorder, width: 1.5),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: _accentOrange.withValues(
+                                                  alpha: 0.15),
+                                              blurRadius: 30,
+                                              offset: const Offset(0, 8),
+                                            ),
+                                          ],
+                                        ),
+                                        child: ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(30),
+                                          child: Image.asset(
+                                            'assets/images/brisconnect_logo.png',
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        'BrisConnect+',
+                                        style: TextStyle(
+                                          fontSize: isSmall ? 30 : 36,
+                                          fontWeight: FontWeight.w800,
+                                          color: _white,
+                                          letterSpacing: -0.5,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        "Discover Brisbane's Best Local Food",
+                                        style: TextStyle(
+                                          fontSize: isSmall ? 14 : 16,
+                                          fontWeight: FontWeight.w500,
+                                          color: _white70,
+                                          letterSpacing: 0.2,
+                                        ),
+                                        textAlign: TextAlign.center,
                                       ),
                                     ],
                                   ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(28),
-                                    child: Image.asset(
-                                      'assets/images/brisconnect_logo.png',
-                                      fit: BoxFit.cover,
+                                ),
+                              ),
+
+                              const SizedBox(height: 14),
+
+                              // Visitor sign in dropdown
+                              FadeTransition(
+                                opacity: _cardController,
+                                child: _buildLoginDropdown(
+                                  title: 'Visitor Sign In',
+                                  icon: Icons.person_outline_rounded,
+                                  isOpen: _visitorOpen,
+                                  onToggle: _toggleVisitor,
+                                  userType: 'visitor',
+                                  formKey: _visitorFormKey,
+                                  emailController: _visitorEmailController,
+                                  isSending: _visitorSending,
+                                  status: _visitorStatus,
+                                  statusType: _visitorStatusType,
+                                ),
+                              ),
+
+                              const SizedBox(height: 10),
+
+                              // Business owner sign in dropdown
+                              FadeTransition(
+                                opacity: _cardController,
+                                child: _buildLoginDropdown(
+                                  title: 'Business Owner Sign In',
+                                  icon: Icons.storefront_outlined,
+                                  isOpen: _businessOpen,
+                                  onToggle: _toggleBusiness,
+                                  userType: 'local',
+                                  formKey: _businessFormKey,
+                                  emailController: _businessEmailController,
+                                  isSending: _businessSending,
+                                  status: _businessStatus,
+                                  statusType: _businessStatusType,
+                                ),
+                              ),
+
+                              const SizedBox(height: 10),
+
+                              // Sign Up section
+                              FadeTransition(
+                                opacity: _cardController,
+                                child: _buildSignUpSection(),
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // Guest button
+                              FadeTransition(
+                                opacity: _cardController,
+                                child: _buildGuestButton(),
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // Acknowledgment of Country
+                              FadeTransition(
+                                opacity: _cardController,
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 8),
+                                  child: Text(
+                                    'BrisConnect+ acknowledges the Traditional Custodians '
+                                    'of the land on which Brisbane stands, and pays respects '
+                                    'to Elders past, present and emerging.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      height: 1.5,
+                                      color: _white50,
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 24),
-                                Text(
-                                  'BrisConnect+',
-                                  style: TextStyle(
-                                    fontSize: isSmall ? 28 : 32,
-                                    fontWeight: FontWeight.w800,
-                                    color: _white,
-                                    letterSpacing: -0.5,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  "Discover Brisbane's Best Local Food",
-                                  style: TextStyle(
-                                    fontSize: isSmall ? 14 : 15,
-                                    fontWeight: FontWeight.w500,
-                                    color: _white70,
-                                    letterSpacing: 0.2,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Visitor sign in dropdown
-                        FadeTransition(
-                          opacity: _cardController,
-                          child: _buildLoginDropdown(
-                            title: 'Visitor Sign In',
-                            icon: Icons.person_outline_rounded,
-                            isOpen: _visitorOpen,
-                            onToggle: _toggleVisitor,
-                            userType: 'visitor',
-                            formKey: _visitorFormKey,
-                            emailController: _visitorEmailController,
-                            isSending: _visitorSending,
-                            status: _visitorStatus,
-                            statusType: _visitorStatusType,
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        // Business owner sign in dropdown
-                        FadeTransition(
-                          opacity: _cardController,
-                          child: _buildLoginDropdown(
-                            title: 'Business Owner Sign In',
-                            icon: Icons.storefront_outlined,
-                            isOpen: _businessOpen,
-                            onToggle: _toggleBusiness,
-                            userType: 'local',
-                            formKey: _businessFormKey,
-                            emailController: _businessEmailController,
-                            isSending: _businessSending,
-                            status: _businessStatus,
-                            statusType: _businessStatusType,
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        // Sign Up section
-                        FadeTransition(
-                          opacity: _cardController,
-                          child: _buildSignUpSection(),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // Guest button
-                        FadeTransition(
-                          opacity: _cardController,
-                          child: _buildGuestButton(),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Acknowledgment of Country
-                        FadeTransition(
-                          opacity: _cardController,
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8),
-                            child: Text(
-                              'BrisConnect+ acknowledges the Traditional Custodians '
-                              'of the land on which Brisbane stands, and pays respects '
-                              'to Elders past, present and emerging.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 13,
-                                height: 1.5,
-                                color: _white50,
                               ),
-                            ),
+
+                              const SizedBox(height: 24),
+                            ],
                           ),
                         ),
-
-                        const SizedBox(height: 36),
-                      ],
+                      ),
                     ),
                   ),
-                ),
+                ],
               );
             },
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildLegalLinks() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      decoration: BoxDecoration(
+        color: _cardDark,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _white.withValues(alpha: 0.25)),
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const PrivacyPolicyScreen(),
+                ),
+              );
+            },
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text(
+              'Privacy Policy',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: _white,
+                decoration: TextDecoration.underline,
+                decorationColor: _white70,
+              ),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 6),
+            child: Text(
+              '•',
+              style: TextStyle(fontSize: 13, color: _white50),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const TermsOfServiceScreen(),
+                ),
+              );
+            },
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text(
+              'Terms of Service',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: _white,
+                decoration: TextDecoration.underline,
+                decorationColor: _white70,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1135,15 +1231,53 @@ class _SignUpDialogState extends State<_SignUpDialog> {
   }
 
   String _toE164Au(String value) {
-    var digits = value.replaceAll(RegExp(r'\D'), '');
-    if (digits.startsWith('61')) digits = digits.substring(2);
-    if (digits.startsWith('0')) digits = digits.substring(1);
-    return '+61$digits';
+    return PhoneValidation.toE164Au(value) ?? '';
   }
 
-  Future<void> _register() async {
+  Future<void> _startPhoneVerification() async {
     if (!_formKey.currentState!.validate()) return;
 
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final phone = _toE164Au(_phoneController.text);
+    final result = await PhoneAuthService.sendCodeToPhone(phone);
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    switch (result) {
+      case PhoneAuthSendResult.codeSent:
+        final verified = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => _PhoneVerificationDialog(phone: phone),
+        );
+        if (verified == true && mounted) {
+          await _register(phoneVerified: true);
+        }
+      case PhoneAuthSendResult.invalidPhone:
+        setState(() {
+          _errorMessage = PhoneAuthService.lastErrorMessage ??
+              'Please enter a valid phone number.';
+        });
+      case PhoneAuthSendResult.tooManyRequests:
+        setState(() {
+          _errorMessage = PhoneAuthService.lastErrorMessage ??
+              'Too many attempts. Please try again later.';
+        });
+      case PhoneAuthSendResult.networkError:
+      case PhoneAuthSendResult.unknownError:
+        setState(() {
+          _errorMessage = PhoneAuthService.lastErrorMessage ??
+              'Could not send code. Please try again.';
+        });
+    }
+  }
+
+  Future<void> _register({required bool phoneVerified}) async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -1155,30 +1289,45 @@ class _SignUpDialogState extends State<_SignUpDialog> {
     final phone = _toE164Au(_phoneController.text);
     final password = _passwordController.text;
 
-    final ok = widget.role == 'visitor'
-        ? await VisitorAuth.register(
-            name: name,
-            email: email,
-            password: password,
-            phone: phone,
-          )
-        : await LocalAuth.register(
-            name: name,
-            email: email,
-            password: password,
-            phone: phone,
-            suburb: '',
-          );
+    bool ok;
+    try {
+      ok = widget.role == 'visitor'
+          ? await VisitorAuth.register(
+              name: name,
+              email: email,
+              password: password,
+              phone: phone,
+            )
+          : await LocalAuth.register(
+              name: name,
+              email: email,
+              password: password,
+              phone: phone,
+              suburb: '',
+            );
+    } catch (e, st) {
+      debugPrint(
+        '[WelcomeSignUp] Unexpected ${widget.role} registration error: $e\n$st',
+      );
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage =
+            'Unexpected error during signup. Please try again or contact support.';
+      });
+      return;
+    }
 
     if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (!ok) {
+      final reason = widget.role == 'visitor'
+          ? VisitorAuth.lastErrorMessage
+          : LocalAuth.lastErrorMessage;
+      debugPrint('[WelcomeSignUp] ${widget.role} registration failed: $reason');
       setState(() {
-        _errorMessage = widget.role == 'visitor'
-            ? VisitorAuth.lastErrorMessage
-            : LocalAuth.lastErrorMessage ??
-                'Could not create account. Please try again.';
+        _errorMessage = reason ?? 'Could not create account. Please try again.';
       });
       return;
     }
@@ -1281,9 +1430,8 @@ class _SignUpDialogState extends State<_SignUpDialog> {
                 style: const TextStyle(color: _white),
                 decoration: _dialogInputDecoration('Phone number'),
                 validator: (value) {
-                  final digits = (value ?? '').replaceAll(RegExp(r'\D'), '');
-                  if (digits.isEmpty) return 'Please enter your phone number.';
-                  if (digits.length < 9) return 'Please enter a valid number.';
+                  final error = PhoneValidation.validate(value);
+                  if (error != null) return error;
                   return null;
                 },
               ),
@@ -1305,8 +1453,18 @@ class _SignUpDialogState extends State<_SignUpDialog> {
                   ),
                 ),
                 validator: (value) {
-                  if ((value ?? '').length < 6) {
-                    return 'Use at least 6 characters.';
+                  final password = value ?? '';
+                  if (password.length < 8) {
+                    return 'Use at least 8 characters.';
+                  }
+                  if (!password.contains(RegExp(r'[A-Z]'))) {
+                    return 'Use at least one uppercase letter.';
+                  }
+                  if (!password.contains(RegExp(r'[a-z]'))) {
+                    return 'Use at least one lowercase letter.';
+                  }
+                  if (!password.contains(RegExp(r'[0-9]'))) {
+                    return 'Use at least one number.';
                   }
                   return null;
                 },
@@ -1355,7 +1513,7 @@ class _SignUpDialogState extends State<_SignUpDialog> {
           ),
         ),
         ElevatedButton(
-          onPressed: _isLoading ? null : _register,
+          onPressed: _isLoading ? null : _startPhoneVerification,
           style: ElevatedButton.styleFrom(
             backgroundColor: _accentOrange,
             foregroundColor: _white,
@@ -1373,7 +1531,7 @@ class _SignUpDialogState extends State<_SignUpDialog> {
                   ),
                 )
               : const Text(
-                  'Create Account',
+                  'Verify Phone & Create Account',
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
         ),
@@ -1387,6 +1545,123 @@ class _AdminLoginDialog extends StatefulWidget {
 
   @override
   State<_AdminLoginDialog> createState() => _AdminLoginDialogState();
+}
+
+class _PhoneVerificationDialog extends StatefulWidget {
+  const _PhoneVerificationDialog({required this.phone});
+
+  final String phone;
+
+  @override
+  State<_PhoneVerificationDialog> createState() => _PhoneVerificationDialogState();
+}
+
+class _PhoneVerificationDialogState extends State<_PhoneVerificationDialog> {
+  final _codeController = TextEditingController();
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _verify() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final ok = await PhoneAuthService.verifyCodeOnly(_codeController.text);
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (ok) {
+      Navigator.of(context).pop(true);
+    } else {
+      setState(() {
+        _errorMessage = PhoneAuthService.lastErrorMessage ??
+            'Invalid code. Please try again.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: _cardDark,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(color: _cardBorder.withValues(alpha: 0.6)),
+      ),
+      title: const Text(
+        'Verify Phone Number',
+        style: TextStyle(
+          color: _white,
+          fontWeight: FontWeight.w800,
+          fontSize: 20,
+        ),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Enter the 6-digit code sent to ${widget.phone}',
+            style: const TextStyle(color: _white70, fontSize: 14),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _codeController,
+            keyboardType: TextInputType.number,
+            style: const TextStyle(color: _white),
+            decoration: _dialogInputDecoration('Verification code'),
+          ),
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 12),
+            InlineStatusMessage(
+              message: _errorMessage!,
+              type: InlineStatusType.error,
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text(
+            'Cancel',
+            style: TextStyle(color: _white70),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _verify,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _accentOrange,
+            foregroundColor: _white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: _white,
+                  ),
+                )
+              : const Text(
+                  'Verify',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+        ),
+      ],
+    );
+  }
 }
 
 class _AdminLoginDialogState extends State<_AdminLoginDialog> {

@@ -641,11 +641,14 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                                   Icons.calendar_today_rounded,
                                   size: 16,
                                 ),
-                                label: Text(AppLocalizations.of(context)!.pickADate),
+                                label: Text(
+                                    AppLocalizations.of(context)!.pickADate),
                               )
                             else
                               InputChip(
-                                label: Text(_formatFilterDate(Localizations.localeOf(context).toString(), selectedDate!)),
+                                label: Text(_formatFilterDate(
+                                    Localizations.localeOf(context).toString(),
+                                    selectedDate!)),
                                 onDeleted: () =>
                                     setModalState(() => selectedDate = null),
                                 backgroundColor: AppPalette.surfaceAlt,
@@ -675,7 +678,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                                     ),
                                   );
                                 },
-                                child: Text(AppLocalizations.of(context)!.resetButton),
+                                child: Text(
+                                    AppLocalizations.of(context)!.resetButton),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -695,7 +699,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                                   backgroundColor: AppPalette.deepBlue,
                                   foregroundColor: Colors.white,
                                 ),
-                                child: Text(AppLocalizations.of(context)!.applyButton),
+                                child: Text(
+                                    AppLocalizations.of(context)!.applyButton),
                               ),
                             ),
                           ],
@@ -745,7 +750,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
       ),
       if (_selectedEventDate != null)
         Chip(
-          label: Text(_formatFilterDate(Localizations.localeOf(context).toString(), _selectedEventDate!)),
+          label: Text(_formatFilterDate(
+              Localizations.localeOf(context).toString(), _selectedEventDate!)),
           backgroundColor: AppPalette.surfaceAlt,
           side: const BorderSide(color: AppPalette.border),
         ),
@@ -1175,7 +1181,9 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                 ),
           onShareTap: () {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(l10n.shareTitle(item['title'] as String? ?? l10n.eventFallback))),
+              SnackBar(
+                  content: Text(l10n.shareTitle(
+                      item['title'] as String? ?? l10n.eventFallback))),
             );
           },
           onCardTap: () async {
@@ -1234,7 +1242,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           onReviewTap: () {
             final section = (item['section'] as String? ?? '').trim();
             final reviewL10n = AppLocalizations.of(context)!;
-    if (section == 'food') {
+            if (section == 'food') {
               _showFoodReviewDialog(item);
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -1933,8 +1941,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
         if (snapshot.hasError) {
           final message = AppErrorMessages.fromException(
             snapshot.error,
-            fallback:
-                AppLocalizations.of(context)!.unableToLoadDiscover,
+            fallback: AppLocalizations.of(context)!.unableToLoadDiscover,
           );
           return Center(
             child: Padding(
@@ -2101,11 +2108,13 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                             // Food items
                             if (!hasAnyVisibleItems)
                               Padding(
-                                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 8, 20, 0),
                                 child: _EmptyState(
-                                  title: AppLocalizations.of(context)!.noFoodPlacesFound,
-                                  subtitle:
-                                      AppLocalizations.of(context)!.noFoodPlacesSubtitle,
+                                  title: AppLocalizations.of(context)!
+                                      .noFoodPlacesFound,
+                                  subtitle: AppLocalizations.of(context)!
+                                      .noFoodPlacesSubtitle,
                                 ),
                               ),
                           ],
@@ -2121,7 +2130,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                             horizontal: isDesktop ? 32 : 20,
                           ),
                           child: _SectionHeader(
-                            title: AppLocalizations.of(context)!.localFoodBusinesses,
+                            title: AppLocalizations.of(context)!
+                                .localFoodBusinesses,
                             subtitle:
                                 AppLocalizations.of(context)!.localFoodSubtitle,
                             titleSize: isDesktop ? 24 : 20,
@@ -2151,8 +2161,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                                   ),
                                 ),
                                 icon: const Icon(Icons.storefront_rounded),
-                                label: Text(
-                                    AppLocalizations.of(context)!.exploreReviewFoodBusinesses),
+                                label: Text(AppLocalizations.of(context)!
+                                    .exploreReviewFoodBusinesses),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppPalette.ochre,
                                   foregroundColor: Colors.white,
@@ -2190,8 +2200,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           return Center(
             child: _EmptyState(
               title: AppLocalizations.of(context)!.noSavedItemsTitle,
-              subtitle:
-                  AppLocalizations.of(context)!.noSavedItemsSubtitle,
+              subtitle: AppLocalizations.of(context)!.noSavedItemsSubtitle,
             ),
           );
         }
@@ -2276,9 +2285,10 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                         savedBusinessIds.isEmpty) {
                       return Center(
                         child: _EmptyState(
-                          title: AppLocalizations.of(context)!.savedItemsUnavailableTitle,
-                          subtitle:
-                              AppLocalizations.of(context)!.savedItemsUnavailableSubtitle,
+                          title: AppLocalizations.of(context)!
+                              .savedItemsUnavailableTitle,
+                          subtitle: AppLocalizations.of(context)!
+                              .savedItemsUnavailableSubtitle,
                         ),
                       );
                     }
@@ -2305,7 +2315,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                         if (savedEvents.isNotEmpty) ...[
                           _SectionHeader(
                             title: AppLocalizations.of(context)!.savedEvents,
-                            subtitle: AppLocalizations.of(context)!.savedEventsSubtitle,
+                            subtitle: AppLocalizations.of(context)!
+                                .savedEventsSubtitle,
                             titleSize: titleSize,
                           ),
                           _buildSavedCardGrid(savedEvents),
@@ -2313,8 +2324,10 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                         if (savedAttractions.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           _SectionHeader(
-                            title: AppLocalizations.of(context)!.savedAttractions,
-                            subtitle: AppLocalizations.of(context)!.savedAttractionsSubtitle,
+                            title:
+                                AppLocalizations.of(context)!.savedAttractions,
+                            subtitle: AppLocalizations.of(context)!
+                                .savedAttractionsSubtitle,
                             titleSize: titleSize,
                           ),
                           _buildSavedCardGrid(savedAttractions),
@@ -2322,8 +2335,10 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                         if (savedBusinessIds.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           _SectionHeader(
-                            title: AppLocalizations.of(context)!.savedBusinesses,
-                            subtitle: AppLocalizations.of(context)!.savedBusinessesSubtitle,
+                            title:
+                                AppLocalizations.of(context)!.savedBusinesses,
+                            subtitle: AppLocalizations.of(context)!
+                                .savedBusinessesSubtitle,
                             titleSize:
                                 constraints.maxWidth >= Breakpoints.desktop
                                     ? 24
@@ -2473,7 +2488,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     final visitor = VisitorAuth.currentVisitor;
     if (visitor == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.pleaseLoginVisitor)),
+        SnackBar(
+            content: Text(AppLocalizations.of(context)!.pleaseLoginVisitor)),
       );
       return;
     }
@@ -2508,9 +2524,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
       setState(() => _pendingProfileImageBytes = null);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text(AppLocalizations.of(context)!.imageTooLarge)),
+        SnackBar(content: Text(AppLocalizations.of(context)!.imageTooLarge)),
       );
       return;
     }
@@ -2593,216 +2607,246 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               final sheetProfileImage = _profileImageProvider(currentVisitor);
               return Form(
                 key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      l10n.editProfile,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: AppPalette.charcoal,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        l10n.editProfile,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: AppPalette.charcoal,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    Center(
-                      child: GestureDetector(
-                        onTap: () async {
-                          await _uploadVisitorProfileImage();
-                          setSheetState(() {});
-                        },
-                        child: Stack(
-                          alignment: Alignment.bottomRight,
-                          children: [
-                            CircleAvatar(
-                              radius: 44,
-                              backgroundColor: AppPalette.deepBlue,
-                              backgroundImage: sheetProfileImage,
-                              child: sheetProfileImage == null
-                                  ? const Icon(
-                                      Icons.person_rounded,
-                                      color: Colors.white,
-                                      size: 44,
-                                    )
-                                  : null,
-                            ),
-                            Container(
-                              padding: const EdgeInsets.all(7),
-                              decoration: BoxDecoration(
-                                color: AppPalette.ochre,
-                                shape: BoxShape.circle,
-                                border:
-                                    Border.all(color: Colors.white, width: 2.5),
+                      const SizedBox(height: 20),
+                      Center(
+                        child: GestureDetector(
+                          onTap: () async {
+                            await _uploadVisitorProfileImage();
+                            setSheetState(() {});
+                          },
+                          child: Stack(
+                            alignment: Alignment.bottomRight,
+                            children: [
+                              CircleAvatar(
+                                radius: 44,
+                                backgroundColor: AppPalette.deepBlue,
+                                backgroundImage: sheetProfileImage,
+                                child: sheetProfileImage == null
+                                    ? const Icon(
+                                        Icons.person_rounded,
+                                        color: Colors.white,
+                                        size: 44,
+                                      )
+                                    : null,
                               ),
-                              child: const Icon(
-                                Icons.camera_alt_rounded,
-                                color: Colors.white,
-                                size: 18,
+                              Container(
+                                padding: const EdgeInsets.all(7),
+                                decoration: BoxDecoration(
+                                  color: AppPalette.ochre,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                      color: Colors.white, width: 2.5),
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Center(
-                      child: Text(
-                        'Tap to change profile picture',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppPalette.mutedText,
+                      const SizedBox(height: 6),
+                      Center(
+                        child: Text(
+                          'Tap to change profile picture',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppPalette.mutedText,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 18),
-                    TextFormField(
-                      initialValue: currentName,
-                      autofocus: true,
-                      textCapitalization: TextCapitalization.words,
-                      onChanged: (value) => editedName = value,
-                      decoration: InputDecoration(
-                        labelText: l10n.name,
-                        hintText: l10n.enterYourName,
-                        prefixIcon: const Icon(Icons.person_outline_rounded),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                      const SizedBox(height: 18),
+                      TextFormField(
+                        initialValue: currentName,
+                        autofocus: true,
+                        textCapitalization: TextCapitalization.words,
+                        onChanged: (value) => editedName = value,
+                        decoration: InputDecoration(
+                          labelText: l10n.name,
+                          hintText: l10n.enterYourName,
+                          prefixIcon: const Icon(Icons.person_outline_rounded),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return l10n.nameCannotBeEmpty;
-                        }
-                        if (value.trim().length < 2) {
-                          return l10n.nameMinLength;
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      initialValue: currentEmail,
-                      readOnly: true,
-                      decoration: InputDecoration(
-                        labelText: l10n.email,
-                        prefixIcon: const Icon(Icons.alternate_email_rounded),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      initialValue: currentPhone,
-                      keyboardType: TextInputType.phone,
-                      onChanged: (value) => editedPhone = value,
-                      decoration: InputDecoration(
-                        labelText: l10n.phone,
-                        hintText: l10n.phoneHint,
-                        prefixIcon: const Icon(Icons.phone_outlined),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      validator: (value) {
-                        final trimmed = (value ?? '').trim();
-                        if (trimmed.isEmpty) {
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return l10n.nameCannotBeEmpty;
+                          }
+                          if (value.trim().length < 2) {
+                            return l10n.nameMinLength;
+                          }
                           return null;
-                        }
-                        final normalized =
-                            trimmed.replaceAll(RegExp(r'[^0-9+]'), '');
-                        if (normalized.length < 8 || normalized.length > 16) {
-                          return l10n.enterValidPhone;
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: editedLanguage,
-                      decoration: InputDecoration(
-                        labelText: l10n.language,
-                        prefixIcon: const Icon(Icons.language_outlined),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        initialValue: currentEmail,
+                        readOnly: true,
+                        decoration: InputDecoration(
+                          labelText: l10n.email,
+                          prefixIcon: const Icon(Icons.alternate_email_rounded),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
-                      items: [
-                        DropdownMenuItem(value: 'en', child: Text(_formatLanguageLabel(l10n, 'en'))),
-                        DropdownMenuItem(value: 'es', child: Text(_formatLanguageLabel(l10n, 'es'))),
-                        DropdownMenuItem(value: 'fr', child: Text(_formatLanguageLabel(l10n, 'fr'))),
-                        DropdownMenuItem(value: 'de', child: Text(_formatLanguageLabel(l10n, 'de'))),
-                        DropdownMenuItem(value: 'zh', child: Text(_formatLanguageLabel(l10n, 'zh'))),
-                        DropdownMenuItem(value: 'ar', child: Text(_formatLanguageLabel(l10n, 'ar'))),
-                        DropdownMenuItem(value: 'hi', child: Text(_formatLanguageLabel(l10n, 'hi'))),
-                        DropdownMenuItem(value: 'it', child: Text(_formatLanguageLabel(l10n, 'it'))),
-                        DropdownMenuItem(value: 'ja', child: Text(_formatLanguageLabel(l10n, 'ja'))),
-                        DropdownMenuItem(value: 'ko', child: Text(_formatLanguageLabel(l10n, 'ko'))),
-                        DropdownMenuItem(value: 'pt', child: Text(_formatLanguageLabel(l10n, 'pt'))),
-                        DropdownMenuItem(value: 'ru', child: Text(_formatLanguageLabel(l10n, 'ru'))),
-                        DropdownMenuItem(value: 'vi', child: Text(_formatLanguageLabel(l10n, 'vi'))),
-                        DropdownMenuItem(value: 'el', child: Text(_formatLanguageLabel(l10n, 'el'))),
-                      ],
-                      onChanged: (value) {
-                        if (value != null) {
-                          setSheetState(() => editedLanguage = value);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppPalette.ochre,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        initialValue: currentPhone,
+                        keyboardType: TextInputType.phone,
+                        onChanged: (value) => editedPhone = value,
+                        decoration: InputDecoration(
+                          labelText: l10n.phone,
+                          hintText: l10n.phoneHint,
+                          prefixIcon: const Icon(Icons.phone_outlined),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
+                        validator: (value) {
+                          final trimmed = (value ?? '').trim();
+                          if (trimmed.isEmpty) {
+                            return null;
+                          }
+                          final normalized =
+                              trimmed.replaceAll(RegExp(r'[^0-9+]'), '');
+                          if (normalized.length < 8 || normalized.length > 16) {
+                            return l10n.enterValidPhone;
+                          }
+                          return null;
+                        },
                       ),
-                      onPressed: saving
-                          ? null
-                          : () async {
-                              if (!formKey.currentState!.validate()) return;
-                              setSheetState(() => saving = true);
-                              final ok = await VisitorAuth.updateProfileInfo(
-                                newName: editedName,
-                                newPhone: editedPhone,
-                                newLanguage: editedLanguage,
-                              );
-                              if (!sheetContext.mounted) return;
-                              Navigator.pop(sheetContext);
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      ok
-                                          ? l10n.profileUpdated
-                                          : l10n.profileUpdateFailed,
-                                    ),
-                                    backgroundColor: ok
-                                        ? Colors.green.shade700
-                                        : Colors.red.shade700,
-                                  ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: editedLanguage,
+                        decoration: InputDecoration(
+                          labelText: l10n.language,
+                          prefixIcon: const Icon(Icons.language_outlined),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        items: [
+                          DropdownMenuItem(
+                              value: 'en',
+                              child: Text(_formatLanguageLabel(l10n, 'en'))),
+                          DropdownMenuItem(
+                              value: 'es',
+                              child: Text(_formatLanguageLabel(l10n, 'es'))),
+                          DropdownMenuItem(
+                              value: 'fr',
+                              child: Text(_formatLanguageLabel(l10n, 'fr'))),
+                          DropdownMenuItem(
+                              value: 'de',
+                              child: Text(_formatLanguageLabel(l10n, 'de'))),
+                          DropdownMenuItem(
+                              value: 'zh',
+                              child: Text(_formatLanguageLabel(l10n, 'zh'))),
+                          DropdownMenuItem(
+                              value: 'ar',
+                              child: Text(_formatLanguageLabel(l10n, 'ar'))),
+                          DropdownMenuItem(
+                              value: 'hi',
+                              child: Text(_formatLanguageLabel(l10n, 'hi'))),
+                          DropdownMenuItem(
+                              value: 'it',
+                              child: Text(_formatLanguageLabel(l10n, 'it'))),
+                          DropdownMenuItem(
+                              value: 'ja',
+                              child: Text(_formatLanguageLabel(l10n, 'ja'))),
+                          DropdownMenuItem(
+                              value: 'ko',
+                              child: Text(_formatLanguageLabel(l10n, 'ko'))),
+                          DropdownMenuItem(
+                              value: 'pt',
+                              child: Text(_formatLanguageLabel(l10n, 'pt'))),
+                          DropdownMenuItem(
+                              value: 'ru',
+                              child: Text(_formatLanguageLabel(l10n, 'ru'))),
+                          DropdownMenuItem(
+                              value: 'vi',
+                              child: Text(_formatLanguageLabel(l10n, 'vi'))),
+                          DropdownMenuItem(
+                              value: 'el',
+                              child: Text(_formatLanguageLabel(l10n, 'el'))),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setSheetState(() => editedLanguage = value);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppPalette.ochre,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: saving
+                            ? null
+                            : () async {
+                                if (!formKey.currentState!.validate()) return;
+                                setSheetState(() => saving = true);
+                                final ok = await VisitorAuth.updateProfileInfo(
+                                  newName: editedName,
+                                  newPhone: editedPhone,
+                                  newLanguage: editedLanguage,
                                 );
-                              }
-                            },
-                      child: saving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : Text(l10n.save),
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: () => Navigator.pop(sheetContext),
-                      child: Text(l10n.cancel),
-                    ),
-                  ],
+                                if (!sheetContext.mounted) return;
+                                Navigator.pop(sheetContext);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        ok
+                                            ? l10n.profileUpdated
+                                            : l10n.profileUpdateFailed,
+                                      ),
+                                      backgroundColor: ok
+                                          ? Colors.green.shade700
+                                          : Colors.red.shade700,
+                                    ),
+                                  );
+                                }
+                              },
+                        child: saving
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(l10n.save),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => Navigator.pop(sheetContext),
+                        child: Text(l10n.cancel),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
@@ -2901,7 +2945,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                 child: Row(
                   children: [
                     GestureDetector(
-                      onTap: visitor != null ? _uploadVisitorProfileImage : null,
+                      onTap:
+                          visitor != null ? _uploadVisitorProfileImage : null,
                       child: Stack(
                         alignment: Alignment.bottomRight,
                         children: [
@@ -3180,8 +3225,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                 shadowColor: AppPalette.cardShadow,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
-                  side:
-                      BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
+                  side: BorderSide(
+                      color: AppPalette.border.withValues(alpha: 0.5)),
                 ),
                 child: ListTile(
                   leading: Container(
@@ -3321,7 +3366,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                     title: AppLocalizations.of(context)!.appTitle,
                     subtitle: AppLocalizations.of(context)!.discoverSubtitle,
                     searchController: _searchController,
-                    searchHint: AppLocalizations.of(context)!.searchHintLocalFood,
+                    searchHint:
+                        AppLocalizations.of(context)!.searchHintLocalFood,
                     onSearchChanged: (_) {
                       _searchDebounce?.cancel();
                       _searchDebounce = Timer(
@@ -3336,7 +3382,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                     profileImage: _profileImageProvider(
                       VisitorAuth.currentVisitor,
                     ),
-                    userName: VisitorAuth.currentVisitor?.name ?? AppLocalizations.of(context)!.guestVisitor,
+                    userName: VisitorAuth.currentVisitor?.name ??
+                        AppLocalizations.of(context)!.guestVisitor,
                     userEmail: VisitorAuth.currentVisitor?.email,
                   ),
                 )

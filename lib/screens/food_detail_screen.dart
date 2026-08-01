@@ -237,6 +237,7 @@ class FoodDetailScreen extends StatelessWidget {
       description: description,
       location: location,
       dateTime: dateTime,
+      imageUrl: imageUrl.trim().isNotEmpty ? imageUrl.trim() : null,
     );
   }
 
@@ -583,11 +584,11 @@ class FoodDetailScreen extends StatelessWidget {
 
   Widget _buildAudioGuideSection(String narrationText) {
     return _ContentSection(
-      title: 'AI Tour Guide',
+      title: 'Food Discovery Guide',
       child: AiNarrationWidget(
         narrationText: narrationText,
         helperText:
-            'Tap play to hear your AI tour guide describe this food spot and its highlights.',
+            'Tap play to hear your Food Discovery Guide describe this food spot and its highlights.',
       ),
     );
   }

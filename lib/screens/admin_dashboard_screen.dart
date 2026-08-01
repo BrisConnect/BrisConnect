@@ -109,7 +109,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _openEventsManagement() {
-    setState(() => _selectedNavIndex = 2);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AdminEventReviewScreen(
+          eventService: _adminEventService,
+          enforceRoleGuard: false,
+        ),
+      ),
+    );
   }
 
   void _openReportsHub() {
@@ -279,14 +287,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _buildHomeTab(),
           _buildUsersTab(),
           _buildBusinessesTab(),
-          _buildEventsTab(),
           _buildSettingsTab(),
         ],
       ),
     );
 
-    final isDesktop =
-        MediaQuery.sizeOf(context).width >= Breakpoints.desktop;
+    final isDesktop = MediaQuery.sizeOf(context).width >= Breakpoints.desktop;
     if (!isDesktop) return content;
 
     final banneredContent = Column(
@@ -376,8 +382,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget? _buildBottomNavigationBar() {
-    final isDesktop =
-        MediaQuery.sizeOf(context).width >= Breakpoints.desktop;
+    final isDesktop = MediaQuery.sizeOf(context).width >= Breakpoints.desktop;
     if (isDesktop) return null;
 
     return IgnorePointer(
@@ -424,11 +429,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           label: Text('Businesses'),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.event_outlined),
-          selectedIcon: Icon(Icons.event_rounded),
-          label: Text('Events'),
-        ),
-        NavigationRailDestination(
           icon: Icon(Icons.settings_outlined),
           selectedIcon: Icon(Icons.settings_rounded),
           label: Text('Settings'),
@@ -458,47 +458,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              // Center Events button
-              GestureDetector(
-                onTap: () => setState(() {
-                  _selectedNavIndex = 3;
-                  _isNavVisible = true;
-                }),
-                child: Container(
-                  width: 56,
-                  height: 56,
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFF3B82F6), Color(0xFF1E40AF)],
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Color(0xFF93C5FD),
-                        blurRadius: 10,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.event_rounded, color: Colors.white, size: 22),
-                      SizedBox(height: 2),
-                      Text(
-                        'Events',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
               _NavItem(
                 icon: Icons.home_rounded,
                 label: 'Home',
@@ -549,8 +508,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 2:
         return 'Businesses';
       case 3:
-        return 'Events';
-      case 4:
         return 'Settings';
       default:
         return 'Admin';
@@ -579,13 +536,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildBusinessesTab() {
     return AdminBusinessManagementScreen(enforceRoleGuard: false);
-  }
-
-  Widget _buildEventsTab() {
-    return AdminEventReviewScreen(
-      eventService: _adminEventService,
-      enforceRoleGuard: false,
-    );
   }
 
   Widget _buildHomeTab() {
@@ -811,8 +761,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
             childAspectRatio: 1.55,
-            children:
-                items.map((item) => _buildStatCard(item: item)).toList(),
+            children: items.map((item) => _buildStatCard(item: item)).toList(),
           ),
         );
       },
@@ -890,7 +839,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 decoration: BoxDecoration(
                   color: _adminMetricBackground,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppPalette.charcoal.withValues(alpha: 0.08)),
+                  border: Border.all(
+                      color: AppPalette.charcoal.withValues(alpha: 0.08)),
                 ),
                 child: const Center(
                   child: Text(
@@ -1049,14 +999,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           decoration: BoxDecoration(
             color: _adminMetricBackground,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppPalette.charcoal.withValues(alpha: 0.08)),
+            border:
+                Border.all(color: AppPalette.charcoal.withValues(alpha: 0.08)),
           ),
           child: Wrap(
             spacing: 12,
             runSpacing: 12,
-            children: items
-                .map((item) => _EngagementChip(item: item))
-                .toList(),
+            children: items.map((item) => _EngagementChip(item: item)).toList(),
           ),
         ),
       ],
@@ -1129,7 +1078,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 decoration: BoxDecoration(
                   color: _adminMetricBackground,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppPalette.charcoal.withValues(alpha: 0.08)),
+                  border: Border.all(
+                      color: AppPalette.charcoal.withValues(alpha: 0.08)),
                 ),
                 child: const CircularProgressIndicator(color: AppPalette.ochre),
               );
@@ -1145,7 +1095,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               decoration: BoxDecoration(
                 color: _adminMetricBackground,
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: AppPalette.charcoal.withValues(alpha: 0.08)),
+                border: Border.all(
+                    color: AppPalette.charcoal.withValues(alpha: 0.08)),
               ),
               child: Column(
                 children: [
@@ -1365,7 +1316,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             shadowColor: AppPalette.cardShadow,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: AppPalette.charcoal.withValues(alpha: 0.08)),
+              side: BorderSide(
+                  color: AppPalette.charcoal.withValues(alpha: 0.08)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -1410,7 +1362,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             shadowColor: AppPalette.cardShadow,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: AppPalette.charcoal.withValues(alpha: 0.08)),
+              side: BorderSide(
+                  color: AppPalette.charcoal.withValues(alpha: 0.08)),
             ),
             child: Column(
               children: [
@@ -1468,7 +1421,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             shadowColor: AppPalette.cardShadow,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: AppPalette.charcoal.withValues(alpha: 0.08)),
+              side: BorderSide(
+                  color: AppPalette.charcoal.withValues(alpha: 0.08)),
             ),
             child: Column(
               children: [
@@ -1498,7 +1452,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             shadowColor: AppPalette.cardShadow,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: AppPalette.charcoal.withValues(alpha: 0.08)),
+              side: BorderSide(
+                  color: AppPalette.charcoal.withValues(alpha: 0.08)),
             ),
             child: Column(
               children: [
@@ -1541,7 +1496,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             shadowColor: AppPalette.cardShadow,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: AppPalette.charcoal.withValues(alpha: 0.08)),
+              side: BorderSide(
+                  color: AppPalette.charcoal.withValues(alpha: 0.08)),
             ),
             child: Column(
               children: [
@@ -1587,7 +1543,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ],
             ),
           ),
-
         ],
       ),
     );
@@ -1648,7 +1603,8 @@ class _DashboardStatCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: _adminMetricBackground,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppPalette.charcoal.withValues(alpha: 0.08)),
+          border:
+              Border.all(color: AppPalette.charcoal.withValues(alpha: 0.08)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1668,7 +1624,8 @@ class _DashboardStatCard extends StatelessWidget {
                 const Spacer(),
                 if (trend != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: trend!.isUp
                           ? Colors.green.shade50
@@ -1761,7 +1718,8 @@ class _QuickActionButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: _adminMetricBackground,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppPalette.charcoal.withValues(alpha: 0.08)),
+          border:
+              Border.all(color: AppPalette.charcoal.withValues(alpha: 0.08)),
         ),
         child: Row(
           children: [
@@ -1900,7 +1858,8 @@ class _RecentUserCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: _adminMetricBackground,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppPalette.charcoal.withValues(alpha: 0.08)),
+          border:
+              Border.all(color: AppPalette.charcoal.withValues(alpha: 0.08)),
         ),
         child: Row(
           children: [

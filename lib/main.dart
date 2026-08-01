@@ -15,7 +15,9 @@ import 'package:brisconnect/screens/admin_dashboard_screen.dart';
 import 'package:brisconnect/screens/business_profile_form_screen.dart';
 import 'package:brisconnect/screens/business_profile_view_screen.dart';
 import 'package:brisconnect/screens/notification_health_screen.dart';
+import 'package:brisconnect/screens/privacy_policy_screen.dart';
 import 'package:brisconnect/screens/promotion_detail_screen.dart';
+import 'package:brisconnect/screens/terms_of_service_screen.dart';
 import 'package:brisconnect/models/business.dart';
 import 'package:brisconnect/services/fcm_service.dart';
 
@@ -35,14 +37,14 @@ Future<void> main() async {
 class BrisConnectApp extends StatefulWidget {
   const BrisConnectApp({super.key});
 
-  static _BrisConnectAppState? of(BuildContext context) =>
-      context.findAncestorStateOfType<_BrisConnectAppState>();
+  static BrisConnectAppState? of(BuildContext context) =>
+      context.findAncestorStateOfType<BrisConnectAppState>();
 
   @override
-  State<BrisConnectApp> createState() => _BrisConnectAppState();
+  State<BrisConnectApp> createState() => BrisConnectAppState();
 }
 
-class _BrisConnectAppState extends State<BrisConnectApp> {
+class BrisConnectAppState extends State<BrisConnectApp> {
   Locale? _locale;
 
   void setLocale(Locale locale) {
@@ -157,6 +159,16 @@ class _BrisConnectAppState extends State<BrisConnectApp> {
           case '/notification-health':
             return MaterialPageRoute(
               builder: (_) => const NotificationHealthScreen(),
+              settings: settings,
+            );
+          case '/privacy-policy':
+            return MaterialPageRoute(
+              builder: (_) => const PrivacyPolicyScreen(),
+              settings: settings,
+            );
+          case '/terms-of-service':
+            return MaterialPageRoute(
+              builder: (_) => const TermsOfServiceScreen(),
               settings: settings,
             );
           default:

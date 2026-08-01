@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:brisconnect/models/business.dart';
 import 'package:brisconnect/screens/business_map_screen.dart';
 import 'package:brisconnect/screens/business_profile_detail_screen.dart';
-import 'package:brisconnect/services/business_profile_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 
@@ -15,13 +16,12 @@ class BusinessSearchScreen extends StatefulWidget {
 
 class _BusinessSearchScreenState extends State<BusinessSearchScreen> {
   final _searchController = TextEditingController();
-  final _businessService = BusinessProfileService();
-  
+
   List<Business> _searchResults = [];
   List<Business> _allBusinesses = [];
   bool _isLoading = true;
   String _selectedCategory = 'All Categories';
-  
+
   static final List<String> _categories = [
     'All Categories',
     ...businessCategories,
@@ -42,7 +42,13 @@ class _BusinessSearchScreenState extends State<BusinessSearchScreen> {
 
   Future<void> _loadAllBusinesses() async {
     try {
-      final businesses = await _businessService.getVerifiedBusinesses();
+      final snapshot = await FirebaseFirestore.instance
+          .collection('food_businesses')
+          .orderBy('rating', descending: true)
+          .get();
+      final businesses = snapshot.docs
+          .map((doc) => Business.fromFoodBusinessDoc(doc))
+          .toList();
       setState(() {
         _allBusinesses = businesses;
         _searchResults = businesses;
@@ -60,7 +66,8 @@ class _BusinessSearchScreenState extends State<BusinessSearchScreen> {
 
   void _performSearch() {
     final query = _searchController.text.toLowerCase();
-    final category = _selectedCategory == 'All Categories' ? null : _selectedCategory;
+    final category =
+        _selectedCategory == 'All Categories' ? null : _selectedCategory;
 
     setState(() {
       _searchResults = _allBusinesses.where((business) {
@@ -206,8 +213,8 @@ class _BusinessSearchScreenState extends State<BusinessSearchScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) =>
-                              BusinessProfileDetailScreen(businessId: business.id!),
+                          builder: (_) => BusinessProfileDetailScreen(
+                              businessId: business.id!),
                         ),
                       );
                     },

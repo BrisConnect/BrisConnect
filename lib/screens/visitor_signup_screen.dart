@@ -1,15 +1,19 @@
 import 'dart:typed_data';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/screens/visitor_login_screen.dart';
 import 'package:brisconnect/services/firebase_media_service.dart';
+import 'package:brisconnect/services/phone_auth_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/utils/auth_validation.dart';
+import 'package:brisconnect/utils/phone_validation.dart';
 import 'package:brisconnect/utils/profile_image_utils.dart';
 import 'package:brisconnect/widgets/inline_status_message.dart';
+import 'package:brisconnect/widgets/phone_verification_dialog.dart';
 
 class VisitorSignUpScreen extends StatefulWidget {
   const VisitorSignUpScreen({super.key});
@@ -33,14 +37,41 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
   String? _profileImageFileName;
 
   String _toE164Au(String value) {
-    var digits = value.replaceAll(RegExp(r'\D'), '');
-    if (digits.startsWith('61')) {
-      digits = digits.substring(2);
+    return PhoneValidation.toE164Au(value) ?? '';
+  }
+
+  Future<void> _startPhoneVerification() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isSubmitting = true);
+
+    final phone = _toE164Au(_phoneController.text);
+    final result = await PhoneAuthService.sendCodeToPhone(phone);
+
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+
+    switch (result) {
+      case PhoneAuthSendResult.codeSent:
+        final verified = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => PhoneVerificationDialog(phone: phone),
+        );
+        if (verified == true && mounted) {
+          await _register();
+        }
+      case PhoneAuthSendResult.invalidPhone:
+        setState(() => _errorMessage =
+            PhoneAuthService.lastErrorMessage ?? 'Please enter a valid phone number.');
+      case PhoneAuthSendResult.tooManyRequests:
+        setState(() => _errorMessage =
+            PhoneAuthService.lastErrorMessage ?? 'Too many attempts. Please try again later.');
+      case PhoneAuthSendResult.networkError:
+      case PhoneAuthSendResult.unknownError:
+        setState(() => _errorMessage =
+            PhoneAuthService.lastErrorMessage ?? 'Could not send code. Please try again.');
     }
-    if (digits.startsWith('0')) {
-      digits = digits.substring(1);
-    }
-    return '+61$digits';
   }
 
   Future<ImageSource?> _pickImageSource() {
@@ -122,10 +153,6 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
   }
 
   Future<void> _register() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
@@ -301,7 +328,7 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
                                   message: _errorMessage!,
                                   type: InlineStatusType.error,
                                   actionLabel: 'Retry',
-                                  onAction: _isSubmitting ? null : _register,
+                                  onAction: _isSubmitting ? null : _startPhoneVerification,
                                 ),
                                 const SizedBox(height: 10),
                               ],
@@ -504,30 +531,34 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
                               // Terms
                               RichText(
                                 textAlign: TextAlign.center,
-                                text: const TextSpan(
-                                  style: TextStyle(
+                                text: TextSpan(
+                                  style: const TextStyle(
                                     fontSize: 12,
                                     color: AppPalette.mutedText,
                                     height: 1.4,
                                   ),
                                   children: [
-                                    TextSpan(text: 'By signing up, you agree to our '),
+                                    const TextSpan(text: 'By signing up, you agree to our '),
                                     TextSpan(
                                       text: 'Terms of Service',
-                                      style: TextStyle(
+                                      recognizer: TapGestureRecognizer()
+                                        ..onTap = () => Navigator.of(context).pushNamed('/terms-of-service'),
+                                      style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         color: AppPalette.charcoal,
                                       ),
                                     ),
-                                    TextSpan(text: '\nand '),
+                                    const TextSpan(text: '\nand '),
                                     TextSpan(
                                       text: 'Privacy Policy',
-                                      style: TextStyle(
+                                      recognizer: TapGestureRecognizer()
+                                        ..onTap = () => Navigator.of(context).pushNamed('/privacy-policy'),
+                                      style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         color: AppPalette.charcoal,
                                       ),
                                     ),
-                                    TextSpan(text: '.'),
+                                    const TextSpan(text: '.'),
                                   ],
                                 ),
                               ),
@@ -538,7 +569,7 @@ class _VisitorSignUpScreenState extends State<VisitorSignUpScreen> {
                                 width: double.infinity,
                                 height: 52,
                                 child: ElevatedButton(
-                                  onPressed: _isSubmitting ? null : _register,
+                                  onPressed: _isSubmitting ? null : _startPhoneVerification,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppPalette.ochre,
                                     foregroundColor: Colors.white,
