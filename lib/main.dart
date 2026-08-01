@@ -95,9 +95,15 @@ class BrisConnectAppState extends State<BrisConnectApp> {
           bodySmall: TextStyle(color: AppPalette.mutedText),
         ),
       ),
-      home: const SplashScreen(),
+      initialRoute: '/',
       onGenerateRoute: (settings) {
         switch (settings.name) {
+          case '/':
+          case '/index.html':
+            return MaterialPageRoute(
+              builder: (_) => const SplashScreen(),
+              settings: settings,
+            );
           case '/visitor/portal':
             return MaterialPageRoute(
               builder: (_) => const VisitorPortalScreen(),

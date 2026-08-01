@@ -55,6 +55,17 @@ class _SplashScreenState extends State<SplashScreen>
     await Future.delayed(const Duration(milliseconds: 2800));
     if (!mounted) return;
 
+    // Do not redirect away from deep-link routes such as /terms-of-service
+    // or /privacy-policy; Flutter's onGenerateRoute already loaded the
+    // correct screen behind the splash.
+    final routeName = ModalRoute.of(context)?.settings.name;
+    if (routeName != null &&
+        routeName != '/' &&
+        routeName != '/index.html' &&
+        routeName.isNotEmpty) {
+      return;
+    }
+
     final onboardingSeen = await IntroSettingsService.hasSeenOnboarding();
     if (!mounted) return;
 
