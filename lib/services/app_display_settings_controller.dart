@@ -101,10 +101,17 @@ class AppDisplaySettingsController {
       textScaleFactor: textScaleFactor,
     );
     if (language != null && language.isNotEmpty) {
-      final context = navigatorKey.currentContext;
-      if (context != null) {
-        BrisConnectApp.of(context)?.setLocale(Locale(language));
-      }
+      setAppLocale(language);
+    }
+  }
+
+  /// Updates the app's active locale from anywhere in the app.
+  static void setAppLocale(String language) {
+    final trimmed = language.trim();
+    if (trimmed.isEmpty) return;
+    final context = navigatorKey.currentContext;
+    if (context != null) {
+      BrisConnectApp.of(context)?.setLocale(Locale(trimmed));
     }
   }
 }

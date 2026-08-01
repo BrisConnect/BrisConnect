@@ -20,6 +20,7 @@ import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/fallback_image.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
 
+import 'package:brisconnect/services/app_display_settings_controller.dart';
 import 'package:brisconnect/services/firestore_service.dart';
 import 'package:brisconnect/services/location_utilities.dart';
 import 'package:brisconnect/services/olympic_event_email_service.dart';
@@ -2812,6 +2813,10 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                                   newPhone: editedPhone,
                                   newLanguage: editedLanguage,
                                 );
+                                if (ok) {
+                                  AppDisplaySettingsController.setAppLocale(
+                                      editedLanguage);
+                                }
                                 if (!sheetContext.mounted) return;
                                 Navigator.pop(sheetContext);
                                 if (mounted) {

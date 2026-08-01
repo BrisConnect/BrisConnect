@@ -21,7 +21,6 @@ class AiNarrationWidget extends StatefulWidget {
 class _AiNarrationWidgetState extends State<AiNarrationWidget> {
   late final FlutterTts _tts;
   bool _speaking = false;
-  bool _ttsInitialized = false;
   bool _loading = false;
 
   @override
@@ -101,36 +100,32 @@ class _AiNarrationWidgetState extends State<AiNarrationWidget> {
     return localeMap[normalized] ?? 'en-AU';
   }
 
+  /// Re-applies the TTS voice settings every time playback starts so the
+  /// selected profile language is respected even after the user changes it.
   Future<void> _initializeTts() async {
-    if (_ttsInitialized) return;
-    try {
-      final profileLanguage = VisitorAuth.currentVisitor?.language ?? 'en';
-      final ttsLocale = _resolveTtsLanguage(profileLanguage);
+    final profileLanguage = VisitorAuth.currentVisitor?.language ?? 'en';
+    final ttsLocale = _resolveTtsLanguage(profileLanguage);
 
-      await _tts.awaitSpeakCompletion(true);
-      await _tts.setLanguage(ttsLocale);
-      // Natural, conversational Food Discovery Guide voice. Rate 0.82 is
-      // closer to everyday human speech and avoids the slow, robotic feel of
-      // lower rates. Slightly elevated pitch (1.05) keeps it lively and clear.
-      await _tts.setPitch(1.05);
-      await _tts.setSpeechRate(0.82);
-      await _tts.setVolume(1.0);
-      // iOS: play audio even when the device is on silent/ring switch
-      await _tts.setSharedInstance(true);
-      await _tts.setIosAudioCategory(
-        IosTextToSpeechAudioCategory.playback,
-        [
-          IosTextToSpeechAudioCategoryOptions.allowBluetooth,
-          IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
-          IosTextToSpeechAudioCategoryOptions.mixWithOthers,
-          IosTextToSpeechAudioCategoryOptions.defaultToSpeaker,
-        ],
-        IosTextToSpeechAudioMode.defaultMode,
-      );
-      _ttsInitialized = true;
-    } catch (_) {
-      _ttsInitialized = true;
-    }
+    await _tts.awaitSpeakCompletion(true);
+    await _tts.setLanguage(ttsLocale);
+    // Natural, conversational Food Discovery Guide voice. Rate 0.82 is
+    // closer to everyday human speech and avoids the slow, robotic feel of
+    // lower rates. Slightly elevated pitch (1.05) keeps it lively and clear.
+    await _tts.setPitch(1.05);
+    await _tts.setSpeechRate(0.82);
+    await _tts.setVolume(1.0);
+    // iOS: play audio even when the device is on silent/ring switch
+    await _tts.setSharedInstance(true);
+    await _tts.setIosAudioCategory(
+      IosTextToSpeechAudioCategory.playback,
+      [
+        IosTextToSpeechAudioCategoryOptions.allowBluetooth,
+        IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
+        IosTextToSpeechAudioCategoryOptions.mixWithOthers,
+        IosTextToSpeechAudioCategoryOptions.defaultToSpeaker,
+      ],
+      IosTextToSpeechAudioMode.defaultMode,
+    );
   }
 
   String _sanitizeNarration(String raw) {
@@ -192,6 +187,14 @@ class _AiNarrationWidgetState extends State<AiNarrationWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // Re-read the visitor's language on every build so the play button label
+    // and any future TTS configuration reflect the latest profile selection.
+    final profileLanguage = VisitorAuth.currentVisitor?.language ?? 'en';
+    final ttsLocale = _resolveTtsLanguage(profileLanguage);
+    // Apply the locale early so a language change takes effect before the
+    // user presses play again.
+    _tts.setLanguage(ttsLocale).catchError((_) {});
+
     final l10n = AppLocalizations.of(context)!;
     final buttonIcon = _speaking
         ? Icons.stop_circle_rounded
