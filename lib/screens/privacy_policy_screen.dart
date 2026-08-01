@@ -77,7 +77,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     'You have the right to access, update, or delete your personal information. '
                     'You can manage most information through your profile settings. To request '
                     'deletion of your account and associated data, please contact us at '
-                    'support@brisconnect.app.',
+                    'brisconnect0@gmail.com.',
               ),
               _buildSection(
                 title: '8. Children\'s Privacy',
@@ -97,7 +97,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                 title: '10. Contact Us',
                 content:
                     'If you have any questions or concerns about this Privacy Policy, please '
-                    'contact us at support@brisconnect.app.',
+                    'contact us at brisconnect0@gmail.com.',
               ),
               const SizedBox(height: 32),
               Text(

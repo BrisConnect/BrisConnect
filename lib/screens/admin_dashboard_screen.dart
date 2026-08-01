@@ -1514,7 +1514,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                          content: Text('Contact: support@brisconnect.app')),
+                          content: Text('Contact: brisconnect0@gmail.com')),
                     );
                   },
                 ),
