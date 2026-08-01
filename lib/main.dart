@@ -31,7 +31,10 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('Firebase init error: $e');
   }
-  runApp(const BrisConnectApp());
+  // Defer runApp so any synchronous errors during widget construction are
+  // not swallowed by the zone and so the Flutter framework has fully loaded
+  // the deep-link route before building the first frame.
+  Future.microtask(() => runApp(const BrisConnectApp()));
 }
 
 class BrisConnectApp extends StatefulWidget {
