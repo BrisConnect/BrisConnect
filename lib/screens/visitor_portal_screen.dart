@@ -3287,7 +3287,14 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
         const Positioned.fill(
           child: ColoredBox(color: AppPalette.background),
         ),
-        Positioned.fill(child: SafeArea(child: child)),
+        Positioned.fill(
+          child: SafeArea(
+            // Add bottom padding equal to the bottom nav height so the last
+            // list items are not hidden behind the navigation bar.
+            bottom: false,
+            child: child,
+          ),
+        ),
       ],
     );
   }
@@ -3531,6 +3538,12 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   }
 
   List<Widget> _tabChildren() {
+    const bottomNavHeight = 80.0;
+    final width = ResponsiveUtils.widthOf(context);
+    final isTabDesktop = width >= Breakpoints.desktop;
+    final tabBottomPadding = isTabDesktop
+        ? EdgeInsets.zero
+        : const EdgeInsets.only(bottom: bottomNavHeight);
     return [
       _buildDiscoverBody(),
       const SafeArea(child: VisitorActivityFeedScreen()),
@@ -3554,8 +3567,14 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                 onBackPressed: () => setState(() => _selectedIndex = 0),
               ),
             ),
-      _kangarooBackground('assets/Kangaroo2.png', _buildSavedBody()),
-      _kangarooBackground('assets/Kangaroo4.png', _buildProfileBody()),
+      _kangarooBackground(
+        'assets/Kangaroo2.png',
+        Padding(padding: tabBottomPadding, child: _buildSavedBody()),
+      ),
+      _kangarooBackground(
+        'assets/Kangaroo4.png',
+        Padding(padding: tabBottomPadding, child: _buildProfileBody()),
+      ),
     ];
   }
 
