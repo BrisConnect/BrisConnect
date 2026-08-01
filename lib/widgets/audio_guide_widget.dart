@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 
 class AiNarrationWidget extends StatefulWidget {
@@ -61,11 +62,52 @@ class _AiNarrationWidgetState extends State<AiNarrationWidget> {
     });
   }
 
+  /// Maps the visitor's profile language code to a TTS-supported locale.
+  /// Falls back to en-AU when the language is unknown or unsupported.
+  String _resolveTtsLanguage(String code) {
+    final normalized = code.trim().toLowerCase();
+    const localeMap = {
+      'en': 'en-AU',
+      'english': 'en-AU',
+      'zh': 'zh-CN',
+      'chinese': 'zh-CN',
+      'zh-cn': 'zh-CN',
+      'zh-hk': 'zh-HK',
+      'zh-tw': 'zh-TW',
+      'ar': 'ar-SA',
+      'arabic': 'ar-SA',
+      'hi': 'hi-IN',
+      'hindi': 'hi-IN',
+      'es': 'es-ES',
+      'spanish': 'es-ES',
+      'fr': 'fr-FR',
+      'french': 'fr-FR',
+      'de': 'de-DE',
+      'german': 'de-DE',
+      'it': 'it-IT',
+      'italian': 'it-IT',
+      'ja': 'ja-JP',
+      'japanese': 'ja-JP',
+      'ko': 'ko-KR',
+      'korean': 'ko-KR',
+      'pt': 'pt-BR',
+      'portuguese': 'pt-BR',
+      'ru': 'ru-RU',
+      'russian': 'ru-RU',
+      'vi': 'vi-VN',
+      'vietnamese': 'vi-VN',
+    };
+    return localeMap[normalized] ?? 'en-AU';
+  }
+
   Future<void> _initializeTts() async {
     if (_ttsInitialized) return;
     try {
+      final profileLanguage = VisitorAuth.currentVisitor?.language ?? 'en';
+      final ttsLocale = _resolveTtsLanguage(profileLanguage);
+
       await _tts.awaitSpeakCompletion(true);
-      await _tts.setLanguage('en-AU');
+      await _tts.setLanguage(ttsLocale);
       // Natural, conversational Food Discovery Guide voice. Rate 0.82 is
       // closer to everyday human speech and avoids the slow, robotic feel of
       // lower rates. Slightly elevated pitch (1.05) keeps it lively and clear.
