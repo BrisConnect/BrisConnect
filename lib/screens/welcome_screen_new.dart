@@ -610,6 +610,69 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
                                 ),
                               ),
 
+                              const SizedBox(height: 20),
+
+                              // Legal links
+                              FadeTransition(
+                                opacity: _cardController,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    TextButton(
+                                      onPressed: () => Navigator.of(context)
+                                          .pushNamed('/privacy-policy'),
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 8,
+                                        ),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      child: const Text(
+                                        'Privacy Policy',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: _white70,
+                                          decoration: TextDecoration.underline,
+                                          decorationColor: _white50,
+                                        ),
+                                      ),
+                                    ),
+                                    const Text(
+                                      '•',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: _white50,
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.of(context)
+                                          .pushNamed('/terms-of-service'),
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 8,
+                                        ),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      child: const Text(
+                                        'Terms of Service',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: _white70,
+                                          decoration: TextDecoration.underline,
+                                          decorationColor: _white50,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
                               const SizedBox(height: 24),
                             ],
                           ),
