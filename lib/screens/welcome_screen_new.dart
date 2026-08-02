@@ -412,44 +412,55 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
 
     return Scaffold(
       backgroundColor: _background,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              _backgroundGradientTop,
-              _background,
-              _backgroundGradientBottom
-            ],
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Hero background: subtle Brisbane lifestyle imagery with a dark
+          // navy overlay so the sign-in panel stays the focal point.
+          Image.asset(
+            'assets/Brisbane banner.webp',
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            opacity: const AlwaysStoppedAnimation(0.55),
+            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
           ),
-        ),
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              // macOS (and other desktop platforms) can pass zero-size
-              // constraints during the initial window frame. Skip layout
-              // until we have real dimensions to avoid assertion cascades
-              // from hit-testing widgets that have not been laid out.
-              if (constraints.maxWidth <= 0 || constraints.maxHeight <= 0) {
-                return const SizedBox.shrink();
-              }
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  _backgroundGradientTop.withValues(alpha: 0.72),
+                  _background.withValues(alpha: 0.42),
+                  _backgroundGradientBottom.withValues(alpha: 0.72),
+                ],
+              ),
+            ),
+          ),
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // macOS (and other desktop platforms) can pass zero-size
+                // constraints during the initial window frame. Skip layout
+                // until we have real dimensions to avoid assertion cascades
+                // from hit-testing widgets that have not been laid out.
+                if (constraints.maxWidth <= 0 || constraints.maxHeight <= 0) {
+                  return const SizedBox.shrink();
+                }
 
-              final maxCardWidth =
-                  constraints.maxWidth - (horizontalPadding * 2);
-              final cardWidth = (maxCardWidth < 380 ? maxCardWidth : 520)
-                  .toDouble()
-                  .clamp(320.0, maxCardWidth);
+                final maxCardWidth =
+                    constraints.maxWidth - (horizontalPadding * 2);
+                final cardWidth = (maxCardWidth < 380 ? maxCardWidth : 520)
+                    .toDouble()
+                    .clamp(320.0, maxCardWidth);
 
-              // Use a Column instead of Stack/Positioned so the card
-              // renders predictably on Safari and other web browsers.
-              return Column(
-                children: [
-                  Expanded(
-                    child: Center(
-                      child: Container(
-                        width: cardWidth,
-                        margin: const EdgeInsets.symmetric(vertical: 8),
+                return Column(
+                  children: [
+                    Expanded(
+                      child: Center(
+                        child: Container(
+                          width: cardWidth,
+                          margin: const EdgeInsets.symmetric(vertical: 8),
                         padding: EdgeInsets.symmetric(
                           horizontal: horizontalPadding,
                           vertical: 20,
@@ -684,7 +695,8 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
               );
             },
           ),
-        ),
+          ),
+        ],
       ),
     );
   }
