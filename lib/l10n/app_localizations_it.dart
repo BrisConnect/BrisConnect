@@ -24,7 +24,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get signOut => 'Esci';
 
   @override
-  String get email => 'Email';
+  String get email => 'E-mail';
 
   @override
   String get password => 'Password';
@@ -524,12 +524,12 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String categoryLabel(String category) {
-    return 'Categoria: $category';
+    return 'Category: $category';
   }
 
   @override
   String severityLabel(String severity) {
-    return 'Gravità: $severity';
+    return 'Severity: $severity';
   }
 
   @override
@@ -606,7 +606,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String versionLabel(String version) {
-    return 'Versione $version';
+    return 'Version $version';
   }
 
   @override
@@ -688,22 +688,23 @@ class AppLocalizationsIt extends AppLocalizations {
   String get statusWontFix => 'Non risolverà';
 
   @override
-  String get foodBusinessDetails => 'Business Details';
+  String get foodBusinessDetails => 'Dettagli aziendali';
 
   @override
-  String get aboutThisFoodExperience => 'About this Food Experience';
+  String get aboutThisFoodExperience =>
+      'Informazioni su questa esperienza culinaria';
 
   @override
-  String get highlights => 'Highlights';
+  String get highlights => 'Punti salienti';
 
   @override
-  String get contactAndLinks => 'Contact & Links';
+  String get contactAndLinks => 'Contatti e link';
 
   @override
-  String get gallery => 'Gallery';
+  String get gallery => 'Galleria';
 
   @override
-  String get openingHours => 'Opening Hours';
+  String get openingHours => 'Orari di apertura';
 
   @override
   String get menu => 'Menu';
@@ -712,40 +713,42 @@ class AppLocalizationsIt extends AppLocalizations {
   String get menuFallback => 'Menu';
 
   @override
-  String get call => 'Call';
+  String get call => 'Chiamata';
 
   @override
-  String get website => 'Website';
+  String get website => 'Sito web';
 
   @override
-  String get orderOnline => 'Order Online';
+  String get orderOnline => 'Ordina online';
 
   @override
-  String get viewOnMap => 'View on Map';
+  String get viewOnMap => 'Visualizza sulla mappa';
 
   @override
-  String get foodDiscoveryGuide => 'Food Discovery Guide';
+  String get foodDiscoveryGuide => 'Guida alla scoperta del cibo';
 
   @override
   String get foodDiscoveryGuideHelper =>
-      'Tap play to hear your Food Discovery Guide describe this food spot and its highlights.';
+      'Tocca play per ascoltare la tua Guida alla Scoperta del Cibo che descrive questo locale e i suoi punti di forza.';
 
   @override
-  String get stop => 'Stop';
+  String get stop => 'Fermare';
 
   @override
   String get unableToStartNarration =>
-      'Unable to start Food Discovery Guide narration right now.';
+      'Impossibile avviare la narrazione della Guida alla scoperta del cibo in questo momento.';
 
   @override
-  String get unableToCallNumber => 'Unable to call this number right now.';
+  String get unableToCallNumber =>
+      'Impossibile chiamare questo numero in questo momento.';
 
   @override
-  String get unableToSendEmail => 'Unable to send email right now.';
+  String get unableToSendEmail =>
+      'Impossibile inviare l&#39;email in questo momento.';
 
   @override
   String get foodSpotCannotBeShared =>
-      'This food spot cannot be shared right now.';
+      'Questo locale non può essere condiviso al momento.';
 
   @override
   String foodDescriptionIntro(String title, String cuisine, String location) {
@@ -754,7 +757,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String foodDescriptionRating(String rating) {
-    return 'Loved by locals and visitors alike, it holds a $rating-star rating.';
+    return 'Apprezzato sia dai residenti che dai turisti, vanta una valutazione di $rating stelle.';
   }
 
   @override
@@ -769,7 +772,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String foodDescriptionOutro(String title) {
-    return 'Whether you are after a relaxed brunch, a business lunch, or a lively dinner, $title offers a welcoming atmosphere and flavours that capture Brisbane\'s dining scene.';
+    return 'Che siate alla ricerca di un brunch rilassante, di un pranzo di lavoro o di una cena vivace, $title offre un&#39;atmosfera accogliente e sapori che rispecchiano la scena gastronomica di Brisbane.';
   }
 
   @override

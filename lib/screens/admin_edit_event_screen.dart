@@ -358,7 +358,10 @@ class _AdminEditEventScreenState extends State<AdminEditEventScreen> {
   Widget build(BuildContext context) {
     final content = Scaffold(
         backgroundColor: AppPalette.background,
-        appBar: AppBar(title: const LogoAppBarTitle('Edit Event')),
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          title: const LogoAppBarTitle('Edit Event'),
+        ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Container(

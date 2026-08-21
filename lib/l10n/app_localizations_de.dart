@@ -72,7 +72,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get discover => 'Entdecken';
 
   @override
-  String get community => 'Community';
+  String get community => 'Gemeinschaft';
 
   @override
   String get map => 'Karte';
@@ -527,12 +527,12 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String categoryLabel(String category) {
-    return 'Kategorie: $category';
+    return 'Category: $category';
   }
 
   @override
   String severityLabel(String severity) {
-    return 'Schweregrad: $severity';
+    return 'Severity: $severity';
   }
 
   @override
@@ -706,13 +706,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get gallery => 'Gallery';
 
   @override
-  String get openingHours => 'Opening Hours';
+  String get openingHours => 'Öffnungszeiten';
 
   @override
-  String get menu => 'Menu';
+  String get menu => 'Speisekarte';
 
   @override
-  String get menuFallback => 'Menu';
+  String get menuFallback => 'Speisekarte';
 
   @override
   String get call => 'Call';
@@ -724,17 +724,17 @@ class AppLocalizationsDe extends AppLocalizations {
   String get orderOnline => 'Order Online';
 
   @override
-  String get viewOnMap => 'View on Map';
+  String get viewOnMap => 'Auf Karte anzeigen';
 
   @override
-  String get foodDiscoveryGuide => 'Food Discovery Guide';
+  String get foodDiscoveryGuide => 'Leitfaden zur kulinarischen Entdeckung';
 
   @override
   String get foodDiscoveryGuideHelper =>
       'Tap play to hear your Food Discovery Guide describe this food spot and its highlights.';
 
   @override
-  String get stop => 'Stop';
+  String get stop => 'Stoppen';
 
   @override
   String get unableToStartNarration =>
@@ -744,11 +744,11 @@ class AppLocalizationsDe extends AppLocalizations {
   String get unableToCallNumber => 'Unable to call this number right now.';
 
   @override
-  String get unableToSendEmail => 'Unable to send email right now.';
+  String get unableToSendEmail => 'Ich kann momentan keine E-Mails senden.';
 
   @override
   String get foodSpotCannotBeShared =>
-      'This food spot cannot be shared right now.';
+      'Dieser Gastronomie-Tipp kann momentan nicht geteilt werden.';
 
   @override
   String foodDescriptionIntro(String title, String cuisine, String location) {
@@ -757,7 +757,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String foodDescriptionRating(String rating) {
-    return 'Loved by locals and visitors alike, it holds a $rating-star rating.';
+    return 'Es ist bei Einheimischen und Besuchern gleichermaßen beliebt und hat eine $rating-Sterne-Bewertung.';
   }
 
   @override

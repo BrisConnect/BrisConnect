@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -7,20 +9,32 @@ import 'package:just_audio/just_audio.dart';
 import 'package:brisconnect/auth/admin_auth.dart';
 import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
-import 'package:brisconnect/screens/local_login_screen.dart';
+import 'package:brisconnect/screens/login_selection_screen.dart';
 import 'package:brisconnect/screens/visitor_login_screen.dart';
 import 'package:brisconnect/services/email_code_auth_service.dart';
 import 'package:brisconnect/services/phone_auth_service.dart';
 import 'package:brisconnect/utils/phone_validation.dart';
 import 'package:brisconnect/widgets/inline_status_message.dart';
 
+// Curated, freely-usable food photography URLs (Unsplash) for the hero
+// background carousel on the welcome screen.
+const _foodImageUrls = [
+  'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1600&q=85',
+  'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=1600&q=85',
+  'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=1600&q=85',
+  'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?auto=format&fit=crop&w=1600&q=85',
+  'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1600&q=85',
+  'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?auto=format&fit=crop&w=1600&q=85',
+];
+
 // Premium dark navy theme.
 const _background = Color(0xFF081B4B);
-const _backgroundGradientTop = Color(0xFF0C235E);
-const _backgroundGradientBottom = Color(0xFF06153A);
 const _cardDark = Color(0xFF10255C);
 const _cardBorder = Color(0xFF1E3A7A);
 const _accentOrange = Color(0xFFFF7A00);
+const _accentTeal = Color(0xFF00C2A8);
+const _accentPurple = Color(0xFFB18CFF);
+const _accentBlue = Color(0xFF4F8FFF);
 const _white = Colors.white;
 const _white70 = Color(0xFFB3C1E0);
 const _white50 = Color(0xFF8090B8);
@@ -34,10 +48,16 @@ class AnimatedWelcomeScreen extends StatefulWidget {
 
 class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
     with TickerProviderStateMixin {
+  late AnimationController _backgroundController;
+  late AnimationController _backgroundZoomController;
+  late AnimationController _foodImageController;
   late AnimationController _logoController;
+  late AnimationController _logoFloatController;
   late AnimationController _cardController;
   late AudioPlayer _audioPlayer;
   bool _soundPlayed = false;
+  int _foodImageIndex = 0;
+  Timer? _foodImageTimer;
 
   int _adminTapCount = 0;
 
@@ -63,9 +83,29 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
   void initState() {
     super.initState();
 
+    _backgroundController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+
+    _backgroundZoomController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 20),
+    );
+
+    _foodImageController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+
     _logoController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
+    );
+
+    _logoFloatController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
     );
 
     _cardController = AnimationController(
@@ -75,10 +115,28 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
 
     _audioPlayer = AudioPlayer();
 
+    // Background fades in first so the screen doesn't flash on load.
+    _backgroundController.forward();
+
+    // Slow, looping background zoom/pan.
+    _backgroundZoomController.repeat(reverse: true);
+
+    // Cycle through food hero images every 6 seconds.
+    _foodImageTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      if (!mounted) return;
+      setState(() => _foodImageIndex =
+          (_foodImageIndex + 1) % _foodImageUrls.length);
+      _foodImageController.forward(from: 0);
+    });
+
     Future.delayed(const Duration(milliseconds: 200), () {
       _logoController.forward();
       _playWelcomeSound();
     });
+
+    // Gentle, looping logo bob. It runs behind the fade-in so it feels
+    // alive as soon as the logo becomes visible.
+    _logoFloatController.repeat(reverse: true);
 
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) _cardController.forward();
@@ -126,7 +184,12 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
 
   @override
   void dispose() {
+    _backgroundController.dispose();
+    _backgroundZoomController.dispose();
+    _foodImageController.dispose();
+    _foodImageTimer?.cancel();
     _logoController.dispose();
+    _logoFloatController.dispose();
     _cardController.dispose();
     _audioPlayer.dispose();
     _visitorEmailController.dispose();
@@ -410,30 +473,84 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
     final isSmall = size.width < 360;
     final horizontalPadding = size.width < 600 ? 24.0 : 48.0;
 
+    final backgroundFade = CurvedAnimation(
+      parent: _backgroundController,
+      curve: Curves.easeOut,
+    );
+    final backgroundScale = Tween<double>(begin: 1.0, end: 1.08).animate(
+      CurvedAnimation(
+        parent: _backgroundZoomController,
+        curve: Curves.easeInOut,
+      ),
+    );
+    final logoFade = CurvedAnimation(
+      parent: _logoController,
+      curve: Curves.easeOut,
+    );
+    final logoFloat = Tween<double>(begin: 0, end: -8).animate(
+      CurvedAnimation(
+        parent: _logoFloatController,
+        curve: Curves.easeInOut,
+      ),
+    );
+    final cardFade = CurvedAnimation(
+      parent: _cardController,
+      curve: Curves.easeOut,
+    );
+
     return Scaffold(
       backgroundColor: _background,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Hero background: subtle Brisbane lifestyle imagery with a dark
-          // navy overlay so the sign-in panel stays the focal point.
-          Image.asset(
-            'assets/Brisbane banner.webp',
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
-            opacity: const AlwaysStoppedAnimation(0.55),
-            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+          // Hero background: full-screen carousel of realistic food imagery
+          // with a slow zoom and crossfade, plus a dark overlay so the
+          // sign-in panel stays readable.
+          FadeTransition(
+            opacity: backgroundFade,
+            child: AnimatedBuilder(
+              animation: backgroundScale,
+              builder: (_, child) => Transform.scale(
+                scale: backgroundScale.value,
+                alignment: Alignment.center,
+                child: child,
+              ),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 1500),
+                switchInCurve: Curves.easeInOut,
+                switchOutCurve: Curves.easeInOut,
+                child: Image.network(
+                  _foodImageUrls[_foodImageIndex],
+                  key: ValueKey<int>(_foodImageIndex),
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                  width: double.infinity,
+                  height: double.infinity,
+                  opacity: const AlwaysStoppedAnimation(0.95),
+                  loadingBuilder: (_, child, progress) => progress == null
+                      ? child
+                      : Container(color: _background),
+                  errorBuilder: (_, __, ___) => Image.asset(
+                    'assets/Brisbane banner.webp',
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
+                    width: double.infinity,
+                    height: double.infinity,
+                  ),
+                ),
+              ),
+            ),
           ),
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  _backgroundGradientTop.withValues(alpha: 0.72),
-                  _background.withValues(alpha: 0.42),
-                  _backgroundGradientBottom.withValues(alpha: 0.72),
-                ],
+          FadeTransition(
+            opacity: backgroundFade,
+            child: ClipRect(
+              child: BackdropFilter(
+                // Blurs only the food carousel behind it; the login card is
+                // drawn afterwards in the stack, so it stays fully sharp.
+                filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.25),
+                ),
               ),
             ),
           ),
@@ -450,7 +567,7 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
 
                 final maxCardWidth =
                     constraints.maxWidth - (horizontalPadding * 2);
-                final cardWidth = (maxCardWidth < 380 ? maxCardWidth : 520)
+                final cardWidth = (maxCardWidth < 600 ? maxCardWidth : 600)
                     .toDouble()
                     .clamp(320.0, maxCardWidth);
 
@@ -461,253 +578,296 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
                         child: Container(
                           width: cardWidth,
                           margin: const EdgeInsets.symmetric(vertical: 8),
-                        padding: EdgeInsets.symmetric(
-                          horizontal: horizontalPadding,
-                          vertical: 20,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _cardDark,
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(
-                              color: _cardBorder.withValues(alpha: 0.6)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.25),
-                              blurRadius: 40,
-                              offset: const Offset(0, 16),
-                            ),
-                          ],
-                        ),
-                        child: SingleChildScrollView(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const SizedBox(height: 16),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                            vertical: 20,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _cardDark,
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(
+                                color: _cardBorder.withValues(alpha: 0.6)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.25),
+                                blurRadius: 40,
+                                offset: const Offset(0, 16),
+                              ),
+                            ],
+                          ),
+                          child: SingleChildScrollView(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const SizedBox(height: 16),
 
-                              // Logo with hidden admin tap
-                              FadeTransition(
-                                opacity: _logoController,
-                                child: GestureDetector(
-                                  onTap: _onLogoTap,
-                                  child: Column(
-                                    children: [
-                                      Container(
-                                        width: isSmall ? 110 : 130,
-                                        height: isSmall ? 110 : 130,
-                                        decoration: BoxDecoration(
-                                          color: _cardDark,
-                                          borderRadius:
-                                              BorderRadius.circular(30),
-                                          border: Border.all(
-                                              color: _cardBorder, width: 1.5),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: _accentOrange.withValues(
-                                                  alpha: 0.15),
-                                              blurRadius: 30,
-                                              offset: const Offset(0, 8),
+                                // Logo with hidden admin tap
+                                FadeTransition(
+                                  opacity: logoFade,
+                                  child: AnimatedBuilder(
+                                    animation: logoFloat,
+                                    builder: (_, child) => Transform.translate(
+                                      offset: Offset(0, logoFloat.value),
+                                      child: child,
+                                    ),
+                                    child: GestureDetector(
+                                      onTap: _onLogoTap,
+                                      child: Column(
+                                        children: [
+                                          Container(
+                                            width: isSmall ? 120 : 145,
+                                            height: isSmall ? 120 : 145,
+                                            decoration: BoxDecoration(
+                                              color: _cardDark,
+                                              borderRadius:
+                                                  BorderRadius.circular(34),
+                                              border: Border.all(
+                                                  color: _cardBorder,
+                                                  width: 1.5),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: _accentOrange
+                                                      .withValues(alpha: 0.15),
+                                                  blurRadius: 34,
+                                                  offset: const Offset(0, 10),
+                                                ),
+                                              ],
                                             ),
-                                          ],
-                                        ),
-                                        child: ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(30),
-                                          child: Image.asset(
-                                            'assets/images/brisconnect_logo.png',
-                                            fit: BoxFit.cover,
+                                            child: ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(34),
+                                              child: Image.asset(
+                                                'assets/images/brisconnect_logo.png',
+                                                fit: BoxFit.cover,
+                                              ),
+                                            ),
                                           ),
-                                        ),
+                                          const SizedBox(height: 12),
+                                          Text(
+                                            'BrisConnect+',
+                                            style: TextStyle(
+                                              fontSize: isSmall ? 30 : 36,
+                                              fontWeight: FontWeight.w800,
+                                              color: _white,
+                                              letterSpacing: -0.5,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            "Discover Brisbane's Best Local Food",
+                                            style: TextStyle(
+                                              fontSize: isSmall ? 14 : 16,
+                                              fontWeight: FontWeight.w500,
+                                              color: _white70,
+                                              letterSpacing: 0.2,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(height: 12),
-                                      Text(
-                                        'BrisConnect+',
-                                        style: TextStyle(
-                                          fontSize: isSmall ? 30 : 36,
-                                          fontWeight: FontWeight.w800,
-                                          color: _white,
-                                          letterSpacing: -0.5,
-                                        ),
-                                        textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 18),
+
+                                // Visitor sign in button
+                                FadeTransition(
+                                  opacity: cardFade,
+                                  child: _buildLoginButton(
+                                    title: 'Visitor Sign In',
+                                    icon: Icons.person_outline_rounded,
+                                    accentColor: _accentBlue,
+                                    isOpen: _visitorOpen,
+                                    onToggle: _toggleVisitor,
+                                    userType: 'visitor',
+                                    formKey: _visitorFormKey,
+                                    emailController: _visitorEmailController,
+                                    isSending: _visitorSending,
+                                    status: _visitorStatus,
+                                    statusType: _visitorStatusType,
+                                  ),
+                                ),
+
+                                const SizedBox(height: 10),
+
+                                // Business owner sign in button
+                                FadeTransition(
+                                  opacity: cardFade,
+                                  child: _buildLoginButton(
+                                    title: 'Business Owner Sign In',
+                                    icon: Icons.storefront_outlined,
+                                    accentColor: _accentTeal,
+                                    isOpen: _businessOpen,
+                                    onToggle: _toggleBusiness,
+                                    userType: 'local',
+                                    formKey: _businessFormKey,
+                                    emailController: _businessEmailController,
+                                    isSending: _businessSending,
+                                    status: _businessStatus,
+                                    statusType: _businessStatusType,
+                                  ),
+                                ),
+
+                                const SizedBox(height: 10),
+
+                                // Sign Up section
+                                FadeTransition(
+                                  opacity: cardFade,
+                                  child: _buildSignUpSection(
+                                    accentColor: _accentPurple,
+                                  ),
+                                ),
+
+                                const SizedBox(height: 12),
+
+                                // Guest button
+                                FadeTransition(
+                                  opacity: cardFade,
+                                  child: _buildGuestButton(
+                                    accentColor: _accentOrange,
+                                  ),
+                                ),
+
+                                const SizedBox(height: 12),
+
+                                // Acknowledgment of Country
+                                FadeTransition(
+                                  opacity: cardFade,
+                                  child: const Padding(
+                                    padding:
+                                        EdgeInsets.symmetric(horizontal: 8),
+                                    child: Text(
+                                      'BrisConnect+ acknowledges the Traditional Custodians '
+                                      'of the land on which Brisbane stands, and pays respects '
+                                      'to Elders past, present and emerging.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        height: 1.5,
+                                        color: _white50,
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        "Discover Brisbane's Best Local Food",
-                                        style: TextStyle(
-                                          fontSize: isSmall ? 14 : 16,
-                                          fontWeight: FontWeight.w500,
-                                          color: _white70,
-                                          letterSpacing: 0.2,
-                                        ),
-                                        textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 28),
+
+                                // Trust indicators
+                                FadeTransition(
+                                  opacity: cardFade,
+                                  child: Wrap(
+                                    alignment: WrapAlignment.center,
+                                    spacing: 16,
+                                    runSpacing: 8,
+                                    children: [
+                                      _buildTrustIndicator(
+                                        icon: Icons.lock_outline_rounded,
+                                        label: 'Secure Login',
+                                      ),
+                                      _buildTrustIndicator(
+                                        icon: Icons.verified_outlined,
+                                        label: 'Supporting Local Businesses',
+                                      ),
+                                      _buildTrustIndicator(
+                                        icon: Icons.groups_2_outlined,
+                                        label: 'Built for Brisbane Communities',
                                       ),
                                     ],
                                   ),
                                 ),
-                              ),
 
-                              const SizedBox(height: 14),
+                                const SizedBox(height: 20),
 
-                              // Visitor sign in dropdown
-                              FadeTransition(
-                                opacity: _cardController,
-                                child: _buildLoginDropdown(
-                                  title: 'Visitor Sign In',
-                                  icon: Icons.person_outline_rounded,
-                                  isOpen: _visitorOpen,
-                                  onToggle: _toggleVisitor,
-                                  userType: 'visitor',
-                                  formKey: _visitorFormKey,
-                                  emailController: _visitorEmailController,
-                                  isSending: _visitorSending,
-                                  status: _visitorStatus,
-                                  statusType: _visitorStatusType,
-                                ),
-                              ),
-
-                              const SizedBox(height: 10),
-
-                              // Business owner sign in dropdown
-                              FadeTransition(
-                                opacity: _cardController,
-                                child: _buildLoginDropdown(
-                                  title: 'Business Owner Sign In',
-                                  icon: Icons.storefront_outlined,
-                                  isOpen: _businessOpen,
-                                  onToggle: _toggleBusiness,
-                                  userType: 'local',
-                                  formKey: _businessFormKey,
-                                  emailController: _businessEmailController,
-                                  isSending: _businessSending,
-                                  status: _businessStatus,
-                                  statusType: _businessStatusType,
-                                ),
-                              ),
-
-                              const SizedBox(height: 10),
-
-                              // Sign Up section
-                              FadeTransition(
-                                opacity: _cardController,
-                                child: _buildSignUpSection(),
-                              ),
-
-                              const SizedBox(height: 12),
-
-                              // Guest button
-                              FadeTransition(
-                                opacity: _cardController,
-                                child: _buildGuestButton(),
-                              ),
-
-                              const SizedBox(height: 12),
-
-                              // Acknowledgment of Country
-                              FadeTransition(
-                                opacity: _cardController,
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 8),
-                                  child: Text(
-                                    'BrisConnect+ acknowledges the Traditional Custodians '
-                                    'of the land on which Brisbane stands, and pays respects '
-                                    'to Elders past, present and emerging.',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      height: 1.5,
-                                      color: _white50,
-                                    ),
+                                // Legal links
+                                FadeTransition(
+                                  opacity: cardFade,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context)
+                                            .pushNamed('/privacy-policy'),
+                                        style: TextButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                          minimumSize: Size.zero,
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                        child: const Text(
+                                          'Privacy Policy',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: _white70,
+                                            decoration:
+                                                TextDecoration.underline,
+                                            decorationColor: _white50,
+                                          ),
+                                        ),
+                                      ),
+                                      const Text(
+                                        '•',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: _white50,
+                                        ),
+                                      ),
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context)
+                                            .pushNamed('/terms-of-service'),
+                                        style: TextButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                          minimumSize: Size.zero,
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                        child: const Text(
+                                          'Terms of Service',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: _white70,
+                                            decoration:
+                                                TextDecoration.underline,
+                                            decorationColor: _white50,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ),
 
-                              const SizedBox(height: 20),
-
-                              // Legal links
-                              FadeTransition(
-                                opacity: _cardController,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    TextButton(
-                                      onPressed: () => Navigator.of(context)
-                                          .pushNamed('/privacy-policy'),
-                                      style: TextButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 8,
-                                        ),
-                                        minimumSize: Size.zero,
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                      ),
-                                      child: const Text(
-                                        'Privacy Policy',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: _white70,
-                                          decoration: TextDecoration.underline,
-                                          decorationColor: _white50,
-                                        ),
-                                      ),
-                                    ),
-                                    const Text(
-                                      '•',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: _white50,
-                                      ),
-                                    ),
-                                    TextButton(
-                                      onPressed: () => Navigator.of(context)
-                                          .pushNamed('/terms-of-service'),
-                                      style: TextButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 8,
-                                        ),
-                                        minimumSize: Size.zero,
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                      ),
-                                      child: const Text(
-                                        'Terms of Service',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: _white70,
-                                          decoration: TextDecoration.underline,
-                                          decorationColor: _white50,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              const SizedBox(height: 24),
-                            ],
+                                const SizedBox(height: 24),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              );
-            },
-          ),
+                  ],
+                );
+              },
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildGuestButton() {
+  Widget _buildGuestButton({Color accentColor = _accentOrange}) {
     return SizedBox(
       width: double.infinity,
       height: 56,
       child: OutlinedButton.icon(
         onPressed: _navigateAsGuest,
-        icon: const Icon(Icons.explore_outlined, color: _white70, size: 20),
+        icon: Icon(Icons.explore_outlined, color: accentColor, size: 20),
         label: const Text(
           'Explore as Guest',
           style: TextStyle(
@@ -717,8 +877,9 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
           ),
         ),
         style: OutlinedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          side: BorderSide(color: _white.withValues(alpha: 0.3), width: 1.5),
+          backgroundColor: accentColor.withValues(alpha: 0.08),
+          side:
+              BorderSide(color: accentColor.withValues(alpha: 0.5), width: 1.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -728,12 +889,33 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
     );
   }
 
-  Widget _buildSignUpSection() {
+  Widget _buildTrustIndicator({
+    required IconData icon,
+    required String label,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: _white70),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            color: _white70,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSignUpSection({Color accentColor = _accentPurple}) {
     return Container(
       decoration: BoxDecoration(
         color: _background.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _cardBorder.withValues(alpha: 0.5)),
+        border: Border.all(color: accentColor.withValues(alpha: 0.45)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -745,12 +927,11 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
-                  const Icon(Icons.person_add_outlined,
-                      color: _accentOrange, size: 22),
+                  Icon(Icons.person_add_outlined, color: accentColor, size: 22),
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Text(
-                      'Sign Up',
+                      'Create an Account',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -781,6 +962,7 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
                     icon: Icons.person_outline_rounded,
                     label: 'Visitor',
                     subtitle: 'Explore food, events and save favourites',
+                    accentColor: _accentBlue,
                     onTap: () => _showSignUpDialog('visitor'),
                   ),
                   const SizedBox(height: 10),
@@ -788,6 +970,7 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
                     icon: Icons.storefront_outlined,
                     label: 'Business Owner',
                     subtitle: 'List your business and manage promotions',
+                    accentColor: _accentTeal,
                     onTap: () => _showSignUpDialog('local'),
                   ),
                 ],
@@ -808,6 +991,7 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
     required String label,
     required String subtitle,
     required VoidCallback onTap,
+    Color accentColor = _accentOrange,
   }) {
     return InkWell(
       onTap: onTap,
@@ -817,11 +1001,11 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
         decoration: BoxDecoration(
           color: _background.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _cardBorder.withValues(alpha: 0.4)),
+          border: Border.all(color: accentColor.withValues(alpha: 0.35)),
         ),
         child: Row(
           children: [
-            Icon(icon, color: _accentOrange, size: 22),
+            Icon(icon, color: accentColor, size: 22),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -852,7 +1036,7 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
     );
   }
 
-  Widget _buildLoginDropdown({
+  Widget _buildLoginButton({
     required String title,
     required IconData icon,
     required bool isOpen,
@@ -863,12 +1047,13 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
     required bool isSending,
     required String? status,
     required InlineStatusType statusType,
+    Color accentColor = _accentOrange,
   }) {
     return Container(
       decoration: BoxDecoration(
         color: _background.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _cardBorder.withValues(alpha: 0.5)),
+        border: Border.all(color: accentColor.withValues(alpha: 0.45)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -880,7 +1065,7 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
-                  Icon(icon, color: _accentOrange, size: 22),
+                  Icon(icon, color: accentColor, size: 22),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -895,8 +1080,10 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
                   AnimatedRotation(
                     turns: isOpen ? 0.5 : 0,
                     duration: const Duration(milliseconds: 200),
-                    child: const Icon(
-                      Icons.keyboard_arrow_down_rounded,
+                    child: Icon(
+                      isOpen
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
                       color: _white70,
                     ),
                   ),
@@ -931,8 +1118,8 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                              color: _accentOrange, width: 1.5),
+                          borderSide:
+                              BorderSide(color: accentColor, width: 1.5),
                         ),
                       ),
                       validator: (value) {
@@ -961,7 +1148,7 @@ class _AnimatedWelcomeScreenState extends State<AnimatedWelcomeScreen>
                       child: ElevatedButton(
                         onPressed: isSending ? null : () => _sendCode(userType),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: _accentOrange,
+                          backgroundColor: accentColor,
                           foregroundColor: _white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
@@ -1339,7 +1526,8 @@ class _SignUpDialogState extends State<_SignUpDialog> {
             ? VisitorLoginScreen(
                 initialEmail: _emailController.text.trim(),
               )
-            : LocalLoginScreen(
+            : LoginSelectionScreen(
+                initialRole: 'Local',
                 initialEmail: _emailController.text.trim(),
               ),
       ),
@@ -1553,7 +1741,8 @@ class _PhoneVerificationDialog extends StatefulWidget {
   final String phone;
 
   @override
-  State<_PhoneVerificationDialog> createState() => _PhoneVerificationDialogState();
+  State<_PhoneVerificationDialog> createState() =>
+      _PhoneVerificationDialogState();
 }
 
 class _PhoneVerificationDialogState extends State<_PhoneVerificationDialog> {

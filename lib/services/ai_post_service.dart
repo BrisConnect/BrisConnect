@@ -25,6 +25,7 @@ class AiPostService {
     required String businessName,
     required String category,
     String extraContext = '',
+    String format = '',
     Duration timeout = defaultTimeout,
   }) async {
     final params = {
@@ -32,6 +33,7 @@ class AiPostService {
       'businessName': businessName,
       'category': category,
       'extraContext': extraContext,
+      'format': format,
     };
 
     final data = await _call(params).timeout(

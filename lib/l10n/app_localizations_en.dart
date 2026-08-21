@@ -126,8 +126,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileUpdated => 'Profile updated successfully.';
 
   @override
-  String get profileUpdateFailed =>
-      'Could not update profile. Please try again.';
+  String get profileUpdateFailed => 'Please sign up to create profile.';
 
   @override
   String get guestVisitor => 'Guest Visitor';

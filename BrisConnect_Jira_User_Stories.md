@@ -1124,3 +1124,151 @@ Implemented: Yes
 Files:  
 - `lib/screens/visitor_interested_events_screen.dart` — Streams approved discover items via `discoverDataService.watchApprovedDiscoverItems()`, filters `section == 'events'` AND eventId in `VisitorAuth.getInterestedEventIds()`. "Remove from Interested" button calls `VisitorAuth.toggleInterestedEvent(eventId)` with snackbar. Not logged in: snackbar "Please log in as Visitor". Loading hint appears after 2 seconds. Centred empty message when no interested events.  
 - `lib/services/discover_data_service.dart` — Firestore stream of approved discover items.
+
+---
+
+## STORY-45: Receive Real-Time User Notifications
+
+**Summary:** Receive Real-Time User Notifications  
+**Type:** Story  
+**Labels:** `Shared`  
+**Priority:** High  
+**Story Points:** 8  
+**Status:** Done  
+
+**Description:**  
+As a User, I want to receive real-time notifications so that I am immediately informed about important updates relevant to my role (e.g. account status changes, new reviews, event updates, or admin alerts) without needing to manually check the app.
+
+**Acceptance Criteria:**  
+- [ ] The system delivers a push notification to the user's device in real time when a relevant event occurs (e.g. account approval, new review, saved event reminder, admin alert).
+- [ ] Notifications are role-aware, showing only content relevant to the signed-in user's role (Visitor, Local, Admin).
+- [ ] Tapping a notification navigates the user directly to the relevant screen or content.
+- [ ] Users can view a running notification history in-app even if they miss or dismiss the original push alert.
+- [ ] Notification delivery respects the user's saved notification preference settings (e.g. a disabled category is never sent).
+- [ ] An unread notification count is visible on the notification bell/icon and clears once viewed.
+
+**Non-Functional Requirement:**  
+- **Performance & Reliability:** Push notifications must be delivered to the recipient's device within 10 seconds of the triggering event under normal network conditions, with failed sends logged and retried at least once, so users receive timely and dependable alerts without noticeable delay.
+
+**Implementation Notes:**  
+Implemented: Yes  
+Files:  
+- `lib/services/fcm_service.dart` — Firebase Cloud Messaging integration; requests permission, retrieves/stores device tokens, handles foreground/background notification display.  
+- `lib/services/visitor_notification_repository.dart`, `lib/services/owner_notification_repository.dart`, `lib/services/admin_notification_service.dart` — Role-specific Firestore-backed notification history and delivery.  
+- `lib/widgets/visitor_notification_bell.dart`, `lib/widgets/owner_notification_bell.dart`, `lib/features/admin/dashboard/widgets/admin_notification_bell.dart` — In-app bell UI showing unread counts and navigation to notification screens.  
+- `lib/screens/notification_settings_screen.dart` — User-configurable notification preferences respected by delivery logic.  
+- `functions/owner_notifications.js`, `functions/admin_notifications.js` — Cloud Functions triggers that send push/email notifications on relevant Firestore events.
+
+---
+
+## STORY-46: 30-Day Free Trial for New Business Owners
+
+**Summary:** 30-Day Free Trial for New Business Owners  
+**Type:** Story  
+**Labels:** `Local`, `Business`  
+**Priority:** High  
+**Story Points:** 5  
+**Status:** Done  
+
+**Description:**  
+As a new Business Owner, I want to automatically receive a 30-day free trial of BrisConnect+ premium features when I create my business profile, so that I can experience the full value of the platform (AI tools, promotions, insights) before committing to a paid subscription.
+
+**Acceptance Criteria:**  
+- [ ] When a new Local/business owner account is created, the system automatically starts a 30-day free trial without requiring any manual action or payment details from the owner.
+- [ ] During the trial, the owner has full access to premium features (AI Tools, Gemini Insights, AI Promotion Assistant, AI-gated photo/video upload on promotions) as if subscribed.
+- [ ] The dashboard clearly displays the trial status and days remaining (e.g. "FREE TRIAL • N DAYS LEFT") so the owner always knows where they stand.
+- [ ] The owner can subscribe at any time during the trial via a visible "Subscribe Now" call to action.
+- [ ] When the 30-day trial period ends, premium feature access is automatically revoked and the owner is prompted to subscribe, without requiring the owner to open a specific screen for the expiry to take effect.
+- [ ] An existing paid subscription is never overwritten or restarted by the free-trial logic (the trial only applies to genuinely new owners).
+
+**Non-Functional Requirement:**  
+- **Consistency:** Trial/subscription status must be evaluated identically everywhere premium access is gated (dashboard, promotion creation, etc.), so an owner can never see conflicting "trial active" and "subscription required" states across different screens at the same time.
+
+**Implementation Notes:**  
+Implemented: Yes  
+Files:  
+- `functions/payments.js` — `onLocalUserCreated` (Firestore trigger on `local_users/{ownerId}` creation) writes a `business_subscriptions/{ownerId}` doc with `status:'trialing'`, `isFreeTrial:true`, `trialStartedAt`, `trialEndsAt` (+30 days), skipping if a subscription already exists. `getSubscriptionStatus` (callable) treats an active trial as `active:true`. `expireFreeTrials` (scheduled, every 60 min) batch-flips expired trials to `trial_expired` so the dashboard's real-time listener reflects expiry automatically.  
+- `firestore.indexes.json` — Composite index on `business_subscriptions` (`isFreeTrial`, `status`, `trialEndsAt`) supporting the scheduled expiry query.  
+- `lib/screens/business_dashboard_screen.dart` — AI Tools card badge and dedicated `_buildFreeTrialCard` showing trial days remaining and a "Subscribe Now" CTA.  
+- `lib/screens/schedule_promotion_screen.dart` — `_hasActiveSubscription` check via `StripePaymentService.getSubscriptionStatus` automatically honours the trial.
+
+---
+
+## STORY-47: Business Appears in Trending Feed Based on Buzz
+
+**Summary:** Business Appears in Trending Feed Based on Buzz  
+**Type:** Story  
+**Labels:** `Local`, `Business`, `Visitor`  
+**Priority:** Medium  
+**Story Points:** 5  
+**Status:** Done  
+
+**Description:**  
+As a Local Food Business owner, I want my business to appear in the Trending Feed when it receives enough Buzz, so that more visitors discover my business.
+
+**Acceptance Criteria:**  
+- [ ] Trending ranking is based on Buzz score.
+- [ ] Trending list updates automatically.
+- [ ] Business remains trending while meeting the threshold.
+- [ ] Trending badge is displayed.
+- [ ] Trending rankings are refreshed within 5 minutes of a Buzz score update.
+- [ ] Trending Feed data is available 99% of the time.
+
+**Implementation Notes:**  
+Implemented: Yes  
+Files: see Code Components table below.
+
+### Code Components
+
+| Acceptance Criteria | Component | File | Short Code |
+|---|---|---|---|
+| Trending ranking is based on Buzz score | `calculateBuzzScore()` — weighted 0-100 score from rating, reviews, views, buzz votes, shares | `functions/index.js` | ```js\nfunction calculateBuzzScore({ viewCount, reviewCount, averageRating, buzzRatings, shareCount }) {\n  const ratingScore = Math.min((averageRating \|\| 0) / 5, 1) * 30;\n  const reviewScore = Math.min(reviewCount \|\| 0, 50) * 0.8;\n  const viewScore = Math.min(viewCount \|\| 0, 500) * 0.04;\n  const buzzRatingScore = buzzRatings.length > 0\n    ? (buzzRatings.reduce((a, b) => a + b, 0) / buzzRatings.length) * 2\n    : 0;\n  const shareScore = Math.min(shareCount \|\| 0, 50) * 0.1;\n  return Math.round(ratingScore + reviewScore + viewScore + buzzRatingScore + shareScore);\n}\n``` |
+| Business remains trending while meeting the threshold | `TRENDING_THRESHOLD` + `isTrending` flag written on every recalculation | `functions/index.js` | ```js\nconst TRENDING_THRESHOLD = 70;\n// inside recalculateBusinessBuzzScore():\nawait businessRef.update({\n  buzzScore,\n  isTrending: buzzScore >= TRENDING_THRESHOLD,\n  reviewCount,\n  rating: averageRating,\n  updatedAt: admin.firestore.FieldValue.serverTimestamp(),\n});\n``` |
+| Trending rankings are refreshed within 5 minutes | `refreshTrendingScores` — scheduled recalculation for all verified businesses | `functions/index.js` | ```js\nexports.refreshTrendingScores = onSchedule(\n  { region: 'australia-southeast1', schedule: 'every 5 minutes', timeoutSeconds: 300 },\n  async () => {\n    const businessesSnap = await db.collection('businesses')\n      .where('isVerified', '==', true).get();\n    await Promise.all(\n      businessesSnap.docs.map((doc) => recalculateBusinessBuzzScore(doc.id))\n    );\n  },\n);\n``` |
+| Trending list updates automatically / Trending Feed data is available 99% of the time | `getTrendingBusinessesStream()` — real-time Firestore listener backed by Firestore's managed availability | `lib/services/business_profile_service.dart` | ```dart\nStream<List<Business>> getTrendingBusinessesStream({int limit = 20}) {\n  return _firestore\n      .collection(_collection)\n      .where('isTrending', isEqualTo: true)\n      .where('isVerified', isEqualTo: true)\n      .where('isActive', isEqualTo: true)\n      .where('deletedAt', isNull: true)\n      .orderBy('buzzScore', descending: true)\n      .limit(limit)\n      .snapshots()\n      .map((snapshot) =>\n          snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());\n}\n``` |
+| Trending list updates automatically | Composite index supporting the query above | `firestore.indexes.json` | ```json\n{ "fieldPath": "isTrending", "order": "ASCENDING" },\n{ "fieldPath": "isVerified", "order": "ASCENDING" },\n{ "fieldPath": "buzzScore", "order": "DESCENDING" }\n``` |
+| Trending badge is displayed | `_buildBuzzPill()` — "🔥 N buzz" pill on the business profile | `lib/screens/business_profile_view_screen.dart` | ```dart\nWidget _buildBuzzPill(double buzzScore) {\n  return Container(\n    decoration: BoxDecoration(\n      color: AppPalette.ochre.withValues(alpha: 0.12),\n      borderRadius: BorderRadius.circular(99),\n    ),\n    child: Row(mainAxisSize: MainAxisSize.min, children: [\n      const Icon(Icons.local_fire_department_rounded, size: 13, color: AppPalette.ochre),\n      Text('${buzzScore.round()} buzz'),\n    ]),\n  );\n}\n``` |
+| Trending badge is displayed | `FeaturedMarker.trending` — badge icon on map pins | `lib/widgets/map/map_marker_helper.dart` | ```dart\nif (pin.isPremium) return const MapPinIcon.featured(FeaturedMarker.premium);\nif (pin.isPopular) return const MapPinIcon.featured(FeaturedMarker.trending);\nif (pin.isVerified) return const MapPinIcon.featured(FeaturedMarker.verified);\n``` |
+| Trending badge is displayed | Trending count badge on the dedicated feed screen | `lib/screens/top_restaurants_screen.dart` | ```dart\n_AnalyticsCard(\n  icon: Icons.restaurant_rounded,\n  label: 'Trending',\n  value: '${businesses.length}',\n  color: const Color(0xFF00D084),\n)\n``` |
+| Trending ranking is based on Buzz score | `buzzScore`/`isTrending` fields on the client model | `lib/models/business.dart` | ```dart\nfinal double buzzScore; // Computed engagement score (0-100)\nfinal bool isTrending;  // True when buzzScore meets threshold\n``` |
+
+---
+
+## STORY-48: Visitor Reviews and Ratings Build Business Trust
+
+**Summary:** Visitor Reviews and Ratings Build Business Trust  
+**Type:** Story  
+**Labels:** `Local`, `Business`, `Visitor`  
+**Priority:** High  
+**Story Points:** 5  
+**Status:** Done (owner-side reporting partially implemented — see notes)  
+
+**Description:**  
+As a Local Food Business owner, I want visitors to leave reviews and ratings so that I can build trust with future customers.
+
+**Acceptance Criteria:**  
+- [ ] Visitors can rate from 1–5 stars.
+- [ ] Visitors can leave comments.
+- [ ] Average rating updates automatically.
+- [ ] Reviews appear in chronological order.
+- [ ] Business owner can report inappropriate reviews.
+- [ ] Personal data is stored securely and complies with privacy regulations.
+- [ ] Review system has 99.5% uptime.
+
+**Implementation Notes:**  
+Implemented: Mostly Yes — reporting is currently wired up on visitor-facing screens (`business_profile_view_screen.dart`, `reviews_display_widget.dart`), not yet exposed as an explicit action on the business owner's Vendor Reviews screen (`vendor_reviews_screen.dart`). See Code Components table below.
+
+### Code Components
+
+| Acceptance Criteria | Component | File | Short Code |
+|---|---|---|---|
+| Visitors can rate from 1–5 stars | `_validateInputs()` — rejects any rating outside 1-5 before it reaches Firestore | `lib/services/review_service.dart` | ```dart\nvoid _validateInputs({required int rating, required int buzzRating, required String comment}) {\n  if (rating < 1 \|\| rating > 5) {\n    throw Exception('Rating must be between 1 and 5');\n  }\n  ...\n}\n``` |
+| Visitors can rate from 1–5 stars | 5-star tappable UI in the review submission sheet | `lib/widgets/submit_review_bottom_sheet.dart` | ```dart\nRow(\n  children: List.generate(5, (index) {\n    return GestureDetector(\n      onTap: () => setState(() => _rating = index + 1),\n      child: Icon(\n        index < _rating ? Icons.star_rounded : Icons.star_border_rounded,\n        color: AppPalette.ochre, size: 36,\n      ),\n    );\n  }),\n)\n``` |
+| Visitors can leave comments / Visitors can rate from 1–5 stars | `createReview()` — persists rating + comment for a business | `lib/services/review_service.dart` | ```dart\nFuture<String> createReview({\n  required String businessId,\n  String? visitorId,\n  required String visitorName,\n  required int rating,\n  int buzzRating = 0,\n  required String comment,\n  List<String>? photos,\n}) async {\n  _validateInputs(rating: rating, buzzRating: buzzRating, comment: comment);\n  final docRef = await _reviewsCollection.add({\n    'businessId': businessId, 'rating': rating, 'comment': comment.trim(),\n    'createdAt': FieldValue.serverTimestamp(), 'visible': true, ...\n  });\n  await _updateBusinessReviewMetrics(businessId);\n  return docRef.id;\n}\n``` |
+| Average rating updates automatically | `getAverageRatingStream()` — real-time recalculation as reviews change | `lib/services/review_service.dart` | ```dart\nStream<double> getAverageRatingStream(String businessId) {\n  return _reviewsCollection\n      .where('businessId', isEqualTo: businessId)\n      .where('visible', isEqualTo: true)\n      .snapshots()\n      .map((snapshot) {\n    if (snapshot.docs.isEmpty) return 0.0;\n    final total = snapshot.docs.fold<num>(0, (t, d) => t + (d['rating'] as int? ?? 0));\n    return total / snapshot.docs.length;\n  });\n}\n``` |
+| Reviews appear in chronological order | `getBusinessReviewsStream()` — ordered newest-first, real-time | `lib/services/review_service.dart` | ```dart\nStream<List<Review>> getBusinessReviewsStream(String businessId, {int limit = _defaultPageSize}) {\n  return _visibleReviewsForBusiness(businessId)\n      .orderBy('createdAt', descending: true)\n      .limit(limit)\n      .snapshots()\n      .map((s) => s.docs.map((d) => Review.fromFirestore(d)).toList());\n}\n``` |
+| Business owner can report inappropriate reviews | `reportReview()` — marks a review reported/hidden pending moderation | `lib/services/review_service.dart` | ```dart\nFuture<void> reportReview(String reviewId, String reportReason, {String? reporterId, String severity = 'medium'}) async {\n  await _reviewsCollection.doc(reviewId).update({\n    'isReported': true,\n    'reportReason': reportReason.trim(),\n    'reportedBy': reporterId ?? _currentUserIdOrAuth ?? '',\n    'visible': false,\n    'updatedAt': FieldValue.serverTimestamp(),\n  });\n}\n``` |
+| Business owner can report inappropriate reviews | Current call sites are visitor-facing (owner UI not yet wired) | `lib/screens/business_profile_view_screen.dart`, `lib/widgets/reviews_display_widget.dart` | ```dart\nonReport: () => _reportReview(review) // visitor screen only\n``` |
+| Personal data is stored securely and complies with privacy regulations | Firestore security rules — auth-bound create, shape/length validation, restricted update | `firestore.rules` | ```js\nallow create: if isSignedIn()\n  && request.resource.data.visitorId == request.auth.uid\n  && request.resource.data.comment.size() > 0 && request.resource.data.comment.size() <= 500\n  && request.resource.data.rating >= 1 && request.resource.data.rating <= 5;\nallow update: if isAdmin() \|\| (isSignedIn() && resource.data.visitorId == request.auth.uid && ...);\n``` |
+| Personal data is stored securely and complies with privacy regulations | `Review` model — reviewer identity limited to name/id, no extra PII fields persisted | `lib/models/review.dart` | ```dart\nfinal String visitorId;\nfinal String visitorName;\nfinal String? visitorPhotoUrl; // only what's needed to display the review\n``` |
+| Review system has 99.5% uptime | Real-time Firestore `.snapshots()` listeners (no custom backend to fail) + graceful loading/empty states | `lib/services/review_service.dart`, `lib/screens/vendor_reviews_screen.dart` | ```dart\n// StreamBuilder pattern used throughout: shows spinner while\n// ConnectionState.waiting, falls back to empty state on no data,\n// relies on Firestore's managed SLA rather than custom infra.\n```<br>See `_withRetry()` helper in `review_service.dart` for automatic retry on transient Firestore errors. |

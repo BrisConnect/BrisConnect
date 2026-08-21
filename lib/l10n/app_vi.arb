@@ -4,7 +4,7 @@
   "signIn": "Đăng nhập",
   "signUp": "Đăng ký",
   "signOut": "Đăng xuất",
-  "email": "Email",
+  "email": "E-mail",
   "password": "Mật khẩu",
   "phone": "Điện thoại",
   "name": "Tên",
@@ -243,7 +243,7 @@
       }
     }
   },
-  "categoryLabel": "Danh mục: {category}",
+  "categoryLabel": "Category: {category}",
   "@categoryLabel": {
     "placeholders": {
       "category": {
@@ -251,7 +251,7 @@
       }
     }
   },
-  "severityLabel": "Mức độ nghiêm trọng: {severity}",
+  "severityLabel": "Severity: {severity}",
   "@severityLabel": {
     "placeholders": {
       "severity": {
@@ -288,7 +288,7 @@
   "businessNotifications": "Thông báo kinh doanh",
   "about": "Về",
   "aboutDescription": "BrisConnect+ là hướng dẫn thành phố thông minh giúp du khách và người dân địa phương khám phá các sự kiện, khám phá các điểm tham quan và ghi lại trải nghiệm Brisbane của họ trong một nền tảng được kết nối.",
-  "versionLabel": "Phiên bản {version}",
+  "versionLabel": "Version {version}",
   "@versionLabel": {
     "placeholders": {
       "version": {
@@ -319,5 +319,41 @@
   "statusPending": "Chưa giải quyết",
   "statusInProgress": "Đang tiến hành",
   "statusResolved": "Đã giải quyết",
-  "statusWontFix": "Sẽ không sửa chữa"
+  "statusWontFix": "Sẽ không sửa chữa",
+  "@@locale": "vi",
+  "languagePunjabi": "tiếng Punjabi",
+  "foodBusinessDetails": "Thông tin doanh nghiệp",
+  "aboutThisFoodExperience": "Giới thiệu về trải nghiệm ẩm thực này",
+  "highlights": "Điểm nổi bật",
+  "contactAndLinks": "Liên hệ &amp; Liên kết",
+  "gallery": "Phòng trưng bày",
+  "openingHours": "Giờ mở cửa",
+  "menu": "Thực đơn",
+  "menuFallback": "Thực đơn",
+  "call": "Gọi",
+  "website": "Trang web",
+  "orderOnline": "Đặt hàng trực tuyến",
+  "viewOnMap": "Xem trên bản đồ",
+  "foodDiscoveryGuide": "Hướng dẫn khám phá ẩm thực",
+  "foodDiscoveryGuideHelper": "Nhấn nút phát để nghe Hướng dẫn viên Khám phá Ẩm thực mô tả địa điểm ăn uống này và những điểm nổi bật của nó.",
+  "stop": "Dừng lại",
+  "unableToStartNarration": "Hiện tại chưa thể bắt đầu phần thuyết minh của Cẩm nang Khám phá Ẩm thực.",
+  "unableToCallNumber": "Hiện tại không thể gọi số này được.",
+  "unableToSendEmail": "Hiện tại không thể gửi email.",
+  "foodSpotCannotBeShared": "Địa điểm ăn uống này hiện chưa thể chia sẻ.",
+  "foodDescriptionIntro": "Step into {title}, a {cuisine} destination in the heart of {location}.",
+  "foodDescriptionRating": "Được cả người dân địa phương và du khách yêu thích, nơi này đạt được xếp hạng {rating} sao.",
+  "foodDescriptionCategories": "The menu celebrates {categories}, crafted with fresh, locally sourced ingredients.",
+  "foodDescriptionPrice": "Expect a {price} experience that balances quality and value.",
+  "foodDescriptionOutro": "Cho dù bạn muốn thưởng thức bữa sáng muộn thư giãn, bữa trưa công việc hay bữa tối sôi động, {title} đều mang đến không gian ấm cúng và hương vị đặc trưng của ẩm thực Brisbane.",
+  "foodNarrationWelcome": "Welcome to {title}",
+  "foodNarrationBadge": "This is a {badge} stop worth adding to your Brisbane food trail",
+  "foodNarrationCuisine": "It is best known for {cuisine}",
+  "foodNarrationLocation": "You will find it in {location}, where the local dining scene comes alive",
+  "foodNarrationDateTime": "You can usually visit during {dateTime}",
+  "foodNarrationDescription": "Here's what the experience feels like. {description}",
+  "foodNarrationPriceFree": "There is no entry cost to explore this food spot",
+  "foodNarrationPrice": "Pricing is listed as {price}",
+  "foodNarrationRating": "Visitors currently rate it {rating} out of 5",
+  "foodNarrationCategories": "Expect a mix of {categories}"
 }

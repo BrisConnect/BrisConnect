@@ -72,7 +72,11 @@ dependencies:
   intl: ^0.20.2
   fl_chart: ^0.70.0
   path_provider: ^2.1.6
+  gal: ^2.3.0
   android_intent_plus: ^6.1.0
+  google_maps_cluster_manager_2: ^3.2.0
+  speech_to_text: ^7.4.0
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:
@@ -106,6 +110,7 @@ flutter:
     - assets/Elder.png
     - assets/AB.png
     - assets/Brisbane banner.webp
+    - assets/Skyline.jpg
   fonts:
     - family: Material Symbols Outlined
       fonts:

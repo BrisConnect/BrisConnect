@@ -80,6 +80,24 @@ class CrowdReportService {
   CollectionReference<Map<String, dynamic>> get _reportsCollection =>
       firestore.collection('crowd_reports');
 
+  /// Check if a business is a Google Listing (external import from Google Places).
+  /// Google Listings do not allow crowd reports or other crowdsourcing features.
+  Future<bool> _isGoogleListing(String businessId) async {
+    try {
+      final doc = await _withRetry(
+        () => firestore.collection('businesses').doc(businessId).get(),
+        operationName: '_isGoogleListing',
+      );
+      final data = doc.data();
+      return data?['isGoogleListing'] == true ||
+          data?['sourceProvider'] == 'google_places';
+    } catch (e) {
+      debugPrint(
+          '[CrowdReportService] Failed to check if business is Google Listing: $e');
+      return false;
+    }
+  }
+
   /// Cooldown key stored in shared preferences for anonymous users
   String _prefsKey(String eventId) => 'crowd_report_${eventId}_last';
 
@@ -128,8 +146,14 @@ class CrowdReportService {
     }
   }
 
-  /// Returns true if the user can submit a report (not within cooldown)
+  /// Returns true if the user can submit a report (not within cooldown and
+  /// the business is not a Google Listing).
   Future<bool> canSubmitReport(String eventId) async {
+    // Check if business is a Google Listing - crowd reports not allowed
+    if (await _isGoogleListing(eventId)) {
+      return false;
+    }
+
     final userId = _currentUserIdOrAuth;
     if (userId != null) {
       try {
@@ -163,7 +187,18 @@ class CrowdReportService {
   ///
   /// [eventId] may be a business id when the widget is used on a business
   /// detail screen.
+  ///
+  /// Throws an exception if the business is a Google Listing (external import
+  /// with crowdsourcing disabled).
   Future<void> submitReport(String eventId, CrowdLevel level) async {
+    // Check if business is a Google Listing - crowd reports not allowed
+    if (await _isGoogleListing(eventId)) {
+      throw Exception(
+        'Crowd reports are not available for this Google Listing. '
+        'Only BrisConnect-owned businesses accept crowd reports.'
+      );
+    }
+
     await _assertOnline();
     final userId = _currentUserIdOrAuth;
     final now = DateTime.now();

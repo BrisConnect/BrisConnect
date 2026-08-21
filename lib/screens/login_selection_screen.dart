@@ -3,14 +3,25 @@ import 'package:brisconnect/auth/admin_auth.dart';
 import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/screens/local_signup_screen.dart';
-import 'package:brisconnect/screens/visitor_signup_screen.dart';
+import 'package:brisconnect/screens/visitor_registration_screen.dart';
 import 'package:brisconnect/screens/welcome_screen_new.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/utils/auth_validation.dart';
 import 'package:brisconnect/widgets/inline_status_message.dart';
 
 class LoginSelectionScreen extends StatefulWidget {
-  const LoginSelectionScreen({super.key});
+  final String? initialEmail;
+  final String? initialRole;
+  final String? statusMessage;
+  final InlineStatusType? statusType;
+
+  const LoginSelectionScreen({
+    super.key,
+    this.initialEmail,
+    this.initialRole,
+    this.statusMessage,
+    this.statusType,
+  });
 
   @override
   State<LoginSelectionScreen> createState() => _LoginSelectionScreenState();
@@ -19,7 +30,7 @@ class LoginSelectionScreen extends StatefulWidget {
 class _LoginSelectionScreenState extends State<LoginSelectionScreen> {
   int _adminTapCount = 0;
   bool _showAdminOption = false;
-  String? _selectedRole;
+  late String? _selectedRole;
 
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
@@ -27,6 +38,29 @@ class _LoginSelectionScreenState extends State<LoginSelectionScreen> {
   bool _obscurePassword = true;
   bool _isSubmitting = false;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedRole = widget.initialRole;
+    _emailController.text = widget.initialEmail ?? '';
+    if (widget.statusMessage != null) {
+      _errorMessage = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(widget.statusMessage!),
+            backgroundColor: widget.statusType == InlineStatusType.error
+                ? Colors.redAccent
+                : widget.statusType == InlineStatusType.success
+                    ? Colors.green
+                    : null,
+          ),
+        );
+      });
+    }
+  }
 
   void _handleBackPressed() {
     final navigator = Navigator.of(context);
@@ -182,7 +216,11 @@ class _LoginSelectionScreenState extends State<LoginSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final roles = <String>['Visitor', 'Local', if (_showAdminOption) 'Admin'];
+    final roles = <String>[
+    'Visitor',
+    'Local',
+    if (_showAdminOption || _selectedRole == 'Admin') 'Admin'
+  ];
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D1B3F),
@@ -452,7 +490,7 @@ class _LoginSelectionScreenState extends State<LoginSelectionScreen> {
                                                       MaterialPageRoute(
                                                         builder: (_) => _selectedRole ==
                                                                 'Visitor'
-                                                            ? const VisitorSignUpScreen()
+                                                            ? const VisitorRegistrationScreen()
                                                             : const LocalSignUpScreen(),
                                                       ),
                                                     );

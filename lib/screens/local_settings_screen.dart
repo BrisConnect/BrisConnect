@@ -171,7 +171,7 @@ class _LocalSettingsScreenState extends State<LocalSettingsScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const LocationSettingsScreen.local(),
+                          builder: (_) => const LocationSettingsScreen(),
                         ),
                       );
                     },

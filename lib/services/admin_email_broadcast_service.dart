@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:brisconnect/utils/email_formatter.dart';
 
 class AdminEmailBroadcastService {
   AdminEmailBroadcastService({FirebaseFirestore? firestore})
@@ -26,7 +27,7 @@ class AdminEmailBroadcastService {
       throw ArgumentError('Message cannot be empty.');
     }
 
-    final recipients = <String>{};
+    final recipients = <_Recipient>{};
 
     if (normalizedAudience == 'locals' || normalizedAudience == 'both') {
       final localQuery = approvedLocalsOnly
@@ -41,28 +42,45 @@ class AdminEmailBroadcastService {
         final email = _normalizeEmail(
           (data['email'] as String?) ?? '',
         );
-        if (email != null) recipients.add(email);
+        if (email != null) {
+          recipients.add(_Recipient(
+            email: email,
+            name: (data['name'] as String?)?.trim(),
+          ));
+        }
       }
     }
 
     if (normalizedAudience == 'visitors' || normalizedAudience == 'both') {
-      final visitorQuery =
-          await _firestore.collection('visitor_users').get();
+      final visitorQuery = await _firestore.collection('visitor_users').get();
       for (final doc in visitorQuery.docs) {
         final data = doc.data();
         final email = _normalizeEmail(
           (data['email'] as String?) ?? '',
         );
-        if (email != null) recipients.add(email);
+        if (email != null) {
+          recipients.add(_Recipient(
+            email: email,
+            name: (data['name'] as String?)?.trim(),
+          ));
+        }
       }
     }
 
     if (recipients.isEmpty) return 0;
 
-    final htmlBody = _escapeHtml(normalizedMessage)
-        .replaceAll('\n', '<br>');
+    final baseHtml =
+        EmailFormatter.escapeHtml(normalizedMessage).replaceAll('\n', '<br>');
+    final baseSubject = EmailFormatter.escapeHtml(normalizedSubject);
 
-    final wrappedHtml = '''
+    final batch = _firestore.batch();
+    int seq = 0;
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    for (final recipient in recipients) {
+      seq++;
+      final htmlBody = _personalize(baseHtml, recipient);
+      final subject = _personalize(baseSubject, recipient);
+      final wrappedHtml = '''
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
         <div style="background-color:#E8820C;padding:20px 24px;border-radius:8px 8px 0 0;text-align:center;">
           <span style="font-size:24px;font-weight:900;color:#ffffff;letter-spacing:1px;">BrisConnect+</span>
@@ -73,19 +91,13 @@ class AdminEmailBroadcastService {
         <p style="text-align:center;font-size:11px;color:#999999;margin-top:16px;">&copy; 2026 BrisConnect+. All rights reserved.</p>
       </div>
     ''';
-
-    final batch = _firestore.batch();
-    int seq = 0;
-    for (final email in recipients) {
-      seq++;
-      final ts = DateTime.now().millisecondsSinceEpoch;
       final ref = _firestore.collection('mail').doc(
-        'broadcast-$normalizedAudience-$ts-$seq',
-      );
+            'broadcast-$normalizedAudience-$ts-$seq',
+          );
       batch.set(ref, {
-        'to': email,
+        'to': recipient.email,
         'message': {
-          'subject': normalizedSubject,
+          'subject': subject,
           'html': wrappedHtml,
         },
         'meta': {
@@ -93,6 +105,7 @@ class AdminEmailBroadcastService {
           'audience': normalizedAudience,
           'approvedLocalsOnly': approvedLocalsOnly,
         },
+        'status': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
       });
     }
@@ -110,10 +123,20 @@ class AdminEmailBroadcastService {
     if (normalizedEmail == null) throw ArgumentError('Invalid email address.');
     final normalizedSubject = subject.trim();
     final normalizedMessage = message.trim();
-    if (normalizedSubject.isEmpty) throw ArgumentError('Subject cannot be empty.');
-    if (normalizedMessage.isEmpty) throw ArgumentError('Message cannot be empty.');
+    if (normalizedSubject.isEmpty) {
+      throw ArgumentError('Subject cannot be empty.');
+    }
+    if (normalizedMessage.isEmpty) {
+      throw ArgumentError('Message cannot be empty.');
+    }
 
-    final htmlBody = _escapeHtml(normalizedMessage).replaceAll('\n', '<br>');
+    final recipient = _Recipient(email: normalizedEmail, name: null);
+    final htmlBody = _personalize(
+      EmailFormatter.escapeHtml(normalizedMessage).replaceAll('\n', '<br>'),
+      recipient,
+    );
+    final personalizedSubject =
+        _personalize(EmailFormatter.escapeHtml(normalizedSubject), recipient);
     final wrappedHtml = '''
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
         <div style="background-color:#E8820C;padding:20px 24px;border-radius:8px 8px 0 0;text-align:center;">
@@ -130,13 +153,14 @@ class AdminEmailBroadcastService {
     await _firestore.collection('mail').doc('direct-local-$ts').set({
       'to': normalizedEmail,
       'message': {
-        'subject': normalizedSubject,
+        'subject': personalizedSubject,
         'html': wrappedHtml,
       },
       'meta': {
         'type': 'admin_direct_email',
         'targetEmail': normalizedEmail,
       },
+      'status': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
     });
 
@@ -151,12 +175,29 @@ class AdminEmailBroadcastService {
     return trimmed;
   }
 
-  static String _escapeHtml(String input) {
+  /// Replaces personalization placeholders with recipient data.
+  /// Supported placeholders: {{name}}, {{email}}.
+  static String _personalize(String input, _Recipient recipient) {
+    final name = recipient.name?.isNotEmpty == true ? recipient.name! : 'there';
     return input
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#39;');
+        .replaceAll('{{email}}', recipient.email)
+        .replaceAll('{{name}}', EmailFormatter.escapeHtml(name));
   }
+}
+
+class _Recipient {
+  final String email;
+  final String? name;
+
+  _Recipient({required this.email, this.name});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _Recipient &&
+          runtimeType == other.runtimeType &&
+          email == other.email;
+
+  @override
+  int get hashCode => email.hashCode;
 }

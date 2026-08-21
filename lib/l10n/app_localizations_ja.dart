@@ -498,12 +498,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String categoryLabel(String category) {
-    return 'カテゴリ: $category';
+    return 'Category: $category';
   }
 
   @override
   String severityLabel(String severity) {
-    return '重大度: $severity';
+    return 'Severity: $severity';
   }
 
   @override
@@ -549,7 +549,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get languageGreek => 'ギリシャ語';
 
   @override
-  String get languagePunjabi => 'Punjabi';
+  String get languagePunjabi => 'パンジャブ語';
 
   @override
   String get discoverTitle => '地元の食べ物を発見する';
@@ -580,7 +580,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String versionLabel(String version) {
-    return 'バージョン $version';
+    return 'Version $version';
   }
 
   @override
@@ -657,64 +657,62 @@ class AppLocalizationsJa extends AppLocalizations {
   String get statusWontFix => '直らない';
 
   @override
-  String get foodBusinessDetails => 'Business Details';
+  String get foodBusinessDetails => '事業内容の詳細';
 
   @override
-  String get aboutThisFoodExperience => 'About this Food Experience';
+  String get aboutThisFoodExperience => 'この食体験について';
 
   @override
-  String get highlights => 'Highlights';
+  String get highlights => 'ハイライト';
 
   @override
-  String get contactAndLinks => 'Contact & Links';
+  String get contactAndLinks => 'お問い合わせとリンク';
 
   @override
-  String get gallery => 'Gallery';
+  String get gallery => 'ギャラリー';
 
   @override
-  String get openingHours => 'Opening Hours';
+  String get openingHours => '営業時間';
 
   @override
-  String get menu => 'Menu';
+  String get menu => 'メニュー';
 
   @override
-  String get menuFallback => 'Menu';
+  String get menuFallback => 'メニュー';
 
   @override
-  String get call => 'Call';
+  String get call => '電話';
 
   @override
-  String get website => 'Website';
+  String get website => 'Webサイト';
 
   @override
-  String get orderOnline => 'Order Online';
+  String get orderOnline => 'オンラインで注文する';
 
   @override
-  String get viewOnMap => 'View on Map';
+  String get viewOnMap => '地図で表示';
 
   @override
-  String get foodDiscoveryGuide => 'Food Discovery Guide';
+  String get foodDiscoveryGuide => '食の発見ガイド';
 
   @override
   String get foodDiscoveryGuideHelper =>
-      'Tap play to hear your Food Discovery Guide describe this food spot and its highlights.';
+      '再生ボタンをタップして、フードディスカバリーガイドがこの飲食店とその見どころについて解説する音声をお聞きください。';
 
   @override
-  String get stop => 'Stop';
+  String get stop => '停止';
 
   @override
-  String get unableToStartNarration =>
-      'Unable to start Food Discovery Guide narration right now.';
+  String get unableToStartNarration => '現在、フードディスカバリーガイドのナレーションを開始できません。';
 
   @override
-  String get unableToCallNumber => 'Unable to call this number right now.';
+  String get unableToCallNumber => '現在、この番号にはお電話いただけません。';
 
   @override
-  String get unableToSendEmail => 'Unable to send email right now.';
+  String get unableToSendEmail => '現在、メールを送信できません。';
 
   @override
-  String get foodSpotCannotBeShared =>
-      'This food spot cannot be shared right now.';
+  String get foodSpotCannotBeShared => 'この飲食店は現在、情報共有できません。';
 
   @override
   String foodDescriptionIntro(String title, String cuisine, String location) {
@@ -723,7 +721,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String foodDescriptionRating(String rating) {
-    return 'Loved by locals and visitors alike, it holds a $rating-star rating.';
+    return '地元の人々にも観光客にも愛されているこの店は、$ratingつ星の評価を受けています。';
   }
 
   @override
@@ -738,7 +736,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String foodDescriptionOutro(String title) {
-    return 'Whether you are after a relaxed brunch, a business lunch, or a lively dinner, $title offers a welcoming atmosphere and flavours that capture Brisbane\'s dining scene.';
+    return 'ゆったりとしたブランチ、ビジネスランチ、活気のあるディナーなど、どんなシーンにも、$titleはブリスベンの食文化を体現する温かい雰囲気と味わいを提供します。';
   }
 
   @override

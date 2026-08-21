@@ -1,11 +1,16 @@
 const admin = require('firebase-admin');
 const crypto = require('node:crypto');
-const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
+const { onDocumentCreated, onDocumentUpdated, onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const logger = require('firebase-functions/logger');
 const { ogProxy } = require('./og_proxy');
+const { sendAdminNotification } = require('./admin_notifications');
+const { sendVisitorNotification, VISITOR_NOTIFICATION_TYPES } = require('./visitor_notifications');
+const { sendOwnerNotification, sendOwnerNotificationIfEnabled } = require('./owner_notifications');
+const { bulkTranslateAllLanguages } = require('./translation');
+const { synthesizeSpeechEnhanced } = require('./tts_enhanced');
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -1415,15 +1420,16 @@ exports.getPlaceDetails = onCall(
 const TRENDING_THRESHOLD = 70; // Minimum buzzScore to be marked as trending
 const TRENDING_DECAY_DAYS = 7; // Views/reviews older than this contribute less
 
-function calculateBuzzScore({ viewCount, reviewCount, averageRating, buzzRatings }) {
+function calculateBuzzScore({ viewCount, reviewCount, averageRating, buzzRatings, shareCount }) {
   const ratingScore = Math.min((averageRating || 0) / 5, 1) * 30; // up to 30
   const reviewScore = Math.min(reviewCount || 0, 50) * 0.8; // up to 40
   const viewScore = Math.min(viewCount || 0, 500) * 0.04; // up to 20
   const buzzRatingScore = buzzRatings.length > 0
     ? (buzzRatings.reduce((a, b) => a + b, 0) / buzzRatings.length) * 2 // up to 10
     : 0;
+  const shareScore = Math.min(shareCount || 0, 50) * 0.1; // up to 5
 
-  return Math.round(ratingScore + reviewScore + viewScore + buzzRatingScore);
+  return Math.round(ratingScore + reviewScore + viewScore + buzzRatingScore + shareScore);
 }
 
 async function recalculateBusinessBuzzScore(businessId) {
@@ -1451,11 +1457,19 @@ async function recalculateBusinessBuzzScore(businessId) {
     .filter((r) => r > 0);
 
   const viewCount = Number(businessData.viewCount || 0);
+  const sharesSnap = await db
+    .collection('social_shares')
+    .where('businessId', '==', businessId)
+    .count()
+    .get();
+  const shareCount = Number(sharesSnap.data().count || 0);
+
   const buzzScore = calculateBuzzScore({
     viewCount,
     reviewCount,
     averageRating,
     buzzRatings,
+    shareCount,
   });
 
   await businessRef.update({
@@ -1503,10 +1517,226 @@ exports.onBusinessViewed = onDocumentCreated(
   },
 );
 
+/**
+ * Triggered when a visitor shares a business/event/promotion.
+ * Notifies the business owner and admins.
+ */
+exports.onSocialShare = onDocumentCreated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'social_shares/{shareId}',
+  },
+  async (event) => {
+    const data = event.data?.data() || {};
+    const businessId = data.businessId;
+    const shareId = event.params.shareId;
+
+    if (!businessId) {
+      logger.warn('Social share without businessId.', { shareId });
+      return;
+    }
+
+    // Canonical business profiles live in `businesses`; legacy/demo food
+    // profiles live in `food_businesses`. Try both so shares for either
+    // collection surface a notification.
+    const collections = ['businesses', 'food_businesses'];
+    let businessDoc;
+    for (const collection of collections) {
+      const doc = await admin.firestore().collection(collection).doc(businessId).get();
+      if (doc.exists) {
+        businessDoc = doc;
+        break;
+      }
+    }
+    if (!businessDoc || !businessDoc.exists) return;
+
+    const businessData = businessDoc.data() || {};
+    const ownerId = businessData.ownerId;
+    const businessName = businessData.businessName || businessData.name || businessData.title || 'Your business';
+    const platform = data.platform || 'social media';
+
+    if (ownerId) {
+      await sendOwnerNotificationIfEnabled({
+        ownerId,
+        preferenceField: 'notifySocialShare',
+        title: '📣 Shared on social',
+        body: `Someone just shared ${businessName} on ${platform}.`,
+        data: { businessId, shareId, screen: 'business_dashboard' },
+        type: 'social_share',
+      });
+    }
+
+    await _notifyAdmins({
+      title: '📣 Social share',
+      body: `A visitor shared ${businessName} on ${data.platform || 'social media'}.`,
+      data: { businessId, shareId, screen: '/admin/businesses' },
+      type: 'admin_social_share',
+    });
+
+    // Refresh the business buzz score so social sharing feeds into trending.
+    try {
+      await recalculateBusinessBuzzScore(businessId);
+    } catch (e) {
+      logger.error('Failed to recalculate buzz score after social share.', { businessId, error: e });
+    }
+  },
+);
+
+/**
+ * Triggered when an audience_interaction document is created for a view or
+ * save. Sends a push notification to the business owner and admins.
+ * Rate-limited to one notification per interaction type per business per hour
+ * to avoid spamming owners when the same visitor repeatedly opens a profile.
+ */
+exports.onAudienceInteraction = onDocumentCreated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'audience_interactions/{interactionId}',
+  },
+  async (event) => {
+    const data = event.data?.data() || {};
+    const businessId = data.businessId;
+    const ownerId = data.ownerId;
+    const type = data.type;
+    const interactionId = event.params.interactionId;
+
+    if (!businessId || !ownerId || !type) {
+      logger.warn('Audience interaction missing fields.', { interactionId });
+      return;
+    }
+
+    const businessDoc = await admin.firestore().collection('businesses').doc(businessId).get();
+    if (!businessDoc.exists) return;
+
+    const businessName = businessDoc.data().businessName || 'Your business';
+    const prefs = await admin.firestore().collection('local_users').doc(ownerId).get();
+
+    const isView = type === 'view';
+    const isSave = type === 'save';
+    if (!isView && !isSave) return;
+
+    // Throttle to one notification per interaction type per business per hour.
+    const throttleKey = `audience_interaction_${type}_${businessId}`;
+    const lastNotified = businessDoc.data().lastAudienceNotificationAt?.[type]?.toMillis?.() || 0;
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
+    if (lastNotified > oneHourAgo) {
+      logger.info('Audience interaction notification throttled.', { businessId, type });
+      return;
+    }
+
+    const title = isView ? '👀 Profile viewed' : '❤️ Business saved';
+    const body = isView
+      ? `A visitor just viewed ${businessName}.`
+      : `A visitor just saved ${businessName}.`;
+
+    await sendOwnerNotificationIfEnabled({
+      ownerId,
+      preferenceField: 'notifyAudienceActivity',
+      title,
+      body,
+      data: { businessId, screen: 'business_dashboard' },
+      type: isView ? 'profile_view' : 'business_saved',
+    });
+
+    await _notifyAdmins({
+      title: isView ? '👀 Profile view' : '❤️ Business save',
+      body: `A visitor ${isView ? 'viewed' : 'saved'} ${businessName}.`,
+      data: { businessId, screen: '/admin/businesses' },
+      type: isView ? 'admin_profile_view' : 'admin_business_saved',
+    });
+
+    await businessDoc.ref.set(
+      {
+        lastAudienceNotificationAt: {
+          [type]: admin.firestore.FieldValue.serverTimestamp(),
+        },
+      },
+      { merge: true },
+    );
+  },
+);
+
+/**
+ * Triggered when a visitor buzz-votes a post. Resolves the related business
+ * and notifies the owner and admins.
+ */
+exports.onBuzzVote = onDocumentCreated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'post_engagements/{engagementId}',
+  },
+  async (event) => {
+    const data = event.data?.data() || {};
+    const action = data.action;
+    if (action !== 'buzzVote') return;
+
+    const postType = data.postType;
+    const postId = data.postId;
+    if (!postType || !postId) return;
+
+    let businessId;
+    let title = 'a post';
+    const db = admin.firestore();
+
+    try {
+      if (postType === 'business') {
+        businessId = postId;
+      } else if (postType === 'event') {
+        const eventDoc = await db.collection('business_events').doc(postId).get();
+        businessId = eventDoc.exists ? eventDoc.data().businessId : null;
+        title = eventDoc.exists ? eventDoc.data().title || title : title;
+      } else if (postType === 'photo') {
+        const photoDoc = await db.collection('visitor_photos').doc(postId).get();
+        businessId = photoDoc.exists ? (photoDoc.data().businessId || null) : null;
+        const bName = businessId
+          ? (await db.collection('businesses').doc(businessId).get()).data()?.businessName
+          : null;
+        title = bName || title;
+      } else if (postType === 'review') {
+        const reviewDoc = await db.collection('reviews').doc(postId).get();
+        businessId = reviewDoc.exists ? reviewDoc.data().businessId : null;
+        title = reviewDoc.exists ? reviewDoc.data().comment?.slice(0, 30) || title : title;
+      }
+
+      if (!businessId) return;
+
+      const businessDoc = await db.collection('businesses').doc(businessId).get();
+      if (!businessDoc.exists) return;
+
+      const ownerId = businessDoc.data().ownerId;
+      if (!ownerId) return;
+
+      const businessName = businessDoc.data().businessName || 'Your business';
+
+      await sendOwnerNotificationIfEnabled({
+        ownerId,
+        preferenceField: 'notifyBuzzVote',
+        title: '⚡ New buzz vote',
+        body: `Someone buzz-voted ${businessName}.`,
+        data: { businessId, postId, postType, screen: 'business_dashboard' },
+        type: 'buzz_vote',
+      });
+
+      await _notifyAdmins({
+        title: '⚡ Buzz vote',
+        body: `A visitor buzz-voted ${businessName}.`,
+        data: { businessId, postId, postType, screen: '/admin/businesses' },
+        type: 'admin_buzz_vote',
+      });
+    } catch (e) {
+      logger.warn('Buzz vote notification failed.', { error: e.message, postType, postId });
+    }
+  },
+);
+
 // Scheduled job to refresh trending scores every 5 minutes and catch any drift.
 exports.refreshTrendingScores = onSchedule(
   {
     region: 'australia-southeast1',
+    secrets: [brevoApiKey],
     schedule: 'every 5 minutes',
     timeoutSeconds: 300,
   },
@@ -1524,152 +1754,85 @@ exports.refreshTrendingScores = onSchedule(
 );
 
 // ── Business-owner push notifications ───────────────────────────────────────
+// The shared sendOwnerNotification helper now lives in owner_notifications.js.
 
 /**
- * Sends an FCM message to all tokens registered for a business owner,
- * logs the notification in the owner's `notifications` subcollection, and
- * records the outcome in `user_notifications` for admin observability.
- *
- * @param {Object} options
- * @param {string} options.ownerId
- * @param {string} options.title
- * @param {string} options.body
- * @param {Object} [options.data={}]
- * @param {string} [options.type]
- * @param {string} [options.category] - iOS notification category (e.g. 'OFFER_EXPIRY').
- * @param {Array<{action:string,title:string}>} [options.actions] - Action buttons surfaced on the notification.
+ * Triggered when a business document is updated by the owner. Sends a push
+ * notification confirming the update, but only when meaningful profile fields
+ * change and at most once per hour to avoid spam.
  */
-async function sendOwnerNotification({ ownerId, title, body, data = {}, type, category, actions }) {
-  const db = admin.firestore();
-  const messaging = admin.messaging();
+exports.onBusinessUpdated = onDocumentUpdated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'businesses/{businessId}',
+  },
+  async (event) => {
+    const before = event.data?.before?.data() || {};
+    const after = event.data?.after?.data() || {};
+    const businessId = event.params.businessId;
+    const ownerId = after.ownerId;
+    const businessName = after.businessName || 'Your business';
 
-  if (!ownerId) {
-    logger.warn('sendOwnerNotification called without ownerId.', { type });
-    return { success: false, sent: 0, error: 'Missing ownerId' };
-  }
+    if (!ownerId) {
+      logger.warn('Business updated without ownerId.', { businessId });
+      return;
+    }
 
-  const tokensSnap = await db
-    .collection('local_users')
-    .doc(ownerId)
-    .collection('fcmTokens')
-    .get();
+    const prefs = await admin.firestore().collection('local_users').doc(ownerId).get();
+    if (!prefs.exists || prefs.data().notifyBusinessUpdates === false) {
+      logger.info('Owner disabled business update notifications.', { ownerId, businessId });
+      return;
+    }
 
-  const tokens = tokensSnap.docs.map((d) => d.id).filter(Boolean);
-  if (tokens.length === 0) {
-    logger.info('No FCM tokens for owner.', { ownerId, type });
-    return { success: false, sent: 0, error: 'No tokens' };
-  }
-
-  const dataPayload = {
-    type: type || 'business',
-    ...Object.fromEntries(
-      Object.entries(data).map(([k, v]) => [k, String(v ?? '')]),
-    ),
-  };
-  if (actions && actions.length > 0) {
-    dataPayload.actions = JSON.stringify(actions);
-  }
-
-  const apsPayload = {
-    alert: { title, body },
-    badge: 1,
-    sound: 'default',
-  };
-  if (category) {
-    apsPayload.category = category;
-  }
-
-  const payload = {
-    notification: { title, body },
-    data: dataPayload,
-    apns: {
-      payload: {
-        aps: apsPayload,
-      },
-    },
-  };
-
-  const batchSize = 500;
-  let sentCount = 0;
-  const failedTokens = [];
-
-  for (let i = 0; i < tokens.length; i += batchSize) {
-    const batch = tokens.slice(i, i + batchSize);
-    const response = await messaging.sendEachForMulticast({
-      tokens: batch,
-      ...payload,
+    // Only notify when meaningful owner-editable fields change.
+    const trackedFields = [
+      'businessName',
+      'category',
+      'description',
+      'address',
+      'contactNumber',
+      'website',
+      'socialMedia',
+      'logoUrl',
+      'coverImageUrl',
+      'businessHours',
+      'menuItems',
+      'photos',
+    ];
+    const hasMeaningfulChange = trackedFields.some((field) => {
+      const beforeVal = before[field];
+      const afterVal = after[field];
+      return JSON.stringify(beforeVal) !== JSON.stringify(afterVal);
     });
 
-    sentCount += response.successCount;
+    if (!hasMeaningfulChange) {
+      logger.info('Business update ignored: no tracked fields changed.', { businessId });
+      return;
+    }
 
-    response.responses.forEach((resp, idx) => {
-      if (!resp.success) {
-        const token = batch[idx];
-        failedTokens.push(token);
-        logger.warn('FCM send failed.', {
-          ownerId,
-          token: token.substring(0, 16),
-          error: resp.error?.message,
-        });
-      }
+    // Throttle to one notification per business per hour.
+    const lastNotified = after.lastUpdateNotifiedAt?.toMillis?.() || 0;
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
+    if (lastNotified > oneHourAgo) {
+      logger.info('Business update notification throttled.', { businessId, ownerId });
+      return;
+    }
+
+    await sendOwnerNotificationIfEnabled({
+      ownerId,
+      preferenceField: 'notifyBusinessUpdates',
+      title: '✅ Business details updated',
+      body: `${businessName} has been updated successfully. Your listing changes are now live.`,
+      data: { businessId, screen: 'business_detail' },
+      type: 'business_updated',
     });
-  }
 
-  // Clean up stale tokens to avoid repeated failures.
-  if (failedTokens.length > 0) {
-    await Promise.all(
-      failedTokens.map((token) =>
-        db
-          .collection('local_users')
-          .doc(ownerId)
-          .collection('fcmTokens')
-          .doc(token)
-          .delete()
-          .catch(() => {}),
-      ),
-    );
-  }
-
-  const notificationId = db
-    .collection('local_users')
-    .doc(ownerId)
-    .collection('notifications')
-    .doc().id;
-
-  const notificationRecord = {
-    id: notificationId,
-    ownerId,
-    type: type || 'business',
-    title,
-    body,
-    data,
-    sentCount,
-    failedCount: failedTokens.length,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    read: false,
-  };
-
-  await db
-    .collection('local_users')
-    .doc(ownerId)
-    .collection('notifications')
-    .doc(notificationId)
-    .set(notificationRecord);
-
-  await db.collection('user_notifications').add({
-    ...notificationRecord,
-    source: 'cloud-function',
-  });
-
-  logger.info('Owner notification processed.', {
-    ownerId,
-    type,
-    sentCount,
-    failedCount: failedTokens.length,
-  });
-
-  return { success: true, sent: sentCount, failed: failedTokens.length };
-}
+    await event.data.after.ref.update({
+      lastUpdateNotifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  },
+);
 
 /**
  * Triggered when a promotion document is created or updated. If engagement
@@ -1679,6 +1842,7 @@ async function sendOwnerNotification({ ownerId, title, body, data = {}, type, ca
 exports.onPromotionEngagementSpike = onDocumentUpdated(
   {
     region: 'australia-southeast1',
+    secrets: [brevoApiKey],
     document: 'promotions/{promotionId}',
   },
   async (event) => {
@@ -1690,12 +1854,6 @@ exports.onPromotionEngagementSpike = onDocumentUpdated(
 
     if (!ownerId) {
       logger.warn('Promotion missing ownerId.', { promotionId });
-      return;
-    }
-
-    const prefs = await admin.firestore().collection('local_users').doc(ownerId).get();
-    if (!prefs.exists || prefs.data().notifyTrendingPromotion === false) {
-      logger.info('Owner disabled trending promotion notifications.', { ownerId, promotionId });
       return;
     }
 
@@ -1714,12 +1872,13 @@ exports.onPromotionEngagementSpike = onDocumentUpdated(
     const oneHourAgo = Date.now() - 60 * 60 * 1000;
     if (lastNotified > oneHourAgo) return;
 
-    await sendOwnerNotification({
+    await sendOwnerNotificationIfEnabled({
       ownerId,
+      preferenceField: 'notifyTrendingPromotion',
       title: '🔥 Your promotion is trending!',
       body: `"${title}" is getting lots of attention — ${currentViews} views and ${currentClicks} clicks so far.`,
       data: { promotionId, screen: 'promotion_detail' },
-      type: 'trending_promotion',
+      type: 'promotion_performance',
     });
 
     await event.data.after.ref.update({
@@ -1736,6 +1895,7 @@ exports.onPromotionEngagementSpike = onDocumentUpdated(
 exports.notifyExpiringOffers = onSchedule(
   {
     region: 'australia-southeast1',
+    secrets: [brevoApiKey],
     schedule: 'every 15 minutes',
     timeoutSeconds: 300,
   },
@@ -1764,23 +1924,19 @@ exports.notifyExpiringOffers = onSchedule(
 
       if (!ownerId) continue;
 
-      const prefs = await db.collection('local_users').doc(ownerId).get();
-      if (!prefs.exists || prefs.data().notifyOfferExpiry === false) {
-        continue;
-      }
-
       // Avoid duplicate expiry reminders per promotion.
       const alreadyReminded = promotion.expiryReminderSentAt?.toMillis?.() || 0;
       if (alreadyReminded > now.toMillis() - oneDay) {
         continue;
       }
 
-      const result = await sendOwnerNotification({
+      const result = await sendOwnerNotificationIfEnabled({
         ownerId,
+        preferenceField: 'notifyOfferExpiry',
         title: '⏰ Offer expiring soon',
         body: `"${title}" expires in about ${hoursLeft} hour${hoursLeft === 1 ? '' : 's'}. Boost or extend it to keep the momentum going.`,
         data: { promotionId: promotionDoc.id, screen: 'promotion_detail' },
-        type: 'offer_expiry',
+        type: 'promotion_expiring',
         category: 'OFFER_EXPIRY',
         actions: [{ action: 'extend', title: 'Extend offer' }],
       });
@@ -1797,6 +1953,63 @@ exports.notifyExpiringOffers = onSchedule(
     logger.info('Expiring offer reminders complete.', {
       checked: promotionsSnap.size,
       sent: results.filter((r) => r.success).length,
+    });
+  },
+);
+
+/**
+ * Scheduled job that transitions `promotions` documents through their
+ * lifecycle: `scheduled` -> `active` once `scheduledAt` has passed, and
+ * `active` -> `expired` once `endAt` has passed. Without this job, promotions
+ * created via "Create Promotion" never leave the `scheduled` state and never
+ * count toward a business's active-promotions metrics.
+ */
+exports.activatePromotions = onSchedule(
+  {
+    region: 'australia-southeast1',
+    schedule: 'every 5 minutes',
+    timeoutSeconds: 300,
+  },
+  async () => {
+    const db = admin.firestore();
+    const now = admin.firestore.Timestamp.now();
+    const batch = db.batch();
+    let activatedCount = 0;
+    let expiredCount = 0;
+
+    const dueToActivateSnap = await db
+      .collection('promotions')
+      .where('status', '==', 'scheduled')
+      .where('scheduledAt', '<=', now)
+      .get();
+    for (const doc of dueToActivateSnap.docs) {
+      batch.update(doc.ref, {
+        status: 'active',
+        activatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      activatedCount++;
+    }
+
+    const dueToExpireSnap = await db
+      .collection('promotions')
+      .where('status', '==', 'active')
+      .where('endAt', '<=', now)
+      .get();
+    for (const doc of dueToExpireSnap.docs) {
+      batch.update(doc.ref, {
+        status: 'expired',
+        expiredAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      expiredCount++;
+    }
+
+    if (activatedCount > 0 || expiredCount > 0) {
+      await batch.commit();
+    }
+
+    logger.info('Promotion lifecycle sweep complete.', {
+      activated: activatedCount,
+      expired: expiredCount,
     });
   },
 );
@@ -1989,6 +2202,7 @@ exports.extendPromotion = onCall(
 exports.onNewReviewNotifyOwner = onDocumentCreated(
   {
     region: 'australia-southeast1',
+    secrets: [brevoApiKey],
     document: 'reviews/{reviewId}',
   },
   async (event) => {
@@ -2007,30 +2221,683 @@ exports.onNewReviewNotifyOwner = onDocumentCreated(
     const ownerId = businessDoc.data().ownerId;
     if (!ownerId) return;
 
-    const prefs = await admin.firestore().collection('local_users').doc(ownerId).get();
-    if (!prefs.exists || prefs.data().notifyNewReview === false) {
-      logger.info('Owner disabled new review notifications.', { ownerId, reviewId });
-      return;
-    }
-
     const businessName = businessDoc.data().businessName || 'Your business';
     const rating = data.rating;
     const stars = typeof rating === 'number' ? '⭐'.repeat(Math.min(5, Math.max(1, rating))) : '';
 
-    await sendOwnerNotification({
+    await sendOwnerNotificationIfEnabled({
       ownerId,
+      preferenceField: 'notifyNewReview',
       title: '⭐ New review received',
       body: `${businessName} received a new ${stars} review. See what customers are saying.`,
-      data: { businessId, reviewId, screen: 'reviews' },
+      // Owners aren't admins - route to their own reviews tab, not the admin hub.
+      data: { businessId, reviewId, screen: 'business_dashboard' },
       type: 'new_review',
     });
+
+    await _notifyAdmins({
+      title: '⭐ New review',
+      body: `${businessName} received a ${stars || 'new'} review from a visitor.`,
+      data: { businessId, reviewId, screen: '/admin/reports' },
+      type: 'admin_new_review',
+    });
+  },
+);
+
+/**
+ * Triggered when a local user's account approval status changes. Sends a
+ * push (and in-app) notification so the owner knows immediately whether
+ * their account was approved or rejected — previously only email/SMS were
+ * queued from the admin UI, leaving the app notification channel silent.
+ */
+exports.onLocalUserApprovalChanged = onDocumentUpdated(
+  {
+    region: 'australia-southeast1',
+    document: 'local_users/{ownerId}',
+  },
+  async (event) => {
+    const before = event.data.before.data() || {};
+    const after = event.data.after.data() || {};
+    const ownerId = event.params.ownerId;
+
+    const previousStatus = String(before.approvalStatus || '').toLowerCase();
+    const currentStatus = String(after.approvalStatus || '').toLowerCase();
+
+    if (previousStatus === currentStatus) return;
+    if (currentStatus !== 'approved' && currentStatus !== 'rejected') return;
+
+    const businessName = after.businessName || after.name || 'your account';
+
+    if (currentStatus === 'approved') {
+      await sendOwnerNotification({
+        ownerId,
+        title: '✅ Account approved',
+        body: `${businessName} is now approved. You can publish events and manage your business profile.`,
+        data: { screen: '/local/portal' },
+        type: 'account_approved',
+      });
+    } else {
+      await sendOwnerNotification({
+        ownerId,
+        title: '❌ Account not approved',
+        body: `${businessName} was not approved. Please contact support if you believe this is a mistake.`,
+        data: { screen: '/local/portal' },
+        type: 'account_rejected',
+      });
+    }
+  },
+);
+
+/**
+ * Resolves the businessId a community feed comment belongs to, based on the
+ * postType/postId stored on the comment document.
+ */
+async function _resolveBusinessIdForComment(postType, postId) {
+  if (!postType || !postId) return null;
+  const db = admin.firestore();
+  try {
+    switch (postType) {
+      case 'business': {
+        // 'business' items can originate from businesses/, promotions/, or
+        // ai_generated_posts/, all of which map to the same feed type.
+        const businessDoc = await db.collection('businesses').doc(postId).get();
+        if (businessDoc.exists) return postId;
+
+        const promoDoc = await db.collection('promotions').doc(postId).get();
+        if (promoDoc.exists) return promoDoc.data().businessId || null;
+
+        const aiPostDoc = await db.collection('ai_generated_posts').doc(postId).get();
+        if (aiPostDoc.exists) return aiPostDoc.data().businessId || null;
+
+        return null;
+      }
+      case 'review': {
+        const doc = await db.collection('reviews').doc(postId).get();
+        return doc.exists ? doc.data().businessId || null : null;
+      }
+      case 'photo': {
+        const doc = await db.collection('visitor_photos').doc(postId).get();
+        return doc.exists ? doc.data().businessId || null : null;
+      }
+      case 'event': {
+        const doc = await db.collection('business_events').doc(postId).get();
+        return doc.exists ? doc.data().businessId || null : null;
+      }
+      default:
+        return null;
+    }
+  } catch (e) {
+    logger.warn('Failed to resolve businessId for comment.', {
+      postType,
+      postId,
+      error: e.message,
+    });
+    return null;
+  }
+}
+
+/**
+ * Triggered when a visitor comments on a community feed post. Notifies the
+ * related business owner if they have enabled new-comment notifications.
+ */
+exports.onNewCommentNotifyOwner = onDocumentCreated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'post_comments/{commentId}',
+  },
+  async (event) => {
+    const data = event.data?.data() || {};
+    const commentId = event.params.commentId;
+    const postType = data.postType;
+    const postId = data.postId;
+    const visitorName = data.visitorName || 'A visitor';
+    const text = String(data.text || '').trim();
+
+    const businessId = await _resolveBusinessIdForComment(postType, postId);
+    if (!businessId) return;
+
+    const businessDoc = await admin.firestore().collection('businesses').doc(businessId).get();
+    if (!businessDoc.exists) return;
+
+    const ownerId = businessDoc.data().ownerId;
+    if (!ownerId) return;
+
+    const businessName = businessDoc.data().businessName || 'Your business';
+    const preview = text.length > 0
+      ? (text.length > 80 ? `${text.slice(0, 80)}…` : text)
+      : data.mediaType === 'video'
+        ? 'shared a video'
+        : data.mediaType === 'image'
+          ? 'shared a photo'
+          : 'left a comment';
+
+    await sendOwnerNotificationIfEnabled({
+      ownerId,
+      preferenceField: 'notifyNewComment',
+      title: '💬 New comment',
+      body: `${visitorName} commented on ${businessName}: "${preview}"`,
+      emailSubject: `New comment on ${businessName}`,
+      data: { businessId, postId, postType, commentId, screen: '/local/portal' },
+      type: 'new_comment',
+    });
+  },
+);
+
+// ── Admin platform notifications ────────────────────────────────────────────
+
+/**
+ * Backwards-compatible helper: routes owner-triggered admin alerts through
+ * the shared [sendAdminNotification] pipeline so they appear in the admin
+ * notification panel as well as push notifications.
+ */
+async function _notifyAdmins({ title, body, data = {}, type }) {
+  await sendAdminNotification({ title, body, data, type });
+}
+
+
+/**
+ * Triggered when a new business profile is created. Notifies admins so they
+ * can review and verify the listing.
+ */
+exports.onBusinessCreatedNotifyAdmins = onDocumentCreated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'businesses/{businessId}',
+  },
+  async (event) => {
+    const data = event.data?.data() || {};
+    const businessId = event.params.businessId;
+    const businessName = data.businessName || 'a new business';
+    const category = data.category || 'Business';
+
+    if (data.isVerified === true) {
+      logger.info('Business already verified on create; skipping admin alert.', { businessId });
+      return;
+    }
+
+    await sendAdminNotification({
+      title: '🏪 New business registration',
+      body: `${businessName} (${category}) was just registered and needs verification.`,
+      data: { businessId, screen: '/admin/businesses', relatedItemType: 'business' },
+      type: 'new_business',
+    });
+  },
+);
+
+/**
+ * Triggered when a local user submits an event that requires admin approval.
+ */
+exports.onEventPendingApproval = onDocumentCreated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'events/{eventId}',
+  },
+  async (event) => {
+    const data = event.data?.data() || {};
+    const eventId = event.params.eventId;
+    const status = String(data.reviewStatus || data.status || '').toLowerCase();
+
+    if (status !== 'pending') {
+      return;
+    }
+
+    const title = data.title || 'an event';
+    const createdBy = data.createdByLocalEmail || data.createdBy || 'a local user';
+
+    await sendAdminNotification({
+      title: '📅 Event approval requested',
+      body: `"${title}" submitted by ${createdBy} is awaiting approval.`,
+      data: { eventId, screen: '/admin/reported-events', relatedItemType: 'event' },
+      type: 'event_approval',
+    });
+  },
+);
+
+/**
+ * Triggered when an owner schedules a new promotion. Notifies admins so they
+ * can monitor promotional content.
+ */
+exports.onPromotionScheduled = onDocumentCreated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'promotions/{promotionId}',
+  },
+  async (event) => {
+    const data = event.data?.data() || {};
+    const promotionId = event.params.promotionId;
+    const title = data.title || 'a promotion';
+    const businessName = data.businessName || data.businessId || 'a business';
+    const ownerId = data.ownerId;
+    const businessId = data.businessId;
+
+    if (ownerId) {
+      await sendOwnerNotificationIfEnabled({
+        ownerId,
+        preferenceField: 'notifyPromotionStatus',
+        title: '📢 Promotion submitted',
+        body: `"${title}" has been received and is awaiting review.`,
+        data: { promotionId, businessId, screen: '/local/notifications' },
+        type: 'promotion_published',
+      });
+    }
+
+    await sendAdminNotification({
+      title: '📢 New promotion scheduled',
+      body: `"${title}" was scheduled for ${businessName}.`,
+      data: { promotionId, screen: '/admin/promotions', relatedItemType: 'promotion' },
+      type: 'promotion_approval',
+    });
+  },
+);
+
+/**
+ * Triggered when an event report is submitted by a visitor.
+ */
+exports.onEventReported = onDocumentCreated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'event_reports/{reportId}',
+  },
+  async (event) => {
+    const data = event.data?.data() || {};
+    const reportId = event.params.reportId;
+    const eventId = data.eventId;
+    const reason = data.reason || 'reported';
+    const severity = data.severity || 'medium';
+
+    if (!eventId) {
+      logger.warn('Event report missing eventId.', { reportId });
+      return;
+    }
+
+    await sendAdminNotification({
+      title: '🚨 Event reported',
+      body: `An event was reported (${reason}, severity: ${severity}).`,
+      data: { reportId, eventId, screen: '/admin/reports', relatedItemType: 'event_report' },
+      type: 'reported_content',
+    });
+  },
+);
+
+/**
+ * Triggered when a review/recommendation is reported by a visitor.
+ */
+exports.onReviewReported = onDocumentUpdated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'reviews/{reviewId}',
+  },
+  async (event) => {
+    const before = event.data?.before?.data() || {};
+    const after = event.data?.after?.data() || {};
+    const reviewId = event.params.reviewId;
+
+    const wasReported = before.isReported === true;
+    const isReported = after.isReported === true;
+
+    if (!isReported || wasReported) {
+      return;
+    }
+
+    const businessId = after.businessId;
+    const reportedBy = after.reportedBy || after.visitorId || 'a visitor';
+
+    await sendAdminNotification({
+      title: '🚨 Recommendation reported',
+      body: `A recommendation was reported by ${reportedBy}.`,
+      data: { reviewId, businessId, screen: '/admin/reports', relatedItemType: 'review' },
+      type: 'reported_content',
+    });
+  },
+);
+
+/**
+ * Triggered when a business owner replies to a visitor recommendation.
+ * Notifies the visitor by email/push and alerts admins.
+ */
+exports.onReviewReplied = onDocumentUpdated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'reviews/{reviewId}',
+  },
+  async (event) => {
+    const before = event.data?.before?.data() || {};
+    const after = event.data?.after?.data() || {};
+    const reviewId = event.params.reviewId;
+
+    const oldReply = String(before.reply || '').trim();
+    const newReply = String(after.reply || '').trim();
+
+    if (!newReply || newReply === oldReply) {
+      return;
+    }
+
+    const visitorId = after.visitorId;
+    const businessId = after.businessId;
+    const replyBy = after.replyBy || 'Business Owner';
+
+    if (!visitorId) {
+      logger.warn('Review reply missing visitorId.', { reviewId });
+      return;
+    }
+
+    let businessName = after.businessName;
+    if (!businessName && businessId) {
+      try {
+        const businessDoc = await admin.firestore().collection('businesses').doc(businessId).get();
+        businessName = businessDoc.exists
+          ? (businessDoc.data().businessName || businessDoc.data().name || businessId)
+          : businessId;
+      } catch (e) {
+        businessName = businessId;
+      }
+    }
+    businessName = businessName || 'the business';
+
+    let visitorEmail;
+    try {
+      const userRecord = await admin.auth().getUser(visitorId);
+      visitorEmail = userRecord.email;
+    } catch (e) {
+      logger.warn('Could not look up visitor email for reply notification.', {
+        reviewId,
+        visitorId,
+        error: e.message,
+      });
+    }
+
+    if (visitorEmail) {
+      // Deep link to the business itself, not the notification list the
+      // visitor is already viewing when they tap this in the in-app panel.
+      const reviewActionRoute = businessId ? `/business/${businessId}` : '/visitor/notifications';
+      await sendVisitorNotification({
+        userEmail: visitorEmail,
+        title: `${businessName} replied to your review`,
+        body: `"${truncateText(newReply, 120)}" — ${replyBy}`,
+        type: VISITOR_NOTIFICATION_TYPES.REVIEW_REPLY,
+        data: { reviewId, businessId, screen: reviewActionRoute },
+        relatedItemId: reviewId,
+        relatedItemType: 'review',
+        actionRoute: reviewActionRoute,
+      });
+    }
+
+    await sendAdminNotification({
+      title: '💬 Business replied to a review',
+      body: `${replyBy} replied to a review on ${businessName}.`,
+      data: { reviewId, businessId, screen: '/admin/reported-reviews', relatedItemType: 'review' },
+      type: 'review_reply',
+    });
+  },
+);
+
+/**
+ * Triggered when a crowd/busyness report is submitted for a business.
+ */
+exports.onCrowdReported = onDocumentCreated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'crowd_reports/{reportId}',
+  },
+  async (event) => {
+    const data = event.data?.data() || {};
+    const reportId = event.params.reportId;
+    const businessId = data.businessId;
+    const level = data.level || data.crowdLevel || 'unknown';
+
+    if (!businessId) {
+      logger.warn('Crowd report missing businessId.', { reportId });
+      return;
+    }
+
+    const businessDoc = await admin.firestore().collection('businesses').doc(businessId).get();
+    const businessName = businessDoc.exists ? (businessDoc.data().businessName || businessId) : businessId;
+
+    await sendAdminNotification({
+      title: '👥 Crowd report submitted',
+      body: `${businessName} received a ${level} crowd report.`,
+      data: { reportId, businessId, screen: '/admin/businesses', relatedItemType: 'crowd_report' },
+      type: 'reported_content',
+    });
+  },
+);
+
+/**
+ * Triggered when a business owner submits or updates verification information.
+ * Fires when verificationDocuments is first set or verificationSubmittedAt is
+ * updated, so admins can review the supplied evidence.
+ */
+exports.onBusinessVerificationRequested = onDocumentUpdated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'businesses/{businessId}',
+  },
+  async (event) => {
+    const before = event.data?.before?.data() || {};
+    const after = event.data?.after?.data() || {};
+    const businessId = event.params.businessId;
+    const businessName = after.businessName || 'A business';
+
+    const hadDocs = Array.isArray(before.verificationDocuments) && before.verificationDocuments.length > 0;
+    const hasDocs = Array.isArray(after.verificationDocuments) && after.verificationDocuments.length > 0;
+    const wasSubmitted = before.verificationSubmittedAt != null;
+    const isSubmitted = after.verificationSubmittedAt != null;
+
+    if (!((hasDocs && !hadDocs) || (isSubmitted && !wasSubmitted))) {
+      return;
+    }
+
+    await sendAdminNotification({
+      title: '📋 Verification request',
+      body: `${businessName} submitted verification information for review.`,
+      data: { businessId, screen: '/admin/businesses', relatedItemType: 'business' },
+      type: 'verification_request',
+    });
+  },
+);
+
+/**
+ * Triggered when a visitor reports a business listing.
+ */
+exports.onBusinessReported = onDocumentCreated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'business_reports/{reportId}',
+  },
+  async (event) => {
+    const data = event.data?.data() || {};
+    const reportId = event.params.reportId;
+    const businessId = data.businessId;
+    const reason = data.reason || 'reported';
+
+    if (!businessId) {
+      logger.warn('Business report missing businessId.', { reportId });
+      return;
+    }
+
+    const businessDoc = await admin.firestore().collection('businesses').doc(businessId).get();
+    const businessName = businessDoc.exists ? (businessDoc.data().businessName || businessId) : businessId;
+    const ownerId = businessDoc.exists ? businessDoc.data().ownerId : null;
+
+    if (ownerId) {
+      await sendOwnerNotificationIfEnabled({
+        ownerId,
+        preferenceField: 'notifyReportedContent',
+        title: '🚨 Your business was reported',
+        body: `${businessName} was reported (${reason}). An admin may contact you if action is required.`,
+        data: { reportId, businessId, screen: '/local/notifications' },
+        type: 'reported_content',
+      });
+    }
+
+    await sendAdminNotification({
+      title: '🚨 Business reported',
+      body: `${businessName} was reported (${reason}).`,
+      data: { reportId, businessId, screen: '/admin/reports', relatedItemType: 'business_report' },
+      type: 'reported_content',
+    });
+  },
+);
+
+/**
+ * Triggered when a visitor reports a photo.
+ */
+exports.onPhotoReported = onDocumentCreated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'photo_reports/{reportId}',
+  },
+  async (event) => {
+    const data = event.data?.data() || {};
+    const reportId = event.params.reportId;
+    const photoId = data.photoId;
+    const businessId = data.businessId;
+    const reason = data.reason || 'reported';
+
+    if (!photoId) {
+      logger.warn('Photo report missing photoId.', { reportId });
+      return;
+    }
+
+    if (businessId) {
+      const businessDoc = await admin.firestore().collection('businesses').doc(businessId).get();
+      const ownerId = businessDoc.exists ? businessDoc.data().ownerId : null;
+      const businessName = businessDoc.exists ? (businessDoc.data().businessName || businessId) : businessId;
+
+      if (ownerId) {
+        await sendOwnerNotificationIfEnabled({
+          ownerId,
+          preferenceField: 'notifyReportedContent',
+          title: '🚨 Photo reported',
+          body: `A photo associated with ${businessName} was reported (${reason}).`,
+          data: { reportId, photoId, businessId, screen: '/local/notifications' },
+          type: 'reported_content',
+        });
+      }
+    }
+
+    await sendAdminNotification({
+      title: '🚨 Photo reported',
+      body: `A photo was reported (${reason}).`,
+      data: { reportId, photoId, businessId: businessId || '', screen: '/admin/reports', relatedItemType: 'photo_report' },
+      type: 'reported_content',
+    });
+  },
+);
+
+/**
+ * Triggered when a visitor reports another user.
+ */
+exports.onUserReported = onDocumentCreated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'user_reports/{reportId}',
+  },
+  async (event) => {
+    const data = event.data?.data() || {};
+    const reportId = event.params.reportId;
+    const reportedUserId = data.reportedUserId || data.reportedUserEmail;
+    const reason = data.reason || 'reported';
+
+    if (!reportedUserId) {
+      logger.warn('User report missing reportedUserId.', { reportId });
+      return;
+    }
+
+    await sendAdminNotification({
+      title: '🚨 User reported',
+      body: `A user was reported (${reason}).`,
+      data: { reportId, reportedUserId, screen: '/admin/users', relatedItemType: 'user_report' },
+      type: 'reported_content',
+    });
+  },
+);
+
+/**
+ * Triggered when a visitor reports a community post.
+ */
+exports.onCommunityPostReported = onDocumentCreated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'community_post_reports/{reportId}',
+  },
+  async (event) => {
+    const data = event.data?.data() || {};
+    const reportId = event.params.reportId;
+    const postId = data.postId;
+    const reason = data.reason || 'reported';
+
+    if (!postId) {
+      logger.warn('Community post report missing postId.', { reportId });
+      return;
+    }
+
+    await sendAdminNotification({
+      title: '🚨 Community post reported',
+      body: `A community post was reported (${reason}).`,
+      data: { reportId, postId, screen: '/admin/community', relatedItemType: 'community_post_report' },
+      type: 'reported_content',
+    });
+  },
+);
+
+// ── Admin-to-owner message push notification ────────────────────────────────
+exports.notifyOwnerAdminMessage = onCall(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+  },
+  async (request) => {
+    await assertAdminCaller(request);
+
+    const { toEmail, subject, message, type, messageId, sentBy } = request.data || {};
+    const normalized = String(toEmail || '').trim().toLowerCase();
+    if (!normalized) {
+      throw new HttpsError('invalid-argument', 'Missing recipient email.');
+    }
+    if (!subject || !message) {
+      throw new HttpsError('invalid-argument', 'Subject and message are required.');
+    }
+
+    const prefs = await admin.firestore().collection('local_users').doc(normalized).get();
+    if (prefs.exists && prefs.data().notifyAdminMessages === false) {
+      return { success: false, reason: 'Owner disabled admin message notifications.' };
+    }
+
+    await sendOwnerNotification({
+      ownerId: normalized,
+      title: subject,
+      body: message.length > 160 ? `${message.slice(0, 157).trim()}...` : message,
+      data: {
+        messageId: messageId || '',
+        type: type || 'general',
+        sentBy: sentBy || 'BrisConnect Admin',
+        screen: '/local/notifications',
+      },
+      type: 'admin_message',
+    });
+
+    return { success: true };
   },
 );
 
 // ── AI Post Generator (callable, uses Google Gemini API) ─────────────────────
 const geminiApiKey = defineSecret('GEMINI_API_KEY');
 
-async function callGemini(prompt) {
+async function callGemini(prompt, { maxOutputTokens = 400 } = {}) {
   const apiKey = geminiApiKey.value();
   if (!apiKey || apiKey.length < 10) {
     throw new Error('GEMINI_API_KEY is not configured.');
@@ -2046,7 +2913,7 @@ async function callGemini(prompt) {
     ],
     generationConfig: {
       temperature: 0.85,
-      maxOutputTokens: 400,
+      maxOutputTokens,
       topP: 0.95,
       topK: 40,
     },
@@ -2077,12 +2944,25 @@ async function callGemini(prompt) {
   return text;
 }
 
-function buildPrompt(postType, businessName, category, extraContext) {
-  const base = `You are a witty, energetic social media marketer for local Brisbane businesses.
+function buildPrompt(postType, businessName, category, extraContext, format) {
+  const isTitleDescription = format === 'title-description';
+
+  let base;
+  if (isTitleDescription) {
+    base = `You are a witty, energetic marketer for local Brisbane businesses.
+Create a short promotion title and description for "${businessName}"${category ? ` (${category})` : ''}.
+Tone: friendly, punchy, and authentically Brisbane.
+Return ONLY:
+1. A catchy title on the first line (max 8 words).
+2. A 1-2 sentence description on the following lines.
+Do not include markdown, bullet lists, emojis, or hashtags.`;
+  } else {
+    base = `You are a witty, energetic social media marketer for local Brisbane businesses.
 Write ONE short, exciting, fun Facebook/Instagram post for "${businessName}"${category ? ` (${category})` : ''}.
 Use emojis, keep it under 280 words, and make locals feel FOMO.
 Tone: friendly, punchy, and authentically Brisbane.
 Do not include markdown or bullet lists. Return only the post text.`;
+  }
 
   const typeGuidance = {
     Promotion: 'Focus on the deal, why it is irresistible, and urgency.',
@@ -2097,10 +2977,12 @@ Do not include markdown or bullet lists. Return only the post text.`;
   lines.push(`Post type guidance: ${guidance}`);
 
   if (extraContext && extraContext.trim().length > 0) {
-    lines.push(`Use these details naturally in the post:\n${extraContext.trim()}`);
+    lines.push(`Use these details naturally:${isTitleDescription ? '' : '\n'}${extraContext.trim()}`);
   }
 
-  lines.push('Include 3-5 relevant hashtags at the end.');
+  if (!isTitleDescription) {
+    lines.push('Include 3-5 relevant hashtags at the end.');
+  }
   return lines.join('\n\n');
 }
 
@@ -2128,25 +3010,134 @@ exports.generatePost = onCall(
     secrets: [geminiApiKey],
   },
   async (request) => {
-    // Dev: allow unauthenticated calls from unsigned macOS builds where Firebase
-    // Auth keychain access fails.
-    // if (!request.auth) {
-    //   throw new HttpsError('unauthenticated', 'Must be signed in to generate posts.');
-    // }
-
-    const { postType = 'Post', businessName = '', category = '', extraContext = '' } = request.data || {};
+    // AI post generation is available to all signed-in business owners.
+    // We no longer require an active subscription so the assistant can help
+    // owners create promotions from their business profile.
+    const { postType = 'Post', businessName = '', category = '', extraContext = '', format = '' } = request.data || {};
 
     if (!businessName) {
       throw new HttpsError('invalid-argument', 'businessName is required.');
     }
 
     try {
-      const prompt = buildPrompt(postType, businessName, category, extraContext);
+      const prompt = buildPrompt(postType, businessName, category, extraContext, format);
       const post = await callGemini(prompt);
       return { post };
     } catch (error) {
       logger.warn('Gemini generation failed, using fallback.', { error: error.message, businessName });
       return { post: fallbackPost(postType, businessName, category, extraContext) };
+    }
+  }
+);
+
+function buildInsightsPrompt(businessName, category, metrics) {
+  return `You are a friendly marketing coach for small Brisbane food businesses.
+Analyse the recent dashboard metrics for "${businessName}"${category ? ` (${category})` : ''} and suggest 3-5 concrete, actionable improvements.
+
+Metrics:
+${JSON.stringify(metrics, null, 2)}
+
+Rules:
+- Compare current numbers to the change percentages where available.
+- Prioritise low-effort, high-impact ideas.
+- Keep each suggestion to one bold title (max 7 words) and one practical tip (1-2 sentences).
+- Return ONLY valid JSON in this exact shape:
+{
+  "suggestions": [
+    {"title": "...", "tip": "..."},
+    {"title": "...", "tip": "..."}
+  ]
+}
+Do not include markdown, explanations, or code fences.`;
+}
+
+function parseInsightsJson(text) {
+  try {
+    const cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    if (Array.isArray(parsed.suggestions)) {
+      return parsed.suggestions
+        .filter((s) => s && typeof s === 'object')
+        .map((s) => ({
+          title: String(s.title || '').trim(),
+          tip: String(s.tip || '').trim(),
+        }))
+        .filter((s) => s.title || s.tip);
+    }
+  } catch (_) {
+    // fall through to regex extraction
+  }
+
+  // Try to extract the JSON object from surrounding prose.
+  const match = text.match(/\{[\s\S]*"suggestions"[\s\S]*\}/);
+  if (match) {
+    return parseInsightsJson(match[0]);
+  }
+  return [];
+}
+
+function fallbackInsights(metrics) {
+  const suggestions = [];
+  const safeVal = (n) => (typeof n === 'number' && Number.isFinite(n) ? n : 0);
+
+  if (safeVal(metrics.profileViews) === 0) {
+    suggestions.push({
+      title: 'Boost your visibility',
+      tip: 'You have no profile views this week. Try creating a promotion or an AI-generated post to get in front of more customers.',
+    });
+  }
+
+  if (safeVal(metrics.activePromotions) === 0) {
+    suggestions.push({
+      title: 'Run a promotion',
+      tip: 'Active promotions drive more visits and saves. Create a limited-time offer to attract new customers.',
+    });
+  }
+
+  if (safeVal(metrics.totalReviews) === 0) {
+    suggestions.push({
+      title: 'Collect reviews',
+      tip: 'Reviews build trust. Ask happy customers to leave a review on your BrisConnect profile.',
+    });
+  }
+
+  if (safeVal(metrics.socialShares) === 0) {
+    suggestions.push({
+      title: 'Encourage social sharing',
+      tip: 'Shares extend your reach beyond BrisConnect. Add share-worthy photos and deals to your profile.',
+    });
+  }
+
+  if (suggestions.length === 0) {
+    suggestions.push({
+      title: 'Keep momentum going',
+      tip: 'Your metrics look healthy. Keep posting fresh content and responding to reviews to stay top of mind.',
+    });
+  }
+
+  return suggestions;
+}
+
+exports.generateBusinessInsights = onCall(
+  {
+    region: 'australia-southeast1',
+    secrets: [geminiApiKey],
+  },
+  async (request) => {
+    const { businessName = '', category = '', metrics = {} } = request.data || {};
+
+    if (!businessName) {
+      throw new HttpsError('invalid-argument', 'businessName is required.');
+    }
+
+    try {
+      const prompt = buildInsightsPrompt(businessName, category, metrics);
+      const raw = await callGemini(prompt, { maxOutputTokens: 800 });
+      const suggestions = parseInsightsJson(raw);
+      return { suggestions: suggestions.length ? suggestions : fallbackInsights(metrics) };
+    } catch (error) {
+      logger.warn('Gemini business insights failed, using fallback.', { error: error.message, businessName });
+      return { suggestions: fallbackInsights(metrics) };
     }
   }
 );
@@ -2344,7 +3335,9 @@ exports.sendEmailLoginCode = onCall(
       sentAt: admin.firestore.FieldValue.serverTimestamp(),
       expiresAt: admin.firestore.Timestamp.fromMillis(now + LOGIN_CODE_TTL_MS),
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
+    });
+
+    logger.info('Login code stored', { email, docId, userType });
 
     const html = getLoginEmailHtml(code, userType);
     const subject = 'Your BrisConnect+ sign-in code';
@@ -2355,23 +3348,36 @@ exports.sendEmailLoginCode = onCall(
     let delivered = false;
     let providerResponse = null;
     const apiKey = brevoApiKey.value();
+    logger.info('Brevo configuration check', {
+      email,
+      hasKey: !!(apiKey && apiKey.trim().length > 0),
+      keyLength: apiKey ? apiKey.trim().length : 0,
+    });
     if (apiKey && apiKey.trim().length > 0) {
-      try {
-        providerResponse = await sendEmailViaBrevo({
-          apiKey: apiKey.trim(),
-          to: email,
-          subject,
-          html,
-          senderEmail: process.env.BREVO_SENDER_EMAIL || 'noreply@brisconnect.app',
-          senderName: process.env.BREVO_SENDER_NAME || 'BrisConnect+',
-        });
-        delivered = true;
-      } catch (brevoError) {
-        logger.error('Brevo direct send failed; falling back to mail queue', {
-          email,
-          error: brevoError instanceof Error ? brevoError.message : String(brevoError),
-        });
+      const trimmedKey = apiKey.trim();
+      if (trimmedKey.startsWith('xsmtpsib-')) {
+        logger.error('Brevo key is an SMTP relay key, not an API v3 key. Email cannot be sent via Brevo REST API.', { email });
+      } else {
+        try {
+          providerResponse = await sendEmailViaBrevo({
+            apiKey: trimmedKey,
+            to: email,
+            subject,
+            html,
+            senderEmail: process.env.BREVO_SENDER_EMAIL || 'brisconnect0@gmail.com',
+            senderName: process.env.BREVO_SENDER_NAME || 'BrisConnect+',
+          });
+          delivered = true;
+          logger.info('Brevo direct send succeeded', { email, messageId: providerResponse && providerResponse.messageId });
+        } catch (brevoError) {
+          logger.error('Brevo direct send failed; falling back to mail queue', {
+            email,
+            error: brevoError instanceof Error ? brevoError.message : String(brevoError),
+          });
+        }
       }
+    } else {
+      logger.warn('BREVO_API_KEY secret is empty; login code email queued for worker.', { email });
     }
 
     if (delivered) {
@@ -2445,7 +3451,7 @@ exports.sendVisitorWelcomeEmail = onCall(
           to: email,
           subject,
           html,
-          senderEmail: process.env.BREVO_SENDER_EMAIL || 'noreply@brisconnect.app',
+          senderEmail: process.env.BREVO_SENDER_EMAIL || 'brisconnect0@gmail.com',
           senderName: process.env.BREVO_SENDER_NAME || 'BrisConnect+',
         });
         delivered = true;
@@ -2504,15 +3510,25 @@ exports.verifyEmailLoginCode = onCall(
     const codesRef = admin.firestore().collection('login_codes').doc(docId);
     const snap = await codesRef.get();
 
+    logger.info('verifyEmailLoginCode lookup', { email, docId, exists: snap.exists });
+
     if (!snap.exists) {
-      throw new HttpsError('not-found', 'Code not found or expired.');
+      throw new HttpsError('not-found', 'Code not found. Please request a new code.');
     }
 
     const data = snap.data() || {};
     const expiresAt = data.expiresAt ? data.expiresAt.toMillis() : 0;
     const now = Date.now();
 
-    if (now > expiresAt) {
+    logger.info('verifyEmailLoginCode found', {
+      email,
+      expiresAt,
+      now,
+      attempts: data.attempts || 0,
+    });
+
+    // Allow a 30-second grace period for minor server clock skew.
+    if (now > expiresAt + 30000) {
       await codesRef.delete();
       throw new HttpsError('deadline-exceeded', 'Code has expired. Please request a new one.');
     }
@@ -2899,6 +3915,21 @@ exports.cleanupModeratedContent = onSchedule(
     }
     await batch.commit();
 
+    const deletedPhotosSnap = await db
+      .collection('visitor_photos')
+      .where('deletedAt', '<=', retentionCutoff)
+      .where('deletedAt', '!=', null)
+      .limit(500)
+      .get();
+
+    let photosPurged = 0;
+    const photosBatch = db.batch();
+    for (const doc of deletedPhotosSnap.docs) {
+      photosBatch.delete(doc.ref);
+      photosPurged += 1;
+    }
+    await photosBatch.commit();
+
     const oldAuditSnap = await db
       .collection('moderation_audit_log')
       .where('createdAt', '<=', auditCutoff)
@@ -2913,7 +3944,7 @@ exports.cleanupModeratedContent = onSchedule(
     }
     await auditBatch.commit();
 
-    logger.info('Moderation cleanup complete.', { reviewsPurged, auditPurged });
+    logger.info('Moderation cleanup complete.', { reviewsPurged, photosPurged, auditPurged });
   },
 );
 
@@ -2977,14 +4008,17 @@ function jaroWinkler(s1, s2) {
  * Firestore trigger that flags potential duplicate business listings when a
  * business is created or updated. Matches are based on name similarity and
  * geographic proximity.
+ *
+ * Uses onDocumentWritten (not onDocumentUpdated) so brand-new listings are
+ * checked immediately on creation instead of only after a later edit.
  */
-exports.flagDuplicateBusinesses = onDocumentUpdated(
+exports.flagDuplicateBusinesses = onDocumentWritten(
   {
     region: 'australia-southeast1',
     document: 'businesses/{businessId}',
   },
   async (event) => {
-    const after = event.data.after.data();
+    const after = event.data.after.exists ? event.data.after.data() : null;
     const businessId = event.params.businessId;
 
     if (!after || after.deletedAt) return;
@@ -3099,5 +4133,758 @@ exports.cleanupArchivedBusinesses = onSchedule(
   },
 );
 
+// ── Cloud Text-to-Speech narration using REST API ─────────────────────────
+
+exports.synthesizeNarration = onCall(
+  {
+    region: 'australia-southeast1',
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    const text = String((request.data && request.data.text) || '').trim();
+    const languageCode = String((request.data && request.data.languageCode) || 'en').trim();
+
+    if (!text) {
+      throw new HttpsError('invalid-argument', 'Text is required and must not be empty.');
+    }
+
+    if (text.length > 5000) {
+      throw new HttpsError('invalid-argument', 'Text must be 5000 characters or less.');
+    }
+
+    try {
+      // Use enhanced TTS with premium Neural2 voices for better quality
+      const audioContent = await synthesizeSpeechEnhanced(text, languageCode, {
+        pitch: 1.05,
+        speakingRate: 0.82,
+      });
+
+      if (!audioContent) {
+        throw new Error('Text-to-Speech synthesis returned empty audio content.');
+      }
+
+      logger.info('synthesizeNarration completed with enhanced TTS.', {
+        textLength: text.length,
+        languageCode,
+      });
+
+      return { audioContent: Buffer.from(audioContent).toString('base64') };
+    } catch (error) {
+      logger.error('synthesizeNarration failed.', {
+        error: error instanceof Error ? error.message : String(error),
+        text: text.substring(0, 100),
+        languageCode,
+      });
+      throw new HttpsError(
+        'internal',
+        `Text-to-Speech synthesis failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  },
+);
+
 // ── Social sharing Open Graph proxy ─────────────────────────────────────────
 exports.ogProxy = ogProxy;
+
+// ── Stripe payments ─────────────────────────────────────────────────────────
+const {
+  createSubscriptionCheckout,
+  createPromotionCheckout,
+  getSubscriptionStatus,
+  createBillingPortalSession,
+  stripeWebhook,
+  savePromotionPlan,
+  setPlanActive,
+  deactivatePromotion,
+  downgradeExpiredPromotions,
+  reconcilePromotionPayments,
+  saveSubscriptionPlan,
+  setSubscriptionPlanActive,
+  onLocalUserCreated,
+  expireFreeTrials,
+} = require('./payments');
+
+exports.createSubscriptionCheckout = createSubscriptionCheckout;
+exports.createPromotionCheckout = createPromotionCheckout;
+exports.getSubscriptionStatus = getSubscriptionStatus;
+exports.createBillingPortalSession = createBillingPortalSession;
+exports.stripeWebhook = stripeWebhook;
+exports.savePromotionPlan = savePromotionPlan;
+exports.setPlanActive = setPlanActive;
+exports.deactivatePromotion = deactivatePromotion;
+exports.downgradeExpiredPromotions = downgradeExpiredPromotions;
+exports.reconcilePromotionPayments = reconcilePromotionPayments;
+exports.saveSubscriptionPlan = saveSubscriptionPlan;
+exports.setSubscriptionPlanActive = setSubscriptionPlanActive;
+exports.onLocalUserCreated = onLocalUserCreated;
+exports.expireFreeTrials = expireFreeTrials;
+
+// ── Visitor push notifications ───────────────────────────────────────────────
+
+/**
+ * Helper: finds visitors who have saved a business or selected any of its
+ * categories as interests and have a given preference enabled.
+ */
+async function _findInterestedVisitors(db, business, preferenceField) {
+  const businessCategories = Array.isArray(business.category)
+    ? business.category
+    : [business.category].filter(Boolean);
+
+  const [savedSnap, interestSnap] = await Promise.all([
+    db
+      .collection('visitor_users')
+      .where('savedBusinessIds', 'array-contains', business.id)
+      .get(),
+    businessCategories.length > 0
+      ? db
+          .collection('visitor_users')
+          .where('interestCategories', 'array-contains-any', businessCategories)
+          .get()
+      : { docs: [] },
+  ]);
+
+  const byEmail = new Map();
+  [...savedSnap.docs, ...interestSnap.docs].forEach((doc) => {
+    const data = doc.data() || {};
+    if (data.notificationsEnabled === false) return;
+    if (preferenceField && data[preferenceField] === false) return;
+    byEmail.set(doc.id, { email: doc.id, ...data });
+  });
+
+  return Array.from(byEmail.values());
+}
+
+/**
+ * Triggered when a promotion becomes active or is scheduled. Notifies
+ * visitors who saved the business or are interested in the category,
+ * provided they have enabled nearby-promotion notifications.
+ */
+exports.onNearbyPromotionScheduled = onDocumentCreated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'promotions/{promotionId}',
+  },
+  async (event) => {
+    const data = event.data?.data() || {};
+    const promotionId = event.params.promotionId;
+    const businessId = data.businessId;
+    const title = data.title || 'A new promotion';
+    const businessName = data.businessName || businessId || 'a business';
+
+    if (!businessId) {
+      logger.warn('Promotion missing businessId.', { promotionId });
+      return;
+    }
+
+    const db = admin.firestore();
+    const businessDoc = await db.collection('businesses').doc(businessId).get();
+    if (!businessDoc.exists) return;
+
+    const business = { id: businessDoc.id, ...businessDoc.data() };
+    const visitors = await _findInterestedVisitors(
+      db,
+      business,
+      'nearbyPromotionsEnabled',
+    );
+
+    await Promise.all(
+      visitors.map((visitor) =>
+        sendVisitorNotification({
+          userEmail: visitor.email,
+          title: `📍 "${title}" is nearby`,
+          emailSubject: `"${title}" is available at ${businessName}`,
+          body: `"${title}" is available at ${businessName}. Don't miss out!`,
+          actionLabel: 'View offer',
+          type: VISITOR_NOTIFICATION_TYPES.NEARBY_PROMOTION,
+          relatedItemId: promotionId,
+          relatedItemType: 'promotion',
+          actionRoute: '/promotion/detail',
+          data: { promotionId, businessId, screen: '/promotion/detail' },
+        }).catch((e) =>
+          logger.warn('Nearby promotion visitor notify failed.', {
+            error: e.message,
+            visitor: visitor.email,
+          }),
+        ),
+      ),
+    );
+  },
+);
+
+/**
+ * Triggered when a business document is updated by the owner. Sends a push
+ * notification to visitors who saved the business, if they enabled saved
+ * business update alerts. Throttled to one notification per business per hour.
+ */
+exports.onSavedBusinessUpdated = onDocumentUpdated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'businesses/{businessId}',
+  },
+  async (event) => {
+    const before = event.data?.before?.data() || {};
+    const after = event.data?.after?.data() || {};
+    const businessId = event.params.businessId;
+    const businessName = after.businessName || 'A saved business';
+
+    const trackedFields = [
+      'businessName',
+      'category',
+      'description',
+      'address',
+      'contactNumber',
+      'website',
+      'socialMedia',
+      'logoUrl',
+      'coverImageUrl',
+      'businessHours',
+      'menuItems',
+      'photos',
+    ];
+    const hasMeaningfulChange = trackedFields.some((field) => {
+      return JSON.stringify(before[field]) !== JSON.stringify(after[field]);
+    });
+    if (!hasMeaningfulChange) return;
+
+    const lastNotified = after.lastSavedUpdateNotifiedAt?.toMillis?.() || 0;
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
+    if (lastNotified > oneHourAgo) return;
+
+    const db = admin.firestore();
+    const savedSnap = await db
+      .collection('visitor_users')
+      .where('savedBusinessIds', 'array-contains', businessId)
+      .get();
+
+    await Promise.all(
+      savedSnap.docs.map((doc) => {
+        const visitor = doc.data() || {};
+        if (visitor.notificationsEnabled === false) return Promise.resolve();
+        if (visitor.savedBusinessUpdatesEnabled === false) return Promise.resolve();
+        return sendVisitorNotification({
+          userEmail: doc.id,
+          title: `🏪 ${businessName} updated their profile`,
+          emailSubject: `${businessName} updated their profile`,
+          body: `See what's new at ${businessName} on BrisConnect+.`,
+          actionLabel: 'View business',
+          type: VISITOR_NOTIFICATION_TYPES.SAVED_BUSINESS_UPDATE,
+          relatedItemId: businessId,
+          relatedItemType: 'business',
+          actionRoute: '/business/view',
+          data: { businessId, screen: '/business/view' },
+        }).catch((e) =>
+          logger.warn('Saved business update visitor notify failed.', {
+            error: e.message,
+            visitor: doc.id,
+          }),
+        );
+      }),
+    );
+
+    await event.data.after.ref.update({
+      lastSavedUpdateNotifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  },
+);
+
+/**
+ * Triggered when a business becomes trending. Notifies visitors interested
+ * in the business category who enabled trending-business notifications.
+ * Throttled to once per business per day.
+ */
+exports.onBusinessBecameTrending = onDocumentUpdated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'businesses/{businessId}',
+  },
+  async (event) => {
+    const before = event.data?.before?.data() || {};
+    const after = event.data?.after?.data() || {};
+    const businessId = event.params.businessId;
+    const businessName = after.businessName || 'A business';
+
+    const previousScore = Number(before.buzzScore || 0);
+    const currentScore = Number(after.buzzScore || 0);
+    const threshold = Number(after.trendingThreshold) || 100;
+
+    if (previousScore >= threshold || currentScore < threshold) return;
+
+    const lastNotified = after.lastTrendingNotifiedAt?.toMillis?.() || 0;
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    if (lastNotified > oneDayAgo) return;
+
+    const db = admin.firestore();
+    const visitors = await _findInterestedVisitors(
+      db,
+      { id: businessId, ...after },
+      'trendingBusinessesEnabled',
+    );
+
+    await Promise.all(
+      visitors.map((visitor) =>
+        sendVisitorNotification({
+          userEmail: visitor.email,
+          title: `🔥 ${businessName} is trending`,
+          emailSubject: `${businessName} is trending right now`,
+          body: `${businessName} is trending on BrisConnect+. See what everyone's talking about.`,
+          actionLabel: 'Check it out',
+          type: VISITOR_NOTIFICATION_TYPES.TRENDING_BUSINESS,
+          relatedItemId: businessId,
+          relatedItemType: 'business',
+          actionRoute: '/business/view',
+          data: { businessId, screen: '/business/view' },
+        }).catch((e) =>
+          logger.warn('Trending business visitor notify failed.', {
+            error: e.message,
+            visitor: visitor.email,
+          }),
+        ),
+      ),
+    );
+
+    await event.data.after.ref.update({
+      lastTrendingNotifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  },
+);
+
+/**
+ * Scheduled job that runs every 15 minutes and notifies visitors about
+ * promotions expiring within the next 24 hours for businesses they saved.
+ */
+exports.notifyExpiringSavedPromotions = onSchedule(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    schedule: 'every 15 minutes',
+    timeoutSeconds: 300,
+  },
+  async () => {
+    const db = admin.firestore();
+    const now = admin.firestore.Timestamp.now();
+    const oneDay = 24 * 60 * 60 * 1000;
+    const oneDayFromNow = admin.firestore.Timestamp.fromMillis(now.toMillis() + oneDay);
+
+    const promotionsSnap = await db
+      .collection('promotions')
+      .where('endAt', '<=', oneDayFromNow)
+      .where('endAt', '>', now)
+      .where('status', 'in', ['active', 'scheduled'])
+      .get();
+
+    for (const promotionDoc of promotionsSnap.docs) {
+      const promotion = promotionDoc.data();
+      const businessId = promotion.businessId;
+      const title = promotion.title || 'An offer';
+      const endAt = promotion.endAt?.toDate?.();
+      const hoursLeft = endAt
+        ? Math.max(1, Math.round((endAt.getTime() - now.toMillis()) / (60 * 60 * 1000)))
+        : '24';
+
+      if (!businessId) continue;
+
+      const alreadyReminded = promotion.visitorExpiryReminderSentAt?.toMillis?.() || 0;
+      if (alreadyReminded > now.toMillis() - oneDay) continue;
+
+      const savedSnap = await db
+        .collection('visitor_users')
+        .where('savedBusinessIds', 'array-contains', businessId)
+        .get();
+
+      await Promise.all(
+        savedSnap.docs.map((doc) => {
+          const visitor = doc.data() || {};
+          if (visitor.notificationsEnabled === false) return Promise.resolve();
+          if (visitor.promotionExpiryRemindersEnabled === false) return Promise.resolve();
+          return sendVisitorNotification({
+            userEmail: doc.id,
+            title: `⏰ "${title}" expires soon`,
+            emailSubject: `"${title}" expires in about ${hoursLeft} hour${hoursLeft === 1 ? '' : 's'}`,
+            body: `Your saved offer "${title}" expires in about ${hoursLeft} hour${hoursLeft === 1 ? '' : 's'}. Redeem it before it's gone.`,
+            actionLabel: 'View offer',
+            type: VISITOR_NOTIFICATION_TYPES.PROMOTION_EXPIRY_REMINDER,
+            relatedItemId: promotionDoc.id,
+            relatedItemType: 'promotion',
+            actionRoute: '/promotion/detail',
+            data: { promotionId: promotionDoc.id, businessId, screen: '/promotion/detail' },
+          }).catch((e) =>
+            logger.warn('Expiring promotion visitor notify failed.', {
+              error: e.message,
+              visitor: doc.id,
+            }),
+          );
+        }),
+      );
+
+      await promotionDoc.ref.update({
+        visitorExpiryReminderSentAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    logger.info('Visitor expiring promotion reminders complete.', {
+      checked: promotionsSnap.size,
+    });
+  },
+);
+
+/**
+ * Triggered when a new business becomes verified. Notifies visitors who
+ * enabled new-business discovery and share an interest category.
+ */
+exports.onNewBusinessForDiscovery = onDocumentUpdated(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    document: 'businesses/{businessId}',
+  },
+  async (event) => {
+    const before = event.data?.before?.data() || {};
+    const after = event.data?.after?.data() || {};
+    const businessId = event.params.businessId;
+    const businessName = after.businessName || 'A new business';
+
+    const wasVerified = before.isVerified === true;
+    const isVerified = after.isVerified === true;
+    const wasRejected = before.isVerified === false && after.isVerified === false && Boolean(before.rejectionReason) !== Boolean(after.rejectionReason);
+    const ownerId = after.ownerId;
+
+    // Notify owner of verification status changes (forced regardless of preference).
+    if (ownerId) {
+      const db = admin.firestore();
+      const lastVerifiedNotified = after.lastVerificationNotifiedAt?.toMillis?.() || 0;
+      const oneHourAgo = Date.now() - 60 * 60 * 1000;
+
+      if (isVerified && !wasVerified && lastVerifiedNotified <= oneHourAgo) {
+        await sendOwnerNotification({
+          ownerId,
+          title: '✅ Business verified',
+          body: `${businessName} has been verified and is now live on BrisConnect.`,
+          data: { businessId, screen: 'business_detail' },
+          type: 'verification_approved',
+        });
+        await event.data.after.ref.update({
+          lastVerificationNotifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } else if (wasRejected && lastVerifiedNotified <= oneHourAgo) {
+        await sendOwnerNotification({
+          ownerId,
+          title: '❌ Verification request declined',
+          body: `${businessName} verification needs more information. Please review the feedback and resubmit.`,
+          data: { businessId, screen: 'business_detail' },
+          type: 'verification_rejected',
+        });
+        await event.data.after.ref.update({
+          lastVerificationNotifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
+    if (!isVerified || wasVerified) return;
+
+    const lastNotified = after.lastDiscoveryNotifiedAt?.toMillis?.() || 0;
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    if (lastNotified > oneDayAgo) return;
+
+    const db = admin.firestore();
+    const visitors = await _findInterestedVisitors(
+      db,
+      { id: businessId, ...after },
+      'newBusinessDiscoveryEnabled',
+    );
+
+    await Promise.all(
+      visitors.map((visitor) =>
+        sendVisitorNotification({
+          userEmail: visitor.email,
+          title: `✨ ${businessName} just joined`,
+          emailSubject: `Welcome ${businessName} to BrisConnect`,
+          body: `${businessName} just joined BrisConnect and matches your interests.`,
+          actionLabel: 'Explore',
+          type: VISITOR_NOTIFICATION_TYPES.NEW_BUSINESS_DISCOVERY,
+          relatedItemId: businessId,
+          relatedItemType: 'business',
+          actionRoute: '/business/view',
+          data: { businessId, screen: '/business/view' },
+        }).catch((e) =>
+          logger.warn('New business discovery visitor notify failed.', {
+            error: e.message,
+            visitor: visitor.email,
+          }),
+        ),
+      ),
+    );
+
+    await event.data.after.ref.update({
+      lastDiscoveryNotifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  },
+);
+
+/**
+ * Scheduled job that runs once a day and sends personalised business
+ * recommendations to visitors based on their interest categories.
+ */
+exports.sendPersonalisedRecommendations = onSchedule(
+  {
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+    schedule: '0 10 * * *',
+    timeoutSeconds: 300,
+  },
+  async () => {
+    const db = admin.firestore();
+    const now = admin.firestore.Timestamp.now();
+
+    const businessesSnap = await db
+      .collection('businesses')
+      .where('isVerified', '==', true)
+      .orderBy('buzzScore', 'desc')
+      .limit(50)
+      .get();
+
+    const businesses = businessesSnap.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    const visitorsSnap = await db
+      .collection('visitor_users')
+      .where('notificationsEnabled', '==', true)
+      .where('personalisedRecommendationsEnabled', '==', true)
+      .limit(500)
+      .get();
+
+    for (const visitorDoc of visitorsSnap.docs) {
+      const visitor = visitorDoc.data() || {};
+      const interestCategories = Array.isArray(visitor.interestCategories)
+        ? visitor.interestCategories
+        : [];
+      if (interestCategories.length === 0) continue;
+
+      const savedBusinessIds = new Set(
+        Array.isArray(visitor.savedBusinessIds) ? visitor.savedBusinessIds : [],
+      );
+
+      const recommendation = businesses.find((b) => {
+        if (savedBusinessIds.has(b.id)) return false;
+        const categories = Array.isArray(b.category)
+          ? b.category
+          : [b.category].filter(Boolean);
+        return categories.some((c) => interestCategories.includes(c));
+      });
+
+      if (!recommendation) continue;
+
+      const lastNotified = recommendation.lastRecommendationNotifiedAt?.toMillis?.() || 0;
+      if (lastNotified > now.toMillis() - 24 * 60 * 60 * 1000) continue;
+
+      const recommendationName = recommendation.businessName || 'a trending business';
+      await sendVisitorNotification({
+        userEmail: visitorDoc.id,
+        title: `⭐ Recommended: ${recommendationName}`,
+        emailSubject: `Recommended for you: ${recommendationName}`,
+        body: `Check out ${recommendationName} based on your interests.`,
+        actionLabel: 'View recommendation',
+        type: VISITOR_NOTIFICATION_TYPES.PERSONALISED_RECOMMENDATION,
+        relatedItemId: recommendation.id,
+        relatedItemType: 'business',
+        actionRoute: '/business/view',
+        data: { businessId: recommendation.id, screen: '/business/view' },
+      }).catch((e) =>
+        logger.warn('Personalised recommendation visitor notify failed.', {
+          error: e.message,
+          visitor: visitorDoc.id,
+        }),
+      );
+
+      await db.collection('businesses').doc(recommendation.id).update({
+        lastRecommendationNotifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    logger.info('Personalised recommendations complete.', {
+      visitors: visitorsSnap.size,
+    });
+  },
+);
+
+// ── Firestore mail queue processor ───────────────────────────────────────────
+// Sends emails queued in the `mail` collection by the admin dashboard.
+// Triggered on every write so we can backfill documents that were created
+// without a status field and so we avoid re-sending completed emails.
+exports.processMailQueue = onDocumentWritten(
+  {
+    document: 'mail/{mailId}',
+    region: 'australia-southeast1',
+    secrets: [brevoApiKey],
+  },
+  async (event) => {
+    const snap = event.data.after;
+    if (!snap || !snap.exists) return;
+
+    const data = snap.data() || {};
+    const status = String(data.status || '').toLowerCase();
+    const alreadyHandled = ['sent', 'processing', 'failed'].includes(status);
+    if (alreadyHandled) return;
+    // Treat missing/empty status as pending (backwards compat for older queued docs).
+    if (status !== 'pending' && status !== '') return;
+
+    const to = String(data.to || '').trim();
+    const message = data.message || {};
+    const subject = String(message.subject || '').trim();
+    const html = String(message.html || '').trim();
+
+    if (!to || !subject || !html) {
+      await snap.ref.set(
+        {
+          status: 'failed',
+          error: 'Missing required fields: to/subject/html.',
+          failedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      return;
+    }
+
+    try {
+      const apiKey = brevoApiKey.value();
+      const senderEmail = process.env.BREVO_SENDER_EMAIL || 'brisconnect0@gmail.com';
+      const senderName = process.env.BREVO_SENDER_NAME || 'BrisConnect+';
+      const providerResponse = await sendEmailViaBrevo({
+        apiKey,
+        to,
+        subject,
+        html,
+        senderEmail,
+        senderName,
+      });
+
+      await snap.ref.set(
+        {
+          status: 'sent',
+          provider: 'brevo',
+          providerResponse,
+          sentAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+      logger.info('processMailQueue: email sent', { to, subject, mailId: snap.id });
+    } catch (error) {
+      logger.error('processMailQueue: email failed', {
+        to,
+        subject,
+        mailId: snap.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      await snap.ref.set(
+        {
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+          failedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    }
+  },
+);
+
+/**
+ * Cloud Function: Bulk translate missing strings in all language ARB files
+ * Callable via: httpsCallable('bulkTranslateLanguages')
+ * Note: Requires admin access and Firebase Auth
+ */
+exports.bulkTranslateLanguages = onCall(
+  {
+    region: 'australia-southeast1',
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    // Security: Only allow authenticated admin users
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated to call this function.');
+    }
+
+    // Check if user is admin (optional - adjust based on your security model)
+    // For now, we'll allow any authenticated user with admin role in Firestore
+    const userDoc = await admin.firestore().collection('users').doc(request.auth.uid).get();
+    if (!userDoc.exists || userDoc.data()?.role !== 'admin') {
+      throw new HttpsError('permission-denied', 'User must have admin role to translate languages.');
+    }
+
+    try {
+      const projectId = process.env.GCLOUD_PROJECT || admin.apps[0].options.projectId;
+      logger.info('Starting bulk translation of language files', { projectId });
+
+      const results = await bulkTranslateAllLanguages(projectId);
+
+      // Calculate summary stats
+      const totalTranslated = Object.values(results).reduce((sum, r) => sum + (r.messagesTranslated || 0), 0);
+      const successCount = Object.values(results).filter(r => r.success).length;
+
+      logger.info('Bulk translation completed', { successCount, totalTranslated });
+
+      return {
+        success: true,
+        message: `Translated ${totalTranslated} strings across ${successCount} languages`,
+        results,
+      };
+    } catch (error) {
+      logger.error('Error in bulkTranslateLanguages', error);
+      throw new HttpsError(
+        'internal',
+        `Translation failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  },
+);
+
+/**
+ * Cloud Scheduled Function: Monitor Google Listings
+ * 
+ * Periodically checks Google Places data against BrisConnect business records.
+ * Runs weekly (configurable) to detect outdated, closed, or inconsistent listings.
+ * 
+ * Writes to: google_listing_monitoring collection
+ * Updates: food_businesses, businesses (minimal fields only)
+ * 
+ * Does NOT automatically modify business data.
+ */
+const { monitorAllGoogleListings } = require('./monitor_google_listings');
+
+exports.monitorGoogleListingsScheduled = onSchedule(
+  {
+    region: 'australia-southeast1',
+    schedule: 'every sunday 02:00', // Run weekly at 2 AM UTC (Tuesday 12:00 PM AEST)
+    timeoutSeconds: 900, // 15 minutes
+    maxInstances: 1, // Single instance to avoid concurrent runs
+    memory: '512MB',
+  },
+  async () => {
+    try {
+      logger.info('Starting scheduled Google Listings monitoring');
+
+      const apiKey = googlePlacesApiKey.value();
+      const results = await monitorAllGoogleListings(apiKey);
+
+      logger.info('Google Listings monitoring completed', {
+        processed: results.processed,
+        verified: results.verified,
+        mismatch: results.mismatch,
+        closed: results.closed,
+        errors: results.errors,
+      });
+
+      return results;
+    } catch (error) {
+      logger.error('Error in monitorGoogleListingsScheduled', error);
+      // Don't throw - allow function to complete gracefully
+      // Admin will see errors in Cloud Function logs
+      return { success: false, error: error.message };
+    }
+  },
+);

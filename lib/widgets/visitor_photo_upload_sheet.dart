@@ -88,7 +88,7 @@ class _VisitorPhotoUploadSheetState extends State<VisitorPhotoUploadSheet> {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Photo submitted for review.'),
+            content: Text('Photo shared!'),
             backgroundColor: AppPalette.ochre,
           ),
         );
@@ -231,7 +231,7 @@ class _VisitorPhotoUploadSheetState extends State<VisitorPhotoUploadSheet> {
             const SizedBox(height: 8),
             const Center(
               child: Text(
-                'Photos are reviewed before they appear publicly.',
+                'Photos are shared immediately with the community.',
                 style: TextStyle(
                   color: AppPalette.mutedText,
                   fontSize: 12,

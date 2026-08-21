@@ -243,7 +243,7 @@
       }
     }
   },
-  "categoryLabel": "Категория: {category}",
+  "categoryLabel": "Category: {category}",
   "@categoryLabel": {
     "placeholders": {
       "category": {
@@ -251,7 +251,7 @@
       }
     }
   },
-  "severityLabel": "Серьезность: {severity}",
+  "severityLabel": "Severity: {severity}",
   "@severityLabel": {
     "placeholders": {
       "severity": {
@@ -288,7 +288,7 @@
   "businessNotifications": "Бизнес-уведомления",
   "about": "О",
   "aboutDescription": "BrisConnect+ — это умный путеводитель по городу, который помогает посетителям и местным жителям узнавать о событиях, исследовать достопримечательности и записывать свои впечатления от Брисбена на одной подключенной платформе.",
-  "versionLabel": "Версия {version}",
+  "versionLabel": "Version {version}",
   "@versionLabel": {
     "placeholders": {
       "version": {
@@ -319,5 +319,41 @@
   "statusPending": "В ожидании",
   "statusInProgress": "В ходе выполнения",
   "statusResolved": "Решено",
-  "statusWontFix": "Не исправлю"
+  "statusWontFix": "Не исправлю",
+  "@@locale": "ru",
+  "languagePunjabi": "Пенджаби",
+  "foodBusinessDetails": "Сведения о компании",
+  "aboutThisFoodExperience": "Об этом гастрономическом опыте",
+  "highlights": "Основные моменты",
+  "contactAndLinks": "Контакты и ссылки",
+  "gallery": "Галерея",
+  "openingHours": "Часы работы",
+  "menu": "Меню",
+  "menuFallback": "Меню",
+  "call": "Вызов",
+  "website": "Веб-сайт",
+  "orderOnline": "Заказать онлайн",
+  "viewOnMap": "Посмотреть на карте",
+  "foodDiscoveryGuide": "Путеводитель по кулинарным открытиям",
+  "foodDiscoveryGuideHelper": "Нажмите кнопку воспроизведения, чтобы услышать, как ваш гид по гастрономическим открытиям описывает это место и его достопримечательности.",
+  "stop": "Останавливаться",
+  "unableToStartNarration": "В данный момент не удаётся запустить озвучку «Путеводителя по кулинарным открытиям».",
+  "unableToCallNumber": "В данный момент позвонить по этому номеру невозможно.",
+  "unableToSendEmail": "В данный момент отправить электронное письмо невозможно.",
+  "foodSpotCannotBeShared": "В данный момент информацию об этом месте, где можно поесть, делиться ею нельзя.",
+  "foodDescriptionIntro": "Step into {title}, a {cuisine} destination in the heart of {location}.",
+  "foodDescriptionRating": "Этот ресторан, любимый как местными жителями, так и туристами, имеет рейтинг в {rating} звезд.",
+  "foodDescriptionCategories": "The menu celebrates {categories}, crafted with fresh, locally sourced ingredients.",
+  "foodDescriptionPrice": "Expect a {price} experience that balances quality and value.",
+  "foodDescriptionOutro": "Независимо от того, предпочитаете ли вы неспешный бранч, деловой обед или оживленный ужин, {title} предлагает гостеприимную атмосферу и вкусы, отражающие гастрономическую сцену Брисбена.",
+  "foodNarrationWelcome": "Welcome to {title}",
+  "foodNarrationBadge": "This is a {badge} stop worth adding to your Brisbane food trail",
+  "foodNarrationCuisine": "It is best known for {cuisine}",
+  "foodNarrationLocation": "You will find it in {location}, where the local dining scene comes alive",
+  "foodNarrationDateTime": "You can usually visit during {dateTime}",
+  "foodNarrationDescription": "Here's what the experience feels like. {description}",
+  "foodNarrationPriceFree": "There is no entry cost to explore this food spot",
+  "foodNarrationPrice": "Pricing is listed as {price}",
+  "foodNarrationRating": "Visitors currently rate it {rating} out of 5",
+  "foodNarrationCategories": "Expect a mix of {categories}"
 }

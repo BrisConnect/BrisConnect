@@ -2,5 +2,6 @@
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <external-files-path name="brisconnect_share" path="." />
     <cache-path name="brisconnect_cache" path="." />
+    <cache-path name="brisconnect_share_cache" path="brisconnect_share/" />
     <files-path name="brisconnect_files" path="." />
 </paths>

@@ -53,11 +53,14 @@ function createChange(beforeData, afterData) {
  * a stubbed ref so the test can avoid real Firestore writes.
  */
 function createCloudEventChange(beforeData, afterData) {
+  const change = functionsTest.makeChange(
+    functionsTest.firestore.makeDocumentSnapshot(beforeData, 'promotions/promo-1'),
+    functionsTest.firestore.makeDocumentSnapshot(afterData, 'promotions/promo-1'),
+  );
+  // Avoid accidental live Firestore writes in tests that don't override the ref.
+  change.after.ref.update = sinon.stub().resolves();
   return {
-    data: functionsTest.makeChange(
-      functionsTest.firestore.makeDocumentSnapshot(beforeData, 'promotions/promo-1'),
-      functionsTest.firestore.makeDocumentSnapshot(afterData, 'promotions/promo-1'),
-    ),
+    data: change,
     params: { promotionId: 'promo-1' },
   };
 }
@@ -124,6 +127,15 @@ beforeEach(() => {
     loaded: true,
     exports: adminStub,
   };
+
+  // Wipe notification helper module caches so they capture the current admin
+  // stub when index.js is re-required (otherwise a previous test file's stub
+  // instance can leak through a closed-over `admin` reference).
+  delete require.cache[require.resolve('../index.js')];
+  delete require.cache[require.resolve('../owner_notifications.js')];
+  delete require.cache[require.resolve('../visitor_notifications.js')];
+  delete require.cache[require.resolve('../admin_notifications.js')];
+  delete require.cache[require.resolve('../fcm_utils.js')];
 
   // Reset stubs between tests.
   collectionStub.resetHistory();

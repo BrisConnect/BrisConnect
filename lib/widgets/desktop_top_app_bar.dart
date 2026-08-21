@@ -22,6 +22,7 @@ class DesktopTopAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.userName,
     this.userEmail,
     this.profileBadge,
+    this.notificationBell,
     this.backgroundColor = AppPalette.surface,
   });
 
@@ -36,6 +37,7 @@ class DesktopTopAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String? userName;
   final String? userEmail;
   final Widget? profileBadge;
+  final Widget? notificationBell;
   final Color backgroundColor;
 
   @override
@@ -60,14 +62,21 @@ class DesktopTopAppBar extends StatelessWidget implements PreferredSizeWidget {
       child: Row(
         children: [
           // Brand
-          ClipOval(
-            child: Container(
-              width: 44,
-              height: 44,
-              color: Colors.white.withValues(alpha: 0.1),
-              child: Image.asset(
-                'assets/Brisconnect New.jpg',
-                fit: BoxFit.cover,
+          InkWell(
+            onTap: () => Navigator.of(context).pushNamedAndRemoveUntil(
+              '/welcome',
+              (route) => false,
+            ),
+            borderRadius: BorderRadius.circular(22),
+            child: ClipOval(
+              child: Container(
+                width: 44,
+                height: 44,
+                color: Colors.white.withValues(alpha: 0.1),
+                child: Image.asset(
+                  'assets/Brisconnect New.jpg',
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
           ),
@@ -103,6 +112,9 @@ class DesktopTopAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
 
           const SizedBox(width: 24),
+
+          if (notificationBell != null) notificationBell!,
+          if (notificationBell != null) const SizedBox(width: 12),
 
           // Profile chip
           _buildProfileChip(context),
@@ -180,63 +192,60 @@ class DesktopTopAppBar extends StatelessWidget implements PreferredSizeWidget {
         .join('')
         .toUpperCase();
 
-    return GestureDetector(
-      onTap: onProfileTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppPalette.background.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(
-            color: AppPalette.border.withValues(alpha: 0.5),
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppPalette.background.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: AppPalette.border.withValues(alpha: 0.5),
         ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: AppPalette.ochre,
-              backgroundImage: profileImage,
-              child: profileImage == null
-                  ? Text(
-                      initials.isEmpty ? 'U' : initials,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 10),
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: AppPalette.ochre,
+            backgroundImage: profileImage,
+            child: profileImage == null
+                ? Text(
+                    initials.isEmpty ? 'U' : initials,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 10),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                userName ?? 'User',
+                style: const TextStyle(
+                  color: AppPalette.charcoal,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+              if (userEmail != null && userEmail!.isNotEmpty)
                 Text(
-                  userName ?? 'User',
+                  userEmail!,
                   style: const TextStyle(
-                    color: AppPalette.charcoal,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
+                    color: AppPalette.mutedText,
+                    fontSize: 10,
                   ),
                 ),
-                if (userEmail != null && userEmail!.isNotEmpty)
-                  Text(
-                    userEmail!,
-                    style: const TextStyle(
-                      color: AppPalette.mutedText,
-                      fontSize: 10,
-                    ),
-                  ),
-              ],
-            ),
-            if (profileBadge != null) ...[
-              const SizedBox(width: 8),
-              profileBadge!,
             ],
+          ),
+          if (profileBadge != null) ...[
+            const SizedBox(width: 8),
+            profileBadge!,
           ],
-        ),
+        ],
       ),
     );
   }

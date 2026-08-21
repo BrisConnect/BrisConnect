@@ -361,7 +361,7 @@ abstract class AppLocalizations {
   /// No description provided for @profileUpdateFailed.
   ///
   /// In en, this message translates to:
-  /// **'Could not update profile. Please try again.'**
+  /// **'Please sign up to create profile.'**
   String get profileUpdateFailed;
 
   /// No description provided for @guestVisitor.

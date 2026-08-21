@@ -9,6 +9,7 @@ import 'package:brisconnect/models/business.dart';
 import 'package:brisconnect/services/business_profile_service.dart';
 import 'package:brisconnect/services/firebase_media_service.dart';
 import 'package:brisconnect/services/address_geocoding_service.dart';
+import 'package:brisconnect/services/google_places_autocomplete_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 
 /// Shown on first login after admin approval.
@@ -34,11 +35,13 @@ class _BusinessProfileSetupScreenState
   String? _bannerUrl;
   final _picker = ImagePicker();
   final _mediaService = FirebaseMediaService();
+  final _placesService = GooglePlacesAutocompleteService();
 
   // ── Controllers ──────────────────────────────────────────────────
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
+  final _addressFocusNode = FocusNode();
   final _phoneCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _websiteCtrl = TextEditingController();
@@ -56,8 +59,13 @@ class _BusinessProfileSetupScreenState
   };
 
   static const _kDays = [
-    'Monday', 'Tuesday', 'Wednesday', 'Thursday',
-    'Friday', 'Saturday', 'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
   ];
 
   @override
@@ -108,13 +116,33 @@ class _BusinessProfileSetupScreenState
   @override
   void dispose() {
     for (final c in [
-      _nameCtrl, _descCtrl, _addressCtrl, _phoneCtrl, _emailCtrl,
-      _websiteCtrl, _instagramCtrl, _facebookCtrl, _tiktokCtrl, _menuItemCtrl,
+      _nameCtrl,
+      _descCtrl,
+      _addressCtrl,
+      _phoneCtrl,
+      _emailCtrl,
+      _websiteCtrl,
+      _instagramCtrl,
+      _facebookCtrl,
+      _tiktokCtrl,
+      _menuItemCtrl,
     ]) {
       c.dispose();
     }
+    _addressFocusNode.dispose();
     _pageController.dispose();
     super.dispose();
+  }
+
+  /// Fetches Brisbane-only address suggestions from Google Places.
+  Future<Iterable<String>> _getAddressSuggestions(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.length < 2) return const <String>[];
+    try {
+      return await _placesService.fetchBrisbaneAddressSuggestions(trimmed);
+    } catch (_) {
+      return const <String>[];
+    }
   }
 
   // ── Progress ─────────────────────────────────────────────────────
@@ -161,7 +189,8 @@ class _BusinessProfileSetupScreenState
           .uploadBytes(path: path, bytes: bytes, contentType: 'image/jpeg')
           .timeout(const Duration(seconds: 30));
       setState(() => isLogo ? _logoUrl = url : _bannerUrl = url);
-      debugPrint('[BusinessProfileSetup] uploaded ${isLogo ? 'logo' : 'cover'}: $url');
+      debugPrint(
+          '[BusinessProfileSetup] uploaded ${isLogo ? 'logo' : 'cover'}: $url');
     } on TimeoutException catch (_) {
       debugPrint('[BusinessProfileSetup] upload timed out');
       if (mounted) {
@@ -176,11 +205,16 @@ class _BusinessProfileSetupScreenState
       debugPrint('[BusinessProfileSetup] upload failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(
+              content: Text('Upload failed: $e'),
+              backgroundColor: Colors.redAccent),
         );
       }
     } finally {
-      if (mounted) setState(() => isLogo ? _uploadingLogo = false : _uploadingBanner = false);
+      if (mounted) {
+        setState(
+            () => isLogo ? _uploadingLogo = false : _uploadingBanner = false);
+      }
     }
   }
 
@@ -244,6 +278,17 @@ class _BusinessProfileSetupScreenState
       return;
     }
 
+    // Reject addresses that don't plausibly refer to Brisbane before doing
+    // any geocoding. geocodeAddress() always resolves to *some* coordinates
+    // (falling back to Brisbane CBD) so it can't be relied on alone to
+    // reject nonsense/invalid input.
+    final addressValidator = AddressGeocodingService();
+    final isPlausibleAddress = await addressValidator.isValidAddress(address);
+    if (!isPlausibleAddress) {
+      _showSnack('Please enter a valid Brisbane business address.');
+      return;
+    }
+
     setState(() => _saving = true);
 
     // Validate and geocode the address before saving. Dev fallback: if
@@ -301,7 +346,8 @@ class _BusinessProfileSetupScreenState
       lat: latLng.latitude,
       lng: latLng.longitude,
       contactNumber: _phoneCtrl.text.trim(),
-      website: _websiteCtrl.text.trim().isEmpty ? null : _websiteCtrl.text.trim(),
+      website:
+          _websiteCtrl.text.trim().isEmpty ? null : _websiteCtrl.text.trim(),
       socialMedia: {
         if (_instagramCtrl.text.trim().isNotEmpty)
           'Instagram': _instagramCtrl.text.trim(),
@@ -348,13 +394,12 @@ class _BusinessProfileSetupScreenState
   }
 
   void _showSnack(String msg) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   Widget _buildApprovalBlockedScreen(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
+      backgroundColor: const Color(0xFFEBF4FF),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -364,13 +409,14 @@ class _BusinessProfileSetupScreenState
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.lock_outline, color: AppPalette.ochre, size: 64),
+                  const Icon(Icons.lock_outline,
+                      color: AppPalette.ochre, size: 64),
                   const SizedBox(height: 24),
                   const Text(
                     'Account Pending Approval',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Colors.black,
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
                     ),
@@ -379,23 +425,27 @@ class _BusinessProfileSetupScreenState
                   const Text(
                     'Your Local account must be approved by an admin before you can create a business profile.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+                    style: TextStyle(
+                        color: AppPalette.mutedText, fontSize: 14, height: 1.5),
                   ),
                   const SizedBox(height: 28),
                   ElevatedButton(
                     onPressed: () async {
                       await LocalAuth.logout();
                       if (context.mounted) {
-                        Navigator.of(context).pushNamedAndRemoveUntil('/welcome', (route) => false);
+                        Navigator.of(context).pushNamedAndRemoveUntil(
+                            '/welcome', (route) => false);
                       }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppPalette.ochre,
                       foregroundColor: Colors.black,
                       minimumSize: const Size(double.infinity, 48),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('Back to Welcome', style: TextStyle(fontWeight: FontWeight.w600)),
+                    child: const Text('Back to Welcome',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
                 ],
               ),
@@ -419,165 +469,240 @@ class _BusinessProfileSetupScreenState
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
+      backgroundColor: const Color(0xFFEBF4FF),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0D1117),
+        backgroundColor: const Color(0xFFEBF4FF),
         elevation: 0,
         leading: isEdit
             ? IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
+                icon: const Icon(Icons.close, color: Colors.black),
                 onPressed: () => Navigator.pop(context),
               )
             : null,
         automaticallyImplyLeading: isEdit,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isEdit ? 'Edit Business Profile' : 'Complete Your Business Profile',
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold),
-            ),
-            Text(
-              '${((_completionPercent) * 100).round()}% complete',
-              style: const TextStyle(color: AppPalette.ochre, fontSize: 12),
-            ),
-          ],
+        title: Text(
+          isEdit ? 'Edit Business Profile' : 'Complete Your Business Profile',
+          style: const TextStyle(
+              color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ),
-      body: Column(
-        children: [
-          // Progress bar
-          LinearProgressIndicator(
-            value: (_currentPage + 1) / _pages.length,
-            backgroundColor: AppPalette.surface,
-            valueColor:
-                const AlwaysStoppedAnimation<Color>(AppPalette.ochre),
-            minHeight: 3,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 700),
+          child: Column(
+            children: [
+              // Progress bar
+              LinearProgressIndicator(
+                value: (_currentPage + 1) / _pages.length,
+                backgroundColor: AppPalette.surface,
+                valueColor:
+                    const AlwaysStoppedAnimation<Color>(AppPalette.ochre),
+                minHeight: 3,
+              ),
+              _buildProgressHeader(),
+              // Pages
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  onPageChanged: (i) => setState(() => _currentPage = i),
+                  children: [
+                    _pageBusinessInfo(),
+                    _pageLocationHours(),
+                    _pageContactSocial(),
+                    _pageMenuItems(),
+                  ],
+                ),
+              ),
+              // Bottom buttons
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  child: _buildBottomBar(isEdit),
+                ),
+              ),
+            ],
           ),
-          // Step indicator
-          Container(
-            color: const Color(0xFF0D1117),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Row(
-              children: List.generate(_pages.length, (i) {
-                final active = i == _currentPage;
-                final done = i < _currentPage;
+        ),
+      ),
+    );
+  }
+
+  // ── Progress header: step circles + labels + % complete pill ───────
+  Widget _buildProgressHeader() {
+    return Container(
+      color: const Color(0xFFEBF4FF),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Step ${_currentPage + 1} of ${_pages.length}',
+                style: const TextStyle(
+                    color: AppPalette.charcoal,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600),
+              ),
+              const Spacer(),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppPalette.ochre.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${((_completionPercent) * 100).round()}% complete',
+                  style: const TextStyle(
+                      color: AppPalette.ochre,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: List.generate(_pages.length * 2 - 1, (idx) {
+              if (idx.isOdd) {
+                final leftStep = idx ~/ 2;
+                final connected = leftStep < _currentPage;
                 return Expanded(
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: done
-                              ? AppPalette.ochre
-                              : active
-                                  ? AppPalette.ochre.withValues(alpha: 0.3)
-                                  : const Color(0xFF2A2A3E),
-                          border: active
-                              ? Border.all(color: AppPalette.ochre, width: 2)
-                              : null,
-                        ),
-                        child: Center(
-                          child: done
-                              ? const Icon(Icons.check, size: 14, color: Colors.white)
-                              : Text(
-                                  '${i + 1}',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: active ? AppPalette.ochre : const Color(0xFF8B8FA8),
-                                  ),
-                                ),
-                        ),
-                      ),
-                      if (i < _pages.length - 1)
-                        Expanded(
-                          child: Container(
-                            height: 2,
-                            color: done
-                                ? AppPalette.ochre
-                                : const Color(0xFF2A2A3E),
-                          ),
-                        ),
-                    ],
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 16),
+                    height: 2,
+                    color: connected ? AppPalette.ochre : AppPalette.border,
                   ),
                 );
-              }),
-            ),
-          ),
-          // Pages
-          Expanded(
-            child: PageView(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(),
-              onPageChanged: (i) => setState(() => _currentPage = i),
-              children: [
-                _pageBusinessInfo(),
-                _pageLocationHours(),
-                _pageContactSocial(),
-                _pageMenuItems(),
-              ],
-            ),
-          ),
-          // Bottom buttons
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: Row(
-                children: [
-                  if (_currentPage > 0)
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _saving ? null : _goBack,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Color(0xFF3A3A5C)),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                        ),
-                        child: const Text('Back'),
+              }
+              final i = idx ~/ 2;
+              final active = i == _currentPage;
+              final done = i < _currentPage;
+              return SizedBox(
+                width: 78,
+                child: Column(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color:
+                            (done || active) ? AppPalette.ochre : Colors.white,
+                        border: active
+                            ? Border.all(color: AppPalette.ochre, width: 2.5)
+                            : done
+                                ? null
+                                : Border.all(
+                                    color: AppPalette.border, width: 1.5),
+                        boxShadow: active
+                            ? [
+                                BoxShadow(
+                                  color:
+                                      AppPalette.ochre.withValues(alpha: 0.35),
+                                  blurRadius: 8,
+                                  spreadRadius: 1,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Center(
+                        child: done
+                            ? const Icon(Icons.check,
+                                size: 16, color: Colors.white)
+                            : Text(
+                                '${i + 1}',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: active
+                                      ? Colors.white
+                                      : AppPalette.mutedText,
+                                ),
+                              ),
                       ),
                     ),
-                  if (_currentPage > 0) const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton(
-                      onPressed: _saving ? null : _goNext,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppPalette.ochre,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                    const SizedBox(height: 6),
+                    Text(
+                      _pages[i],
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: active ? FontWeight.bold : FontWeight.w600,
+                        color: active ? AppPalette.ochre : AppPalette.charcoal,
                       ),
-                      child: _saving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
-                            )
-                          : Text(
-                              _currentPage == _pages.length - 1
-                                  ? (isEdit ? 'Save Changes' : 'Save & Enter App')
-                                  : 'Next',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
                     ),
-                  ),
-                ],
-              ),
-            ),
+                  ],
+                ),
+              );
+            }),
           ),
         ],
       ),
+    );
+  }
+
+  // ── Bottom bar: full-width on mobile, compact + spread on desktop ──
+  Widget _buildBottomBar(bool isEdit) {
+    final isDesktop = MediaQuery.of(context).size.width >= 700;
+    final nextLabel = _currentPage == _pages.length - 1
+        ? (isEdit ? 'Save Changes' : 'Save & Enter App')
+        : 'Next';
+
+    final backButton = OutlinedButton(
+      onPressed: _saving ? null : _goBack,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.black,
+        side: const BorderSide(color: Color(0xFFCBD5E1)),
+        padding: EdgeInsets.symmetric(
+            horizontal: isDesktop ? 24 : 14, vertical: isDesktop ? 12 : 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      child: const Text('Back'),
+    );
+
+    final nextButton = ElevatedButton(
+      onPressed: _saving ? null : _goNext,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppPalette.ochre,
+        foregroundColor: Colors.white,
+        padding: EdgeInsets.symmetric(
+            horizontal: isDesktop ? 28 : 14, vertical: isDesktop ? 12 : 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      child: _saving
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white),
+            )
+          : Text(nextLabel,
+              style:
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+    );
+
+    if (isDesktop) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _currentPage > 0 ? backButton : const SizedBox.shrink(),
+          nextButton,
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        if (_currentPage > 0) Expanded(child: backButton),
+        if (_currentPage > 0) const SizedBox(width: 12),
+        Expanded(flex: 2, child: nextButton),
+      ],
     );
   }
 
@@ -590,89 +715,179 @@ class _BusinessProfileSetupScreenState
         children: [
           _sectionTitle('Business Info', Icons.store_rounded),
           const SizedBox(height: 16),
-          _field('Business Name *', _nameCtrl,
-              hint: 'e.g. The Coffee Corner'),
-          const SizedBox(height: 14),
+          _field('Business Name *', _nameCtrl, hint: 'e.g. The Coffee Corner'),
+          const SizedBox(height: 16),
           _label('Category'),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
             initialValue: _selectedCategory,
             dropdownColor: AppPalette.surface,
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: Colors.black),
             decoration: _inputDec('Select a category'),
             items: businessCategories
                 .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                 .toList(),
             onChanged: (v) => setState(() => _selectedCategory = v!),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           _field('Description', _descCtrl,
               hint: 'Tell customers what makes your business special…',
               maxLines: 4),
           const SizedBox(height: 20),
           _sectionTitle('Photos', Icons.photo_camera_rounded),
           const SizedBox(height: 12),
-          // Banner picker
-          GestureDetector(
-            onTap: () => _pickImage(isLogo: false),
-            child: Container(
-              height: 120,
-              decoration: BoxDecoration(
-                color: AppPalette.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppPalette.ochre.withValues(alpha: 0.3), style: BorderStyle.solid),
-                image: (_bannerUrl ?? '').isNotEmpty
-                    ? DecorationImage(image: NetworkImage(_bannerUrl!), fit: BoxFit.cover)
-                    : null,
-              ),
-              child: _uploadingBanner
-                  ? const Center(child: CircularProgressIndicator(color: AppPalette.ochre))
-                  : (_bannerUrl ?? '').isEmpty
-                      ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(Icons.add_photo_alternate_rounded, color: AppPalette.ochre, size: 28),
-                          SizedBox(height: 4),
-                          Text('Tap to add Banner / Cover Image', style: TextStyle(color: AppPalette.ochre, fontSize: 12)),
-                        ]))
-                      : Align(alignment: Alignment.bottomRight, child: Container(
-                          margin: const EdgeInsets.all(8), padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                          child: const Icon(Icons.edit_rounded, color: Colors.white, size: 16))),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppPalette.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                  color: AppPalette.ochre.withValues(alpha: 0.25), width: 1.4),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _label('Cover photo'),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () => _pickImage(isLogo: false),
+                  child: Container(
+                    height: 120,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEBF4FF),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: AppPalette.ochre.withValues(alpha: 0.3)),
+                      image: (_bannerUrl ?? '').isNotEmpty
+                          ? DecorationImage(
+                              image: NetworkImage(_bannerUrl!),
+                              fit: BoxFit.cover)
+                          : null,
+                    ),
+                    child: _uploadingBanner
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                                color: AppPalette.ochre))
+                        : (_bannerUrl ?? '').isEmpty
+                            ? const Center(
+                                child: Icon(Icons.add_photo_alternate_rounded,
+                                    color: AppPalette.ochre, size: 28))
+                            : null,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _photoActionButton(
+                  label: (_bannerUrl ?? '').isEmpty
+                      ? 'Add cover photo'
+                      : 'Change cover',
+                  icon: Icons.image_rounded,
+                  onTap: () => _pickImage(isLogo: false),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Recommended: 1200×400px (3:1 ratio), JPG or PNG, max 5MB',
+                  style: TextStyle(color: AppPalette.mutedText, fontSize: 11),
+                ),
+                const SizedBox(height: 20),
+                _label('Business logo / profile photo'),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: () => _pickImage(isLogo: true),
+                      child: Container(
+                        width: 116,
+                        height: 116,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEBF4FF),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: AppPalette.ochre.withValues(alpha: 0.3),
+                              width: 1.4),
+                          image: (_logoUrl ?? '').isNotEmpty
+                              ? DecorationImage(
+                                  image: NetworkImage(_logoUrl!),
+                                  fit: BoxFit.cover)
+                              : null,
+                        ),
+                        child: _uploadingLogo
+                            ? const Center(
+                                child: SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppPalette.ochre)))
+                            : (_logoUrl ?? '').isEmpty
+                                ? const Icon(Icons.add_a_photo_rounded,
+                                    color: AppPalette.ochre, size: 34)
+                                : null,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Shown on your business card and profile header',
+                            style: TextStyle(
+                                color: AppPalette.mutedText,
+                                fontSize: 12,
+                                height: 1.4),
+                          ),
+                          const SizedBox(height: 8),
+                          _photoActionButton(
+                            label: (_logoUrl ?? '').isEmpty
+                                ? 'Add logo'
+                                : 'Change logo',
+                            icon: Icons.photo_camera_rounded,
+                            onTap: () => _pickImage(isLogo: true),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 10),
-          // Logo picker
-          Row(children: [
-            GestureDetector(
-              onTap: () => _pickImage(isLogo: true),
-              child: Container(
-                width: 80, height: 80,
-                decoration: BoxDecoration(
-                  color: AppPalette.surface,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppPalette.ochre.withValues(alpha: 0.3)),
-                  image: (_logoUrl ?? '').isNotEmpty
-                      ? DecorationImage(image: NetworkImage(_logoUrl!), fit: BoxFit.cover)
-                      : null,
-                ),
-                child: _uploadingLogo
-                    ? const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppPalette.ochre)))
-                    : (_logoUrl ?? '').isEmpty
-                        ? const Icon(Icons.add_a_photo_rounded, color: AppPalette.ochre, size: 28)
-                        : Align(alignment: Alignment.bottomRight, child: Container(
-                            width: 20, height: 20,
-                            decoration: const BoxDecoration(color: AppPalette.ochre, shape: BoxShape.circle),
-                            child: const Icon(Icons.edit_rounded, color: Colors.white, size: 12))),
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(child: Text('Tap the circle to add your\nbusiness logo or profile picture', style: TextStyle(color: Color(0xFF8B8FA8), fontSize: 12, height: 1.4))),
-          ]),
         ],
       ),
     );
   }
 
-  // ── Page 2: Location & Hours ───────────────────────────────────────
+  Widget _photoActionButton(
+      {required String label,
+      required IconData icon,
+      required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppPalette.ochre,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white, size: 15),
+            const SizedBox(width: 6),
+            Text(label,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _pageLocationHours() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -681,14 +896,85 @@ class _BusinessProfileSetupScreenState
         children: [
           _sectionTitle('Location & Hours', Icons.location_on_rounded),
           const SizedBox(height: 16),
-          _field('Street Address *', _addressCtrl,
-              hint: 'e.g. 123 Queen St, Brisbane QLD 4000'),
+          _addressAutocompleteField(),
           const SizedBox(height: 20),
           _label('Opening Hours'),
           const SizedBox(height: 10),
           ..._kDays.map((day) => _buildDayRow(day)),
         ],
       ),
+    );
+  }
+
+  Widget _addressAutocompleteField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('Street Address *'),
+        const SizedBox(height: 6),
+        RawAutocomplete<String>(
+          textEditingController: _addressCtrl,
+          focusNode: _addressFocusNode,
+          optionsBuilder: (value) => _getAddressSuggestions(value.text),
+          onSelected: (selection) {
+            _addressCtrl.text = selection;
+            setState(() {});
+          },
+          fieldViewBuilder: (
+            context,
+            textEditingController,
+            focusNode,
+            onFieldSubmitted,
+          ) {
+            return TextField(
+              controller: textEditingController,
+              focusNode: focusNode,
+              style: const TextStyle(color: AppPalette.charcoal),
+              onChanged: (_) => setState(() {}),
+              decoration: _inputDec('e.g. 123 Queen St, Brisbane QLD 4000'),
+            );
+          },
+          optionsViewBuilder: (context, onSelected, options) {
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Material(
+                elevation: 4,
+                borderRadius: BorderRadius.circular(10),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 220),
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width - 40,
+                    child: ListView.builder(
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      itemCount: options.length,
+                      itemBuilder: (context, index) {
+                        final option = options.elementAt(index);
+                        return ListTile(
+                          dense: true,
+                          leading: const Icon(
+                            Icons.location_on_rounded,
+                            color: AppPalette.ochre,
+                            size: 18,
+                          ),
+                          title: Text(
+                            option,
+                            style: const TextStyle(
+                              color: AppPalette.charcoal,
+                              fontSize: 13,
+                            ),
+                          ),
+                          onTap: () => onSelected(option),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -702,7 +988,7 @@ class _BusinessProfileSetupScreenState
             width: 90,
             child: Text(day.substring(0, 3),
                 style: const TextStyle(
-                    color: Colors.white70, fontWeight: FontWeight.w500)),
+                    color: Colors.black87, fontWeight: FontWeight.w500)),
           ),
           Switch(
             value: !entry.isClosed,
@@ -712,19 +998,19 @@ class _BusinessProfileSetupScreenState
           ),
           if (!entry.isClosed) ...[
             const SizedBox(width: 4),
-            _timeChip(entry.open, (t) =>
-                setState(() => _hours[day] = entry.copyWith(open: t))),
+            _timeChip(entry.open,
+                (t) => setState(() => _hours[day] = entry.copyWith(open: t))),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 6),
-              child: Text('–', style: TextStyle(color: Colors.white54)),
+              child: Text('–', style: TextStyle(color: Colors.black54)),
             ),
-            _timeChip(entry.close, (t) =>
-                setState(() => _hours[day] = entry.copyWith(close: t))),
+            _timeChip(entry.close,
+                (t) => setState(() => _hours[day] = entry.copyWith(close: t))),
           ] else
             const Padding(
               padding: EdgeInsets.only(left: 8),
               child: Text('Closed',
-                  style: TextStyle(color: Color(0xFF8B8FA8), fontSize: 13)),
+                  style: TextStyle(color: AppPalette.mutedText, fontSize: 13)),
             ),
         ],
       ),
@@ -775,8 +1061,7 @@ class _BusinessProfileSetupScreenState
           _sectionTitle('Contact & Social', Icons.contact_phone_rounded),
           const SizedBox(height: 16),
           _field('Phone Number *', _phoneCtrl,
-              hint: 'e.g. 07 3000 0000',
-              keyboardType: TextInputType.phone),
+              hint: 'e.g. 07 3000 0000', keyboardType: TextInputType.phone),
           const SizedBox(height: 14),
           _field('Email (optional)', _emailCtrl,
               hint: 'hello@yourbusiness.com.au',
@@ -832,7 +1117,8 @@ class _BusinessProfileSetupScreenState
           const SizedBox(height: 8),
           const Text(
             'Add your key menu items, services or products. You can edit these later from your Business Profile.',
-            style: TextStyle(color: Color(0xFF8B8FA8), fontSize: 13, height: 1.4),
+            style: TextStyle(
+                color: AppPalette.mutedText, fontSize: 13, height: 1.4),
           ),
           const SizedBox(height: 16),
           Row(
@@ -870,7 +1156,7 @@ class _BusinessProfileSetupScreenState
               child: const Center(
                 child: Text(
                   'No items yet. Add your first menu item above.',
-                  style: TextStyle(color: Color(0xFF8B8FA8), fontSize: 13),
+                  style: TextStyle(color: AppPalette.mutedText, fontSize: 13),
                 ),
               ),
             )
@@ -878,27 +1164,28 @@ class _BusinessProfileSetupScreenState
             ...List.generate(_menuItems.length, (i) {
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: AppPalette.surface,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.05)),
+                  border:
+                      Border.all(color: Colors.white.withValues(alpha: 0.05)),
                 ),
                 child: Row(
                   children: [
                     const Icon(Icons.drag_indicator_rounded,
-                        color: Color(0xFF8B8FA8), size: 18),
+                        color: AppPalette.mutedText, size: 18),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(_menuItems[i],
-                          style: const TextStyle(color: Colors.white, fontSize: 14)),
+                          style: const TextStyle(
+                              color: Colors.black, fontSize: 14)),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close_rounded,
-                          color: Color(0xFF8B8FA8), size: 18),
-                      onPressed: () =>
-                          setState(() => _menuItems.removeAt(i)),
+                          color: AppPalette.mutedText, size: 18),
+                      onPressed: () => setState(() => _menuItems.removeAt(i)),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
@@ -931,7 +1218,7 @@ class _BusinessProfileSetupScreenState
         const SizedBox(width: 8),
         Text(title,
             style: const TextStyle(
-                color: Colors.white,
+                color: Colors.black,
                 fontSize: 17,
                 fontWeight: FontWeight.bold)),
       ],
@@ -940,7 +1227,7 @@ class _BusinessProfileSetupScreenState
 
   Widget _label(String text) => Text(text,
       style: const TextStyle(
-          color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500));
+          color: Colors.black87, fontSize: 13, fontWeight: FontWeight.w500));
 
   Widget _field(
     String label,
@@ -968,7 +1255,7 @@ class _BusinessProfileSetupScreenState
 
   InputDecoration _inputDec(String hint) => InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: Color(0xFF8B8FA8), fontSize: 13),
+        hintStyle: const TextStyle(color: AppPalette.mutedText, fontSize: 13),
         filled: true,
         fillColor: AppPalette.surface,
         contentPadding:
@@ -979,8 +1266,7 @@ class _BusinessProfileSetupScreenState
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide:
-              BorderSide(color: Colors.white.withValues(alpha: 0.07)),
+          borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
@@ -993,8 +1279,7 @@ class _BusinessProfileSetupScreenState
         decoration: BoxDecoration(
           color: AppPalette.ochre.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-              color: AppPalette.ochre.withValues(alpha: 0.3)),
+          border: Border.all(color: AppPalette.ochre.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
@@ -1004,7 +1289,7 @@ class _BusinessProfileSetupScreenState
             Expanded(
               child: Text(text,
                   style: const TextStyle(
-                      color: Colors.white70, fontSize: 12, height: 1.4)),
+                      color: Colors.black87, fontSize: 12, height: 1.4)),
             ),
           ],
         ),

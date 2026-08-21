@@ -5,8 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'remote_media_helper.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Result of an Instagram Story share attempt.
@@ -55,7 +55,11 @@ class InstagramStoryService {
     File? file = mediaFile;
 
     if (file == null && remoteMediaUrl != null && remoteMediaUrl.isNotEmpty) {
-      file = await _downloadRemoteMedia(remoteMediaUrl);
+      file = await RemoteMediaHelper.downloadRemoteMedia(
+        remoteMediaUrl,
+        client: _httpClient,
+        fileNamePrefix: 'brisconnect_share',
+      );
     }
 
     file ??= await _pickMedia();
@@ -99,14 +103,12 @@ class InstagramStoryService {
       final isVideo = _isVideoBytes(bytes);
 
       final params = <String, String>{
-        if (isVideo)
-          'source_url': base64Data
-        else
-          'source_image': base64Data,
+        if (isVideo) 'source_url': base64Data else 'source_image': base64Data,
         'content_url': _extractUrl(shareText),
       };
 
-      final uri = Uri(scheme: 'instagram-stories', host: 'share', queryParameters: params);
+      final uri = Uri(
+          scheme: 'instagram-stories', host: 'share', queryParameters: params);
 
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -172,23 +174,6 @@ class InstagramStoryService {
     }
   }
 
-  Future<File?> _downloadRemoteMedia(String url) async {
-    try {
-      final response = await _httpClient.get(Uri.parse(url));
-      if (response.statusCode != 200) return null;
-
-      final ext = _extensionFromUrl(url);
-      final tempDir = await getTemporaryDirectory();
-      final file = File(
-        '${tempDir.path}/brisconnect_share_${DateTime.now().millisecondsSinceEpoch}.$ext',
-      );
-      await file.writeAsBytes(response.bodyBytes);
-      return file;
-    } catch (_) {
-      return null;
-    }
-  }
-
   String _base64Encode(Uint8List bytes) {
     return base64Encode(bytes);
   }
@@ -197,7 +182,8 @@ class InstagramStoryService {
     if (bytes.length < 12) return false;
     // MP4 / MOV signatures.
     final signature = bytes.sublist(0, 12);
-    final ftypIndex = _indexOfBytes(signature, [0x66, 0x74, 0x79, 0x70]); // 'ftyp'
+    final ftypIndex =
+        _indexOfBytes(signature, [0x66, 0x74, 0x79, 0x70]); // 'ftyp'
     if (ftypIndex >= 0) {
       final brand = signature.sublist(ftypIndex + 4, ftypIndex + 8);
       final brandString = String.fromCharCodes(brand);
@@ -218,18 +204,6 @@ class InstagramStoryService {
       if (match) return i;
     }
     return -1;
-  }
-
-  String _extensionFromUrl(String url) {
-    try {
-      final uri = Uri.parse(url);
-      final path = uri.path;
-      final dotIndex = path.lastIndexOf('.');
-      if (dotIndex != -1 && dotIndex < path.length - 1) {
-        return path.substring(dotIndex + 1).split('?').first.toLowerCase();
-      }
-    } catch (_) {}
-    return 'jpg';
   }
 
   String _extractUrl(String text) {

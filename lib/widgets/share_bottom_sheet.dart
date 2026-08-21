@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:brisconnect/screens/story_preview_screen.dart';
 import 'package:brisconnect/services/share/content_share_service.dart';
 import 'package:brisconnect/services/share/social_story_service.dart';
 import 'package:brisconnect/services/social_share_tracking_service.dart';
@@ -34,7 +35,6 @@ Future<void> showShareBottomSheet({
   SocialShareTrackingService? trackingService,
 }) async {
   final service = shareService ?? ContentShareService();
-  final storySvc = storyService ?? SocialStoryService();
   final tracker = trackingService ?? SocialShareTrackingService();
   if (!context.mounted) return;
 
@@ -108,9 +108,8 @@ Future<void> showShareBottomSheet({
                   badge: 'Story',
                   onTap: () {
                     Navigator.pop(ctx);
-                    _shareToStory(
+                    _openStoryPreview(
                       context: context,
-                      storyService: storySvc,
                       platform: StoryPlatform.instagram,
                       type: type,
                       id: id,
@@ -118,10 +117,9 @@ Future<void> showShareBottomSheet({
                       description: description,
                       location: location,
                       dateTime: dateTime,
+                      imageUrl: imageUrl,
                       businessId: businessId,
                       businessName: businessName,
-                      imageUrl: imageUrl,
-                      trackingService: tracker,
                     );
                   },
                 ),
@@ -132,9 +130,8 @@ Future<void> showShareBottomSheet({
                   badge: 'Story',
                   onTap: () {
                     Navigator.pop(ctx);
-                    _shareToStory(
+                    _openStoryPreview(
                       context: context,
-                      storyService: storySvc,
                       platform: StoryPlatform.facebook,
                       type: type,
                       id: id,
@@ -142,10 +139,9 @@ Future<void> showShareBottomSheet({
                       description: description,
                       location: location,
                       dateTime: dateTime,
+                      imageUrl: imageUrl,
                       businessId: businessId,
                       businessName: businessName,
-                      imageUrl: imageUrl,
-                      trackingService: tracker,
                     );
                   },
                 ),
@@ -156,9 +152,8 @@ Future<void> showShareBottomSheet({
                   badge: 'Story',
                   onTap: () {
                     Navigator.pop(ctx);
-                    _shareToStory(
+                    _openStoryPreview(
                       context: context,
-                      storyService: storySvc,
                       platform: StoryPlatform.tiktok,
                       type: type,
                       id: id,
@@ -166,10 +161,9 @@ Future<void> showShareBottomSheet({
                       description: description,
                       location: location,
                       dateTime: dateTime,
+                      imageUrl: imageUrl,
                       businessId: businessId,
                       businessName: businessName,
-                      imageUrl: imageUrl,
-                      trackingService: tracker,
                     );
                   },
                 ),
@@ -180,7 +174,7 @@ Future<void> showShareBottomSheet({
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
                 kIsWeb
-                    ? 'On the web, story sharing opens the platform site so you can log in and paste the copied link as a sticker.'
+                    ? 'Your browser will share the story image directly when supported, or download it so you can upload it to your story.'
                     : 'Instagram and Facebook open directly with the image. TikTok uses your phone\'s share sheet — choose TikTok and paste the copied link.',
                 style: const TextStyle(color: Colors.white38, fontSize: 11),
                 textAlign: TextAlign.center,
@@ -337,6 +331,38 @@ Future<void> showShareBottomSheet({
   );
 }
 
+void _openStoryPreview({
+  required BuildContext context,
+  required StoryPlatform platform,
+  required ShareContentType type,
+  required String id,
+  required String title,
+  String? description,
+  String? location,
+  String? dateTime,
+  String? imageUrl,
+  String? businessId,
+  String? businessName,
+}) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => StoryPreviewScreen(
+        platform: platform,
+        contentType: type,
+        id: id,
+        title: title,
+        description: description,
+        location: location,
+        dateTime: dateTime,
+        imageUrl: imageUrl,
+        businessId: businessId,
+        businessName: businessName,
+      ),
+    ),
+  );
+}
+
 String _subtitleForType(ShareContentType type) {
   switch (type) {
     case ShareContentType.business:
@@ -351,104 +377,6 @@ String _subtitleForType(ShareContentType type) {
       return 'Share this promotion with your friends';
   }
 }
-
-Future<void> _shareToStory({
-  required BuildContext context,
-  required SocialStoryService storyService,
-  required StoryPlatform platform,
-  required ShareContentType type,
-  required String id,
-  required String title,
-  String? description,
-  String? location,
-  String? dateTime,
-  String? businessId,
-  String? businessName,
-  String? imageUrl,
-  SocialShareTrackingService? trackingService,
-}) async {
-  final result = await storyService.shareToStory(
-    platform: platform,
-    contentType: type,
-    id: id,
-    title: title,
-    description: description,
-    location: location,
-    dateTime: dateTime,
-    imageUrl: imageUrl,
-    useMedia: true,
-  );
-
-  _recordShare(
-    trackingService: trackingService,
-    platform: SocialStoryService.platformLabel(platform).toLowerCase(),
-    shareKind: 'story',
-    type: type,
-    id: id,
-    title: title,
-    description: description,
-    businessId: businessId,
-    businessName: businessName,
-    imageUrl: imageUrl,
-    shareUrl: ContentShareService().buildShareUrl(type: type, id: id, slug: title),
-  );
-
-  if (!context.mounted) return;
-
-  final messenger = ScaffoldMessenger.of(context);
-  final platformName = SocialStoryService.platformLabel(platform);
-
-  switch (result) {
-    case StoryShareResult.shared:
-      messenger.showSnackBar(
-        _buildSnackBar(
-          'Opening $platformName… paste the copied link as a sticker if needed.',
-          backgroundColor: _colorForPlatform(platform),
-          durationSeconds: 4,
-        ),
-      );
-    case StoryShareResult.copied:
-      messenger.showSnackBar(
-        _buildSnackBar(
-          kIsWeb
-              ? '$platformName web opened in a new tab. Link copied — log in and paste it as a story sticker.'
-              : 'Link copied! Open $platformName and paste it into your story.',
-          durationSeconds: 5,
-        ),
-      );
-    case StoryShareResult.noMediaSelected:
-      messenger.showSnackBar(
-        _buildSnackBar(
-          'No photo or video selected. Pick one to share to your $platformName story.',
-          durationSeconds: 3,
-        ),
-      );
-    case StoryShareResult.appNotInstalled:
-      messenger.showSnackBar(
-        _buildSnackBar(
-          '$platformName is not installed. Please install it and log in to share to stories.',
-          durationSeconds: 4,
-        ),
-      );
-    case StoryShareResult.cancelled:
-      messenger.showSnackBar(
-        _buildSnackBar('$platformName share cancelled.'),
-      );
-    case StoryShareResult.failed:
-      messenger.showSnackBar(
-        _buildSnackBar(
-          'Could not open $platformName. Link copied to clipboard so you can paste it manually.',
-          durationSeconds: 4,
-        ),
-      );
-  }
-}
-
-Color? _colorForPlatform(StoryPlatform platform) => switch (platform) {
-      StoryPlatform.instagram => const Color(0xFFE1306C),
-      StoryPlatform.facebook => const Color(0xFF1877F2),
-      StoryPlatform.tiktok => const Color(0xFF010101),
-    };
 
 Future<void> _share({
   required BuildContext context,
@@ -475,7 +403,7 @@ Future<void> _share({
     dateTime: dateTime,
   );
 
-  _recordShare(
+  final recorded = await _recordShare(
     trackingService: trackingService,
     platform: platform,
     shareKind: platform == 'copy' ? 'copy_link' : 'link',
@@ -492,6 +420,17 @@ Future<void> _share({
   if (!context.mounted) return;
 
   final messenger = ScaffoldMessenger.of(context);
+  if (!recorded) {
+    messenger.showSnackBar(
+      _buildSnackBar(
+        'Shared, but we couldn\'t save it to your vendor feed. Check your connection or Firestore rules.',
+        backgroundColor: Colors.orange[800],
+        durationSeconds: 4,
+      ),
+    );
+    return;
+  }
+
   switch (result) {
     case ShareResult.copied:
       if (platform == 'tiktok') {
@@ -525,7 +464,7 @@ Future<void> _share({
   }
 }
 
-void _recordShare({
+Future<bool> _recordShare({
   required SocialShareTrackingService? trackingService,
   required String platform,
   required String shareKind,
@@ -537,11 +476,14 @@ void _recordShare({
   String? businessName,
   String? imageUrl,
   String? shareUrl,
-}) {
+}) async {
   final effectiveBusinessId = businessId ?? id;
-  trackingService?.recordShare(
+  final effectiveBusinessName =
+      (businessName?.trim().isNotEmpty == true) ? businessName!.trim() : title;
+  if (trackingService == null) return false;
+  return trackingService.recordShare(
     businessId: effectiveBusinessId,
-    businessName: businessName,
+    businessName: effectiveBusinessName,
     contentId: id,
     contentType: type,
     platform: platform,

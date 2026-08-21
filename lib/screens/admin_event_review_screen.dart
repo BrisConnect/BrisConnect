@@ -6,6 +6,7 @@ import 'package:brisconnect/services/admin_event_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/inline_status_message.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
+import 'package:brisconnect/features/admin/dashboard/widgets/admin_sidebar.dart';
 
 class AdminEventReviewScreen extends StatefulWidget {
   AdminEventReviewScreen({
@@ -135,12 +136,14 @@ class _AdminEventReviewScreenState extends State<AdminEventReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final isDesktop = width > 1024;
     final scaffold = Scaffold(
       backgroundColor: widget.enforceRoleGuard
           ? const Color(0xFFEBF4FF)
           : Colors.transparent,
       appBar: AppBar(
-        automaticallyImplyLeading: widget.enforceRoleGuard,
+        automaticallyImplyLeading: false,
         backgroundColor: widget.enforceRoleGuard
             ? const Color(0xFFEBF4FF)
             : AppPalette.ochre,
@@ -251,15 +254,77 @@ class _AdminEventReviewScreenState extends State<AdminEventReviewScreen> {
       ),
     );
 
-    if (!widget.enforceRoleGuard) {
-      return scaffold;
-    }
-
-    return RoleGuard(
-      allowedRoles: const {AppUserRole.admin},
-      deniedMessage: 'Access denied. Admin privileges are required.',
-      child: scaffold,
+    final guarded = widget.enforceRoleGuard
+        ? RoleGuard(
+            allowedRoles: const {AppUserRole.admin},
+            deniedMessage: 'Access denied. Admin privileges are required.',
+            child: scaffold,
+          )
+        : scaffold;
+    
+    if (!isDesktop) return guarded;
+    
+    return Row(
+      children: [
+        AdminSidebar(
+          selectedIndex: 3, // Events
+          onDestinationSelected: (index) {
+            _handleNavigation(context, index);
+          },
+        ),
+        Expanded(child: guarded),
+      ],
     );
+  }
+
+  void _handleNavigation(BuildContext context, int index) {
+    // index: 0=Home, 1=Users, 2=Businesses, 3=Events, 4=Reports, 5=Feedback, 6=Broadcast, 7=Settings
+    switch (index) {
+      case 0: // Home
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/admin/dashboard',
+          (route) => false,
+        );
+        break;
+      case 1: // Users
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/admin/users',
+          (route) => false,
+        );
+        break;
+      case 2: // Businesses
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/admin/businesses',
+          (route) => false,
+        );
+        break;
+      case 3: // Events - already here
+        break;
+      case 4: // Reports
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/admin/reports',
+          (route) => false,
+        );
+        break;
+      case 5: // Feedback
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/admin/feedback',
+          (route) => false,
+        );
+        break;
+      case 6: // Broadcast Email
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/admin/broadcast',
+          (route) => false,
+        );
+        break;
+      case 7: // Settings
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/admin/settings',
+          (route) => false,
+        );
+        break;
+    }
   }
 }
 

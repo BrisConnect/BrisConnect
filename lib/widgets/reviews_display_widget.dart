@@ -316,6 +316,57 @@ class _ReviewsDisplayWidgetState extends State<ReviewsDisplayWidget> {
                 height: 1.5,
               ),
             ),
+            if ((review.reply ?? '').isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: AppPalette.deepBlue.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border(
+                    left: BorderSide(color: AppPalette.deepBlue, width: 3),
+                    top: BorderSide(
+                        color: AppPalette.deepBlue.withValues(alpha: 0.15)),
+                    right: BorderSide(
+                        color: AppPalette.deepBlue.withValues(alpha: 0.15)),
+                    bottom: BorderSide(
+                        color: AppPalette.deepBlue.withValues(alpha: 0.15)),
+                  ),
+                ),
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppPalette.deepBlue.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.storefront_rounded,
+                              color: AppPalette.deepBlue, size: 12),
+                          SizedBox(width: 4),
+                          Text('Business reply',
+                              style: TextStyle(
+                                  color: AppPalette.deepBlue,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 11)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      review.reply!,
+                      style: const TextStyle(fontSize: 13, height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
 
             // Date and helpful action

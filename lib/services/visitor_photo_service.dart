@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -105,10 +107,9 @@ class VisitorPhotoService {
       contentType: mimeType,
     );
 
-    final createdAt = DateTime.now();
-    final docRef = await _photosCollection.add({
-      if (businessId != null) 'businessId': businessId,
-      if (eventId != null) 'eventId': eventId,
+    final docData = <String, dynamic>{
+      if (businessId != null && businessId.isNotEmpty) 'businessId': businessId,
+      if (eventId != null && eventId.isNotEmpty) 'eventId': eventId,
       'visitorId': visitorId,
       'visitorName':
           visitorName.trim().isEmpty ? 'Anonymous' : visitorName.trim(),
@@ -117,20 +118,21 @@ class VisitorPhotoService {
       'mimeType': mimeType,
       'fileSize': bytes.length,
       'caption': caption?.trim(),
-      'status': 'pending',
-      'createdAt': Timestamp.fromDate(createdAt),
+      'status': 'approved',
+      'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': null,
-    });
+    };
+    final docRef = await _photosCollection.add(docData);
 
     final doc = await docRef.get();
     return VisitorPhoto.fromFirestore(doc);
   }
 
-  /// Stream approved photos for a business.
+  /// Stream photos for a business.
   Stream<List<VisitorPhoto>> getApprovedPhotosForBusiness(String businessId) {
     return _photosCollection
         .where('businessId', isEqualTo: businessId)
-        .where('status', isEqualTo: 'approved')
+        .where('deletedAt', isNull: true)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(
@@ -140,11 +142,11 @@ class VisitorPhotoService {
         );
   }
 
-  /// Stream approved photos for an event.
+  /// Stream photos for an event.
   Stream<List<VisitorPhoto>> getApprovedPhotosForEvent(String eventId) {
     return _photosCollection
         .where('eventId', isEqualTo: eventId)
-        .where('status', isEqualTo: 'approved')
+        .where('deletedAt', isNull: true)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(
@@ -154,7 +156,7 @@ class VisitorPhotoService {
         );
   }
 
-  /// Stream photos uploaded by the current visitor (any status).
+  /// Stream photos uploaded by the current visitor.
   Stream<List<VisitorPhoto>> getMyPhotos({String? visitorId}) {
     final effectiveVisitorId = visitorId ?? _currentVisitorId;
     if (effectiveVisitorId == null || effectiveVisitorId.isEmpty) {
@@ -169,22 +171,6 @@ class VisitorPhotoService {
               .map((doc) => VisitorPhoto.fromFirestore(doc))
               .toList(),
         );
-  }
-
-  /// Approve a visitor photo. Intended for admin moderation.
-  Future<void> approvePhoto(String photoId) async {
-    await _photosCollection.doc(photoId).update({
-      'status': 'approved',
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  /// Reject a visitor photo. Intended for admin moderation.
-  Future<void> rejectPhoto(String photoId) async {
-    await _photosCollection.doc(photoId).update({
-      'status': 'rejected',
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
   }
 
   /// Delete a photo. Only the original author or an admin may delete.
@@ -203,8 +189,48 @@ class VisitorPhotoService {
       throw Exception('You can only delete your own photos.');
     }
 
-    await _mediaService.deleteMedia(photo.storagePath);
+    // Delete the Firestore document immediately so the feed updates fast.
+    // Storage cleanup is best-effort and happens in the background.
     await _photosCollection.doc(photoId).delete();
+    unawaited(_mediaService.deleteMedia(photo.storagePath));
+  }
+
+  /// Fetch a single photo by ID, or null if it does not exist.
+  Future<VisitorPhoto?> getPhoto(String photoId) async {
+    final doc = await _photosCollection.doc(photoId).get();
+    if (!doc.exists) return null;
+    return VisitorPhoto.fromFirestore(doc);
+  }
+
+  /// Moderator action on a reported photo. Soft-deletes (rather than hard
+  /// deletes) so removed photos remain recoverable for 30 days via
+  /// [restorePhoto], matching the review moderation pattern.
+  Future<void> softDeletePhoto(String photoId, {required String adminEmail}) async {
+    await _photosCollection.doc(photoId).update({
+      'deletedAt': FieldValue.serverTimestamp(),
+      'deletedBy': adminEmail,
+    });
+  }
+
+  /// Restores a soft-deleted photo (admin recovery within the 30-day window).
+  Future<void> restorePhoto(String photoId) async {
+    await _photosCollection.doc(photoId).update({
+      'deletedAt': null,
+      'deletedBy': null,
+    });
+  }
+
+  /// Stream of soft-deleted photos still within their recovery window.
+  Stream<List<VisitorPhoto>> getDeletedPhotosStream() {
+    return _photosCollection
+        .where('deletedAt', isNull: false)
+        .orderBy('deletedAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => VisitorPhoto.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   void _validateTarget({String? businessId, String? eventId}) {

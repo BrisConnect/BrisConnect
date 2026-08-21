@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
+import 'package:brisconnect/mixins/locale_listener_mixin.dart';
 import 'package:brisconnect/services/share/content_share_service.dart';
 import 'package:brisconnect/services/visitor_notification_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
@@ -30,7 +31,8 @@ class VisitorEventDetailScreen extends StatefulWidget {
       _VisitorEventDetailScreenState();
 }
 
-class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
+class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen>
+    with LocaleListenerMixin<VisitorEventDetailScreen> {
   late final ContentShareService _shareService =
       widget.shareService ?? ContentShareService();
 
@@ -129,6 +131,10 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
       return;
     }
 
+    final businessId = (widget.event['businessId'] as String? ?? '').trim();
+    final businessName =
+        (widget.event['businessName'] as String? ?? '').trim();
+
     await showShareBottomSheet(
       context: context,
       shareService: _shareService,
@@ -139,6 +145,8 @@ class _VisitorEventDetailScreenState extends State<VisitorEventDetailScreen> {
       location: location,
       dateTime: dateTime,
       imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
+      businessId: businessId.isNotEmpty ? businessId : null,
+      businessName: businessName.isNotEmpty ? businessName : null,
     );
   }
 

@@ -81,7 +81,7 @@ async function processBatch(db) {
 	// Process email queue first.
 	const emailSnap = await db
 		.collection('mail')
-		.where('status', 'in', ['pending', '==', null])
+		.where('status', '==', 'pending')
 		.orderBy('createdAt', 'asc')
 		.limit(MAX_BATCH_SIZE)
 		.get();

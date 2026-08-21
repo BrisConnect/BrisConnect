@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:brisconnect/models/menu_item.dart';
 
 /// Business profile model for local business owners
 class Business {
@@ -16,7 +17,11 @@ class Business {
   final String? logoUrl; // Firebase Storage URL
   final String? coverImageUrl; // Firebase Storage URL
   final BusinessHours? businessHours; // Opening hours
-  final List<String>? menuItems; // Menu/services list
+  final List<String>? menuItems; // Legacy menu/services list (plain strings)
+  final List<MenuItem>? menuItemsModel; // Structured menu items
+  final String? priceRange; // e.g. '$', '$$', '$$$'
+  final String? audioGuideUrl; // Audio narration URL
+  final String? audioGuideNarration; // Text narration for TTS
   final List<String>? photos; // Additional photo URLs
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -33,6 +38,9 @@ class Business {
   final DateTime? deletedAt; // Soft-delete timestamp
   final String? deletedBy; // Admin email that performed soft delete
   final String? duplicateOf; // Document ID of canonical business if flagged duplicate
+  final bool isGoogleListing; // True for Google Places imports; reviews and crowdsourcing disabled
+  final String? sourceProvider; // 'google_places' for Google-seeded listings
+  final String? googlePlaceId; // Google Places ID for cross-linking
 
   Business({
     this.id,
@@ -50,6 +58,10 @@ class Business {
     this.coverImageUrl,
     this.businessHours,
     this.menuItems,
+    this.menuItemsModel,
+    this.priceRange,
+    this.audioGuideUrl,
+    this.audioGuideNarration,
     this.photos,
     this.createdAt,
     this.updatedAt,
@@ -66,6 +78,9 @@ class Business {
     this.deletedAt,
     this.deletedBy,
     this.duplicateOf,
+    this.isGoogleListing = false,
+    this.sourceProvider,
+    this.googlePlaceId,
   });
 
   /// Whether the listing has been soft-deleted.
@@ -96,6 +111,10 @@ class Business {
       'coverImageUrl': coverImageUrl,
       'businessHours': businessHours?.toFirestore(),
       'menuItems': menuItems,
+      'menuItemsModel': menuItemsModel?.map((e) => e.toFirestore()).toList(),
+      'priceRange': priceRange,
+      'audioGuideUrl': audioGuideUrl,
+      'audioGuideNarration': audioGuideNarration,
       'photos': photos,
       'createdAt': createdAt ?? FieldValue.serverTimestamp(),
       'updatedAt': updatedAt ?? FieldValue.serverTimestamp(),
@@ -112,17 +131,27 @@ class Business {
       'deletedAt': deletedAt,
       'deletedBy': deletedBy,
       'duplicateOf': duplicateOf,
+      'isGoogleListing': isGoogleListing,
+      'sourceProvider': sourceProvider,
+      'googlePlaceId': googlePlaceId,
     };
   }
 
   /// Create Business from Firestore document
   factory Business.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    final rawName = data['businessName']?.toString().trim();
+    final fallbackName = data['name']?.toString().trim();
+    final businessName = rawName?.isNotEmpty == true
+        ? rawName!
+        : (fallbackName?.isNotEmpty == true ? fallbackName! : '');
+    final rawCategory = data['category']?.toString().trim();
+    final category = rawCategory?.isNotEmpty == true ? rawCategory! : '';
     return Business(
       id: doc.id,
       ownerId: data['ownerId'] ?? '',
-      businessName: data['businessName'] ?? '',
-      category: data['category'] ?? '',
+      businessName: businessName,
+      category: category,
       description: data['description'] ?? '',
       address: data['address'] ?? '',
       lat: (data['lat'] as num?)?.toDouble(),
@@ -133,11 +162,26 @@ class Business {
       logoUrl: data['logoUrl'],
       coverImageUrl: data['coverImageUrl'],
       businessHours: data['businessHours'] != null
-          ? BusinessHours.fromFirestore(data['businessHours'] as Map<String, dynamic>)
+          ? BusinessHours.fromFirestore(
+              data['businessHours'] as Map<String, dynamic>)
           : null,
-      menuItems: data['menuItems'] != null
+      menuItems: data['menuItems'] != null && data['menuItemsModel'] == null
           ? List<String>.from(data['menuItems'] as List)
           : null,
+      menuItemsModel: data['menuItemsModel'] is List
+          ? (data['menuItemsModel'] as List)
+              .map((e) => MenuItem.fromDynamic(e))
+              .where((m) => m.name.isNotEmpty)
+              .toList()
+          : data['menuItems'] is List
+              ? (data['menuItems'] as List)
+                  .map((e) => MenuItem.fromDynamic(e))
+                  .where((m) => m.name.isNotEmpty)
+                  .toList()
+              : null,
+      priceRange: data['priceRange']?.toString(),
+      audioGuideUrl: data['audioGuideUrl']?.toString(),
+      audioGuideNarration: data['audioGuideNarration']?.toString(),
       photos: data['photos'] != null
           ? List<String>.from(data['photos'] as List)
           : null,
@@ -156,6 +200,9 @@ class Business {
       deletedAt: _parseTimestamp(data['deletedAt']),
       deletedBy: data['deletedBy'],
       duplicateOf: data['duplicateOf'],
+      isGoogleListing: data['isGoogleListing'] ?? false,
+      sourceProvider: data['sourceProvider'],
+      googlePlaceId: data['googlePlaceId'],
     );
   }
 
@@ -166,6 +213,23 @@ class Business {
     if (value is String) {
       final parsed = DateTime.tryParse(value);
       if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) {
+      final parsed = double.tryParse(value);
+      if (parsed != null) return parsed;
+    }
+    // Support GeoPoint-like objects on web ({latitude, longitude}).
+    if (value is Map) {
+      final lat = value['latitude'];
+      final lng = value['longitude'];
+      if (lat is num) return lat.toDouble();
+      if (lng is num) return lng.toDouble();
     }
     return null;
   }
@@ -193,8 +257,8 @@ class Business {
     final category = (data['category'] ?? 'Food').toString();
     final logoUrl = data['logoUrl'] ?? data['imageUrl'];
     final coverImageUrl = data['coverImageUrl'] ?? data['imageUrl'];
-    final lat = (data['lat'] ?? data['latitude']) as num?;
-    final lng = (data['lng'] ?? data['longitude']) as num?;
+    final lat = _parseDouble(data['lat']) ?? _parseDouble(data['latitude']);
+    final lng = _parseDouble(data['lng']) ?? _parseDouble(data['longitude']);
     final phone = data['phone'] ?? data['contactNumber'];
     final website = data['website'];
     final facebook = data['facebookUrl'] ?? data['facebook'];
@@ -205,18 +269,29 @@ class Business {
     final operatingHours = data['operatingHours'] ?? data['businessHours'];
     BusinessHours? businessHours;
     if (operatingHours is Map<String, dynamic>) {
-      businessHours = BusinessHours.fromFirestore(operatingHours);
+      try {
+        businessHours = BusinessHours.fromFirestore(operatingHours);
+      } catch (_) {
+        // Invalid hours structure; leave businessHours null so the rest of
+        // the profile still loads.
+      }
     } else if (operatingHours is String && operatingHours.isNotEmpty) {
       // Treat free-text hours as a single "Hours" entry.
       businessHours = BusinessHours(hours: {
         'Hours': DayHours(openTime: '', closeTime: operatingHours),
       });
     }
-    final menuRaw = data['menu'];
+    final menuRaw = data['menu'] ?? data['menuItems'];
     final menuItems = menuRaw is List
         ? menuRaw.whereType<String>().toList()
         : <String>[];
-    final photoGalleryRaw = data['photoGallery'];
+    final menuItemsModel = menuRaw is List
+        ? menuRaw
+            .map((e) => MenuItem.fromDynamic(e))
+            .where((m) => m.name.isNotEmpty)
+            .toList()
+        : <MenuItem>[];
+    final photoGalleryRaw = data['photoGallery'] ?? data['photos'];
     final photos = photoGalleryRaw is List
         ? photoGalleryRaw.whereType<String>().toList()
         : <String>[];
@@ -239,6 +314,10 @@ class Business {
       coverImageUrl: coverImageUrl is String ? coverImageUrl : null,
       businessHours: businessHours,
       menuItems: menuItems.isEmpty ? null : menuItems,
+      menuItemsModel: menuItemsModel.isEmpty ? null : menuItemsModel,
+      priceRange: data['priceRange']?.toString(),
+      audioGuideUrl: data['audioGuideUrl']?.toString(),
+      audioGuideNarration: data['audioGuideNarration']?.toString(),
       photos: photos.isEmpty ? null : photos,
       createdAt: createdAt,
       updatedAt: updatedAt,
@@ -253,6 +332,9 @@ class Business {
       saveHistory: _parseHistory(data['saveHistory']),
       isActive: data['isActive'] ?? !(data['deletedAt'] != null),
       deletedAt: _parseTimestamp(data['deletedAt']),
+      isGoogleListing: data['isGoogleListing'] ?? false,
+      sourceProvider: data['sourceProvider']?.toString(),
+      googlePlaceId: data['googlePlaceId']?.toString(),
     );
   }
 
@@ -273,6 +355,10 @@ class Business {
     String? coverImageUrl,
     BusinessHours? businessHours,
     List<String>? menuItems,
+    List<MenuItem>? menuItemsModel,
+    String? priceRange,
+    String? audioGuideUrl,
+    String? audioGuideNarration,
     List<String>? photos,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -289,6 +375,9 @@ class Business {
     DateTime? deletedAt,
     String? deletedBy,
     String? duplicateOf,
+    bool? isGoogleListing,
+    String? sourceProvider,
+    String? googlePlaceId,
   }) {
     return Business(
       id: id ?? this.id,
@@ -306,6 +395,10 @@ class Business {
       coverImageUrl: coverImageUrl ?? this.coverImageUrl,
       businessHours: businessHours ?? this.businessHours,
       menuItems: menuItems ?? this.menuItems,
+      menuItemsModel: menuItemsModel ?? this.menuItemsModel,
+      priceRange: priceRange ?? this.priceRange,
+      audioGuideUrl: audioGuideUrl ?? this.audioGuideUrl,
+      audioGuideNarration: audioGuideNarration ?? this.audioGuideNarration,
       photos: photos ?? this.photos,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -322,6 +415,9 @@ class Business {
       deletedAt: deletedAt,
       deletedBy: deletedBy,
       duplicateOf: duplicateOf,
+      isGoogleListing: isGoogleListing ?? this.isGoogleListing,
+      sourceProvider: sourceProvider ?? this.sourceProvider,
+      googlePlaceId: googlePlaceId ?? this.googlePlaceId,
     );
   }
 }

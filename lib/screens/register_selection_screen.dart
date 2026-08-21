@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/screens/login_selection_screen.dart';
 import 'package:brisconnect/screens/local_signup_screen.dart';
-import 'package:brisconnect/screens/visitor_signup_screen.dart';
+import 'package:brisconnect/screens/visitor_registration_screen.dart';
 import 'package:brisconnect/screens/welcome_screen_new.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 
@@ -9,7 +9,8 @@ class RegisterSelectionScreen extends StatefulWidget {
   const RegisterSelectionScreen({super.key});
 
   @override
-  State<RegisterSelectionScreen> createState() => _RegisterSelectionScreenState();
+  State<RegisterSelectionScreen> createState() =>
+      _RegisterSelectionScreenState();
 }
 
 class _RegisterSelectionScreenState extends State<RegisterSelectionScreen> {
@@ -43,7 +44,7 @@ class _RegisterSelectionScreenState extends State<RegisterSelectionScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => _selectedRole == 'Visitor'
-            ? const VisitorSignUpScreen()
+            ? const VisitorRegistrationScreen()
             : const LocalSignUpScreen(),
       ),
     );
@@ -65,15 +66,15 @@ class _RegisterSelectionScreenState extends State<RegisterSelectionScreen> {
                     alignment: Alignment.centerLeft,
                     child: IconButton(
                       onPressed: _handleBackPressed,
-                      icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                      style: IconButton.styleFrom(backgroundColor: Colors.white24),
+                      icon: const Icon(Icons.arrow_back_rounded,
+                          color: Colors.white),
+                      style:
+                          IconButton.styleFrom(backgroundColor: Colors.white24),
                     ),
                   ),
                   const SizedBox(height: 8),
-
                   Image.asset('assets/Brisconnect New.jpg', height: 120),
                   const SizedBox(height: 20),
-
                   Container(
                     padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
                     decoration: BoxDecoration(
@@ -107,12 +108,13 @@ class _RegisterSelectionScreenState extends State<RegisterSelectionScreen> {
                         const Text(
                           'Select account type to register',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 14, color: AppPalette.mutedText),
+                          style: TextStyle(
+                              fontSize: 14, color: AppPalette.mutedText),
                         ),
                         const SizedBox(height: 22),
-
                         Theme(
-                          data: Theme.of(context).copyWith(canvasColor: AppPalette.surfaceAlt),
+                          data: Theme.of(context)
+                              .copyWith(canvasColor: AppPalette.surfaceAlt),
                           child: DropdownButtonFormField<String>(
                             initialValue: _selectedRole,
                             hint: const Text(
@@ -145,7 +147,8 @@ class _RegisterSelectionScreenState extends State<RegisterSelectionScreen> {
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
                                 borderSide: BorderSide(
-                                  color: AppPalette.ochre.withValues(alpha: 0.4),
+                                  color:
+                                      AppPalette.ochre.withValues(alpha: 0.4),
                                 ),
                               ),
                               focusedBorder: OutlineInputBorder(
@@ -158,14 +161,15 @@ class _RegisterSelectionScreenState extends State<RegisterSelectionScreen> {
                             ),
                             isExpanded: true,
                             items: const [
-                              DropdownMenuItem(value: 'Visitor', child: Text('Visitor')),
-                              DropdownMenuItem(value: 'Local', child: Text('Local')),
+                              DropdownMenuItem(
+                                  value: 'Visitor', child: Text('Visitor')),
+                              DropdownMenuItem(
+                                  value: 'Local', child: Text('Local')),
                             ],
                             onChanged: _onRoleChanged,
                           ),
                         ),
                         const SizedBox(height: 20),
-
                         SizedBox(
                           height: 52,
                           child: ElevatedButton(
@@ -173,7 +177,8 @@ class _RegisterSelectionScreenState extends State<RegisterSelectionScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppPalette.ochre,
                               foregroundColor: Colors.white,
-                              shadowColor: AppPalette.ochre.withValues(alpha: 0.5),
+                              shadowColor:
+                                  AppPalette.ochre.withValues(alpha: 0.5),
                               elevation: 4,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
@@ -184,7 +189,9 @@ class _RegisterSelectionScreenState extends State<RegisterSelectionScreen> {
                               children: [
                                 Text(
                                   'Continue',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                  style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600),
                                 ),
                                 SizedBox(width: 8),
                                 Icon(Icons.arrow_forward, size: 20),
@@ -193,13 +200,13 @@ class _RegisterSelectionScreenState extends State<RegisterSelectionScreen> {
                           ),
                         ),
                         const SizedBox(height: 14),
-
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             const Text(
                               'Already have an account?',
-                              style: TextStyle(fontSize: 13, color: AppPalette.mutedText),
+                              style: TextStyle(
+                                  fontSize: 13, color: AppPalette.mutedText),
                             ),
                             const SizedBox(width: 4),
                             GestureDetector(
@@ -207,7 +214,8 @@ class _RegisterSelectionScreenState extends State<RegisterSelectionScreen> {
                                 Navigator.pushReplacement(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => const LoginSelectionScreen(),
+                                    builder: (_) =>
+                                        const LoginSelectionScreen(),
                                   ),
                                 );
                               },

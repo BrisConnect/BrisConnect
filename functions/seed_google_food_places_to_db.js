@@ -196,7 +196,9 @@ function normalizePlaceData(place, index) {
     priceRange,
     createdAt: new Date().toISOString(),
     source: 'google_places',
+    sourceProvider: 'google_places',
     googlePlaceId: place.place_id,
+    isGoogleListing: true,
   };
 }
 

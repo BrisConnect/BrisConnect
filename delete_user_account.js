@@ -21,7 +21,7 @@ const normalizedEmail = EMAIL.trim().toLowerCase();
 
 const serviceAccountPath = path.resolve(__dirname, 'service-account-key.json');
 admin.initializeApp({
-  credential: admin.credential.cert(require(serviceAccountPath)),
+  credential: admin.cert(require(serviceAccountPath)),
 });
 
 const auth = admin.auth();

@@ -39,25 +39,49 @@ class BusinessProfileService {
     }
   }
 
-  /// Update an existing business profile
-  Future<void> updateBusinessProfile(Business business) async {
+  /// Update an existing business profile with retry for transient failures.
+  Future<void> updateBusinessProfile(
+    Business business, {
+    int maxRetries = 3,
+  }) async {
     if (business.id == null) {
       throw Exception('Business ID is required for update');
     }
-    try {
-      await _firestore.collection(_collection).doc(business.id).update(
-            business.copyWith(updatedAt: DateTime.now()).toFirestore(),
-          );
-    } catch (e) {
-      throw Exception('Failed to update business profile: $e');
+
+    var attempt = 0;
+    while (true) {
+      try {
+        await _firestore.collection(_collection).doc(business.id).update(
+              business.copyWith(updatedAt: DateTime.now()).toFirestore(),
+            );
+        return;
+      } catch (e) {
+        final isTransient = _isTransientFirestoreError(e);
+        attempt++;
+        if (!isTransient || attempt >= maxRetries) {
+          throw Exception('Failed to update business profile: $e');
+        }
+        await Future.delayed(Duration(milliseconds: 500 * attempt));
+      }
     }
+  }
+
+  bool _isTransientFirestoreError(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('unavailable') ||
+        message.contains('internal assertion') ||
+        message.contains('unexpected state') ||
+        message.contains('network') ||
+        message.contains('deadline exceeded') ||
+        message.contains('temporarily unavailable');
   }
 
   /// Get a business profile by ID from the canonical [businesses] collection,
   /// falling back to [food_businesses] when no document exists.
   Future<Business?> getBusinessProfile(String businessId) async {
     try {
-      final doc = await _firestore.collection(_collection).doc(businessId).get();
+      final doc =
+          await _firestore.collection(_collection).doc(businessId).get();
       if (doc.exists) {
         return Business.fromFirestore(doc);
       }
@@ -77,7 +101,11 @@ class BusinessProfileService {
   /// Listens to [businesses] and falls back to [food_businesses] if the
   /// document does not exist in the canonical collection.
   Stream<Business?> getBusinessProfileStream(String businessId) {
-    return _firestore.collection(_collection).doc(businessId).snapshots().asyncMap((doc) async {
+    return _firestore
+        .collection(_collection)
+        .doc(businessId)
+        .snapshots()
+        .asyncMap((doc) async {
       if (doc.exists) {
         return Business.fromFirestore(doc);
       }
@@ -109,7 +137,8 @@ class BusinessProfileService {
         .collection(_collection)
         .where('ownerId', isEqualTo: userId)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
   }
 
   /// Dev fallback: returns the first business document found. Used on
@@ -117,10 +146,7 @@ class BusinessProfileService {
   /// current user's email may not be available.
   Future<Business?> getFirstBusiness() async {
     try {
-      final query = await _firestore
-          .collection(_collection)
-          .limit(1)
-          .get();
+      final query = await _firestore.collection(_collection).limit(1).get();
       if (query.docs.isEmpty) return null;
       return Business.fromFirestore(query.docs.first);
     } catch (e) {
@@ -128,20 +154,76 @@ class BusinessProfileService {
     }
   }
 
-  /// Search businesses by name or category
+  /// Search businesses by name or category.
+  ///
+  /// Searches both the canonical [businesses] collection and the legacy
+  /// [food_businesses] collection, filters out inactive or soft-deleted
+  /// entries, and falls back to the [name] field when [businessName] is empty.
+  /// Individual documents that fail to parse are skipped so one bad row does
+  /// not break the whole picker.
   Future<List<Business>> searchBusinesses(String query) async {
     try {
-      // Firestore doesn't support full-text search, so we do basic filtering
-      final snapshot = await _firestore.collection(_collection).get();
-      final results = snapshot.docs
-          .map((doc) => Business.fromFirestore(doc))
-          .where((business) {
-        final queryLower = query.toLowerCase();
-        return business.businessName.toLowerCase().contains(queryLower) ||
+      final results = <Business>[];
+
+      Future<void> loadCollection(
+        String collectionName,
+        Business Function(DocumentSnapshot<Map<String, dynamic>>) mapper,
+      ) async {
+        try {
+          final snapshot = await _firestore.collection(collectionName).get();
+          for (final doc in snapshot.docs) {
+            try {
+              final business = mapper(doc);
+              if (business.isActive && !business.isDeleted) {
+                results.add(business);
+              }
+            } catch (parseError) {
+              debugPrint(
+                '[BusinessProfileService] Skipping $collectionName/${doc.id}: $parseError',
+              );
+            }
+          }
+        } catch (e) {
+          debugPrint('[BusinessProfileService] $collectionName load failed: $e');
+          // Keep going with the other collection so a partial outage does not
+          // make the picker completely unusable.
+        }
+      }
+
+      await Future.wait([
+        loadCollection(_collection, Business.fromFirestore),
+        loadCollection('food_businesses', Business.fromFoodBusinessDoc),
+      ]);
+
+      final seenIds = <String, Business>{};
+      for (final business in results) {
+        final id = business.id;
+        if (id == null || id.isEmpty) continue;
+        final existing = seenIds[id];
+        if (existing == null ||
+            (existing.businessName.isEmpty && business.businessName.isNotEmpty)) {
+          seenIds[id] = business;
+        }
+      }
+
+      final deduplicated = seenIds.values.toList();
+      deduplicated.sort((a, b) {
+        final aName = a.businessName.isNotEmpty ? a.businessName : (a.id ?? '');
+        final bName = b.businessName.isNotEmpty ? b.businessName : (b.id ?? '');
+        return aName.toLowerCase().compareTo(bName.toLowerCase());
+      });
+
+      if (query.trim().isEmpty) return deduplicated;
+
+      final queryLower = query.toLowerCase();
+      return deduplicated.where((business) {
+        final displayName = business.businessName.isNotEmpty
+            ? business.businessName
+            : (business.id?.isNotEmpty == true ? business.id! : '');
+        return displayName.toLowerCase().contains(queryLower) ||
             business.category.toLowerCase().contains(queryLower) ||
             business.description.toLowerCase().contains(queryLower);
       }).toList();
-      return results;
     } catch (e) {
       throw Exception('Failed to search businesses: $e');
     }
@@ -166,7 +248,8 @@ class BusinessProfileService {
     required String filePath,
   }) async {
     try {
-      final fileName = '${businessId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final fileName =
+          '${businessId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final ref = _storage.ref().child('$_logoFolder/$fileName');
 
       // Upload file
@@ -186,7 +269,8 @@ class BusinessProfileService {
     required String filePath,
   }) async {
     try {
-      final fileName = '${businessId}_cover_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final fileName =
+          '${businessId}_cover_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final ref = _storage.ref().child('$_coverFolder/$fileName');
 
       // Upload file
@@ -289,10 +373,8 @@ class BusinessProfileService {
 
   /// Unfiltered fallback stream that requires no composite index.
   Stream<List<Business>> _allBusinessesFallbackStream() {
-    return _firestore
-        .collection(_collection)
-        .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
+    return _firestore.collection(_collection).snapshots().map((snapshot) =>
+        snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
   }
 
   /// Listens to [primary] and switches to [fallback] on error or empty result.
@@ -306,7 +388,8 @@ class BusinessProfileService {
     StreamSubscription? fallbackSub;
 
     void listenToFallback() {
-      debugPrint('[BusinessProfileService] $label stream empty/failed, using fallback');
+      debugPrint(
+          '[BusinessProfileService] $label stream empty/failed, using fallback');
       fallbackSub?.cancel();
       fallbackSub = fallback.listen(
         controller.add,
@@ -315,20 +398,21 @@ class BusinessProfileService {
     }
 
     primarySub = primary
-        .map((snapshot) => snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList())
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList())
         .listen(
-          (data) {
-            if (data.isEmpty) {
-              listenToFallback();
-              return;
-            }
-            controller.add(data);
-          },
-          onError: (Object e) {
-            debugPrint('[BusinessProfileService] $label stream failed: $e');
-            listenToFallback();
-          },
-        );
+      (data) {
+        if (data.isEmpty) {
+          listenToFallback();
+          return;
+        }
+        controller.add(data);
+      },
+      onError: (Object e) {
+        debugPrint('[BusinessProfileService] $label stream failed: $e');
+        listenToFallback();
+      },
+    );
 
     controller.onCancel = () {
       primarySub?.cancel();
@@ -349,7 +433,8 @@ class BusinessProfileService {
         .orderBy('buzzScore', descending: true)
         .limit(limit)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
   }
 
   /// Increment view count for a business profile
@@ -534,7 +619,8 @@ class BusinessProfileService {
   }) async {
     try {
       final liveRef = _firestore.collection(_collection).doc(businessId);
-      final archiveRef = _firestore.collection(_archiveCollection).doc(businessId);
+      final archiveRef =
+          _firestore.collection(_archiveCollection).doc(businessId);
 
       await _firestore.runTransaction((transaction) async {
         final archiveSnap = await transaction.get(archiveRef);
@@ -562,7 +648,8 @@ class BusinessProfileService {
   /// Permanently delete an archived business after the retention window.
   Future<void> permanentlyDeleteArchivedBusiness(String businessId) async {
     try {
-      final archiveRef = _firestore.collection(_archiveCollection).doc(businessId);
+      final archiveRef =
+          _firestore.collection(_archiveCollection).doc(businessId);
       final archiveSnap = await archiveRef.get();
       if (!archiveSnap.exists) return;
 
@@ -590,7 +677,8 @@ class BusinessProfileService {
         .collection(_collection)
         .orderBy('updatedAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
   }
 
   /// Stream of archived businesses pending permanent deletion.
@@ -599,7 +687,8 @@ class BusinessProfileService {
         .collection(_archiveCollection)
         .orderBy('deletedAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
   }
 
   /// Stream of businesses flagged as potential duplicates.
@@ -610,6 +699,7 @@ class BusinessProfileService {
         .orderBy('duplicateOf')
         .orderBy('updatedAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Business.fromFirestore(doc)).toList());
   }
 }

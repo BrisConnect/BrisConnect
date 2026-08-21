@@ -4,6 +4,7 @@ import 'package:brisconnect/services/app_feedback_service.dart';
 import 'package:brisconnect/services/firebase_media_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -29,6 +30,8 @@ class FeedbackFormScreen extends StatefulWidget {
 
 class _FeedbackFormScreenState extends State<FeedbackFormScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _subjectController = TextEditingController();
   final _detailsController = TextEditingController();
   final _screenController = TextEditingController();
@@ -71,13 +74,24 @@ class _FeedbackFormScreenState extends State<FeedbackFormScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _nameController.text = widget.reporterName;
+    _emailController.text = widget.reporterEmail;
+  }
+
+  @override
   void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
     _subjectController.dispose();
     _detailsController.dispose();
     _screenController.dispose();
     _appVersionController.dispose();
     super.dispose();
   }
+
+  bool get _isGuest => widget.reporterEmail.trim().isEmpty;
 
   Future<void> _submit() async {
     final isValid = _formKey.currentState?.validate() ?? false;
@@ -86,6 +100,9 @@ class _FeedbackFormScreenState extends State<FeedbackFormScreen> {
     }
 
     setState(() => _isSubmitting = true);
+
+    final reporterName = _nameController.text.trim();
+    final reporterEmail = _emailController.text.trim();
 
     try {
       String? imageUrl;
@@ -98,7 +115,7 @@ class _FeedbackFormScreenState extends State<FeedbackFormScreen> {
         );
         final timestamp = DateTime.now().millisecondsSinceEpoch;
         final path =
-            'feedback-images/${widget.reporterEmail.trim().toLowerCase()}/$timestamp.$ext';
+            'feedback-images/${reporterEmail.toLowerCase()}/$timestamp.$ext';
         final contentType = ext == 'png' ? 'image/png' : 'image/jpeg';
         final result = await _mediaService.uploadBytes(
           path: path,
@@ -111,8 +128,8 @@ class _FeedbackFormScreenState extends State<FeedbackFormScreen> {
 
       await _feedbackService.submitFeedback(
         reporterRole: widget.reporterRole,
-        reporterEmail: widget.reporterEmail,
-        reporterName: widget.reporterName,
+        reporterEmail: reporterEmail,
+        reporterName: reporterName,
         subject: _subjectController.text,
         details: _detailsController.text,
         category: _selectedCategory,
@@ -129,10 +146,13 @@ class _FeedbackFormScreenState extends State<FeedbackFormScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Feedback submitted. Thank you for helping improve BrisConnect+.'),
+          content: Text(
+              'Feedback submitted. Thank you for helping improve BrisConnect+.'),
         ),
       );
       Navigator.of(context).pop(true);
+    } on ArgumentError catch (error) {
+      _showError(error.message.toString());
     } catch (error, stackTrace) {
       debugPrint('[FeedbackForm] Submit failed: $error');
       debugPrint('[FeedbackForm] Stack trace: $stackTrace');
@@ -140,16 +160,27 @@ class _FeedbackFormScreenState extends State<FeedbackFormScreen> {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not submit feedback. Please try again.'),
-        ),
-      );
+      final message = error is FirebaseException
+          ? (error.code == 'permission-denied'
+              ? 'Permission denied. Try signing in or contact support.'
+              : 'Could not submit feedback (${error.code}).')
+          : 'Could not submit feedback. Please try again.';
+      _showError(message);
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red.shade700,
+      ),
+    );
   }
 
   @override
@@ -188,9 +219,13 @@ class _FeedbackFormScreenState extends State<FeedbackFormScreen> {
                       initialValue: _selectedCategory,
                       items: const [
                         DropdownMenuItem(value: 'bug', child: Text('Bug')),
-                        DropdownMenuItem(value: 'misleading_info', child: Text('Misleading Information')),
-                        DropdownMenuItem(value: 'usability', child: Text('Usability')),
-                        DropdownMenuItem(value: 'performance', child: Text('Performance')),
+                        DropdownMenuItem(
+                            value: 'misleading_info',
+                            child: Text('Misleading Information')),
+                        DropdownMenuItem(
+                            value: 'usability', child: Text('Usability')),
+                        DropdownMenuItem(
+                            value: 'performance', child: Text('Performance')),
                         DropdownMenuItem(value: 'other', child: Text('Other')),
                       ],
                       onChanged: _isSubmitting
@@ -216,9 +251,11 @@ class _FeedbackFormScreenState extends State<FeedbackFormScreen> {
                       initialValue: _selectedSeverity,
                       items: const [
                         DropdownMenuItem(value: 'low', child: Text('Low')),
-                        DropdownMenuItem(value: 'medium', child: Text('Medium')),
+                        DropdownMenuItem(
+                            value: 'medium', child: Text('Medium')),
                         DropdownMenuItem(value: 'high', child: Text('High')),
-                        DropdownMenuItem(value: 'critical', child: Text('Critical')),
+                        DropdownMenuItem(
+                            value: 'critical', child: Text('Critical')),
                       ],
                       onChanged: _isSubmitting
                           ? null
@@ -240,6 +277,44 @@ class _FeedbackFormScreenState extends State<FeedbackFormScreen> {
               _buildCard(
                 child: Column(
                   children: [
+                    if (_isGuest) ...[
+                      TextFormField(
+                        controller: _nameController,
+                        enabled: !_isSubmitting,
+                        decoration: const InputDecoration(
+                          labelText: 'Your name',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter your name.';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _emailController,
+                        enabled: !_isSubmitting,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(
+                          labelText: 'Your email',
+                          hintText: 'We\'ll use this to follow up with you.',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter your email address.';
+                          }
+                          final email = value.trim();
+                          if (!email.contains('@') || !email.contains('.')) {
+                            return 'Please enter a valid email address.';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     TextFormField(
                       controller: _subjectController,
                       enabled: !_isSubmitting,
@@ -265,7 +340,8 @@ class _FeedbackFormScreenState extends State<FeedbackFormScreen> {
                       maxLines: 8,
                       decoration: const InputDecoration(
                         labelText: 'Feedback details',
-                        hintText: 'Describe what happened and what should be fixed.',
+                        hintText:
+                            'Describe what happened and what should be fixed.',
                         border: OutlineInputBorder(),
                       ),
                       validator: (value) {
@@ -318,7 +394,8 @@ class _FeedbackFormScreenState extends State<FeedbackFormScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    if (_imageBytes != null) ...[                      ClipRRect(
+                    if (_imageBytes != null) ...[
+                      ClipRRect(
                         borderRadius: BorderRadius.circular(10),
                         child: Image.memory(
                           _imageBytes!,
@@ -369,7 +446,9 @@ class _FeedbackFormScreenState extends State<FeedbackFormScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Submitted as ${widget.reporterRole.toLowerCase()} (${widget.reporterEmail})',
+                      _isGuest
+                          ? 'You are submitting as a guest. Add your email so we can follow up.'
+                          : 'Submitted as ${widget.reporterRole.toLowerCase()} (${widget.reporterEmail})',
                       style: const TextStyle(
                         color: AppPalette.mutedText,
                         fontSize: 12,
@@ -399,7 +478,8 @@ class _FeedbackFormScreenState extends State<FeedbackFormScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.send_rounded),
-                  label: Text(_isSubmitting ? 'Submitting...' : 'Submit Feedback'),
+                  label:
+                      Text(_isSubmitting ? 'Submitting...' : 'Submit Feedback'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppPalette.deepBlue,
                     foregroundColor: Colors.white,

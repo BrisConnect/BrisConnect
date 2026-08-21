@@ -1,7 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/local_auth.dart';
-import 'package:brisconnect/screens/local_login_screen.dart';
+import 'package:brisconnect/screens/login_selection_screen.dart';
 import 'package:brisconnect/services/email_code_auth_service.dart';
 import 'package:brisconnect/services/phone_auth_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
@@ -38,7 +38,7 @@ class _LocalSignUpScreenState extends State<LocalSignUpScreen> {
     }
 
     navigator.pushReplacement(
-      MaterialPageRoute(builder: (_) => const LocalLoginScreen()),
+      MaterialPageRoute(builder: (_) => const LoginSelectionScreen(initialRole: 'Local')),
     );
   }
 
@@ -145,7 +145,8 @@ class _LocalSignUpScreenState extends State<LocalSignUpScreen> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => LocalLoginScreen(
+        builder: (_) => LoginSelectionScreen(
+          initialRole: 'Local',
           initialEmail: email,
           statusMessage: statusMessage,
           statusType: statusType,
@@ -719,7 +720,7 @@ class _LocalSignUpScreenState extends State<LocalSignUpScreen> {
                                   Navigator.pushReplacement(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => const LocalLoginScreen(),
+                                      builder: (_) => const LoginSelectionScreen(initialRole: 'Local'),
                                     ),
                                   );
                                 },

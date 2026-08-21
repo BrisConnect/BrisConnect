@@ -4,6 +4,7 @@ import 'package:brisconnect/services/sms_notification_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
 import 'package:flutter/material.dart';
+import 'package:brisconnect/utils/admin_utils.dart';
 
 class AdminSmsBroadcastScreen extends StatefulWidget {
   AdminSmsBroadcastScreen({
@@ -20,14 +21,14 @@ class AdminSmsBroadcastScreen extends StatefulWidget {
       _AdminSmsBroadcastScreenState();
 }
 
-class _AdminSmsBroadcastScreenState extends State<AdminSmsBroadcastScreen> {
+class _AdminSmsBroadcastScreenState extends State<AdminSmsBroadcastScreen>
+    with AdminScreenMixin<AdminSmsBroadcastScreen> {
   final _formKey = GlobalKey<FormState>();
   final _messageController = TextEditingController();
 
   String? _audience;
   List<Map<String, String>> _locals = [];
   bool _localsLoaded = false;
-  bool _isSending = false;
 
   @override
   void initState() {
@@ -65,120 +66,54 @@ class _AdminSmsBroadcastScreenState extends State<AdminSmsBroadcastScreen> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_audience == null) return;
 
-    setState(() => _isSending = true);
-    try {
-      int queuedCount;
-      if (_audience == 'visitors') {
-        queuedCount = await widget.smsService.queueAdminBroadcastSms(
-          audience: 'visitors',
-          message: _messageController.text,
-        );
-      } else if (_audience!.startsWith('local:')) {
-        final email = _audience!.substring(6);
-        queuedCount = await widget.smsService.queueSingleLocalSms(
-          email: email,
-          message: _messageController.text,
-        );
-      } else {
-        queuedCount = 0;
-      }
+    await runAdminAction(
+      () async {
+        int queuedCount;
+        if (_audience == 'visitors') {
+          queuedCount = await widget.smsService.queueAdminBroadcastSms(
+            audience: 'visitors',
+            message: _messageController.text,
+          );
+        } else if (_audience!.startsWith('local:')) {
+          final email = _audience!.substring(6);
+          queuedCount = await widget.smsService.queueSingleLocalSms(
+            email: email,
+            message: _messageController.text,
+          );
+        } else {
+          queuedCount = 0;
+        }
 
-      if (!mounted) return;
+        if (!mounted) return;
 
-      if (queuedCount == 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No recipients found with valid phone numbers.'),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('SMS sent to $queuedCount recipient(s).'),
-          ),
-        );
-      }
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to send SMS: $error'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isSending = false);
-    }
+        if (queuedCount == 0) {
+          showAdminSnack('No recipients found with valid phone numbers.');
+        } else {
+          showAdminSnack('SMS sent to $queuedCount recipient(s).');
+        }
+      },
+    );
   }
 
   Future<void> _showAudienceDialog() async {
-    final audienceOptions = <Map<String, String>>[
-      {'value': 'visitors', 'label': 'All Visitors'},
-      ..._locals.map((local) => {
-            'value': 'local:${local['email'] ?? ''}',
-            'label': '${local['name'] ?? ''} (${local['email'] ?? ''})',
-          }),
-    ];
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Select Audience'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ...audienceOptions.map((option) {
-                final value = option['value']!;
-                final label = option['label']!;
-                final isSelected = _audience == value;
-                return ListTile(
-                  leading: Checkbox(
-                    value: isSelected,
-                    onChanged: _isSending
-                        ? null
-                        : (_) {
-                            setState(() => _audience = value);
-                            Navigator.of(ctx).pop();
-                          },
-                  ),
-                  title: Text(label),
-                  onTap: _isSending
-                      ? null
-                      : () {
-                          setState(() => _audience = value);
-                          Navigator.of(ctx).pop();
-                        },
-                );
-              }),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+    await AdminUtils.showAudienceDialog(
+      context,
+      title: 'Select Audience',
+      selectedAudience: _audience,
+      locals: _locals,
+      isSending: isLoading,
+      onSelected: (value) => setState(() => _audience = value),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    String displayText = _audience == null
-        ? 'Select Audience'
-        : _audience == 'visitors'
-            ? 'All Visitors'
-            : _locals.firstWhere(
-                  (local) => _audience == 'local:${local['email']}',
-                  orElse: () => {'name': '', 'email': ''},
-                )['name'] ??
-                'All Visitors';
+    final displayText = AdminUtils.audienceDisplayText(_audience, _locals);
 
     final content = Scaffold(
       backgroundColor: const Color(0xFFEBF4FF),
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: const Color(0xFFEBF4FF),
         foregroundColor: const Color(0xFF1E3A8A),
         elevation: 0,
@@ -216,7 +151,7 @@ class _AdminSmsBroadcastScreenState extends State<AdminSmsBroadcastScreen> {
                   const SizedBox(height: 8),
                   _localsLoaded
                       ? GestureDetector(
-                          onTap: _isSending ? null : _showAudienceDialog,
+                          onTap: isLoading ? null : _showAudienceDialog,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 12),
@@ -241,7 +176,7 @@ class _AdminSmsBroadcastScreenState extends State<AdminSmsBroadcastScreen> {
                                 Icon(
                                   Icons.keyboard_arrow_down,
                                   color:
-                                      _isSending ? Colors.grey : Colors.black54,
+                                      isLoading ? Colors.grey : Colors.black54,
                                 ),
                               ],
                             ),
@@ -256,7 +191,7 @@ class _AdminSmsBroadcastScreenState extends State<AdminSmsBroadcastScreen> {
                     controller: _messageController,
                     minLines: 4,
                     maxLines: 8,
-                    enabled: !_isSending,
+                    enabled: !isLoading,
                     style: const TextStyle(color: Colors.black),
                     decoration: const InputDecoration(
                       labelText: 'SMS message',
@@ -286,16 +221,16 @@ class _AdminSmsBroadcastScreenState extends State<AdminSmsBroadcastScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: _isSending ? null : _send,
-                      icon: _isSending
+                      onPressed: isLoading ? null : _send,
+                      icon: isLoading
                           ? const SizedBox(
                               height: 16,
                               width: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.sms_outlined),
-                      label: Text(
-                          _isSending ? 'Sending...' : 'Send SMS Broadcast'),
+                      label:
+                          Text(isLoading ? 'Sending...' : 'Send SMS Broadcast'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppPalette.deepBlue,
                         foregroundColor: Colors.white,

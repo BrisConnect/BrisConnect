@@ -15,11 +15,14 @@ class FoodBusiness {
   final int? reviewCount;
   final String? operatingHours;
   final String? email;
+  final String? ownerId;
   final String? facebookUrl;
   final String? instagramUrl;
   final String? onlineOrderUrl;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final bool isGoogleListing; // True for Google Places imports; reviews and crowdsourcing disabled
+  final String? sourceProvider; // 'google_places' for Google-seeded listings
 
   FoodBusiness({
     required this.id,
@@ -36,11 +39,14 @@ class FoodBusiness {
     this.reviewCount,
     this.operatingHours,
     this.email,
+    this.ownerId,
     this.facebookUrl,
     this.instagramUrl,
     this.onlineOrderUrl,
     this.createdAt,
     this.updatedAt,
+    this.isGoogleListing = false,
+    this.sourceProvider,
   });
 
   factory FoodBusiness.fromFirestore(DocumentSnapshot doc) {
@@ -67,6 +73,7 @@ class FoodBusiness {
     final reviewCount = data['reviewCount'];
     final operatingHours = data['operatingHours'] ?? data['businessHours'];
     final email = data['email'] ?? data['businessEmail'];
+    final ownerId = data['ownerId'] ?? data['ownerEmail'] ?? email;
     final facebookUrl = data['facebookUrl'] ?? data['facebook'];
     final instagramUrl = data['instagramUrl'] ?? data['instagram'];
     final onlineOrderUrl = data['onlineOrderUrl'] ?? data['onlineOrderLink'];
@@ -86,11 +93,14 @@ class FoodBusiness {
       reviewCount: reviewCount as int?,
       operatingHours: operatingHours is String ? operatingHours : null,
       email: email is String ? email : null,
+      ownerId: ownerId is String ? ownerId : null,
       facebookUrl: facebookUrl is String ? facebookUrl : null,
       instagramUrl: instagramUrl is String ? instagramUrl : null,
       onlineOrderUrl: onlineOrderUrl is String ? onlineOrderUrl : null,
       createdAt: _parseTimestamp(data['createdAt']),
       updatedAt: _parseTimestamp(data['updatedAt']),
+      isGoogleListing: data['isGoogleListing'] ?? false,
+      sourceProvider: data['sourceProvider']?.toString(),
     );
   }
 
@@ -120,11 +130,14 @@ class FoodBusiness {
       'reviewCount': reviewCount,
       'operatingHours': operatingHours,
       'email': email,
+      'ownerId': ownerId,
       'facebookUrl': facebookUrl,
       'instagramUrl': instagramUrl,
       'onlineOrderUrl': onlineOrderUrl,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
+      'isGoogleListing': isGoogleListing,
+      'sourceProvider': sourceProvider,
     };
   }
 }

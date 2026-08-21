@@ -9,7 +9,7 @@ class AppLocalizationsPa extends AppLocalizations {
   AppLocalizationsPa([String locale = 'pa']) : super(locale);
 
   @override
-  String get appTitle => 'BrisConnect+';
+  String get appTitle => 'ਬ੍ਰਿਸਕਨੈਕਟ+';
 
   @override
   String get welcome => 'ਸਵਾਗਤ ਹੈ';
@@ -96,7 +96,7 @@ class AppLocalizationsPa extends AppLocalizations {
   String get promotions => 'ਪ੍ਰਚਾਰ';
 
   @override
-  String get photos => 'ਫ਼ੋਟੋਆਂ';
+  String get photos => 'ਫ਼ੋਟੋ';
 
   @override
   String get newPost => 'ਨਵਾਂ';
@@ -161,237 +161,243 @@ class AppLocalizationsPa extends AppLocalizations {
 
   @override
   String eventSavedToInterested(String eventTitle) {
-    return '$eventTitle saved to Interested.';
+    return '$eventTitle ਨੂੰ Interested ਵਿੱਚ ਰੱਖਿਅਤ ਕੀਤਾ ਗਿਆ।';
   }
 
   @override
   String eventRemovedFromInterested(String eventTitle) {
-    return '$eventTitle removed from Interested.';
+    return '$eventTitle ਨੂੰ Interested ਵਿੱਚੋਂ ਹਟਾ ਦਿੱਤਾ ਗਿਆ।';
   }
 
   @override
   String savedToAttractions(String title) {
-    return '$title saved to Saved Attractions.';
+    return '$title ਨੂੰ ਸੁਰੱਖਿਅਤ ਕੀਤੇ ਆਕਰਸ਼ਣਾਂ ਵਿੱਚ ਸੁਰੱਖਿਅਤ ਕੀਤਾ ਗਿਆ।';
   }
 
   @override
   String removedFromAttractions(String title) {
-    return '$title removed from Saved Attractions.';
+    return '$title ਨੂੰ ਸੁਰੱਖਿਅਤ ਕੀਤੇ ਆਕਰਸ਼ਣਾਂ ਵਿੱਚੋਂ ਹਟਾ ਦਿੱਤਾ ਗਿਆ।';
   }
 
   @override
   String get pleaseSignInToSaveEvents =>
-      'Please log in as a Visitor to save events.';
+      'ਕਿਰਪਾ ਕਰਕੇ ਇਵੈਂਟਸ ਨੂੰ ਸੇਵ ਕਰਨ ਲਈ ਵਿਜ਼ਟਰ ਵਜੋਂ ਲੌਗਇਨ ਕਰੋ।';
 
   @override
   String get pleaseSignInToReview =>
-      'Please sign in to write a review or BuzzVote.';
+      'ਕਿਰਪਾ ਕਰਕੇ ਸਮੀਖਿਆ ਲਿਖਣ ਲਈ ਜਾਂ BuzzVote ਲਈ ਸਾਈਨ ਇਨ ਕਰੋ।';
 
   @override
   String reviewSubmitted(String rating, String buzzRating) {
-    return 'Review submitted\\! ⭐ $rating / Buzz ⚡ $buzzRating';
+    return 'ਸਮਾਲੋਚਨਾ ਜਮਾ ਹੋ ਗਈ';
   }
 
   @override
   String reviewSubmitFailed(String error) {
-    return 'Could not submit review: $error';
+    return 'ਸਮੀਖਿਆ ਸਪੁਰਦ ਨਹੀਂ ਕੀਤੀ ਜਾ ਸਕੀ: $error';
   }
 
   @override
-  String get noExternalLink => 'No external link available for this item yet.';
+  String get noExternalLink => 'ਇਸ ਆਈਟਮ ਲਈ ਅਜੇ ਕੋਈ ਬਾਹਰੀ ਲਿੰਕ ਉਪਲਬਧ ਨਹੀਂ ਹੈ।';
 
   @override
-  String get unableToOpenLink => 'Unable to open the event link right now.';
+  String get unableToOpenLink => 'ਇਸ ਵੇਲੇ ਇਵੈਂਟ ਲਿੰਕ ਖੋਲ੍ਹਿਆ ਨਹੀਂ ਜਾ ਸਕਿਆ।';
 
   @override
   String shareTitle(String title) {
-    return 'Share: $title';
+    return 'ਸਾਂਝਾ ਕਰੋ: $title';
   }
 
   @override
-  String get reportEvent => 'Report Event';
+  String get reportEvent => 'ਘਟਨਾ ਦੀ ਰਿਪੋਰਟ ਕਰੋ';
 
   @override
-  String get reviewsOnlyForFood => 'Reviews are only available for food items';
+  String get reviewsOnlyForFood =>
+      'ਸਮੀਖਿਆਵਾਂ ਸਿਰਫ਼ ਖਾਣ-ਪੀਣ ਦੀਆਂ ਚੀਜ਼ਾਂ ਲਈ ਉਪਲਬਧ ਹਨ।';
 
   @override
-  String get chooseFromGallery => 'Choose from gallery';
+  String get chooseFromGallery => 'ਗੈਲਰੀ ਵਿੱਚੋਂ ਚੁਣੋ';
 
   @override
-  String get takeAPhoto => 'Take a photo';
+  String get takeAPhoto => 'ਇੱਕ ਫੋਟੋ ਖਿੱਚੋ';
 
   @override
-  String get pleaseLoginVisitor => 'Please log in as a Visitor first.';
+  String get pleaseLoginVisitor => 'ਕਿਰਪਾ ਕਰਕੇ ਪਹਿਲਾਂ ਵਿਜ਼ਿਟਰ ਵਜੋਂ ਲੌਗਇਨ ਕਰੋ।';
 
   @override
-  String get onlyJpgPng => 'Only JPG and PNG images are supported.';
+  String get onlyJpgPng => 'ਸਿਰਫ਼ JPG ਅਤੇ PNG ਚਿੱਤਰ ਹੀ ਸਮਰਥਿਤ ਹਨ।';
 
   @override
   String get imageTooLarge =>
-      'Image is too large. Please choose a smaller image.';
+      'ਚਿੱਤਰ ਬਹੁਤ ਵੱਡਾ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ ਇੱਕ ਛੋਟਾ ਚਿੱਤਰ ਚੁਣੋ।';
 
   @override
-  String get profilePictureUpdated => 'Profile picture updated successfully.';
+  String get profilePictureUpdated =>
+      'ਪ੍ਰੋਫਾਈਲ ਤਸਵੀਰ ਸਫਲਤਾਪੂਰਵਕ ਅੱਪਡੇਟ ਕੀਤੀ ਗਈ।';
 
   @override
   String get profilePictureUpdateFailed =>
-      'Could not update profile picture. Please try again.';
+      'ਪ੍ਰੋਫਾਈਲ ਤਸਵੀਰ ਅੱਪਡੇਟ ਨਹੀਂ ਕੀਤੀ ਜਾ ਸਕੀ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।';
 
   @override
   String get enterYourName => 'ਆਪਣਾ ਨਾਮ ਦਰਜ ਕਰੋ';
 
   @override
-  String get phoneHint => 'e.g. 04xxxxxxxx';
+  String get phoneHint => 'ਜਿਵੇਂ ਕਿ 04xxxxxxxx';
 
   @override
-  String get nameCannotBeEmpty => 'Name cannot be empty.';
+  String get nameCannotBeEmpty => 'ਨਾਮ ਖਾਲੀ ਨਹੀਂ ਹੋ ਸਕਦਾ।';
 
   @override
-  String get nameMinLength => 'Name must be at least 2 characters.';
+  String get nameMinLength => 'ਨਾਮ ਘੱਟੋ-ਘੱਟ 2 ਅੱਖਰਾਂ ਦਾ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ।';
 
   @override
-  String get enterValidPhone => 'Enter a valid phone number.';
+  String get enterValidPhone => 'ਇੱਕ ਵੈਧ ਫ਼ੋਨ ਨੰਬਰ ਦਰਜ ਕਰੋ।';
 
   @override
-  String get changeProfilePicture => 'Change profile picture';
+  String get changeProfilePicture => 'ਪ੍ਰੋਫਾਈਲ ਤਸਵੀਰ ਬਦਲੋ';
 
   @override
-  String get uploadProfilePicture => 'Upload profile picture';
+  String get uploadProfilePicture => 'ਪ੍ਰੋਫਾਈਲ ਤਸਵੀਰ ਅੱਪਲੋਡ ਕਰੋ';
 
   @override
-  String get areYouSureSignOut => 'Are you sure you want to sign out?';
+  String get areYouSureSignOut => 'ਕੀ ਤੁਸੀਂ ਪੱਕਾ ਸਾਈਨ ਆਊਟ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ?';
 
   @override
-  String get returnWelcome => 'Return to the welcome screen';
+  String get returnWelcome => 'ਸਵਾਗਤ ਸਕ੍ਰੀਨ ਤੇ ਵਾਪਸ ਜਾਓ';
 
   @override
-  String get setHowFarRecommendations => 'Set how far recommendations can be';
+  String get setHowFarRecommendations =>
+      'ਸਿਫ਼ਾਰਸ਼ਾਂ ਕਿੰਨੀ ਦੂਰ ਹੋ ਸਕਦੀਆਂ ਹਨ, ਇਹ ਸੈੱਟ ਕਰੋ';
 
   @override
-  String get themeTextSizeFeedback => 'Theme, text size & feedback';
+  String get themeTextSizeFeedback => 'ਥੀਮ, ਟੈਕਸਟ ਦਾ ਆਕਾਰ ਅਤੇ ਫੀਡਬੈਕ';
 
   @override
-  String get faqsContactAppInfo => 'FAQs, contact us & app info';
+  String get faqsContactAppInfo =>
+      'ਅਕਸਰ ਪੁੱਛੇ ਜਾਣ ਵਾਲੇ ਸਵਾਲ, ਸਾਡੇ ਨਾਲ ਸੰਪਰਕ ਕਰੋ ਅਤੇ ਐਪ ਜਾਣਕਾਰੀ';
 
   @override
   String get viewSubmittedFeedback =>
-      'View your submitted feedback and admin responses';
+      'ਆਪਣੇ ਸਪੁਰਦ ਕੀਤੇ ਫੀਡਬੈਕ ਅਤੇ ਪ੍ਰਸ਼ਾਸਕ ਦੇ ਜਵਾਬ ਵੇਖੋ';
 
   @override
-  String get discoverSubtitle => 'Discover local food and experiences';
+  String get discoverSubtitle => 'ਸਥਾਨਕ ਭੋਜਨ ਅਤੇ ਅਨੁਭਵ ਖੋਜੋ';
 
   @override
-  String get searchHintLocalFood => 'Search local food businesses...';
+  String get searchHintLocalFood => 'ਸਥਾਨਕ ਭੋਜਨ ਕਾਰੋਬਾਰਾਂ ਦੀ ਖੋਜ ਕਰੋ...';
 
   @override
   String get homeLabel => 'ਘਰ';
 
   @override
-  String get recommendedForYou => 'Recommended For You';
+  String get recommendedForYou => 'ਤੁਹਾਡੇ ਲਈ ਸਿਫ਼ਾਰਿਸ਼ ਕੀਤੀ ਗਈ';
 
   @override
-  String get seeAll => 'See All';
+  String get seeAll => 'ਸਾਰੇ ਦੇਖੋ';
 
   @override
-  String get categories => 'Categories';
+  String get categories => 'ਵਰਗ';
 
   @override
   String get nearby => 'ਨੇੜੇ';
 
   @override
-  String get noFoodPlacesFound => 'No food places found';
+  String get noFoodPlacesFound => 'ਕੋਈ ਖਾਣ-ਪੀਣ ਦੀਆਂ ਥਾਵਾਂ ਨਹੀਂ ਮਿਲੀਆਂ।';
 
   @override
   String get noFoodPlacesSubtitle =>
-      'Try changing your search or filter selections.';
+      'ਆਪਣੀਆਂ ਖੋਜ ਜਾਂ ਫਿਲਟਰ ਚੋਣਾਂ ਨੂੰ ਬਦਲਣ ਦੀ ਕੋਸ਼ਿਸ਼ ਕਰੋ।';
 
   @override
-  String get localFoodBusinesses => 'Local Food Businesses';
+  String get localFoodBusinesses => 'ਸਥਾਨਕ ਭੋਜਨ ਕਾਰੋਬਾਰ';
 
   @override
   String get localFoodSubtitle =>
-      'Support small & medium Brisbane food enterprises';
+      'ਛੋਟੇ ਅਤੇ ਦਰਮਿਆਨੇ ਬ੍ਰਿਸਬੇਨ ਭੋਜਨ ਉੱਦਮਾਂ ਦਾ ਸਮਰਥਨ ਕਰੋ';
 
   @override
-  String get exploreReviewFoodBusinesses => 'Explore & Review Food Businesses';
+  String get exploreReviewFoodBusinesses =>
+      'ਭੋਜਨ ਕਾਰੋਬਾਰਾਂ ਦੀ ਪੜਚੋਲ ਅਤੇ ਸਮੀਖਿਆ ਕਰੋ';
 
   @override
-  String get noSavedItemsTitle => 'No saved items yet';
+  String get noSavedItemsTitle => 'ਹਾਲੇ ਤੱਕ ਕੋਈ ਰੱਖਿਅਤ ਕੀਤੀ ਆਈਟਮ ਨਹੀਂ ਹੈ';
 
   @override
   String get noSavedItemsSubtitle =>
-      'Tap the heart icon on food business cards or the bookmark on a business profile to save them here.';
+      'ਫੂਡ ਬਿਜ਼ਨਸ ਕਾਰਡਾਂ &#39;ਤੇ ਦਿਲ ਦੇ ਆਈਕਨ &#39;ਤੇ ਟੈਪ ਕਰੋ ਜਾਂ ਬਿਜ਼ਨਸ ਪ੍ਰੋਫਾਈਲ &#39;ਤੇ ਬੁੱਕਮਾਰਕ ਨੂੰ ਇੱਥੇ ਸੇਵ ਕਰਨ ਲਈ।';
 
   @override
-  String get savedEvents => 'Saved Events';
+  String get savedEvents => 'ਰੱਖਿਅਤ ਕੀਤੇ ਇਵੈਂਟ';
 
   @override
-  String get savedEventsSubtitle => 'Your event reminders and plans';
+  String get savedEventsSubtitle => 'ਤੁਹਾਡੇ ਇਵੈਂਟ ਰੀਮਾਈਂਡਰ ਅਤੇ ਯੋਜਨਾਵਾਂ';
 
   @override
-  String get savedAttractions => 'Saved Attractions';
+  String get savedAttractions => 'ਰੱਖਿਅਤ ਕੀਤੇ ਆਕਰਸ਼ਣ';
 
   @override
   String get savedAttractionsSubtitle =>
-      'Places to visit independently of events';
+      'ਘਟਨਾਵਾਂ ਦੀ ਪਰਵਾਹ ਕੀਤੇ ਬਿਨਾਂ ਦੇਖਣ ਲਈ ਥਾਵਾਂ';
 
   @override
-  String get savedBusinesses => 'Saved Businesses';
+  String get savedBusinesses => 'ਰੱਖਿਅਤ ਕੀਤੇ ਕਾਰੋਬਾਰ';
 
   @override
-  String get savedBusinessesSubtitle => 'Food businesses you have bookmarked';
+  String get savedBusinessesSubtitle =>
+      'ਤੁਹਾਡੇ ਦੁਆਰਾ ਬੁੱਕਮਾਰਕ ਕੀਤੇ ਗਏ ਭੋਜਨ ਕਾਰੋਬਾਰ';
 
   @override
-  String get savedItemsUnavailableTitle => 'Saved items unavailable';
+  String get savedItemsUnavailableTitle => 'ਰੱਖਿਅਤ ਕੀਤੀਆਂ ਆਈਟਮਾਂ ਉਪਲਬਧ ਨਹੀਂ ਹਨ';
 
   @override
   String get savedItemsUnavailableSubtitle =>
-      'Some saved items are no longer published in discovery feed.';
+      'ਕੁਝ ਸੁਰੱਖਿਅਤ ਕੀਤੀਆਂ ਆਈਟਮਾਂ ਹੁਣ ਡਿਸਕਵਰੀ ਫੀਡ ਵਿੱਚ ਪ੍ਰਕਾਸ਼ਿਤ ਨਹੀਂ ਹਨ।';
 
   @override
   String get retryAction => 'ਮੁੜ ਕੋਸ਼ਿਸ਼ ਕਰੋ';
 
   @override
   String get unableToLoadDiscover =>
-      'Unable to load discover items right now. Please try again.';
+      'ਇਸ ਵੇਲੇ ਖੋਜ ਆਈਟਮਾਂ ਨੂੰ ਲੋਡ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।';
 
   @override
   String get unableToLoadSaved =>
-      'Unable to load saved items right now. Please try again.';
+      'ਇਸ ਵੇਲੇ ਰੱਖਿਅਤ ਕੀਤੀਆਂ ਆਈਟਮਾਂ ਨੂੰ ਲੋਡ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।';
 
   @override
-  String get dateTBA => 'Date TBA';
+  String get dateTBA => 'ਮਿਤੀ TBA';
 
   @override
-  String get timeTBA => 'Time TBA';
+  String get timeTBA => 'ਸਮਾਂ ਟੀ.ਬੀ.ਏ.';
 
   @override
-  String get untitledEvent => 'Untitled Event';
+  String get untitledEvent => 'ਬਿਨਾਂ ਸਿਰਲੇਖ ਵਾਲਾ ਇਵੈਂਟ';
 
   @override
-  String get locationTBA => 'Location TBA';
+  String get locationTBA => 'ਸਥਾਨ ਟੀ.ਬੀ.ਏ.';
 
   @override
-  String get priceTBA => 'Price TBA';
+  String get priceTBA => 'ਕੀਮਤ TBA';
 
   @override
-  String get placeFallback => 'Place';
+  String get placeFallback => 'ਸਥਾਨ';
 
   @override
-  String get foodExperienceFallback => 'Food Experience';
+  String get foodExperienceFallback => 'ਭੋਜਨ ਅਨੁਭਵ';
 
   @override
-  String get stadiumFallback => 'Stadium';
+  String get stadiumFallback => 'ਸਟੇਡੀਅਮ';
 
   @override
-  String get eventFallback => 'Event';
+  String get eventFallback => 'ਘਟਨਾ';
 
   @override
-  String get attractionFallback => 'Attraction';
+  String get attractionFallback => 'ਆਕਰਸ਼ਣ';
 
   @override
   String ratingReviewsCount(String rating, String count) {
-    return '$rating · $count reviews';
+    return '$rating · $count ਸਮੀਖਿਆਵਾਂ';
   }
 
   @override
@@ -401,49 +407,50 @@ class AppLocalizationsPa extends AppLocalizations {
   String get audience => 'ਦਰਸ਼ਕ';
 
   @override
-  String get businessLabel => 'Business';
+  String get businessLabel => 'ਕਾਰੋਬਾਰ';
 
   @override
-  String get controlDistance => 'Control distance for nearby opportunities';
+  String get controlDistance => 'ਨੇੜਲੇ ਮੌਕਿਆਂ ਲਈ ਦੂਰੀ ਨੂੰ ਕੰਟਰੋਲ ਕਰੋ';
 
   @override
   String get dashboard => 'ਡੈਸ਼ਬੋਰਡ';
 
   @override
-  String get delete => 'ਮਿਟਾਓ';
+  String get delete => 'ਹਟਾਓ';
 
   @override
-  String get deleteEvent => 'Delete Event';
+  String get deleteEvent => 'ਇਵੈਂਟ ਮਿਟਾਓ';
 
   @override
-  String get deletingEvent => 'Deleting event...';
+  String get deletingEvent => 'ਇਵੈਂਟ ਮਿਟਾਇਆ ਜਾ ਰਿਹਾ ਹੈ...';
 
   @override
-  String get displayName => 'Display name';
+  String get displayName => 'ਦਿਖਾਇਆ ਹੋਇਆ ਨਾਮ';
 
   @override
   String errorDeletingEvent(String error) {
-    return 'Error deleting event: $error';
+    return 'ਇਵੈਂਟ ਮਿਟਾਉਣ ਵਿੱਚ ਗੜਬੜ: $error';
   }
 
   @override
   String errorLoadingMap(String error) {
-    return 'Error loading map: $error';
+    return 'ਨਕਸ਼ਾ ਲੋਡ ਕਰਨ ਦੌਰਾਨ ਗੜਬੜ: $error';
   }
 
   @override
   String eventDeleted(String title) {
-    return 'Event \"$title\" has been deleted.';
+    return 'ਇਵੈਂਟ &quot;$title&quot; ਮਿਟਾ ਦਿੱਤਾ ਗਿਆ ਹੈ।';
   }
 
   @override
-  String get failedToDeleteEvent => 'Failed to delete event. Please try again.';
+  String get failedToDeleteEvent =>
+      'ਇਵੈਂਟ ਮਿਟਾਉਣ ਵਿੱਚ ਅਸਫਲ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।';
 
   @override
-  String get feed => 'Feed';
+  String get feed => 'ਫੀਡ';
 
   @override
-  String get localBusinessPortal => 'Local business portal';
+  String get localBusinessPortal => 'ਸਥਾਨਕ ਕਾਰੋਬਾਰ ਪੋਰਟਲ';
 
   @override
   String get pending => 'ਬਕਾਇਾ';
@@ -452,48 +459,50 @@ class AppLocalizationsPa extends AppLocalizations {
   String get phoneNumber => 'ਫ਼ੋਨ ਨੰਬਰ';
 
   @override
-  String get pleaseLoginLocal => 'Please log in as a Local user first.';
+  String get pleaseLoginLocal =>
+      'ਕਿਰਪਾ ਕਰਕੇ ਪਹਿਲਾਂ ਸਥਾਨਕ ਉਪਭੋਗਤਾ ਵਜੋਂ ਲੌਗਇਨ ਕਰੋ।';
 
   @override
-  String get pleaseLoginToDelete => 'Please log in to delete events.';
+  String get pleaseLoginToDelete =>
+      'ਕਿਰਪਾ ਕਰਕੇ ਇਵੈਂਟਾਂ ਨੂੰ ਮਿਟਾਉਣ ਲਈ ਲੌਗਇਨ ਕਰੋ।';
 
   @override
-  String get pushAlerts => 'Push alerts for your business';
+  String get pushAlerts => 'ਤੁਹਾਡੇ ਕਾਰੋਬਾਰ ਲਈ ਪੁਸ਼ ਅਲਰਟ';
 
   @override
   String get rejected => 'ਅਸਵੀਕਾਰ';
 
   @override
-  String get reviews => 'ਸਮੀਖਿਆਵਾਂ';
+  String get reviews => 'ਸਮਾਲੋਚਨਾ';
 
   @override
-  String get saveChanges => 'Save Changes';
+  String get saveChanges => 'ਬਦਲਾਅ ਸੰਭਾਲੋ';
 
   @override
-  String get searchHintEvents => 'Search events, bookings...';
+  String get searchHintEvents => 'ਇਵੈਂਟਸ, ਬੁਕਿੰਗਾਂ ਖੋਜੋ...';
 
   @override
-  String get suburb => 'Suburb';
+  String get suburb => 'ਉਪਨਗਰ';
 
   @override
-  String get thisLinkUnavailable => 'This link is not available right now.';
+  String get thisLinkUnavailable => 'ਇਹ ਲਿੰਕ ਇਸ ਵੇਲੇ ਉਪਲਬਧ ਨਹੀਂ ਹੈ।';
 
   @override
-  String get total => 'Total';
+  String get total => 'ਕੁੱਲ';
 
   @override
   String get couldNotSaveSettings =>
-      'Could not save settings. Please try again.';
+      'ਸੈਟਿੰਗਾਂ ਨੂੰ ਸੁਰੱਖਿਅਤ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।';
 
   @override
   String get locationAccessDisabled =>
-      'Location access disabled for app features.';
+      'ਐਪ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਲਈ ਸਥਾਨ ਪਹੁੰਚ ਨੂੰ ਅਯੋਗ ਬਣਾਇਆ ਗਿਆ।';
 
   @override
-  String get locationPermissionGranted => 'Location permission granted.';
+  String get locationPermissionGranted => 'ਸਥਾਨ ਦੀ ਇਜਾਜ਼ਤ ਦਿੱਤੀ ਗਈ।';
 
   @override
-  String get openSettings => 'Open Settings';
+  String get openSettings => 'ਸੈਟਿੰਗਾਂ ਖੋਲ੍ਹੋ';
 
   @override
   String get themeDark => 'ਹਨੇਰਾ';
@@ -568,28 +577,28 @@ class AppLocalizationsPa extends AppLocalizations {
   String get discoverTitle => 'ਸਥਾਨਕ ਖਾਣਾ ਖੋਜੋ';
 
   @override
-  String get openSourceLink => 'Open Source Link';
+  String get openSourceLink => 'ਓਪਨ ਸੋਰਸ ਲਿੰਕ';
 
   @override
-  String get pendingApproval => 'Pending Approval';
+  String get pendingApproval => 'ਪ੍ਰਵਾਨਗੀ ਵਿਚਾਰ-ਅਧੀਨ ਹੈ';
 
   @override
   String deleteEventConfirmation(String title) {
-    return 'Are you sure you want to delete \"$title\"? This action cannot be undone.';
+    return 'ਕੀ ਤੁਸੀਂ ਪੱਕਾ &quot;$title&quot; ਨੂੰ ਮਿਟਾਉਣਾ ਚਾਹੁੰਦੇ ਹੋ? ਇਸ ਕਾਰਵਾਈ ਨੂੰ ਅਣਕੀਤਾ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ।';
   }
 
   @override
-  String get myActivity => 'My Activity';
+  String get myActivity => 'ਮੇਰੀ ਗਤੀਵਿਧੀ';
 
   @override
-  String get businessNotifications => 'Business Notifications';
+  String get businessNotifications => 'ਕਾਰੋਬਾਰੀ ਸੂਚਨਾਵਾਂ';
 
   @override
   String get about => 'ਬਾਰੇ';
 
   @override
   String get aboutDescription =>
-      'BrisConnect+ is a smart city guide that helps visitors and locals discover events, explore attractions, and capture their Brisbane experiences in one connected platform.';
+      'BrisConnect+ ਇੱਕ ਸਮਾਰਟ ਸਿਟੀ ਗਾਈਡ ਹੈ ਜੋ ਸੈਲਾਨੀਆਂ ਅਤੇ ਸਥਾਨਕ ਲੋਕਾਂ ਨੂੰ ਇੱਕ ਜੁੜੇ ਪਲੇਟਫਾਰਮ ਵਿੱਚ ਘਟਨਾਵਾਂ ਦੀ ਖੋਜ ਕਰਨ, ਆਕਰਸ਼ਣਾਂ ਦੀ ਪੜਚੋਲ ਕਰਨ ਅਤੇ ਉਨ੍ਹਾਂ ਦੇ ਬ੍ਰਿਸਬੇਨ ਅਨੁਭਵਾਂ ਨੂੰ ਹਾਸਲ ਕਰਨ ਵਿੱਚ ਮਦਦ ਕਰਦੀ ਹੈ।';
 
   @override
   String versionLabel(String version) {
@@ -597,98 +606,99 @@ class AppLocalizationsPa extends AppLocalizations {
   }
 
   @override
-  String get locationPermissions => 'Location Permissions';
+  String get locationPermissions => 'ਸਥਾਨ ਅਨੁਮਤੀਆਂ';
 
   @override
-  String get enableLocationAccess => 'Enable Location Access';
+  String get enableLocationAccess => 'ਟਿਕਾਣਾ ਪਹੁੰਚ ਚਾਲੂ ਕਰੋ';
 
   @override
   String get allowNearbyMapFeatures =>
-      'Allow nearby recommendations and map-aware features.';
+      'ਨੇੜਲੀਆਂ ਸਿਫ਼ਾਰਸ਼ਾਂ ਅਤੇ ਨਕਸ਼ੇ-ਜਾਗਰੂਕ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਨੂੰ ਆਗਿਆ ਦਿਓ।';
 
   @override
-  String get locationSettings => 'Location Settings';
+  String get locationSettings => 'ਟਿਕਾਣਾ ਸੈਟਿੰਗਾਂ';
 
   @override
   String get setSearchRadius =>
-      'Set your search radius for events and attractions.';
+      'ਸਮਾਗਮਾਂ ਅਤੇ ਆਕਰਸ਼ਣਾਂ ਲਈ ਆਪਣਾ ਖੋਜ ਘੇਰਾ ਸੈੱਟ ਕਰੋ।';
 
   @override
-  String get pleaseLoginToViewSettings => 'Please log in to view settings.';
+  String get pleaseLoginToViewSettings =>
+      'ਸੈਟਿੰਗਾਂ ਦੇਖਣ ਲਈ ਕਿਰਪਾ ਕਰਕੇ ਲੌਗਇਨ ਕਰੋ।';
 
   @override
   String get locationPermissionNotGranted =>
-      'Location permission was not granted. You can enable it in system settings.';
+      'ਟਿਕਾਣਾ ਇਜਾਜ਼ਤ ਨਹੀਂ ਦਿੱਤੀ ਗਈ ਸੀ। ਤੁਸੀਂ ਇਸਨੂੰ ਸਿਸਟਮ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਯੋਗ ਬਣਾ ਸਕਦੇ ਹੋ।';
 
   @override
   String get theme => 'ਥੀਮ';
 
   @override
-  String get appTheme => 'App Theme';
+  String get appTheme => 'ਐਪ ਥੀਮ';
 
   @override
-  String get chooseHowAppLooks => 'Choose how the app looks.';
+  String get chooseHowAppLooks => 'ਚੁਣੋ ਕਿ ਐਪ ਕਿਵੇਂ ਦਿਖਾਈ ਦਿੰਦੀ ਹੈ।';
 
   @override
-  String get textSize => 'Text Size';
+  String get textSize => 'ਟੈਕਸਟ ਆਕਾਰ';
 
   @override
-  String get adjustTextSize => 'Adjust text size across the app.';
+  String get adjustTextSize => 'ਐਪ ਵਿੱਚ ਟੈਕਸਟ ਦਾ ਆਕਾਰ ਵਿਵਸਥਿਤ ਕਰੋ।';
 
   @override
-  String get smaller => 'Smaller';
+  String get smaller => 'ਛੋਟਾ';
 
   @override
-  String get larger => 'Larger';
+  String get larger => 'ਵੱਡਾ';
 
   @override
   String get support => 'ਸਹਾਇਤਾ';
 
   @override
-  String get sendAppFeedback => 'Send App Feedback';
+  String get sendAppFeedback => 'ਐਪ ਫੀਡਬੈਕ ਭੇਜੋ';
 
   @override
   String get reportBugsImprovements =>
-      'Report bugs, misleading information, or improvement suggestions.';
+      'ਬੱਗ, ਗੁੰਮਰਾਹਕੁੰਨ ਜਾਣਕਾਰੀ, ਜਾਂ ਸੁਧਾਰ ਸੁਝਾਵਾਂ ਦੀ ਰਿਪੋਰਟ ਕਰੋ।';
 
   @override
-  String get noFeedbackYet => 'You have not submitted any feedback yet.';
+  String get noFeedbackYet => 'ਤੁਸੀਂ ਅਜੇ ਤੱਕ ਕੋਈ ਫੀਡਬੈਕ ਸਪੁਰਦ ਨਹੀਂ ਕੀਤਾ ਹੈ।';
 
   @override
-  String get adminResponse => 'Admin Response';
+  String get adminResponse => 'ਐਡਮਿਨ ਜਵਾਬ';
 
   @override
-  String get awaitingAdminResponse => 'Awaiting admin response...';
+  String get awaitingAdminResponse => 'ਐਡਮਿਨ ਦੇ ਜਵਾਬ ਦੀ ਉਡੀਕ ਹੈ...';
 
   @override
   String get statusPending => 'ਬਕਾਇਾ';
 
   @override
-  String get statusInProgress => 'In Progress';
+  String get statusInProgress => 'ਤਰੱਕੀ ਹੋ ਰਹੀ ਹੈ';
 
   @override
-  String get statusResolved => 'Resolved';
+  String get statusResolved => 'ਹੱਲ ਕੀਤਾ ਗਿਆ';
 
   @override
-  String get statusWontFix => 'Won\'t Fix';
+  String get statusWontFix => 'ਠੀਕ ਨਹੀਂ ਹੋਵੇਗਾ';
 
   @override
-  String get foodBusinessDetails => 'Business Details';
+  String get foodBusinessDetails => 'ਕਾਰੋਬਾਰ ਦੇ ਵਿਸਥਾਰ';
 
   @override
-  String get aboutThisFoodExperience => 'About this Food Experience';
+  String get aboutThisFoodExperience => 'ਇਸ ਭੋਜਨ ਬਾਰੇ';
 
   @override
-  String get highlights => 'Highlights';
+  String get highlights => 'ਹਾਈਲਾਈਟਸ';
 
   @override
-  String get contactAndLinks => 'Contact & Links';
+  String get contactAndLinks => 'ਸੰਪਰਕ ਅਤੇ ਲਿੰਕ';
 
   @override
   String get gallery => 'ਗੈਲਰੀ';
 
   @override
-  String get openingHours => 'ਖੁੱਲ੍ਹਣ ਦੇ ਸਮੇਂ';
+  String get openingHours => 'ਖੁੱਲਣ ਦਾ ਸਮਾਂ';
 
   @override
   String get menu => 'ਮੇਨੂ';
@@ -700,37 +710,38 @@ class AppLocalizationsPa extends AppLocalizations {
   String get call => 'ਕਾਲ ਕਰੋ';
 
   @override
-  String get website => 'ਵੈੱਬਸਾਈਟ';
+  String get website => 'ਵੈਬਸਾਇਟ';
 
   @override
-  String get orderOnline => 'Order Online';
+  String get orderOnline => 'ਔਨਲਾਈਨ ਆਰਡਰ ਕਰੋ';
 
   @override
-  String get viewOnMap => 'View on Map';
+  String get viewOnMap => 'ਨਕਸ਼ੇ &#39;ਤੇ ਦੇਖੋ';
 
   @override
   String get foodDiscoveryGuide => 'ਖਾਣੇ ਦੀ ਖੋਜ ਗਾਈਡ';
 
   @override
   String get foodDiscoveryGuideHelper =>
-      'Tap play to hear your Food Discovery Guide describe this food spot and its highlights.';
+      'ਇਸ ਭੋਜਨ ਸਥਾਨ ਅਤੇ ਇਸ ਦੀਆਂ ਮੁੱਖ ਗੱਲਾਂ ਦਾ ਵਰਣਨ ਕਰਨ ਲਈ ਆਪਣੀ ਫੂਡ ਡਿਸਕਵਰੀ ਗਾਈਡ ਨੂੰ ਸੁਣਨ ਲਈ &#39;ਚਲਾਓ&#39; &#39;ਤੇ ਟੈਪ ਕਰੋ।';
 
   @override
-  String get stop => 'Stop';
+  String get stop => 'ਰੂਕੋ';
 
   @override
   String get unableToStartNarration =>
-      'Unable to start Food Discovery Guide narration right now.';
+      'ਇਸ ਵੇਲੇ ਫੂਡ ਡਿਸਕਵਰੀ ਗਾਈਡ ਦਾ ਬਿਰਤਾਂਤ ਸ਼ੁਰੂ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ।';
 
   @override
-  String get unableToCallNumber => 'Unable to call this number right now.';
+  String get unableToCallNumber =>
+      'ਇਸ ਨੰਬਰ &#39;ਤੇ ਹੁਣੇ ਕਾਲ ਨਹੀਂ ਕੀਤੀ ਜਾ ਸਕਦੀ।';
 
   @override
-  String get unableToSendEmail => 'Unable to send email right now.';
+  String get unableToSendEmail => 'ਇਸ ਵੇਲੇ ਈਮੇਲ ਨਹੀਂ ਭੇਜਿਆ ਜਾ ਸਕਦਾ।';
 
   @override
   String get foodSpotCannotBeShared =>
-      'This food spot cannot be shared right now.';
+      'ਇਸ ਖਾਣੇ ਵਾਲੀ ਜਗ੍ਹਾ ਨੂੰ ਹੁਣੇ ਸਾਂਝਾ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ।';
 
   @override
   String foodDescriptionIntro(String title, String cuisine, String location) {
@@ -739,7 +750,7 @@ class AppLocalizationsPa extends AppLocalizations {
 
   @override
   String foodDescriptionRating(String rating) {
-    return 'Loved by locals and visitors alike, it holds a $rating-star rating.';
+    return 'ਸਥਾਨਕ ਲੋਕਾਂ ਅਤੇ ਸੈਲਾਨੀਆਂ ਦੋਵਾਂ ਦੁਆਰਾ ਪਸੰਦ ਕੀਤੇ ਜਾਣ ਵਾਲੇ, ਇਸਦੀ $rating-ਸਟਾਰ ਰੇਟਿੰਗ ਹੈ।';
   }
 
   @override
@@ -754,7 +765,7 @@ class AppLocalizationsPa extends AppLocalizations {
 
   @override
   String foodDescriptionOutro(String title) {
-    return 'Whether you are after a relaxed brunch, a business lunch, or a lively dinner, $title offers a welcoming atmosphere and flavours that capture Brisbane\'s dining scene.';
+    return 'ਭਾਵੇਂ ਤੁਸੀਂ ਆਰਾਮਦਾਇਕ ਬ੍ਰੰਚ, ਕਾਰੋਬਾਰੀ ਦੁਪਹਿਰ ਦਾ ਖਾਣਾ, ਜਾਂ ਇੱਕ ਜੀਵੰਤ ਰਾਤ ਦੇ ਖਾਣੇ ਤੋਂ ਬਾਅਦ ਹੋ, $title ਇੱਕ ਸਵਾਗਤਯੋਗ ਮਾਹੌਲ ਅਤੇ ਸੁਆਦ ਪੇਸ਼ ਕਰਦਾ ਹੈ ਜੋ ਬ੍ਰਿਸਬੇਨ ਦੇ ਖਾਣੇ ਦੇ ਦ੍ਰਿਸ਼ ਨੂੰ ਕੈਦ ਕਰਦੇ ਹਨ।';
   }
 
   @override

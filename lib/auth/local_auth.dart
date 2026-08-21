@@ -10,6 +10,7 @@ import 'package:brisconnect/services/business_dashboard_service.dart';
 import 'package:brisconnect/services/email_code_auth_service.dart';
 import 'package:brisconnect/services/fcm_service.dart';
 import 'package:brisconnect/services/local_email_notification_service.dart';
+import 'package:brisconnect/services/session_persistence_service.dart';
 import 'package:brisconnect/services/sms_notification_service.dart';
 import 'package:brisconnect/services/app_display_settings_controller.dart';
 
@@ -45,6 +46,14 @@ class LocalUser {
   final bool notifyOfferExpiry;
   final bool notifyNewReview;
   final bool notifyBusinessUpdates;
+  final bool notifyAudienceActivity;
+  final bool notifySocialShare;
+  final bool notifyBuzzVote;
+  final bool notifyVerificationUpdates;
+  final bool notifyPromotionStatus;
+  final bool notifyPromotionPerformance;
+  final bool notifyAdminMessages;
+  final bool notifyReportedContent;
 
   const LocalUser({
     required this.name,
@@ -73,6 +82,14 @@ class LocalUser {
     this.notifyOfferExpiry = true,
     this.notifyNewReview = true,
     this.notifyBusinessUpdates = true,
+    this.notifyAudienceActivity = true,
+    this.notifySocialShare = true,
+    this.notifyBuzzVote = true,
+    this.notifyVerificationUpdates = true,
+    this.notifyPromotionStatus = true,
+    this.notifyPromotionPerformance = true,
+    this.notifyAdminMessages = true,
+    this.notifyReportedContent = true,
   });
 
   LocalUser copyWith({
@@ -102,6 +119,14 @@ class LocalUser {
     bool? notifyOfferExpiry,
     bool? notifyNewReview,
     bool? notifyBusinessUpdates,
+    bool? notifyAudienceActivity,
+    bool? notifySocialShare,
+    bool? notifyBuzzVote,
+    bool? notifyVerificationUpdates,
+    bool? notifyPromotionStatus,
+    bool? notifyPromotionPerformance,
+    bool? notifyAdminMessages,
+    bool? notifyReportedContent,
   }) {
     return LocalUser(
       name: name ?? this.name,
@@ -136,6 +161,18 @@ class LocalUser {
       notifyNewReview: notifyNewReview ?? this.notifyNewReview,
       notifyBusinessUpdates:
           notifyBusinessUpdates ?? this.notifyBusinessUpdates,
+      notifyAudienceActivity:
+          notifyAudienceActivity ?? this.notifyAudienceActivity,
+      notifySocialShare: notifySocialShare ?? this.notifySocialShare,
+      notifyBuzzVote: notifyBuzzVote ?? this.notifyBuzzVote,
+      notifyVerificationUpdates:
+          notifyVerificationUpdates ?? this.notifyVerificationUpdates,
+      notifyPromotionStatus: notifyPromotionStatus ?? this.notifyPromotionStatus,
+      notifyPromotionPerformance:
+          notifyPromotionPerformance ?? this.notifyPromotionPerformance,
+      notifyAdminMessages: notifyAdminMessages ?? this.notifyAdminMessages,
+      notifyReportedContent:
+          notifyReportedContent ?? this.notifyReportedContent,
     );
   }
 }
@@ -269,6 +306,14 @@ class LocalAuth {
       'notifyOfferExpiry': true,
       'notifyNewReview': true,
       'notifyBusinessUpdates': true,
+      'notifyAudienceActivity': true,
+      'notifySocialShare': true,
+      'notifyBuzzVote': true,
+      'notifyVerificationUpdates': true,
+      'notifyPromotionStatus': true,
+      'notifyPromotionPerformance': true,
+      'notifyAdminMessages': true,
+      'notifyReportedContent': true,
     };
   }
 
@@ -621,6 +666,19 @@ class LocalAuth {
         notifyOfferExpiry: (data['notifyOfferExpiry'] as bool?) ?? true,
         notifyNewReview: (data['notifyNewReview'] as bool?) ?? true,
         notifyBusinessUpdates: (data['notifyBusinessUpdates'] as bool?) ?? true,
+        notifyAudienceActivity:
+            (data['notifyAudienceActivity'] as bool?) ?? true,
+        notifySocialShare: (data['notifySocialShare'] as bool?) ?? true,
+        notifyBuzzVote: (data['notifyBuzzVote'] as bool?) ?? true,
+        notifyVerificationUpdates:
+            (data['notifyVerificationUpdates'] as bool?) ?? true,
+        notifyPromotionStatus:
+            (data['notifyPromotionStatus'] as bool?) ?? true,
+        notifyPromotionPerformance:
+            (data['notifyPromotionPerformance'] as bool?) ?? true,
+        notifyAdminMessages: (data['notifyAdminMessages'] as bool?) ?? true,
+        notifyReportedContent:
+            (data['notifyReportedContent'] as bool?) ?? true,
       );
 
       final userIndex = _users.indexWhere(
@@ -635,6 +693,7 @@ class LocalAuth {
       _currentLocal = user;
       _lastErrorMessage = null;
       _profileVersion.value++;
+      await SessionPersistenceService.setLastRole('local');
       AppDisplaySettingsController.applyFromPersisted(
         locationAccessEnabled: user.locationAccessEnabled,
         themePreference: user.themePreference,
@@ -722,6 +781,7 @@ class LocalAuth {
     await fb_auth.FirebaseAuth.instance.signOut();
     _currentLocal = null;
     _profileVersion.value++;
+    await SessionPersistenceService.clear();
   }
 
   @visibleForTesting
@@ -747,6 +807,14 @@ class LocalAuth {
     bool? notifyOfferExpiry,
     bool? notifyNewReview,
     bool? notifyBusinessUpdates,
+    bool? notifyAudienceActivity,
+    bool? notifySocialShare,
+    bool? notifyBuzzVote,
+    bool? notifyVerificationUpdates,
+    bool? notifyPromotionStatus,
+    bool? notifyPromotionPerformance,
+    bool? notifyAdminMessages,
+    bool? notifyReportedContent,
   }) async {
     final current = _currentLocal;
     if (current == null) return false;
@@ -764,6 +832,30 @@ class LocalAuth {
     if (notifyBusinessUpdates != null) {
       updates['notifyBusinessUpdates'] = notifyBusinessUpdates;
     }
+    if (notifyAudienceActivity != null) {
+      updates['notifyAudienceActivity'] = notifyAudienceActivity;
+    }
+    if (notifySocialShare != null) {
+      updates['notifySocialShare'] = notifySocialShare;
+    }
+    if (notifyBuzzVote != null) {
+      updates['notifyBuzzVote'] = notifyBuzzVote;
+    }
+    if (notifyVerificationUpdates != null) {
+      updates['notifyVerificationUpdates'] = notifyVerificationUpdates;
+    }
+    if (notifyPromotionStatus != null) {
+      updates['notifyPromotionStatus'] = notifyPromotionStatus;
+    }
+    if (notifyPromotionPerformance != null) {
+      updates['notifyPromotionPerformance'] = notifyPromotionPerformance;
+    }
+    if (notifyAdminMessages != null) {
+      updates['notifyAdminMessages'] = notifyAdminMessages;
+    }
+    if (notifyReportedContent != null) {
+      updates['notifyReportedContent'] = notifyReportedContent;
+    }
     if (updates.isEmpty) return true;
 
     try {
@@ -779,6 +871,19 @@ class LocalAuth {
         notifyNewReview: notifyNewReview ?? current.notifyNewReview,
         notifyBusinessUpdates:
             notifyBusinessUpdates ?? current.notifyBusinessUpdates,
+        notifyAudienceActivity:
+            notifyAudienceActivity ?? current.notifyAudienceActivity,
+        notifySocialShare: notifySocialShare ?? current.notifySocialShare,
+        notifyBuzzVote: notifyBuzzVote ?? current.notifyBuzzVote,
+        notifyVerificationUpdates:
+            notifyVerificationUpdates ?? current.notifyVerificationUpdates,
+        notifyPromotionStatus:
+            notifyPromotionStatus ?? current.notifyPromotionStatus,
+        notifyPromotionPerformance:
+            notifyPromotionPerformance ?? current.notifyPromotionPerformance,
+        notifyAdminMessages: notifyAdminMessages ?? current.notifyAdminMessages,
+        notifyReportedContent:
+            notifyReportedContent ?? current.notifyReportedContent,
       );
       _currentLocal = updated;
       final idx = _users.indexWhere(
@@ -895,6 +1000,17 @@ class LocalAuth {
       notifyOfferExpiry: (data['notifyOfferExpiry'] as bool?) ?? true,
       notifyNewReview: (data['notifyNewReview'] as bool?) ?? true,
       notifyBusinessUpdates: (data['notifyBusinessUpdates'] as bool?) ?? true,
+      notifyAudienceActivity:
+          (data['notifyAudienceActivity'] as bool?) ?? true,
+      notifySocialShare: (data['notifySocialShare'] as bool?) ?? true,
+      notifyBuzzVote: (data['notifyBuzzVote'] as bool?) ?? true,
+      notifyVerificationUpdates:
+          (data['notifyVerificationUpdates'] as bool?) ?? true,
+      notifyPromotionStatus: (data['notifyPromotionStatus'] as bool?) ?? true,
+      notifyPromotionPerformance:
+          (data['notifyPromotionPerformance'] as bool?) ?? true,
+      notifyAdminMessages: (data['notifyAdminMessages'] as bool?) ?? true,
+      notifyReportedContent: (data['notifyReportedContent'] as bool?) ?? true,
     );
   }
 
@@ -1098,6 +1214,7 @@ class LocalAuth {
       }
       _currentLocal = user;
       _profileVersion.value++;
+      await SessionPersistenceService.setLastRole('local');
       AppDisplaySettingsController.applyFromPersisted(
         locationAccessEnabled: user.locationAccessEnabled,
         themePreference: user.themePreference,

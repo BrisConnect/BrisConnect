@@ -1,5 +1,5 @@
 {
-  "appTitle": "BrisConnect+",
+  "appTitle": "브리스커넥트+",
   "welcome": "환영합니다",
   "signIn": "로그인",
   "signUp": "회원가입",
@@ -243,7 +243,7 @@
       }
     }
   },
-  "categoryLabel": "카테고리: {category}",
+  "categoryLabel": "Category: {category}",
   "@categoryLabel": {
     "placeholders": {
       "category": {
@@ -251,7 +251,7 @@
       }
     }
   },
-  "severityLabel": "심각도: {severity}",
+  "severityLabel": "Severity: {severity}",
   "@severityLabel": {
     "placeholders": {
       "severity": {
@@ -288,7 +288,7 @@
   "businessNotifications": "비즈니스 알림",
   "about": "에 대한",
   "aboutDescription": "BrisConnect+는 방문자와 지역 주민이 이벤트를 발견하고 명소를 탐색하며 하나의 연결된 플랫폼에서 브리즈번 경험을 포착할 수 있도록 돕는 스마트 시티 가이드입니다.",
-  "versionLabel": "버전 {version}",
+  "versionLabel": "Version {version}",
   "@versionLabel": {
     "placeholders": {
       "version": {
@@ -319,5 +319,41 @@
   "statusPending": "보류 중",
   "statusInProgress": "진행 중",
   "statusResolved": "해결됨",
-  "statusWontFix": "수정되지 않음"
+  "statusWontFix": "수정되지 않음",
+  "@@locale": "ko",
+  "languagePunjabi": "펀자브어",
+  "foodBusinessDetails": "사업 상세 정보",
+  "aboutThisFoodExperience": "이 음식 체험에 대하여",
+  "highlights": "하이라이트",
+  "contactAndLinks": "연락처 및 링크",
+  "gallery": "갱도",
+  "openingHours": "영업시간",
+  "menu": "메뉴",
+  "menuFallback": "메뉴",
+  "call": "부르다",
+  "website": "웹사이트",
+  "orderOnline": "온라인으로 주문하세요",
+  "viewOnMap": "지도에서 보기",
+  "foodDiscoveryGuide": "음식 탐험 가이드",
+  "foodDiscoveryGuideHelper": "재생 버튼을 눌러 푸드 디스커버리 가이드가 이 음식점과 그 주요 특징에 대해 설명하는 것을 들어보세요.",
+  "stop": "멈추다",
+  "unableToStartNarration": "지금은 음식 탐험 가이드 음성 재생을 시작할 수 없습니다.",
+  "unableToCallNumber": "지금은 이 번호로 전화를 걸 수 없습니다.",
+  "unableToSendEmail": "지금은 이메일을 보낼 수 없습니다.",
+  "foodSpotCannotBeShared": "이 음식점 정보는 현재 공유할 수 없습니다.",
+  "foodDescriptionIntro": "Step into {title}, a {cuisine} destination in the heart of {location}.",
+  "foodDescriptionRating": "현지인과 관광객 모두에게 사랑받는 이곳은 별점 {rating}점을 받았습니다.",
+  "foodDescriptionCategories": "The menu celebrates {categories}, crafted with fresh, locally sourced ingredients.",
+  "foodDescriptionPrice": "Expect a {price} experience that balances quality and value.",
+  "foodDescriptionOutro": "편안한 브런치, 비즈니스 점심, 활기 넘치는 저녁 식사 등 무엇을 원하시든, {title}은 브리즈번의 다이닝 문화를 담아낸 따뜻한 분위기와 풍미를 선사합니다.",
+  "foodNarrationWelcome": "Welcome to {title}",
+  "foodNarrationBadge": "This is a {badge} stop worth adding to your Brisbane food trail",
+  "foodNarrationCuisine": "It is best known for {cuisine}",
+  "foodNarrationLocation": "You will find it in {location}, where the local dining scene comes alive",
+  "foodNarrationDateTime": "You can usually visit during {dateTime}",
+  "foodNarrationDescription": "Here's what the experience feels like. {description}",
+  "foodNarrationPriceFree": "There is no entry cost to explore this food spot",
+  "foodNarrationPrice": "Pricing is listed as {price}",
+  "foodNarrationRating": "Visitors currently rate it {rating} out of 5",
+  "foodNarrationCategories": "Expect a mix of {categories}"
 }

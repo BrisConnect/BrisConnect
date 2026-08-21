@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/admin_auth.dart';
 import 'package:brisconnect/auth/app_user_role.dart';
+import 'package:brisconnect/features/admin/dashboard/admin_neon_theme.dart';
 import 'package:brisconnect/models/business.dart';
 import 'package:brisconnect/services/business_profile_service.dart';
-import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
 
 /// Admin screen for managing local business listings.
@@ -13,11 +13,13 @@ import 'package:brisconnect/widgets/role_guard.dart';
 class AdminBusinessManagementScreen extends StatefulWidget {
   final BusinessProfileService businessService;
   final bool enforceRoleGuard;
+  final bool buildFullScaffold;
 
   AdminBusinessManagementScreen({
     super.key,
     BusinessProfileService? businessService,
     this.enforceRoleGuard = true,
+    this.buildFullScaffold = true,
   }) : businessService = businessService ?? BusinessProfileService();
 
   @override
@@ -42,6 +44,11 @@ class _AdminBusinessManagementScreenState
   }
 
   bool _matchesFilter(Business b) {
+    // Exclude Google Places seeded businesses
+    if (b.isGoogleListing) {
+      return false;
+    }
+    
     switch (_filter) {
       case 'pending':
         return !b.isVerified && b.isActive && !b.isDeleted;
@@ -173,118 +180,192 @@ class _AdminBusinessManagementScreenState
 
   @override
   Widget build(BuildContext context) {
-    final screen = Scaffold(
-      backgroundColor: const Color(0xFFEBF4FF),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFEBF4FF),
-        foregroundColor: const Color(0xFF1E3A8A),
-        elevation: 0,
-        title: const Text(
-          'Manage Businesses',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF1E3A8A),
+    final content = Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Wrap(
+            spacing: 8,
+            children: [
+              _FilterChip(
+                  label: 'All',
+                  value: 'all',
+                  selected: _filter,
+                  onSelected: _setFilter),
+              _FilterChip(
+                  label: 'Pending',
+                  value: 'pending',
+                  selected: _filter,
+                  onSelected: _setFilter),
+              _FilterChip(
+                  label: 'Verified',
+                  value: 'verified',
+                  selected: _filter,
+                  onSelected: _setFilter),
+              _FilterChip(
+                  label: 'Inactive',
+                  value: 'inactive',
+                  selected: _filter,
+                  onSelected: _setFilter),
+              _FilterChip(
+                  label: 'Archived',
+                  value: 'archived',
+                  selected: _filter,
+                  onSelected: _setFilter),
+              _FilterChip(
+                  label: 'Duplicates',
+                  value: 'duplicates',
+                  selected: _filter,
+                  onSelected: _setFilter),
+            ],
           ),
         ),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Wrap(
-              spacing: 8,
-              children: [
-                _FilterChip(
-                    label: 'All',
-                    value: 'all',
-                    selected: _filter,
-                    onSelected: _setFilter),
-                _FilterChip(
-                    label: 'Pending',
-                    value: 'pending',
-                    selected: _filter,
-                    onSelected: _setFilter),
-                _FilterChip(
-                    label: 'Verified',
-                    value: 'verified',
-                    selected: _filter,
-                    onSelected: _setFilter),
-                _FilterChip(
-                    label: 'Inactive',
-                    value: 'inactive',
-                    selected: _filter,
-                    onSelected: _setFilter),
-                _FilterChip(
-                    label: 'Archived',
-                    value: 'archived',
-                    selected: _filter,
-                    onSelected: _setFilter),
-                _FilterChip(
-                    label: 'Duplicates',
-                    value: 'duplicates',
-                    selected: _filter,
-                    onSelected: _setFilter),
-              ],
-            ),
-          ),
-          Expanded(
-            child: StreamBuilder<List<Business>>(
-              stream: _businessStream(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child:
-                          Text('Error loading businesses: ${snapshot.error}'),
-                    ),
-                  );
-                }
-
-                final businesses =
-                    (snapshot.data ?? []).where(_matchesFilter).toList();
-
-                if (businesses.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'No $_filter businesses',
-                      style: const TextStyle(color: AppPalette.charcoal),
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: businesses.length,
-                  itemBuilder: (context, index) {
-                    final business = businesses[index];
-                    return _BusinessCard(
-                      business: business,
-                      onVerify: _verify,
-                      onUnverify: _unverify,
-                      onDeactivate: _deactivate,
-                      onReactivate: _reactivate,
-                      onArchive: _archive,
-                      onRestore: _restore,
-                      onEdit: _openEdit,
-                    );
-                  },
+        Expanded(
+          child: StreamBuilder<List<Business>>(
+            stream: _businessStream(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(color: AdminNeonTheme.neonOrange),
                 );
-              },
+              }
+              if (snapshot.hasError) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'Error loading businesses: ${snapshot.error}',
+                      style: const TextStyle(color: AdminNeonTheme.textPrimary),
+                    ),
+                  ),
+                );
+              }
+
+              final businesses =
+                  (snapshot.data ?? []).where(_matchesFilter).toList();
+
+              if (businesses.isEmpty) {
+                return Center(
+                  child: Text(
+                    'No $_filter businesses',
+                    style: const TextStyle(color: AdminNeonTheme.textSecondary),
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.all(12),
+                itemCount: businesses.length,
+                itemBuilder: (context, index) {
+                  final business = businesses[index];
+                  return _BusinessCard(
+                    business: business,
+                    onVerify: _verify,
+                    onUnverify: _unverify,
+                    onDeactivate: _deactivate,
+                    onReactivate: _reactivate,
+                    onArchive: _archive,
+                    onRestore: _restore,
+                    onEdit: _openEdit,
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+
+    Widget screen;
+    if (widget.buildFullScaffold) {
+      screen = Scaffold(
+        backgroundColor: AdminNeonTheme.bgDeepNavy,
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          backgroundColor: AdminNeonTheme.headerBg,
+          foregroundColor: AdminNeonTheme.textPrimary,
+          elevation: 0,
+          title: const Text(
+            'Manage Businesses',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: AdminNeonTheme.textPrimary,
             ),
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () =>
-            Navigator.pushNamed(context, '/business/create', arguments: ''),
-        icon: const Icon(Icons.add_business),
-        label: const Text('Add business'),
-      ),
-    );
+        ),
+        body: Stack(
+          children: [
+            // Orange neon food background
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                    colors: [
+                      AdminNeonTheme.bgDeepNavy,
+                      AdminNeonTheme.bgDeepNavy.withValues(alpha: 0.95),
+                      AdminNeonTheme.bgMidnight,
+                    ],
+                  ),
+                ),
+                child: Opacity(
+                  opacity: 0.1,
+                  child: Stack(
+                    children: [
+                      // Food plate icon pattern
+                      Positioned(
+                        right: -80,
+                        top: -60,
+                        child: Icon(
+                          Icons.restaurant,
+                          size: 300,
+                          color: AdminNeonTheme.neonOrange,
+                        ),
+                      ),
+                      // Utensils pattern
+                      Positioned(
+                        left: -40,
+                        bottom: -40,
+                        child: Icon(
+                          Icons.restaurant_menu,
+                          size: 250,
+                          color: AdminNeonTheme.neonOrange,
+                        ),
+                      ),
+                      // Food icon pattern
+                      Positioned(
+                        right: 50,
+                        bottom: 100,
+                        child: Icon(
+                          Icons.lunch_dining,
+                          size: 200,
+                          color: AdminNeonTheme.neonOrange,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Content layer
+            Positioned.fill(
+              child: content,
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () =>
+              Navigator.pushNamed(context, '/business/create', arguments: ''),
+          backgroundColor: AdminNeonTheme.neonOrange,
+          foregroundColor: Colors.white,
+          icon: const Icon(Icons.add_business),
+          label: const Text('Add business'),
+        ),
+      );
+    } else {
+      screen = content;
+    }
 
     if (widget.enforceRoleGuard) {
       return RoleGuard(
@@ -319,24 +400,24 @@ class _FilterChip extends StatelessWidget {
         label,
         style: TextStyle(
           fontWeight: FontWeight.w700,
-          color: isSelected ? Colors.white : AppPalette.charcoal,
+          color: isSelected ? Colors.white : AdminNeonTheme.textPrimary,
         ),
       ),
       selected: isSelected,
       onSelected: (_) => onSelected(value),
-      selectedColor: AppPalette.ochre,
-      backgroundColor: AppPalette.surface,
+      selectedColor: AdminNeonTheme.neonOrange,
+      backgroundColor: AdminNeonTheme.glassSurface,
       checkmarkColor: Colors.white,
       side: BorderSide(
         color: isSelected
-            ? AppPalette.ochre
-            : AppPalette.border.withValues(alpha: 0.6),
+            ? AdminNeonTheme.neonOrange
+            : AdminNeonTheme.glassBorder,
       ),
     );
   }
 }
 
-class _BusinessCard extends StatelessWidget {
+class _BusinessCard extends StatefulWidget {
   final Business business;
   final ValueChanged<Business> onVerify;
   final ValueChanged<Business> onUnverify;
@@ -358,98 +439,154 @@ class _BusinessCard extends StatelessWidget {
   });
 
   @override
+  State<_BusinessCard> createState() => _BusinessCardState();
+}
+
+class _BusinessCardState extends State<_BusinessCard> {
+  bool _hovered = false;
+
+  Business get business => widget.business;
+
+  @override
   Widget build(BuildContext context) {
-    return Card(
-      color: AppPalette.surface,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppPalette.border),
-      ),
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: AdminNeonTheme.glassCard(
+            accent: AdminNeonTheme.neonBlue,
+            radius: 12,
+            borderOpacity: _hovered ? 0.7 : 0.35,
+            borderWidth: _hovered ? 1.6 : 1.1,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    business.businessName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        business.businessName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: AdminNeonTheme.textPrimary,
+                        ),
+                      ),
                     ),
-                  ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _statusColor.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: _statusColor.withValues(alpha: 0.5)),
+                      ),
+                      child: Text(
+                        business.statusLabel.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: _statusColor,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                Chip(
-                  label: Text(
-                    business.statusLabel.toUpperCase(),
-                    style: const TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.bold),
+                const SizedBox(height: 6),
+                Text('Category: ${business.category}',
+                    style: const TextStyle(color: AdminNeonTheme.textSecondary)),
+                Text('Address: ${business.address}',
+                    style: const TextStyle(color: AdminNeonTheme.textSecondary)),
+                if (business.duplicateOf != null)
+                  Text(
+                    'Possible duplicate of ${business.duplicateOf}',
+                    style: const TextStyle(color: AdminNeonTheme.neonOrange),
                   ),
-                  backgroundColor: _statusColor.withValues(alpha: 0.2),
-                  side: BorderSide(color: _statusColor),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  alignment: WrapAlignment.end,
+                  children: [
+                    if (!business.isDeleted) ...[
+                      if (!business.isVerified)
+                        ElevatedButton(
+                          onPressed: () => widget.onVerify(business),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF22C55E),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                          ),
+                          child: const Text('Verify'),
+                        )
+                      else
+                        OutlinedButton(
+                          onPressed: () => widget.onUnverify(business),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AdminNeonTheme.neonOrange,
+                            side: const BorderSide(color: AdminNeonTheme.neonOrange),
+                          ),
+                          child: const Text('Unverify'),
+                        ),
+                      if (business.isActive)
+                        OutlinedButton(
+                          onPressed: () => widget.onDeactivate(business),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AdminNeonTheme.neonRed,
+                            side: const BorderSide(color: AdminNeonTheme.neonRed),
+                          ),
+                          child: const Text('Deactivate'),
+                        )
+                      else
+                        ElevatedButton(
+                          onPressed: () => widget.onReactivate(business),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF22C55E),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                          ),
+                          child: const Text('Reactivate'),
+                        ),
+                      OutlinedButton(
+                        onPressed: () => widget.onEdit(business),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AdminNeonTheme.neonBlue,
+                          side: const BorderSide(color: AdminNeonTheme.neonBlue),
+                        ),
+                        child: const Text('Edit'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => widget.onArchive(business),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AdminNeonTheme.neonRed,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                        ),
+                        child: const Text('Archive'),
+                      ),
+                    ],
+                    if (business.isDeleted)
+                      ElevatedButton(
+                        onPressed: () => widget.onRestore(business),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AdminNeonTheme.neonOrange,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                        ),
+                        child: const Text('Restore'),
+                      ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text('Category: ${business.category}'),
-            Text('Address: ${business.address}'),
-            if (business.duplicateOf != null)
-              Text(
-                'Possible duplicate of ${business.duplicateOf}',
-                style: const TextStyle(color: Colors.orangeAccent),
-              ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              alignment: WrapAlignment.end,
-              children: [
-                if (!business.isDeleted) ...[
-                  if (!business.isVerified)
-                    ElevatedButton(
-                      onPressed: () => onVerify(business),
-                      child: const Text('Verify'),
-                    )
-                  else
-                    TextButton(
-                      onPressed: () => onUnverify(business),
-                      child: const Text('Unverify'),
-                    ),
-                  if (business.isActive)
-                    TextButton(
-                      onPressed: () => onDeactivate(business),
-                      child: const Text('Deactivate'),
-                    )
-                  else
-                    ElevatedButton(
-                      onPressed: () => onReactivate(business),
-                      child: const Text('Reactivate'),
-                    ),
-                  TextButton(
-                    onPressed: () => onEdit(business),
-                    child: const Text('Edit'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => onArchive(business),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade700,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Archive'),
-                  ),
-                ],
-                if (business.isDeleted)
-                  ElevatedButton(
-                    onPressed: () => onRestore(business),
-                    child: const Text('Restore'),
-                  ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );

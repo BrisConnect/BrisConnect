@@ -2,9 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// A photo contributed by a Visitor for a food business or event.
 ///
-/// Photos are created with [status] `pending` and become publicly visible
-/// once an admin approves them. This mirrors the moderation model used for
-/// events and reviews.
+/// Photos are published immediately and are publicly visible without
+/// admin moderation.
 class VisitorPhoto {
   final String id;
   final String? businessId;
@@ -19,6 +18,8 @@ class VisitorPhoto {
   final String status; // 'pending', 'approved', 'rejected'
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final DateTime? deletedAt;
+  final String? deletedBy;
 
   const VisitorPhoto({
     required this.id,
@@ -34,9 +35,12 @@ class VisitorPhoto {
     this.status = 'pending',
     required this.createdAt,
     this.updatedAt,
+    this.deletedAt,
+    this.deletedBy,
   });
 
   bool get isApproved => status == 'approved';
+  bool get isDeleted => deletedAt != null;
   bool get isBusinessPhoto => businessId != null && businessId!.isNotEmpty;
   bool get isEventPhoto => eventId != null && eventId!.isNotEmpty;
 
@@ -54,6 +58,8 @@ class VisitorPhoto {
       'status': status,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt == null ? null : Timestamp.fromDate(updatedAt!),
+      'deletedAt': deletedAt == null ? null : Timestamp.fromDate(deletedAt!),
+      'deletedBy': deletedBy,
     };
   }
 
@@ -73,6 +79,8 @@ class VisitorPhoto {
       status: data['status'] ?? 'pending',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      deletedAt: (data['deletedAt'] as Timestamp?)?.toDate(),
+      deletedBy: data['deletedBy'] as String?,
     );
   }
 
@@ -90,6 +98,8 @@ class VisitorPhoto {
     String? status,
     DateTime? createdAt,
     DateTime? updatedAt,
+    DateTime? deletedAt,
+    String? deletedBy,
   }) {
     return VisitorPhoto(
       id: id ?? this.id,
@@ -105,6 +115,8 @@ class VisitorPhoto {
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      deletedBy: deletedBy ?? this.deletedBy,
     );
   }
 }

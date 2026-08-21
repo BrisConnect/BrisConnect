@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -10,6 +9,7 @@ import 'package:brisconnect/services/ai_post_service.dart';
 import 'package:brisconnect/services/ai_post_storage_service.dart';
 import 'package:brisconnect/services/business_profile_service.dart';
 import 'package:brisconnect/services/firebase_media_service.dart';
+import 'package:brisconnect/services/google_places_autocomplete_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 
 /// Bottom sheet for AI-powered social media post generation.
@@ -37,7 +37,10 @@ class _AiPostSheetState extends State<AiPostSheet> {
   final _priceCtrl = TextEditingController();
   final _discountCtrl = TextEditingController();
   final _locationCtrl = TextEditingController();
+  final _locationFocusNode = FocusNode();
   DateTime? _eventDate;
+
+  final _placesService = GooglePlacesAutocompleteService();
 
   final _generatedCtrl = TextEditingController();
   String? _generatedPost;
@@ -46,7 +49,8 @@ class _AiPostSheetState extends State<AiPostSheet> {
   bool _uploadingImage = false;
   String? _error;
   String? _successMessage;
-  File? _selectedImage;
+  XFile? _selectedImage;
+  Uint8List? _selectedImageBytes;
   String? _uploadedImageUrl;
 
   final _picker = ImagePicker();
@@ -142,8 +146,7 @@ class _AiPostSheetState extends State<AiPostSheet> {
                       post.generatedContent,
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 13),
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
                     ),
                   ],
                 ),
@@ -177,6 +180,7 @@ class _AiPostSheetState extends State<AiPostSheet> {
     _priceCtrl.dispose();
     _discountCtrl.dispose();
     _locationCtrl.dispose();
+    _locationFocusNode.dispose();
     _generatedCtrl.dispose();
     super.dispose();
   }
@@ -248,11 +252,13 @@ class _AiPostSheetState extends State<AiPostSheet> {
       title: _titleCtrl.text.trim(),
       description: _descriptionCtrl.text.trim(),
       price: _priceCtrl.text.trim().isNotEmpty ? _priceCtrl.text.trim() : null,
-      discount:
-          _discountCtrl.text.trim().isNotEmpty ? _discountCtrl.text.trim() : null,
+      discount: _discountCtrl.text.trim().isNotEmpty
+          ? _discountCtrl.text.trim()
+          : null,
       eventDate: _eventDate,
-      location:
-          _locationCtrl.text.trim().isNotEmpty ? _locationCtrl.text.trim() : null,
+      location: _locationCtrl.text.trim().isNotEmpty
+          ? _locationCtrl.text.trim()
+          : null,
       generatedContent: _generatedCtrl.text.trim(),
       imageUrl: _uploadedImageUrl,
       createdAt: now,
@@ -268,11 +274,20 @@ class _AiPostSheetState extends State<AiPostSheet> {
         maxWidth: 1200,
       );
       if (picked == null) return;
+
+      // Read bytes via XFile so this works on both mobile and web.
+      final bytes = await picked.readAsBytes();
+      if (bytes.isEmpty) {
+        setState(() => _error = 'Selected image is empty.');
+        return;
+      }
+
       setState(() {
-        _selectedImage = File(picked.path);
+        _selectedImage = picked;
+        _selectedImageBytes = bytes;
         _uploadedImageUrl = null;
       });
-      await _uploadImage();
+      await _uploadImage(bytes);
     } catch (e) {
       if (mounted) {
         setState(() => _error = 'Could not pick image: $e');
@@ -280,31 +295,58 @@ class _AiPostSheetState extends State<AiPostSheet> {
     }
   }
 
-  Future<void> _uploadImage() async {
-    final file = _selectedImage;
-    if (file == null) return;
+  Future<void> _uploadImage(Uint8List bytes) async {
+    if (bytes.isEmpty) return;
 
-    setState(() => _uploadingImage = true);
+    setState(() {
+      _uploadingImage = true;
+      _uploadedImageUrl = null;
+      _error = null;
+    });
     try {
-      final bytes = await file.readAsBytes();
-      final ext = file.path.split('.').last.toLowerCase();
+      final ext = _inferImageExtension(bytes, fileName: _selectedImage?.name);
       final contentType = ext == 'png' ? 'image/png' : 'image/jpeg';
-      final path = 'ai_post_images/$_ownerId/${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final path =
+          'ai_post_images/$_ownerId/${DateTime.now().millisecondsSinceEpoch}.$ext';
+      debugPrint(
+          '[AiPostSheet] uploading image to $path (${bytes.length} bytes)');
       final url = await _mediaService.uploadBytes(
         path: path,
         bytes: bytes,
         contentType: contentType,
       );
+      debugPrint('[AiPostSheet] uploaded image url: $url');
       if (mounted) {
         setState(() => _uploadedImageUrl = url);
       }
     } catch (e) {
+      debugPrint('[AiPostSheet] image upload failed: $e');
       if (mounted) {
-        setState(() => _error = 'Image upload failed: $e');
+        setState(() {
+          _error = 'Image upload failed: $e';
+          _selectedImage = null;
+          _selectedImageBytes = null;
+          _uploadedImageUrl = null;
+        });
       }
     } finally {
       if (mounted) setState(() => _uploadingImage = false);
     }
+  }
+
+  String _inferImageExtension(Uint8List bytes, {String? fileName}) {
+    final lowerName = (fileName ?? '').toLowerCase();
+    if (lowerName.endsWith('.png')) return 'png';
+    if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) return 'jpg';
+    // Simple PNG magic number fallback.
+    if (bytes.length > 8 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47) {
+      return 'png';
+    }
+    return 'jpg';
   }
 
   Future<void> _saveDraft() async {
@@ -312,7 +354,8 @@ class _AiPostSheetState extends State<AiPostSheet> {
       setState(() => _error = 'Generate or enter a post before saving.');
       return;
     }
-    await _persist(() => AiPostStorageService().saveDraft(_currentPost), 'Draft saved');
+    await _persist(
+        () => AiPostStorageService().saveDraft(_currentPost), 'Draft saved');
   }
 
   Future<void> _publish() async {
@@ -320,11 +363,18 @@ class _AiPostSheetState extends State<AiPostSheet> {
       setState(() => _error = 'Generate or enter a post before publishing.');
       return;
     }
+    if (_selectedImageBytes != null &&
+        (_uploadedImageUrl == null || _uploadedImageUrl!.isEmpty)) {
+      setState(
+          () => _error = 'Image is still uploading. Please wait or remove it.');
+      return;
+    }
     await _persist(
         () => AiPostStorageService().publish(_currentPost), 'Post published');
   }
 
-  Future<void> _persist(Future<String> Function() action, String success) async {
+  Future<void> _persist(
+      Future<String> Function() action, String success) async {
     setState(() {
       _saving = true;
       _error = null;
@@ -527,12 +577,7 @@ class _AiPostSheetState extends State<AiPostSheet> {
               const SizedBox(height: 12),
               _buildDatePicker(),
               const SizedBox(height: 12),
-              _buildTextField(
-                controller: _locationCtrl,
-                label: 'Location (optional)',
-                hint: 'e.g. 123 Queen St, Brisbane',
-                maxLines: 1,
-              ),
+              _buildAddressAutocompleteField(),
             ],
             const SizedBox(height: 16),
 
@@ -599,7 +644,8 @@ class _AiPostSheetState extends State<AiPostSheet> {
                 decoration: BoxDecoration(
                   color: Colors.green.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                  border:
+                      Border.all(color: Colors.green.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
@@ -687,7 +733,8 @@ class _AiPostSheetState extends State<AiPostSheet> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: _saving ? null : _saveDraft,
+                      onPressed:
+                          (_saving || _uploadingImage) ? null : _saveDraft,
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF8B8FA8),
                         side: BorderSide(
@@ -701,15 +748,14 @@ class _AiPostSheetState extends State<AiPostSheet> {
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Color(0xFF8B8FA8)))
+                                  strokeWidth: 2, color: Color(0xFF8B8FA8)))
                           : const Text('Save Draft'),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _saving ? null : _publish,
+                      onPressed: (_saving || _uploadingImage) ? null : _publish,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppPalette.ochre,
                         foregroundColor: Colors.white,
@@ -764,7 +810,9 @@ class _AiPostSheetState extends State<AiPostSheet> {
   }
 
   Widget _buildImagePicker() {
-    final hasImage = _uploadedImageUrl != null && _uploadedImageUrl!.isNotEmpty;
+    final hasUploadedImage =
+        _uploadedImageUrl != null && _uploadedImageUrl!.isNotEmpty;
+    final hasLocalImage = _selectedImageBytes != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -783,14 +831,19 @@ class _AiPostSheetState extends State<AiPostSheet> {
               color: const Color(0xFF2A2A3E),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-              image: hasImage
+              image: hasUploadedImage
                   ? DecorationImage(
                       image: NetworkImage(_uploadedImageUrl!),
                       fit: BoxFit.cover,
                     )
-                  : null,
+                  : hasLocalImage
+                      ? DecorationImage(
+                          image: MemoryImage(_selectedImageBytes!),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
             ),
-            child: hasImage
+            child: (hasUploadedImage || hasLocalImage)
                 ? Align(
                     alignment: Alignment.topRight,
                     child: Padding(
@@ -803,13 +856,16 @@ class _AiPostSheetState extends State<AiPostSheet> {
                         child: IconButton(
                           icon: const Icon(Icons.close_rounded,
                               color: Colors.white, size: 18),
-                          onPressed: () => setState(() {
-                            _selectedImage = null;
-                            _uploadedImageUrl = null;
-                          }),
+                          onPressed: _uploadingImage
+                              ? null
+                              : () => setState(() {
+                                    _selectedImage = null;
+                                    _selectedImageBytes = null;
+                                    _uploadedImageUrl = null;
+                                  }),
                           padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                              minWidth: 32, minHeight: 32),
+                          constraints:
+                              const BoxConstraints(minWidth: 32, minHeight: 32),
                         ),
                       ),
                     ),
@@ -839,6 +895,104 @@ class _AiPostSheetState extends State<AiPostSheet> {
     );
   }
 
+  Future<Iterable<String>> _getAddressSuggestions(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.length < 2) return const <String>[];
+    try {
+      return await _placesService.fetchBrisbaneAddressSuggestions(trimmed);
+    } catch (_) {
+      return const <String>[];
+    }
+  }
+
+  Widget _buildAddressAutocompleteField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Location (optional)',
+            style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.w500)),
+        const SizedBox(height: 6),
+        RawAutocomplete<String>(
+          textEditingController: _locationCtrl,
+          focusNode: _locationFocusNode,
+          optionsBuilder: (value) => _getAddressSuggestions(value.text),
+          onSelected: (selection) {
+            _locationCtrl.text = selection;
+          },
+          fieldViewBuilder: (
+            context,
+            textEditingController,
+            focusNode,
+            onFieldSubmitted,
+          ) {
+            return TextField(
+              controller: textEditingController,
+              focusNode: focusNode,
+              maxLines: 1,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                hintText: 'e.g. 123 Queen St, Brisbane',
+                hintStyle:
+                    const TextStyle(color: Color(0xFF8B8FA8), fontSize: 12),
+                filled: true,
+                fillColor: const Color(0xFF2A2A3E),
+                contentPadding: const EdgeInsets.all(12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppPalette.ochre),
+                ),
+              ),
+            );
+          },
+          optionsViewBuilder: (context, onSelected, options) {
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Material(
+                elevation: 4,
+                borderRadius: BorderRadius.circular(10),
+                color: const Color(0xFF2A2A3E),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 220),
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width - 64,
+                    child: ListView.builder(
+                      padding: EdgeInsets.zero,
+                      itemCount: options.length,
+                      itemBuilder: (context, index) {
+                        final option = options.elementAt(index);
+                        return ListTile(
+                          dense: true,
+                          leading: const Icon(
+                            Icons.location_on_rounded,
+                            color: AppPalette.ochre,
+                            size: 18,
+                          ),
+                          title: Text(
+                            option,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 13),
+                          ),
+                          onTap: () => onSelected(option),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -860,8 +1014,7 @@ class _AiPostSheetState extends State<AiPostSheet> {
           style: const TextStyle(color: Colors.white, fontSize: 13),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle:
-                const TextStyle(color: Color(0xFF8B8FA8), fontSize: 12),
+            hintStyle: const TextStyle(color: Color(0xFF8B8FA8), fontSize: 12),
             filled: true,
             fillColor: const Color(0xFF2A2A3E),
             contentPadding: const EdgeInsets.all(12),

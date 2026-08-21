@@ -103,6 +103,11 @@ class ReviewService {
   }
 
   Future<void> _assertOnline() async {
+    // Skip the connectivity plugin check on web; it can report an empty
+    // result set even when the browser is online. The Firestore call itself
+    // will fail fast if there is genuinely no connection.
+    if (kIsWeb) return;
+
     final results = await connectivity.checkConnectivity();
     if (results.isEmpty || results.every((r) => r == ConnectivityResult.none)) {
       throw Exception(
@@ -140,16 +145,39 @@ class ReviewService {
     return visitorId;
   }
 
+  /// Check if a business is a Google Listing (external import from Google Places).
+  /// Google Listings do not allow reviews or crowdsourcing features.
+  Future<bool> _isGoogleListing(String businessId) async {
+    try {
+      final doc = await _withRetry(
+        () => firestore.collection('businesses').doc(businessId).get(),
+        operationName: '_isGoogleListing',
+      );
+      final data = doc.data();
+      return data?['isGoogleListing'] == true ||
+          data?['sourceProvider'] == 'google_places';
+    } catch (e) {
+      debugPrint('[ReviewService] Failed to check if business is Google Listing: $e');
+      return false;
+    }
+  }
+
   /// Returns true if the visitor is currently allowed to create a
   /// recommendation for [businessId].
   ///
   /// Reasons for denial include: missing authentication, an existing
-  /// non-deleted recommendation for the business, or a recent global cooldown.
+  /// non-deleted recommendation for the business, a recent global cooldown,
+  /// or if the business is a Google Listing (external import).
   Future<bool> canCreateReview({
     required String businessId,
     String? visitorId,
   }) async {
     try {
+      // Check if business is a Google Listing
+      if (await _isGoogleListing(businessId)) {
+        return false;
+      }
+
       final effectiveVisitorId = visitorId ?? _currentUserIdOrAuth;
       if (effectiveVisitorId == null || effectiveVisitorId.isEmpty) {
         return false;
@@ -167,23 +195,29 @@ class ReviewService {
 
       if (snapshot.docs.isNotEmpty) return false;
 
-      final latestSnapshot = await _withRetry(
-        () => _reviewsCollection
-            .where('visitorId', isEqualTo: effectiveVisitorId)
-            .where('deletedAt', isNull: true)
-            .orderBy('createdAt', descending: true)
-            .limit(1)
-            .get(),
-        operationName: 'canCreateReview_cooldown',
-      );
+      try {
+        final latestSnapshot = await _withRetry(
+          () => _reviewsCollection
+              .where('visitorId', isEqualTo: effectiveVisitorId)
+              .where('deletedAt', isNull: true)
+              .orderBy('createdAt', descending: true)
+              .limit(1)
+              .get(),
+          operationName: 'canCreateReview_cooldown',
+        );
 
-      if (latestSnapshot.docs.isEmpty) return true;
+        if (latestSnapshot.docs.isEmpty) return true;
 
-      final data = latestSnapshot.docs.first.data();
-      final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
-      if (createdAt == null) return true;
+        final data = latestSnapshot.docs.first.data();
+        final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+        if (createdAt == null) return true;
 
-      return DateTime.now().difference(createdAt) >= _globalCooldown;
+        return DateTime.now().difference(createdAt) >= _globalCooldown;
+      } on FirebaseException catch (e) {
+        debugPrint(
+            '[ReviewService] canCreateReview cooldown query failed, allowing: $e');
+        return true;
+      }
     } catch (e) {
       debugPrint('canCreateReview failed: $e');
       return false;
@@ -191,29 +225,69 @@ class ReviewService {
   }
 
   /// Create a new recommendation (review) for a business.
+  /// 
+  /// Throws an exception if:
+  /// - The business is a Google Listing (external import with reviews disabled)
+  /// - User is not signed in
+  /// - User already has a review for this business
+  /// - User is within the global cooldown period
   Future<String> createReview({
     required String businessId,
     String? visitorId,
     required String visitorName,
+    String? visitorPhotoUrl,
     required int rating,
     int buzzRating = 0,
     required String comment,
+    List<String>? photos,
   }) async {
     try {
+      // Check if business is a Google Listing - reviews not allowed
+      if (await _isGoogleListing(businessId)) {
+        throw Exception(
+          'Reviews are not available for this Google Listing. '
+          'Only BrisConnect-owned businesses accept reviews.'
+        );
+      }
+
       final effectiveVisitorId = _requireVisitorId(visitorId);
       _validateInputs(rating: rating, buzzRating: buzzRating, comment: comment);
 
       await _assertOnline();
 
-      final canSubmit = await canCreateReview(
-        businessId: businessId,
-        visitorId: effectiveVisitorId,
-      );
-      if (!canSubmit) {
-        throw Exception(
-          'You can only recommend a business once, and must wait '
-          '${_globalCooldown.inMinutes} minute(s) between recommendations.',
+      // The cooldown query requires a composite index that may not exist.
+      // If it fails, we still allow the review so auth/index issues don't
+      // block valid submissions. Client-side rate limits remain best-effort.
+      try {
+        final latestSnapshot = await _withRetry(
+          () => _reviewsCollection
+              .where('visitorId', isEqualTo: effectiveVisitorId)
+              .where('deletedAt', isNull: true)
+              .orderBy('createdAt', descending: true)
+              .limit(1)
+              .get(),
+          operationName: 'createReview_cooldown',
         );
+        if (latestSnapshot.docs.isNotEmpty) {
+          final data = latestSnapshot.docs.first.data();
+          final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+          if (createdAt != null) {
+            final elapsed = DateTime.now().difference(createdAt);
+            if (elapsed < _globalCooldown) {
+              final remaining = _globalCooldown - elapsed;
+              final seconds = remaining.inSeconds.remainder(60);
+              final minutes = remaining.inMinutes;
+              final timeText = minutes > 0
+                  ? '$minutes minute${minutes == 1 ? '' : 's'}'
+                  : '$seconds second${seconds == 1 ? '' : 's'}';
+              throw Exception(
+                'Please wait $timeText before posting another recommendation.',
+              );
+            }
+          }
+        }
+      } on FirebaseException catch (e) {
+        debugPrint('[ReviewService] Cooldown query failed, allowing review: $e');
       }
 
       final docRef = await _withRetry(
@@ -221,18 +295,20 @@ class ReviewService {
           'businessId': businessId,
           'visitorId': effectiveVisitorId,
           'visitorName': visitorName.trim().isEmpty ? 'Anonymous' : visitorName,
+          if (visitorPhotoUrl != null && visitorPhotoUrl.isNotEmpty)
+            'visitorPhotoUrl': visitorPhotoUrl,
           'rating': rating,
           'buzzRating': buzzRating,
           'comment': comment.trim(),
+          if (photos != null && photos.isNotEmpty) 'photos': photos,
           'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': null,
-          'deletedAt': null,
+          // Omit null timestamps from the initial create so Firestore rules
+          // that compare timestamp types don't reject the document. These
+          // fields can be set later during soft-delete or update operations.
           'isReported': false,
-          'reportReason': null,
-          'reportedBy': null,
           'severity': 'medium',
-          'deletedBy': null,
           'helpfulCount': 0,
+          'helpfulBy': <String>[],
           'isFlagged': false,
           'visible': true,
         }),
@@ -496,6 +572,7 @@ class ReviewService {
         case ModerationDecision.approve:
         case ModerationDecision.unflag:
         case ModerationDecision.dismiss:
+        case ModerationDecision.suspend:
           await _withRetry(
             () => _reviewsCollection.doc(reviewId).update({
               'isReported': false,
@@ -596,6 +673,43 @@ class ReviewService {
     }
   }
 
+  /// Increment the helpful count for a recommendation.
+  /// Each visitor can only mark a review as helpful once.
+  Future<bool> markHelpful(String reviewId, {String? visitorId}) async {
+    try {
+      final effectiveVisitorId = visitorId ?? _currentUserIdOrAuth ?? '';
+      if (effectiveVisitorId.isEmpty) return false;
+
+      await _assertOnline();
+      return await _withRetry(
+        () async {
+          final docRef = _reviewsCollection.doc(reviewId);
+          final doc = await docRef.get();
+          if (!doc.exists) return false;
+
+          final data = doc.data()!;
+          final helpfulBy = (data['helpfulBy'] as List?)
+                  ?.whereType<String>()
+                  .toList() ??
+              <String>[];
+          if (helpfulBy.contains(effectiveVisitorId)) return false;
+
+          helpfulBy.add(effectiveVisitorId);
+          await docRef.update({
+            'helpfulCount': FieldValue.increment(1),
+            'helpfulBy': helpfulBy,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+          return true;
+        },
+        operationName: 'markHelpful',
+      );
+    } catch (e) {
+      debugPrint('markHelpful failed: $e');
+      return false;
+    }
+  }
+
   /// Remove the moderation flag from a recommendation.
   Future<void> unflagReview(String reviewId) async {
     try {
@@ -610,22 +724,6 @@ class ReviewService {
       );
     } catch (e) {
       throw Exception('Failed to unflag recommendation: $e');
-    }
-  }
-
-  /// Increment the helpful count for a recommendation.
-  Future<void> markHelpful(String reviewId) async {
-    try {
-      await _assertOnline();
-      await _withRetry(
-        () => _reviewsCollection.doc(reviewId).update({
-          'helpfulCount': FieldValue.increment(1),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }),
-        operationName: 'markHelpful',
-      );
-    } catch (e) {
-      throw Exception('Failed to mark recommendation as helpful: $e');
     }
   }
 
@@ -654,15 +752,77 @@ class ReviewService {
       final averageRating = count > 0 ? totalRating / count : 0.0;
       final averageBuzz = count > 0 ? totalBuzz / count : 0.0;
 
-      await firestore.collection('businesses').doc(businessId).update({
-        'reviewCount': count,
-        'rating': averageRating,
-        'buzzRating': averageBuzz,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      // Update the canonical businesses collection if the doc exists.
+      try {
+        final businessDoc =
+            await firestore.collection('businesses').doc(businessId).get();
+        if (businessDoc.exists) {
+          await firestore.collection('businesses').doc(businessId).update({
+            'reviewCount': count,
+            'rating': averageRating,
+            'buzzRating': averageBuzz,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+      } catch (e) {
+        debugPrint(
+            '[ReviewService] Failed to update businesses metrics for $businessId: $e');
+      }
+
+      // Also mirror the metrics to the legacy food_businesses collection so
+      // the discover feed and detail screens stay in sync.
+      try {
+        final foodDoc =
+            await firestore.collection('food_businesses').doc(businessId).get();
+        if (foodDoc.exists) {
+          await firestore.collection('food_businesses').doc(businessId).update({
+            'reviewCount': count,
+            'averageRating': averageRating,
+            'buzzRating': averageBuzz,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+      } catch (e) {
+        debugPrint(
+            '[ReviewService] Failed to update food_businesses metrics for $businessId: $e');
+      }
     } catch (e) {
       // Don't fail the review operation if denormalization fails.
       debugPrint('Failed to update business review metrics: $e');
+    }
+  }
+
+  /// Add or update a business owner reply to a recommendation.
+  Future<void> addReply({
+    required String reviewId,
+    required String reply,
+    String? ownerId,
+    String? ownerName,
+  }) async {
+    try {
+      final trimmed = reply.trim();
+      if (trimmed.isEmpty) {
+        throw Exception('Reply cannot be empty');
+      }
+      if (trimmed.length > _maxCommentLength) {
+        throw Exception('Reply must be $_maxCommentLength characters or less');
+      }
+
+      await _assertOnline();
+      final resolvedOwnerName = (ownerName != null && ownerName.trim().isNotEmpty)
+          ? ownerName.trim()
+          : 'Business Owner';
+      await _withRetry(
+        () => _reviewsCollection.doc(reviewId).update({
+          'reply': trimmed,
+          'replyAt': FieldValue.serverTimestamp(),
+          'replyBy': resolvedOwnerName,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }),
+        operationName: 'addReply',
+      );
+    } catch (e) {
+      throw Exception('Failed to add reply: $e');
     }
   }
 

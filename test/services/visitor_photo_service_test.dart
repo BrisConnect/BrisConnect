@@ -280,44 +280,6 @@ void main() {
       });
     });
 
-    group('moderation', () {
-      test('approvePhoto updates status to approved', () async {
-        final doc = await fakeFirestore.collection('visitor_photos').add({
-          'businessId': 'biz_1',
-          'visitorId': 'visitor_1',
-          'visitorName': 'Alice',
-          'imageUrl': 'https://example.com/1.jpg',
-          'storagePath': 'p/1.jpg',
-          'mimeType': 'image/jpeg',
-          'fileSize': 100,
-          'status': 'pending',
-          'createdAt': DateTime.now(),
-        });
-
-        await service.approvePhoto(doc.id);
-        final snapshot = await doc.get();
-        expect(snapshot.data()!['status'], 'approved');
-      });
-
-      test('rejectPhoto updates status to rejected', () async {
-        final doc = await fakeFirestore.collection('visitor_photos').add({
-          'businessId': 'biz_1',
-          'visitorId': 'visitor_1',
-          'visitorName': 'Alice',
-          'imageUrl': 'https://example.com/1.jpg',
-          'storagePath': 'p/1.jpg',
-          'mimeType': 'image/jpeg',
-          'fileSize': 100,
-          'status': 'pending',
-          'createdAt': DateTime.now(),
-        });
-
-        await service.rejectPhoto(doc.id);
-        final snapshot = await doc.get();
-        expect(snapshot.data()!['status'], 'rejected');
-      });
-    });
-
     group('deletePhoto', () {
       test('author can delete their own photo', () async {
         final photo = await service.uploadPhoto(

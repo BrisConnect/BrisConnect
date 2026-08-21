@@ -509,12 +509,12 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String categoryLabel(String category) {
-    return 'الفئة: $category';
+    return 'Category: $category';
   }
 
   @override
   String severityLabel(String severity) {
-    return 'الخطورة: $severity';
+    return 'Severity: $severity';
   }
 
   @override
@@ -560,7 +560,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get languageGreek => 'اليونانية';
 
   @override
-  String get languagePunjabi => 'Punjabi';
+  String get languagePunjabi => 'البنجابية';
 
   @override
   String get discoverTitle => 'اكتشف الأطعمة المحلية';
@@ -591,7 +591,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String versionLabel(String version) {
-    return 'الإصدار $version';
+    return 'Version $version';
   }
 
   @override
@@ -732,7 +732,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String foodDescriptionIntro(String title, String cuisine, String location) {
-    return 'تفضل بزيارة $title، وجهة $cuisine في قلب $location.';
+    return 'Step into $title, a $cuisine destination in the heart of $location.';
   }
 
   @override
@@ -742,12 +742,12 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String foodDescriptionCategories(String categories) {
-    return 'تتباهى القائمة بـ $categories، المُحضَّرة بمكونات طازجة ومُصنَّعة محليًا.';
+    return 'The menu celebrates $categories, crafted with fresh, locally sourced ingredients.';
   }
 
   @override
   String foodDescriptionPrice(String price) {
-    return 'توقع تجربة $price التي توازن بين الجودة والقيمة.';
+    return 'Expect a $price experience that balances quality and value.';
   }
 
   @override
@@ -757,50 +757,50 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String foodNarrationWelcome(String title) {
-    return 'مرحبًا بك في $title';
+    return 'Welcome to $title';
   }
 
   @override
   String foodNarrationBadge(String badge) {
-    return 'هذه محطة $badge تستحق الإضافة إلى مسار الطعام في بريزبان';
+    return 'This is a $badge stop worth adding to your Brisbane food trail';
   }
 
   @override
   String foodNarrationCuisine(String cuisine) {
-    return 'يشتهر بـ $cuisine';
+    return 'It is best known for $cuisine';
   }
 
   @override
   String foodNarrationLocation(String location) {
-    return 'ستجده في $location، حيث تنبض مشهد الطعام المحلي بالحياة';
+    return 'You will find it in $location, where the local dining scene comes alive';
   }
 
   @override
   String foodNarrationDateTime(String dateTime) {
-    return 'عادةً ما يمكنك الزيارة خلال $dateTime';
+    return 'You can usually visit during $dateTime';
   }
 
   @override
   String foodNarrationDescription(String description) {
-    return 'إليك شعور هذه التجربة. $description';
+    return 'Here\'s what the experience feels like. $description';
   }
 
   @override
   String get foodNarrationPriceFree =>
-      'لا توجد تكلفة دخول لاستكشاف هذا المكان الغذائي';
+      'There is no entry cost to explore this food spot';
 
   @override
   String foodNarrationPrice(String price) {
-    return 'السعر مدرج بأنه $price';
+    return 'Pricing is listed as $price';
   }
 
   @override
   String foodNarrationRating(String rating) {
-    return 'يصنفه الزوار حاليًا بـ $rating من أصل 5';
+    return 'Visitors currently rate it $rating out of 5';
   }
 
   @override
   String foodNarrationCategories(String categories) {
-    return 'توقع مزيجًا من $categories';
+    return 'Expect a mix of $categories';
   }
 }

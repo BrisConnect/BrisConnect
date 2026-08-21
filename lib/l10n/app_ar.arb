@@ -243,7 +243,7 @@
       }
     }
   },
-  "categoryLabel": "الفئة: {category}",
+  "categoryLabel": "Category: {category}",
   "@categoryLabel": {
     "placeholders": {
       "category": {
@@ -251,7 +251,7 @@
       }
     }
   },
-  "severityLabel": "الخطورة: {severity}",
+  "severityLabel": "Severity: {severity}",
   "@severityLabel": {
     "placeholders": {
       "severity": {
@@ -288,7 +288,7 @@
   "businessNotifications": "إشعارات الأعمال",
   "about": "عن",
   "aboutDescription": "BrisConnect+ هو دليل للمدينة الذكية يساعد الزوار والسكان المحليين على اكتشاف الأحداث واستكشاف المعالم السياحية والتقاط تجاربهم في بريسبان في منصة واحدة متصلة.",
-  "versionLabel": "الإصدار {version}",
+  "versionLabel": "Version {version}",
   "@versionLabel": {
     "placeholders": {
       "version": {
@@ -339,91 +339,125 @@
   "unableToCallNumber": "تعذر الاتصال بهذا الرقم الآن.",
   "unableToSendEmail": "تعذر إرسال البريد الإلكتروني الآن.",
   "foodSpotCannotBeShared": "لا يمكن مشاركة هذا المكان الغذائي الآن.",
-  "foodDescriptionIntro": "تفضل بزيارة {title}، وجهة {cuisine} في قلب {location}.",
+  "foodDescriptionIntro": "Step into {title}, a {cuisine} destination in the heart of {location}.",
   "@foodDescriptionIntro": {
     "placeholders": {
-      "title": {"type": "String"},
-      "cuisine": {"type": "String"},
-      "location": {"type": "String"}
+      "title": {
+        "type": "String"
+      },
+      "cuisine": {
+        "type": "String"
+      },
+      "location": {
+        "type": "String"
+      }
     }
   },
   "foodDescriptionRating": "يحظى بإعجاب السكان المحليين والزوار على حد سواء، ويحمل تصنيفًا بقدر {rating} نجوم.",
   "@foodDescriptionRating": {
     "placeholders": {
-      "rating": {"type": "String"}
+      "rating": {
+        "type": "String"
+      }
     }
   },
-  "foodDescriptionCategories": "تتباهى القائمة بـ {categories}، المُحضَّرة بمكونات طازجة ومُصنَّعة محليًا.",
+  "foodDescriptionCategories": "The menu celebrates {categories}, crafted with fresh, locally sourced ingredients.",
   "@foodDescriptionCategories": {
     "placeholders": {
-      "categories": {"type": "String"}
+      "categories": {
+        "type": "String"
+      }
     }
   },
-  "foodDescriptionPrice": "توقع تجربة {price} التي توازن بين الجودة والقيمة.",
+  "foodDescriptionPrice": "Expect a {price} experience that balances quality and value.",
   "@foodDescriptionPrice": {
     "placeholders": {
-      "price": {"type": "String"}
+      "price": {
+        "type": "String"
+      }
     }
   },
   "foodDescriptionOutro": "سواء كنت تبحث عن فطور هادئ أو غداء عمل أو عشاء حيوي، يقدم لك {title} أجواءً ترحيبية ونكهات تعكس مشهد الطعام في بريزبان.",
   "@foodDescriptionOutro": {
     "placeholders": {
-      "title": {"type": "String"}
+      "title": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationWelcome": "مرحبًا بك في {title}",
+  "foodNarrationWelcome": "Welcome to {title}",
   "@foodNarrationWelcome": {
     "placeholders": {
-      "title": {"type": "String"}
+      "title": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationBadge": "هذه محطة {badge} تستحق الإضافة إلى مسار الطعام في بريزبان",
+  "foodNarrationBadge": "This is a {badge} stop worth adding to your Brisbane food trail",
   "@foodNarrationBadge": {
     "placeholders": {
-      "badge": {"type": "String"}
+      "badge": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationCuisine": "يشتهر بـ {cuisine}",
+  "foodNarrationCuisine": "It is best known for {cuisine}",
   "@foodNarrationCuisine": {
     "placeholders": {
-      "cuisine": {"type": "String"}
+      "cuisine": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationLocation": "ستجده في {location}، حيث تنبض مشهد الطعام المحلي بالحياة",
+  "foodNarrationLocation": "You will find it in {location}, where the local dining scene comes alive",
   "@foodNarrationLocation": {
     "placeholders": {
-      "location": {"type": "String"}
+      "location": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationDateTime": "عادةً ما يمكنك الزيارة خلال {dateTime}",
+  "foodNarrationDateTime": "You can usually visit during {dateTime}",
   "@foodNarrationDateTime": {
     "placeholders": {
-      "dateTime": {"type": "String"}
+      "dateTime": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationDescription": "إليك شعور هذه التجربة. {description}",
+  "foodNarrationDescription": "Here's what the experience feels like. {description}",
   "@foodNarrationDescription": {
     "placeholders": {
-      "description": {"type": "String"}
+      "description": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationPriceFree": "لا توجد تكلفة دخول لاستكشاف هذا المكان الغذائي",
-  "foodNarrationPrice": "السعر مدرج بأنه {price}",
+  "foodNarrationPriceFree": "There is no entry cost to explore this food spot",
+  "foodNarrationPrice": "Pricing is listed as {price}",
   "@foodNarrationPrice": {
     "placeholders": {
-      "price": {"type": "String"}
+      "price": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationRating": "يصنفه الزوار حاليًا بـ {rating} من أصل 5",
+  "foodNarrationRating": "Visitors currently rate it {rating} out of 5",
   "@foodNarrationRating": {
     "placeholders": {
-      "rating": {"type": "String"}
+      "rating": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationCategories": "توقع مزيجًا من {categories}",
+  "foodNarrationCategories": "Expect a mix of {categories}",
   "@foodNarrationCategories": {
     "placeholders": {
-      "categories": {"type": "String"}
+      "categories": {
+        "type": "String"
+      }
     }
-  }
+  },
+  "@@locale": "ar",
+  "languagePunjabi": "البنجابية"
 }

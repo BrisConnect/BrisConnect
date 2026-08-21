@@ -5,7 +5,8 @@ enum ModeratedContentType {
   review,
   event,
   photo,
-  recommendation;
+  recommendation,
+  userAccount;
 
   String get firestoreValue {
     switch (this) {
@@ -17,6 +18,8 @@ enum ModeratedContentType {
         return 'photo';
       case ModeratedContentType.recommendation:
         return 'recommendation';
+      case ModeratedContentType.userAccount:
+        return 'user_account';
     }
   }
 
@@ -28,6 +31,8 @@ enum ModeratedContentType {
         return ModeratedContentType.photo;
       case 'recommendation':
         return ModeratedContentType.recommendation;
+      case 'user_account':
+        return ModeratedContentType.userAccount;
       case 'review':
       default:
         return ModeratedContentType.review;
@@ -42,7 +47,8 @@ enum ModerationDecision {
   dismiss,
   flag,
   unflag,
-  restore;
+  restore,
+  suspend;
 
   String get firestoreValue {
     switch (this) {
@@ -58,6 +64,8 @@ enum ModerationDecision {
         return 'unflag';
       case ModerationDecision.restore:
         return 'restore';
+      case ModerationDecision.suspend:
+        return 'suspend';
     }
   }
 
@@ -73,6 +81,8 @@ enum ModerationDecision {
         return ModerationDecision.unflag;
       case 'restore':
         return ModerationDecision.restore;
+      case 'suspend':
+        return ModerationDecision.suspend;
       case 'approve':
       default:
         return ModerationDecision.approve;
@@ -93,6 +103,8 @@ enum ModerationDecision {
         return 'Unflagged';
       case ModerationDecision.restore:
         return 'Restored';
+      case ModerationDecision.suspend:
+        return 'Suspended';
     }
   }
 }

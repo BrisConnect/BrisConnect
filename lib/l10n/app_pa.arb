@@ -1,6 +1,6 @@
 {
   "@@locale": "pa",
-  "appTitle": "BrisConnect+",
+  "appTitle": "ਬ੍ਰਿਸਕਨੈਕਟ+",
   "welcome": "ਸਵਾਗਤ ਹੈ",
   "signIn": "ਸਾਈਨ ਇਨ",
   "signUp": "ਸਾਈਨ ਅਪ",
@@ -29,7 +29,7 @@
   "events": "ਅਨੁ਷ਠਾਨ",
   "businesses": "ਕਾਰੋਬਾਰ",
   "promotions": "ਪ੍ਰਚਾਰ",
-  "photos": "ਫ਼ੋਟੋਆਂ",
+  "photos": "ਫ਼ੋਟੋ",
   "newPost": "ਨਵਾਂ",
   "search": "ਖੋਜ",
   "filter": "ਫਿਲਟਰ",
@@ -50,7 +50,7 @@
   "applyButton": "ਲਾਗੂ ਕਰੋ",
   "freeLabel": "ਮੁਫ਼ਤ",
   "paidLabel": "ਅਦਾ ਕੀਤਾ",
-  "eventSavedToInterested": "{eventTitle} saved to Interested.",
+  "eventSavedToInterested": "{eventTitle} ਨੂੰ Interested ਵਿੱਚ ਰੱਖਿਅਤ ਕੀਤਾ ਗਿਆ।",
   "@eventSavedToInterested": {
     "placeholders": {
       "eventTitle": {
@@ -58,7 +58,7 @@
       }
     }
   },
-  "eventRemovedFromInterested": "{eventTitle} removed from Interested.",
+  "eventRemovedFromInterested": "{eventTitle} ਨੂੰ Interested ਵਿੱਚੋਂ ਹਟਾ ਦਿੱਤਾ ਗਿਆ।",
   "@eventRemovedFromInterested": {
     "placeholders": {
       "eventTitle": {
@@ -66,7 +66,7 @@
       }
     }
   },
-  "savedToAttractions": "{title} saved to Saved Attractions.",
+  "savedToAttractions": "{title} ਨੂੰ ਸੁਰੱਖਿਅਤ ਕੀਤੇ ਆਕਰਸ਼ਣਾਂ ਵਿੱਚ ਸੁਰੱਖਿਅਤ ਕੀਤਾ ਗਿਆ।",
   "@savedToAttractions": {
     "placeholders": {
       "title": {
@@ -74,7 +74,7 @@
       }
     }
   },
-  "removedFromAttractions": "{title} removed from Saved Attractions.",
+  "removedFromAttractions": "{title} ਨੂੰ ਸੁਰੱਖਿਅਤ ਕੀਤੇ ਆਕਰਸ਼ਣਾਂ ਵਿੱਚੋਂ ਹਟਾ ਦਿੱਤਾ ਗਿਆ।",
   "@removedFromAttractions": {
     "placeholders": {
       "title": {
@@ -82,9 +82,9 @@
       }
     }
   },
-  "pleaseSignInToSaveEvents": "Please log in as a Visitor to save events.",
-  "pleaseSignInToReview": "Please sign in to write a review or BuzzVote.",
-  "reviewSubmitted": "Review submitted\\! ⭐ {rating} / Buzz ⚡ {buzzRating}",
+  "pleaseSignInToSaveEvents": "ਕਿਰਪਾ ਕਰਕੇ ਇਵੈਂਟਸ ਨੂੰ ਸੇਵ ਕਰਨ ਲਈ ਵਿਜ਼ਟਰ ਵਜੋਂ ਲੌਗਇਨ ਕਰੋ।",
+  "pleaseSignInToReview": "ਕਿਰਪਾ ਕਰਕੇ ਸਮੀਖਿਆ ਲਿਖਣ ਲਈ ਜਾਂ BuzzVote ਲਈ ਸਾਈਨ ਇਨ ਕਰੋ।",
+  "reviewSubmitted": "ਸਮਾਲੋਚਨਾ ਜਮਾ ਹੋ ਗਈ",
   "@reviewSubmitted": {
     "placeholders": {
       "rating": {
@@ -95,7 +95,7 @@
       }
     }
   },
-  "reviewSubmitFailed": "Could not submit review: {error}",
+  "reviewSubmitFailed": "ਸਮੀਖਿਆ ਸਪੁਰਦ ਨਹੀਂ ਕੀਤੀ ਜਾ ਸਕੀ: {error}",
   "@reviewSubmitFailed": {
     "placeholders": {
       "error": {
@@ -103,9 +103,9 @@
       }
     }
   },
-  "noExternalLink": "No external link available for this item yet.",
-  "unableToOpenLink": "Unable to open the event link right now.",
-  "shareTitle": "Share: {title}",
+  "noExternalLink": "ਇਸ ਆਈਟਮ ਲਈ ਅਜੇ ਕੋਈ ਬਾਹਰੀ ਲਿੰਕ ਉਪਲਬਧ ਨਹੀਂ ਹੈ।",
+  "unableToOpenLink": "ਇਸ ਵੇਲੇ ਇਵੈਂਟ ਲਿੰਕ ਖੋਲ੍ਹਿਆ ਨਹੀਂ ਜਾ ਸਕਿਆ।",
+  "shareTitle": "ਸਾਂਝਾ ਕਰੋ: {title}",
   "@shareTitle": {
     "placeholders": {
       "title": {
@@ -113,64 +113,64 @@
       }
     }
   },
-  "reportEvent": "Report Event",
-  "reviewsOnlyForFood": "Reviews are only available for food items",
-  "chooseFromGallery": "Choose from gallery",
-  "takeAPhoto": "Take a photo",
-  "pleaseLoginVisitor": "Please log in as a Visitor first.",
-  "onlyJpgPng": "Only JPG and PNG images are supported.",
-  "imageTooLarge": "Image is too large. Please choose a smaller image.",
-  "profilePictureUpdated": "Profile picture updated successfully.",
-  "profilePictureUpdateFailed": "Could not update profile picture. Please try again.",
+  "reportEvent": "ਘਟਨਾ ਦੀ ਰਿਪੋਰਟ ਕਰੋ",
+  "reviewsOnlyForFood": "ਸਮੀਖਿਆਵਾਂ ਸਿਰਫ਼ ਖਾਣ-ਪੀਣ ਦੀਆਂ ਚੀਜ਼ਾਂ ਲਈ ਉਪਲਬਧ ਹਨ।",
+  "chooseFromGallery": "ਗੈਲਰੀ ਵਿੱਚੋਂ ਚੁਣੋ",
+  "takeAPhoto": "ਇੱਕ ਫੋਟੋ ਖਿੱਚੋ",
+  "pleaseLoginVisitor": "ਕਿਰਪਾ ਕਰਕੇ ਪਹਿਲਾਂ ਵਿਜ਼ਿਟਰ ਵਜੋਂ ਲੌਗਇਨ ਕਰੋ।",
+  "onlyJpgPng": "ਸਿਰਫ਼ JPG ਅਤੇ PNG ਚਿੱਤਰ ਹੀ ਸਮਰਥਿਤ ਹਨ।",
+  "imageTooLarge": "ਚਿੱਤਰ ਬਹੁਤ ਵੱਡਾ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ ਇੱਕ ਛੋਟਾ ਚਿੱਤਰ ਚੁਣੋ।",
+  "profilePictureUpdated": "ਪ੍ਰੋਫਾਈਲ ਤਸਵੀਰ ਸਫਲਤਾਪੂਰਵਕ ਅੱਪਡੇਟ ਕੀਤੀ ਗਈ।",
+  "profilePictureUpdateFailed": "ਪ੍ਰੋਫਾਈਲ ਤਸਵੀਰ ਅੱਪਡੇਟ ਨਹੀਂ ਕੀਤੀ ਜਾ ਸਕੀ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
   "enterYourName": "ਆਪਣਾ ਨਾਮ ਦਰਜ ਕਰੋ",
-  "phoneHint": "e.g. 04xxxxxxxx",
-  "nameCannotBeEmpty": "Name cannot be empty.",
-  "nameMinLength": "Name must be at least 2 characters.",
-  "enterValidPhone": "Enter a valid phone number.",
-  "changeProfilePicture": "Change profile picture",
-  "uploadProfilePicture": "Upload profile picture",
-  "areYouSureSignOut": "Are you sure you want to sign out?",
-  "returnWelcome": "Return to the welcome screen",
-  "setHowFarRecommendations": "Set how far recommendations can be",
-  "themeTextSizeFeedback": "Theme, text size & feedback",
-  "faqsContactAppInfo": "FAQs, contact us & app info",
-  "viewSubmittedFeedback": "View your submitted feedback and admin responses",
-  "discoverSubtitle": "Discover local food and experiences",
-  "searchHintLocalFood": "Search local food businesses...",
+  "phoneHint": "ਜਿਵੇਂ ਕਿ 04xxxxxxxx",
+  "nameCannotBeEmpty": "ਨਾਮ ਖਾਲੀ ਨਹੀਂ ਹੋ ਸਕਦਾ।",
+  "nameMinLength": "ਨਾਮ ਘੱਟੋ-ਘੱਟ 2 ਅੱਖਰਾਂ ਦਾ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ।",
+  "enterValidPhone": "ਇੱਕ ਵੈਧ ਫ਼ੋਨ ਨੰਬਰ ਦਰਜ ਕਰੋ।",
+  "changeProfilePicture": "ਪ੍ਰੋਫਾਈਲ ਤਸਵੀਰ ਬਦਲੋ",
+  "uploadProfilePicture": "ਪ੍ਰੋਫਾਈਲ ਤਸਵੀਰ ਅੱਪਲੋਡ ਕਰੋ",
+  "areYouSureSignOut": "ਕੀ ਤੁਸੀਂ ਪੱਕਾ ਸਾਈਨ ਆਊਟ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ?",
+  "returnWelcome": "ਸਵਾਗਤ ਸਕ੍ਰੀਨ ਤੇ ਵਾਪਸ ਜਾਓ",
+  "setHowFarRecommendations": "ਸਿਫ਼ਾਰਸ਼ਾਂ ਕਿੰਨੀ ਦੂਰ ਹੋ ਸਕਦੀਆਂ ਹਨ, ਇਹ ਸੈੱਟ ਕਰੋ",
+  "themeTextSizeFeedback": "ਥੀਮ, ਟੈਕਸਟ ਦਾ ਆਕਾਰ ਅਤੇ ਫੀਡਬੈਕ",
+  "faqsContactAppInfo": "ਅਕਸਰ ਪੁੱਛੇ ਜਾਣ ਵਾਲੇ ਸਵਾਲ, ਸਾਡੇ ਨਾਲ ਸੰਪਰਕ ਕਰੋ ਅਤੇ ਐਪ ਜਾਣਕਾਰੀ",
+  "viewSubmittedFeedback": "ਆਪਣੇ ਸਪੁਰਦ ਕੀਤੇ ਫੀਡਬੈਕ ਅਤੇ ਪ੍ਰਸ਼ਾਸਕ ਦੇ ਜਵਾਬ ਵੇਖੋ",
+  "discoverSubtitle": "ਸਥਾਨਕ ਭੋਜਨ ਅਤੇ ਅਨੁਭਵ ਖੋਜੋ",
+  "searchHintLocalFood": "ਸਥਾਨਕ ਭੋਜਨ ਕਾਰੋਬਾਰਾਂ ਦੀ ਖੋਜ ਕਰੋ...",
   "homeLabel": "ਘਰ",
-  "recommendedForYou": "Recommended For You",
-  "seeAll": "See All",
-  "categories": "Categories",
+  "recommendedForYou": "ਤੁਹਾਡੇ ਲਈ ਸਿਫ਼ਾਰਿਸ਼ ਕੀਤੀ ਗਈ",
+  "seeAll": "ਸਾਰੇ ਦੇਖੋ",
+  "categories": "ਵਰਗ",
   "nearby": "ਨੇੜੇ",
-  "noFoodPlacesFound": "No food places found",
-  "noFoodPlacesSubtitle": "Try changing your search or filter selections.",
-  "localFoodBusinesses": "Local Food Businesses",
-  "localFoodSubtitle": "Support small & medium Brisbane food enterprises",
-  "exploreReviewFoodBusinesses": "Explore & Review Food Businesses",
-  "noSavedItemsTitle": "No saved items yet",
-  "noSavedItemsSubtitle": "Tap the heart icon on food business cards or the bookmark on a business profile to save them here.",
-  "savedEvents": "Saved Events",
-  "savedEventsSubtitle": "Your event reminders and plans",
-  "savedAttractions": "Saved Attractions",
-  "savedAttractionsSubtitle": "Places to visit independently of events",
-  "savedBusinesses": "Saved Businesses",
-  "savedBusinessesSubtitle": "Food businesses you have bookmarked",
-  "savedItemsUnavailableTitle": "Saved items unavailable",
-  "savedItemsUnavailableSubtitle": "Some saved items are no longer published in discovery feed.",
+  "noFoodPlacesFound": "ਕੋਈ ਖਾਣ-ਪੀਣ ਦੀਆਂ ਥਾਵਾਂ ਨਹੀਂ ਮਿਲੀਆਂ।",
+  "noFoodPlacesSubtitle": "ਆਪਣੀਆਂ ਖੋਜ ਜਾਂ ਫਿਲਟਰ ਚੋਣਾਂ ਨੂੰ ਬਦਲਣ ਦੀ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+  "localFoodBusinesses": "ਸਥਾਨਕ ਭੋਜਨ ਕਾਰੋਬਾਰ",
+  "localFoodSubtitle": "ਛੋਟੇ ਅਤੇ ਦਰਮਿਆਨੇ ਬ੍ਰਿਸਬੇਨ ਭੋਜਨ ਉੱਦਮਾਂ ਦਾ ਸਮਰਥਨ ਕਰੋ",
+  "exploreReviewFoodBusinesses": "ਭੋਜਨ ਕਾਰੋਬਾਰਾਂ ਦੀ ਪੜਚੋਲ ਅਤੇ ਸਮੀਖਿਆ ਕਰੋ",
+  "noSavedItemsTitle": "ਹਾਲੇ ਤੱਕ ਕੋਈ ਰੱਖਿਅਤ ਕੀਤੀ ਆਈਟਮ ਨਹੀਂ ਹੈ",
+  "noSavedItemsSubtitle": "ਫੂਡ ਬਿਜ਼ਨਸ ਕਾਰਡਾਂ &#39;ਤੇ ਦਿਲ ਦੇ ਆਈਕਨ &#39;ਤੇ ਟੈਪ ਕਰੋ ਜਾਂ ਬਿਜ਼ਨਸ ਪ੍ਰੋਫਾਈਲ &#39;ਤੇ ਬੁੱਕਮਾਰਕ ਨੂੰ ਇੱਥੇ ਸੇਵ ਕਰਨ ਲਈ।",
+  "savedEvents": "ਰੱਖਿਅਤ ਕੀਤੇ ਇਵੈਂਟ",
+  "savedEventsSubtitle": "ਤੁਹਾਡੇ ਇਵੈਂਟ ਰੀਮਾਈਂਡਰ ਅਤੇ ਯੋਜਨਾਵਾਂ",
+  "savedAttractions": "ਰੱਖਿਅਤ ਕੀਤੇ ਆਕਰਸ਼ਣ",
+  "savedAttractionsSubtitle": "ਘਟਨਾਵਾਂ ਦੀ ਪਰਵਾਹ ਕੀਤੇ ਬਿਨਾਂ ਦੇਖਣ ਲਈ ਥਾਵਾਂ",
+  "savedBusinesses": "ਰੱਖਿਅਤ ਕੀਤੇ ਕਾਰੋਬਾਰ",
+  "savedBusinessesSubtitle": "ਤੁਹਾਡੇ ਦੁਆਰਾ ਬੁੱਕਮਾਰਕ ਕੀਤੇ ਗਏ ਭੋਜਨ ਕਾਰੋਬਾਰ",
+  "savedItemsUnavailableTitle": "ਰੱਖਿਅਤ ਕੀਤੀਆਂ ਆਈਟਮਾਂ ਉਪਲਬਧ ਨਹੀਂ ਹਨ",
+  "savedItemsUnavailableSubtitle": "ਕੁਝ ਸੁਰੱਖਿਅਤ ਕੀਤੀਆਂ ਆਈਟਮਾਂ ਹੁਣ ਡਿਸਕਵਰੀ ਫੀਡ ਵਿੱਚ ਪ੍ਰਕਾਸ਼ਿਤ ਨਹੀਂ ਹਨ।",
   "retryAction": "ਮੁੜ ਕੋਸ਼ਿਸ਼ ਕਰੋ",
-  "unableToLoadDiscover": "Unable to load discover items right now. Please try again.",
-  "unableToLoadSaved": "Unable to load saved items right now. Please try again.",
-  "dateTBA": "Date TBA",
-  "timeTBA": "Time TBA",
-  "untitledEvent": "Untitled Event",
-  "locationTBA": "Location TBA",
-  "priceTBA": "Price TBA",
-  "placeFallback": "Place",
-  "foodExperienceFallback": "Food Experience",
-  "stadiumFallback": "Stadium",
-  "eventFallback": "Event",
-  "attractionFallback": "Attraction",
-  "ratingReviewsCount": "{rating} · {count} reviews",
+  "unableToLoadDiscover": "ਇਸ ਵੇਲੇ ਖੋਜ ਆਈਟਮਾਂ ਨੂੰ ਲੋਡ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+  "unableToLoadSaved": "ਇਸ ਵੇਲੇ ਰੱਖਿਅਤ ਕੀਤੀਆਂ ਆਈਟਮਾਂ ਨੂੰ ਲੋਡ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+  "dateTBA": "ਮਿਤੀ TBA",
+  "timeTBA": "ਸਮਾਂ ਟੀ.ਬੀ.ਏ.",
+  "untitledEvent": "ਬਿਨਾਂ ਸਿਰਲੇਖ ਵਾਲਾ ਇਵੈਂਟ",
+  "locationTBA": "ਸਥਾਨ ਟੀ.ਬੀ.ਏ.",
+  "priceTBA": "ਕੀਮਤ TBA",
+  "placeFallback": "ਸਥਾਨ",
+  "foodExperienceFallback": "ਭੋਜਨ ਅਨੁਭਵ",
+  "stadiumFallback": "ਸਟੇਡੀਅਮ",
+  "eventFallback": "ਘਟਨਾ",
+  "attractionFallback": "ਆਕਰਸ਼ਣ",
+  "ratingReviewsCount": "{rating} · {count} ਸਮੀਖਿਆਵਾਂ",
   "@ratingReviewsCount": {
     "placeholders": {
       "rating": {
@@ -183,14 +183,14 @@
   },
   "approved": "ਮਨਜ਼ੂਰ",
   "audience": "ਦਰਸ਼ਕ",
-  "businessLabel": "Business",
-  "controlDistance": "Control distance for nearby opportunities",
+  "businessLabel": "ਕਾਰੋਬਾਰ",
+  "controlDistance": "ਨੇੜਲੇ ਮੌਕਿਆਂ ਲਈ ਦੂਰੀ ਨੂੰ ਕੰਟਰੋਲ ਕਰੋ",
   "dashboard": "ਡੈਸ਼ਬੋਰਡ",
-  "delete": "ਮਿਟਾਓ",
-  "deleteEvent": "Delete Event",
-  "deletingEvent": "Deleting event...",
-  "displayName": "Display name",
-  "errorDeletingEvent": "Error deleting event: {error}",
+  "delete": "ਹਟਾਓ",
+  "deleteEvent": "ਇਵੈਂਟ ਮਿਟਾਓ",
+  "deletingEvent": "ਇਵੈਂਟ ਮਿਟਾਇਆ ਜਾ ਰਿਹਾ ਹੈ...",
+  "displayName": "ਦਿਖਾਇਆ ਹੋਇਆ ਨਾਮ",
+  "errorDeletingEvent": "ਇਵੈਂਟ ਮਿਟਾਉਣ ਵਿੱਚ ਗੜਬੜ: {error}",
   "@errorDeletingEvent": {
     "placeholders": {
       "error": {
@@ -198,7 +198,7 @@
       }
     }
   },
-  "errorLoadingMap": "Error loading map: {error}",
+  "errorLoadingMap": "ਨਕਸ਼ਾ ਲੋਡ ਕਰਨ ਦੌਰਾਨ ਗੜਬੜ: {error}",
   "@errorLoadingMap": {
     "placeholders": {
       "error": {
@@ -206,7 +206,7 @@
       }
     }
   },
-  "eventDeleted": "Event \"{title}\" has been deleted.",
+  "eventDeleted": "ਇਵੈਂਟ &quot;{title}&quot; ਮਿਟਾ ਦਿੱਤਾ ਗਿਆ ਹੈ।",
   "@eventDeleted": {
     "placeholders": {
       "title": {
@@ -214,25 +214,25 @@
       }
     }
   },
-  "failedToDeleteEvent": "Failed to delete event. Please try again.",
-  "feed": "Feed",
-  "localBusinessPortal": "Local business portal",
+  "failedToDeleteEvent": "ਇਵੈਂਟ ਮਿਟਾਉਣ ਵਿੱਚ ਅਸਫਲ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+  "feed": "ਫੀਡ",
+  "localBusinessPortal": "ਸਥਾਨਕ ਕਾਰੋਬਾਰ ਪੋਰਟਲ",
   "pending": "ਬਕਾਇਾ",
   "phoneNumber": "ਫ਼ੋਨ ਨੰਬਰ",
-  "pleaseLoginLocal": "Please log in as a Local user first.",
-  "pleaseLoginToDelete": "Please log in to delete events.",
-  "pushAlerts": "Push alerts for your business",
+  "pleaseLoginLocal": "ਕਿਰਪਾ ਕਰਕੇ ਪਹਿਲਾਂ ਸਥਾਨਕ ਉਪਭੋਗਤਾ ਵਜੋਂ ਲੌਗਇਨ ਕਰੋ।",
+  "pleaseLoginToDelete": "ਕਿਰਪਾ ਕਰਕੇ ਇਵੈਂਟਾਂ ਨੂੰ ਮਿਟਾਉਣ ਲਈ ਲੌਗਇਨ ਕਰੋ।",
+  "pushAlerts": "ਤੁਹਾਡੇ ਕਾਰੋਬਾਰ ਲਈ ਪੁਸ਼ ਅਲਰਟ",
   "rejected": "ਅਸਵੀਕਾਰ",
-  "reviews": "ਸਮੀਖਿਆਵਾਂ",
-  "saveChanges": "Save Changes",
-  "searchHintEvents": "Search events, bookings...",
-  "suburb": "Suburb",
-  "thisLinkUnavailable": "This link is not available right now.",
-  "total": "Total",
-  "couldNotSaveSettings": "Could not save settings. Please try again.",
-  "locationAccessDisabled": "Location access disabled for app features.",
-  "locationPermissionGranted": "Location permission granted.",
-  "openSettings": "Open Settings",
+  "reviews": "ਸਮਾਲੋਚਨਾ",
+  "saveChanges": "ਬਦਲਾਅ ਸੰਭਾਲੋ",
+  "searchHintEvents": "ਇਵੈਂਟਸ, ਬੁਕਿੰਗਾਂ ਖੋਜੋ...",
+  "suburb": "ਉਪਨਗਰ",
+  "thisLinkUnavailable": "ਇਹ ਲਿੰਕ ਇਸ ਵੇਲੇ ਉਪਲਬਧ ਨਹੀਂ ਹੈ।",
+  "total": "ਕੁੱਲ",
+  "couldNotSaveSettings": "ਸੈਟਿੰਗਾਂ ਨੂੰ ਸੁਰੱਖਿਅਤ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+  "locationAccessDisabled": "ਐਪ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਲਈ ਸਥਾਨ ਪਹੁੰਚ ਨੂੰ ਅਯੋਗ ਬਣਾਇਆ ਗਿਆ।",
+  "locationPermissionGranted": "ਸਥਾਨ ਦੀ ਇਜਾਜ਼ਤ ਦਿੱਤੀ ਗਈ।",
+  "openSettings": "ਸੈਟਿੰਗਾਂ ਖੋਲ੍ਹੋ",
   "themeDark": "ਹਨੇਰਾ",
   "themeLight": "ਹਲਕਾ",
   "themeSystem": "ਸਿਸਟਮ",
@@ -276,9 +276,9 @@
   "languageGreek": "ਗ੍ਰੀਕ",
   "languagePunjabi": "ਪੰਜਾਬੀ",
   "discoverTitle": "ਸਥਾਨਕ ਖਾਣਾ ਖੋਜੋ",
-  "openSourceLink": "Open Source Link",
-  "pendingApproval": "Pending Approval",
-  "deleteEventConfirmation": "Are you sure you want to delete \"{title}\"? This action cannot be undone.",
+  "openSourceLink": "ਓਪਨ ਸੋਰਸ ਲਿੰਕ",
+  "pendingApproval": "ਪ੍ਰਵਾਨਗੀ ਵਿਚਾਰ-ਅਧੀਨ ਹੈ",
+  "deleteEventConfirmation": "ਕੀ ਤੁਸੀਂ ਪੱਕਾ &quot;{title}&quot; ਨੂੰ ਮਿਟਾਉਣਾ ਚਾਹੁੰਦੇ ਹੋ? ਇਸ ਕਾਰਵਾਈ ਨੂੰ ਅਣਕੀਤਾ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ।",
   "@deleteEventConfirmation": {
     "placeholders": {
       "title": {
@@ -286,10 +286,10 @@
       }
     }
   },
-  "myActivity": "My Activity",
-  "businessNotifications": "Business Notifications",
+  "myActivity": "ਮੇਰੀ ਗਤੀਵਿਧੀ",
+  "businessNotifications": "ਕਾਰੋਬਾਰੀ ਸੂਚਨਾਵਾਂ",
   "about": "ਬਾਰੇ",
-  "aboutDescription": "BrisConnect+ is a smart city guide that helps visitors and locals discover events, explore attractions, and capture their Brisbane experiences in one connected platform.",
+  "aboutDescription": "BrisConnect+ ਇੱਕ ਸਮਾਰਟ ਸਿਟੀ ਗਾਈਡ ਹੈ ਜੋ ਸੈਲਾਨੀਆਂ ਅਤੇ ਸਥਾਨਕ ਲੋਕਾਂ ਨੂੰ ਇੱਕ ਜੁੜੇ ਪਲੇਟਫਾਰਮ ਵਿੱਚ ਘਟਨਾਵਾਂ ਦੀ ਖੋਜ ਕਰਨ, ਆਕਰਸ਼ਣਾਂ ਦੀ ਪੜਚੋਲ ਕਰਨ ਅਤੇ ਉਨ੍ਹਾਂ ਦੇ ਬ੍ਰਿਸਬੇਨ ਅਨੁਭਵਾਂ ਨੂੰ ਹਾਸਲ ਕਰਨ ਵਿੱਚ ਮਦਦ ਕਰਦੀ ਹੈ।",
   "versionLabel": "Version {version}",
   "@versionLabel": {
     "placeholders": {
@@ -298,49 +298,49 @@
       }
     }
   },
-  "locationPermissions": "Location Permissions",
-  "enableLocationAccess": "Enable Location Access",
-  "allowNearbyMapFeatures": "Allow nearby recommendations and map-aware features.",
-  "locationSettings": "Location Settings",
-  "setSearchRadius": "Set your search radius for events and attractions.",
-  "pleaseLoginToViewSettings": "Please log in to view settings.",
-  "locationPermissionNotGranted": "Location permission was not granted. You can enable it in system settings.",
+  "locationPermissions": "ਸਥਾਨ ਅਨੁਮਤੀਆਂ",
+  "enableLocationAccess": "ਟਿਕਾਣਾ ਪਹੁੰਚ ਚਾਲੂ ਕਰੋ",
+  "allowNearbyMapFeatures": "ਨੇੜਲੀਆਂ ਸਿਫ਼ਾਰਸ਼ਾਂ ਅਤੇ ਨਕਸ਼ੇ-ਜਾਗਰੂਕ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਨੂੰ ਆਗਿਆ ਦਿਓ।",
+  "locationSettings": "ਟਿਕਾਣਾ ਸੈਟਿੰਗਾਂ",
+  "setSearchRadius": "ਸਮਾਗਮਾਂ ਅਤੇ ਆਕਰਸ਼ਣਾਂ ਲਈ ਆਪਣਾ ਖੋਜ ਘੇਰਾ ਸੈੱਟ ਕਰੋ।",
+  "pleaseLoginToViewSettings": "ਸੈਟਿੰਗਾਂ ਦੇਖਣ ਲਈ ਕਿਰਪਾ ਕਰਕੇ ਲੌਗਇਨ ਕਰੋ।",
+  "locationPermissionNotGranted": "ਟਿਕਾਣਾ ਇਜਾਜ਼ਤ ਨਹੀਂ ਦਿੱਤੀ ਗਈ ਸੀ। ਤੁਸੀਂ ਇਸਨੂੰ ਸਿਸਟਮ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਯੋਗ ਬਣਾ ਸਕਦੇ ਹੋ।",
   "theme": "ਥੀਮ",
-  "appTheme": "App Theme",
-  "chooseHowAppLooks": "Choose how the app looks.",
-  "textSize": "Text Size",
-  "adjustTextSize": "Adjust text size across the app.",
-  "smaller": "Smaller",
-  "larger": "Larger",
+  "appTheme": "ਐਪ ਥੀਮ",
+  "chooseHowAppLooks": "ਚੁਣੋ ਕਿ ਐਪ ਕਿਵੇਂ ਦਿਖਾਈ ਦਿੰਦੀ ਹੈ।",
+  "textSize": "ਟੈਕਸਟ ਆਕਾਰ",
+  "adjustTextSize": "ਐਪ ਵਿੱਚ ਟੈਕਸਟ ਦਾ ਆਕਾਰ ਵਿਵਸਥਿਤ ਕਰੋ।",
+  "smaller": "ਛੋਟਾ",
+  "larger": "ਵੱਡਾ",
   "support": "ਸਹਾਇਤਾ",
-  "sendAppFeedback": "Send App Feedback",
-  "reportBugsImprovements": "Report bugs, misleading information, or improvement suggestions.",
-  "noFeedbackYet": "You have not submitted any feedback yet.",
-  "adminResponse": "Admin Response",
-  "awaitingAdminResponse": "Awaiting admin response...",
+  "sendAppFeedback": "ਐਪ ਫੀਡਬੈਕ ਭੇਜੋ",
+  "reportBugsImprovements": "ਬੱਗ, ਗੁੰਮਰਾਹਕੁੰਨ ਜਾਣਕਾਰੀ, ਜਾਂ ਸੁਧਾਰ ਸੁਝਾਵਾਂ ਦੀ ਰਿਪੋਰਟ ਕਰੋ।",
+  "noFeedbackYet": "ਤੁਸੀਂ ਅਜੇ ਤੱਕ ਕੋਈ ਫੀਡਬੈਕ ਸਪੁਰਦ ਨਹੀਂ ਕੀਤਾ ਹੈ।",
+  "adminResponse": "ਐਡਮਿਨ ਜਵਾਬ",
+  "awaitingAdminResponse": "ਐਡਮਿਨ ਦੇ ਜਵਾਬ ਦੀ ਉਡੀਕ ਹੈ...",
   "statusPending": "ਬਕਾਇਾ",
-  "statusInProgress": "In Progress",
-  "statusResolved": "Resolved",
-  "statusWontFix": "Won't Fix",
-  "foodBusinessDetails": "Business Details",
-  "aboutThisFoodExperience": "About this Food Experience",
-  "highlights": "Highlights",
-  "contactAndLinks": "Contact & Links",
+  "statusInProgress": "ਤਰੱਕੀ ਹੋ ਰਹੀ ਹੈ",
+  "statusResolved": "ਹੱਲ ਕੀਤਾ ਗਿਆ",
+  "statusWontFix": "ਠੀਕ ਨਹੀਂ ਹੋਵੇਗਾ",
+  "foodBusinessDetails": "ਕਾਰੋਬਾਰ ਦੇ ਵਿਸਥਾਰ",
+  "aboutThisFoodExperience": "ਇਸ ਭੋਜਨ ਬਾਰੇ",
+  "highlights": "ਹਾਈਲਾਈਟਸ",
+  "contactAndLinks": "ਸੰਪਰਕ ਅਤੇ ਲਿੰਕ",
   "gallery": "ਗੈਲਰੀ",
-  "openingHours": "ਖੁੱਲ੍ਹਣ ਦੇ ਸਮੇਂ",
+  "openingHours": "ਖੁੱਲਣ ਦਾ ਸਮਾਂ",
   "menu": "ਮੇਨੂ",
   "menuFallback": "ਮੇਨੂ",
   "call": "ਕਾਲ ਕਰੋ",
-  "website": "ਵੈੱਬਸਾਈਟ",
-  "orderOnline": "Order Online",
-  "viewOnMap": "View on Map",
+  "website": "ਵੈਬਸਾਇਟ",
+  "orderOnline": "ਔਨਲਾਈਨ ਆਰਡਰ ਕਰੋ",
+  "viewOnMap": "ਨਕਸ਼ੇ &#39;ਤੇ ਦੇਖੋ",
   "foodDiscoveryGuide": "ਖਾਣੇ ਦੀ ਖੋਜ ਗਾਈਡ",
-  "foodDiscoveryGuideHelper": "Tap play to hear your Food Discovery Guide describe this food spot and its highlights.",
-  "stop": "Stop",
-  "unableToStartNarration": "Unable to start Food Discovery Guide narration right now.",
-  "unableToCallNumber": "Unable to call this number right now.",
-  "unableToSendEmail": "Unable to send email right now.",
-  "foodSpotCannotBeShared": "This food spot cannot be shared right now.",
+  "foodDiscoveryGuideHelper": "ਇਸ ਭੋਜਨ ਸਥਾਨ ਅਤੇ ਇਸ ਦੀਆਂ ਮੁੱਖ ਗੱਲਾਂ ਦਾ ਵਰਣਨ ਕਰਨ ਲਈ ਆਪਣੀ ਫੂਡ ਡਿਸਕਵਰੀ ਗਾਈਡ ਨੂੰ ਸੁਣਨ ਲਈ &#39;ਚਲਾਓ&#39; &#39;ਤੇ ਟੈਪ ਕਰੋ।",
+  "stop": "ਰੂਕੋ",
+  "unableToStartNarration": "ਇਸ ਵੇਲੇ ਫੂਡ ਡਿਸਕਵਰੀ ਗਾਈਡ ਦਾ ਬਿਰਤਾਂਤ ਸ਼ੁਰੂ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ।",
+  "unableToCallNumber": "ਇਸ ਨੰਬਰ &#39;ਤੇ ਹੁਣੇ ਕਾਲ ਨਹੀਂ ਕੀਤੀ ਜਾ ਸਕਦੀ।",
+  "unableToSendEmail": "ਇਸ ਵੇਲੇ ਈਮੇਲ ਨਹੀਂ ਭੇਜਿਆ ਜਾ ਸਕਦਾ।",
+  "foodSpotCannotBeShared": "ਇਸ ਖਾਣੇ ਵਾਲੀ ਜਗ੍ਹਾ ਨੂੰ ਹੁਣੇ ਸਾਂਝਾ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ।",
   "foodDescriptionIntro": "Step into {title}, a {cuisine} destination in the heart of {location}.",
   "@foodDescriptionIntro": {
     "placeholders": {
@@ -355,7 +355,7 @@
       }
     }
   },
-  "foodDescriptionRating": "Loved by locals and visitors alike, it holds a {rating}-star rating.",
+  "foodDescriptionRating": "ਸਥਾਨਕ ਲੋਕਾਂ ਅਤੇ ਸੈਲਾਨੀਆਂ ਦੋਵਾਂ ਦੁਆਰਾ ਪਸੰਦ ਕੀਤੇ ਜਾਣ ਵਾਲੇ, ਇਸਦੀ {rating}-ਸਟਾਰ ਰੇਟਿੰਗ ਹੈ।",
   "@foodDescriptionRating": {
     "placeholders": {
       "rating": {
@@ -379,7 +379,7 @@
       }
     }
   },
-  "foodDescriptionOutro": "Whether you are after a relaxed brunch, a business lunch, or a lively dinner, {title} offers a welcoming atmosphere and flavours that capture Brisbane's dining scene.",
+  "foodDescriptionOutro": "ਭਾਵੇਂ ਤੁਸੀਂ ਆਰਾਮਦਾਇਕ ਬ੍ਰੰਚ, ਕਾਰੋਬਾਰੀ ਦੁਪਹਿਰ ਦਾ ਖਾਣਾ, ਜਾਂ ਇੱਕ ਜੀਵੰਤ ਰਾਤ ਦੇ ਖਾਣੇ ਤੋਂ ਬਾਅਦ ਹੋ, {title} ਇੱਕ ਸਵਾਗਤਯੋਗ ਮਾਹੌਲ ਅਤੇ ਸੁਆਦ ਪੇਸ਼ ਕਰਦਾ ਹੈ ਜੋ ਬ੍ਰਿਸਬੇਨ ਦੇ ਖਾਣੇ ਦੇ ਦ੍ਰਿਸ਼ ਨੂੰ ਕੈਦ ਕਰਦੇ ਹਨ।",
   "@foodDescriptionOutro": {
     "placeholders": {
       "title": {

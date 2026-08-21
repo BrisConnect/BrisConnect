@@ -125,202 +125,226 @@ class _CrowdReportWidgetState extends State<CrowdReportWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppPalette.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppPalette.ochre.withValues(alpha: 0.3),
-          width: 1,
-        ),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
-            children: [
-              Container(
-                width: 4,
-                height: 20,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Current crowd status from Firestore
+        StreamBuilder<CrowdStatus?>(
+          stream: _service.watchCrowdStatus(widget.eventId),
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: LinearProgressIndicator(),
+              );
+            }
+            final status = snap.data;
+            if (status == null) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: AppPalette.ochre,
-                  borderRadius: BorderRadius.circular(2),
+                  color: AppPalette.surfaceAlt,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'Crowd Level',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppPalette.charcoal,
+                child: Row(
+                  children: [
+                    Icon(Icons.people_outline,
+                        color: AppPalette.mutedText.withValues(alpha: 0.7),
+                        size: 20),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'No crowd reports yet. Be the first!',
+                        style: TextStyle(
+                          color: AppPalette.mutedText,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const Spacer(),
-              const Icon(Icons.people_alt_outlined,
-                  size: 20, color: AppPalette.mutedText),
-            ],
-          ),
-          const SizedBox(height: 12),
+              );
+            }
+            return _buildCurrentStatus(status);
+          },
+        ),
 
-          // Current crowd status from Firestore
-          StreamBuilder<CrowdStatus?>(
-            stream: _service.watchCrowdStatus(widget.eventId),
-            builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: LinearProgressIndicator(),
-                );
-              }
-              final status = snap.data;
-              if (status == null) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Divider(height: 1),
+        ),
+
+        // Report form
+        if (_onCooldown && _submitted) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF00D084).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF00D084).withValues(alpha: 0.25),
+              ),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Color(0xFF00D084), size: 20),
+                SizedBox(width: 10),
+                Expanded(
                   child: Text(
-                    'No crowd reports yet. Be the first!',
+                    'Thanks! Your report was submitted.',
+                    style: TextStyle(
+                      color: AppPalette.charcoal,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ] else if (_onCooldown) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppPalette.surfaceAlt,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.timer_outlined,
+                    color: AppPalette.mutedText, size: 20),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'You can report again in 30 minutes.',
                     style: TextStyle(
                       color: AppPalette.mutedText,
                       fontSize: 13,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                );
-              }
-              return _buildCurrentStatus(status);
-            },
+                ),
+              ],
+            ),
           ),
-
-          const Divider(height: 24),
-
-          // Report form
-          if (_onCooldown && _submitted) ...[
-            Row(
-              children: [
-                const Icon(Icons.check_circle,
-                    color: Color(0xFF00D084), size: 18),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Thanks! Your report was submitted.',
-                    style: TextStyle(color: AppPalette.charcoal, fontSize: 13),
-                  ),
-                ),
-              ],
+        ] else ...[
+          const Text(
+            'How busy is it right now?',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppPalette.charcoal,
             ),
-          ] else if (_onCooldown) ...[
-            Row(
-              children: [
-                const Icon(Icons.timer_outlined,
-                    color: AppPalette.mutedText, size: 18),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'You can report again in 30 minutes.',
-                    style: TextStyle(color: AppPalette.mutedText, fontSize: 13),
-                  ),
-                ),
-              ],
-            ),
-          ] else ...[
-            const Text(
-              'How busy is it right now?',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppPalette.charcoal,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: CrowdLevel.values.map((level) {
-                final isSelected = _selected == level;
-                final color = _levelColor(level);
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
-                    child: GestureDetector(
-                      onTap: () => setState(() => _selected = level),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? color.withValues(alpha: 0.15)
-                              : AppPalette.surfaceAlt,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: isSelected ? color : Colors.transparent,
-                            width: 2,
-                          ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: CrowdLevel.values.map((level) {
+              final isSelected = _selected == level;
+              final color = _levelColor(level);
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: GestureDetector(
+                    onTap: () => setState(() => _selected = level),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? color.withValues(alpha: 0.12)
+                            : AppPalette.surfaceAlt,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected ? color : Colors.transparent,
+                          width: 1.5,
                         ),
-                        child: Column(
-                          children: [
-                            Icon(_levelIcon(level),
-                                color: isSelected ? color : AppPalette.mutedText,
-                                size: 22),
-                            const SizedBox(height: 4),
-                            Text(
-                              level.label,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: isSelected ? color : AppPalette.mutedText,
-                              ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: color.withValues(alpha: 0.2),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(_levelIcon(level),
+                              color: isSelected ? color : AppPalette.mutedText,
+                              size: 24),
+                          const SizedBox(height: 6),
+                          Text(
+                            level.label,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: isSelected ? color : AppPalette.mutedText,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                );
-              }).toList(),
-            ),
-            if (_selected != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                _levelDescription(_selected!),
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppPalette.mutedText,
-                  fontStyle: FontStyle.italic,
                 ),
-              ),
-            ],
-            const SizedBox(height: 12),
-            SizedBox(
+              );
+            }).toList(),
+          ),
+          if (_selected != null) ...[
+            const SizedBox(height: 10),
+            Container(
               width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _selected == null || _submitting ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppPalette.ochre,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor:
-                      AppPalette.mutedText.withValues(alpha: 0.3),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _levelColor(_selected!).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                _levelDescription(_selected!),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _levelColor(_selected!).withValues(alpha: 0.9),
+                  fontWeight: FontWeight.w600,
                 ),
-                child: _submitting
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text(
-                        'Submit Report',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
               ),
             ),
           ],
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _selected == null || _submitting ? null : _submit,
+              icon: _submitting
+                  ? const SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.send_rounded, size: 18),
+              label: _submitting
+                  ? const Text('Submitting...')
+                  : const Text('Submit Report'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppPalette.ochre,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor:
+                    AppPalette.mutedText.withValues(alpha: 0.25),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                textStyle: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ),
         ],
-      ),
+      ],
     );
   }
 

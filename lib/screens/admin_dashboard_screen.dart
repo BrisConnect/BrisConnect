@@ -1,51 +1,27 @@
-import 'dart:async';
+// ignore_for_file: use_build_context_synchronously
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:brisconnect/auth/app_user_role.dart';
 import 'package:brisconnect/auth/admin_auth.dart';
+import 'package:brisconnect/features/admin/dashboard/admin_dashboard_page.dart';
+import 'package:brisconnect/features/admin/dashboard/admin_dashboard_state.dart';
+import 'package:brisconnect/features/admin/dashboard/admin_neon_theme.dart';
+import 'package:brisconnect/features/admin/dashboard/widgets/admin_layout.dart';
 import 'package:brisconnect/screens/admin_business_management_screen.dart';
-import 'package:brisconnect/screens/admin_community_feed_screen.dart';
-import 'package:brisconnect/models/event_item.dart';
-import 'package:brisconnect/screens/admin_edit_event_screen.dart';
-import 'package:brisconnect/screens/admin_event_review_screen.dart';
 import 'package:brisconnect/screens/admin_feedback_review_screen.dart';
 import 'package:brisconnect/screens/admin_email_broadcast_screen.dart';
-import 'package:brisconnect/screens/admin_sms_broadcast_screen.dart';
 import 'package:brisconnect/screens/admin_user_management_screen.dart';
 import 'package:brisconnect/screens/admin_reports_hub_screen.dart';
-import 'package:brisconnect/screens/create_business_screen.dart';
-import 'package:brisconnect/screens/welcome_screen_new.dart';
+import 'package:brisconnect/screens/admin_engagement_screen.dart';
+import 'package:brisconnect/screens/admin_google_listings_screen.dart';
 import 'package:brisconnect/services/admin_dashboard_service.dart';
 import 'package:brisconnect/services/admin_event_service.dart';
-import 'package:brisconnect/theme/app_palette.dart';
-import 'package:brisconnect/utils/responsive_utils.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
 
-const Color _adminMetricBackground = Color(0xFFE2E8F0);
-const Color _adminMetricText = AppPalette.charcoal;
-const Color _adminMetricSubtext = Color(0xFF5A6372);
-
-/// Internal descriptor for a single admin dashboard stat tile.
-class _StatItem {
-  final Stream<int> stream;
-  final Stream<MetricTrend> trendStream;
-  final IconData icon;
-  final Color iconColor;
-  final String label;
-  final VoidCallback onTap;
-
-  const _StatItem({
-    required this.stream,
-    required this.trendStream,
-    required this.icon,
-    required this.iconColor,
-    required this.label,
-    required this.onTap,
-  });
-}
+const Color _adminMetricBackground = AdminNeonTheme.glassSurface;
+const Color _adminMetricText = AdminNeonTheme.textPrimary;
+const Color _adminMetricSubtext = AdminNeonTheme.textSecondary;
 
 class AdminDashboardScreen extends StatefulWidget {
   AdminDashboardScreen({
@@ -66,13 +42,13 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  final AdminEventService _adminEventService = AdminEventService();
-  bool _isNavVisible = true;
-  Timer? _navRestoreTimer;
+  final AdminDashboardController _controller = AdminDashboardController();
+  int _selectedNavIndex = 0;
 
   @override
   void initState() {
     super.initState();
+    _controller.load();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _runLegacyEventIdMigration();
     });
@@ -80,7 +56,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   void dispose() {
-    _navRestoreTimer?.cancel();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -88,10 +64,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     try {
       final migratedCount =
           await AdminEventService().migrateLegacyLocalSubmissionIds();
-      if (!mounted || migratedCount == 0) {
-        return;
-      }
-
+      if (!mounted || migratedCount == 0) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -104,1192 +77,94 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
-  void _openUsersManagement() {
-    setState(() => _selectedNavIndex = 1);
-  }
-
-  void _openEventsManagement() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AdminEventReviewScreen(
-          eventService: _adminEventService,
-          enforceRoleGuard: false,
-        ),
-      ),
-    );
-  }
-
-  void _openReportsHub() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const AdminReportsHubScreen(),
-      ),
-    );
-  }
-
-  void _openCommunityFeed() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const AdminCommunityFeedScreen(),
-      ),
-    );
-  }
-
-  void _openBusinessManagement() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AdminBusinessManagementScreen(),
-      ),
-    );
-  }
-
-  void _openCreateBusiness() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const CreateBusinessScreen(),
-      ),
-    );
-  }
-
-  void _openCreateEvent() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AdminEditEventScreen(
-          event: const EventItem(
-            id: '',
-            title: '',
-            date: '',
-            time: '',
-            location: '',
-            description: '',
-            reviewStatus: EventReviewStatus.pending,
-          ),
-          enforceRoleGuard: false,
-        ),
-      ),
-    );
-  }
-
-  void _openFeedbackReview() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AdminFeedbackReviewScreen(),
-      ),
-    );
-  }
-
-  void _openSmsBroadcast() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AdminSmsBroadcastScreen(),
-      ),
-    );
-  }
-
-  void _openEmailBroadcast() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AdminEmailBroadcastScreen(),
-      ),
-    );
-  }
-
-  int _selectedNavIndex = 0;
-
   @override
   Widget build(BuildContext context) {
-    final scaffold = Scaffold(
-      backgroundColor: Colors.transparent,
-      extendBodyBehindAppBar: _selectedNavIndex == 0,
-      appBar: _selectedNavIndex == 0
-          ? null
-          : AppBar(
-              backgroundColor: const Color(0xFFEBF4FF),
-              foregroundColor: const Color(0xFF1E3A8A),
-              elevation: 0,
-              title: Text(
-                _appBarTitleForIndex(_selectedNavIndex),
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1E3A8A),
-                ),
-              ),
-              actions: [
-                _buildLogoutButton(context),
-              ],
-            ),
-      extendBody: true,
-      body: _buildBody(),
-      bottomNavigationBar: _buildBottomNavigationBar(),
-    );
+    Widget layoutContent;
 
-    // Wrap scaffold with light blue background
-    final withBackground = Stack(
-      children: [
-        const Positioned.fill(
-          child: ColoredBox(color: Color(0xFFEBF4FF)),
-        ),
-        scaffold,
-      ],
-    );
-
-    if (!widget.enforceRoleGuard) {
-      return withBackground;
+    switch (_selectedNavIndex) {
+      case 1:
+        // Users - embedded mode (buildFullScaffold: false returns just content)
+        layoutContent = AdminUserManagementScreen(
+          enforceRoleGuard: false,
+          buildFullScaffold: false,
+        );
+        break;
+      case 2:
+        // Businesses - embedded mode (buildFullScaffold: false returns just content)
+        layoutContent = AdminBusinessManagementScreen(
+          enforceRoleGuard: false,
+          buildFullScaffold: false,
+        );
+        break;
+      case 3:
+        // Reports - embedded mode
+        layoutContent = const AdminReportsHubScreen(
+          enforceRoleGuard: false,
+          isEmbedded: true,
+        );
+        break;
+      case 4:
+        // Feedback - embedded mode
+        layoutContent = AdminFeedbackReviewScreen(
+          enforceRoleGuard: false,
+          isEmbedded: true,
+        );
+        break;
+      case 5:
+        // Broadcast Email - embedded mode
+        layoutContent = AdminEmailBroadcastScreen(
+          enforceRoleGuard: false,
+          isEmbedded: true,
+        );
+        break;
+      case 6:
+        // Engagement - embedded mode
+        layoutContent = AdminEngagementScreen(
+          enforceRoleGuard: false,
+          isEmbedded: true,
+        );
+        break;
+      case 7:
+        // Google Listings - embedded mode
+        layoutContent = const AdminGoogleListingsScreen();
+        break;
+      case 8:
+        // Settings - embedded mode
+        layoutContent = _buildSettingsTab();
+        break;
+      case 0:
+      default:
+        // Dashboard uses AdminDashboardPage which contains AdminLayout internally
+        layoutContent = AdminDashboardPage(
+          controller: _controller,
+          selectedNavIndex: _selectedNavIndex,
+          onNavIndexChanged: (index) => setState(() => _selectedNavIndex = index),
+        );
+        break;
     }
+
+    // Wrap all screens EXCEPT Dashboard (case 0) in AdminLayout for sidebar navigation.
+    // NOTE: Do NOT wrap layoutContent in SingleChildScrollView here - each embedded
+    // screen already provides its own scrollable widget (CustomScrollView, ListView,
+    // or Column+Expanded+ListView), and AdminLayout's body slot is already bounded-height.
+    // Adding another scrollable wrapper gives the inner scrollable unbounded height,
+    // which silently fails to paint (blank screen) in release builds.
+    if (_selectedNavIndex != 0) {
+      layoutContent = AdminLayout(
+        controller: _controller,
+        selectedNavIndex: _selectedNavIndex,
+        onNavIndexChanged: (index) => setState(() => _selectedNavIndex = index),
+        body: layoutContent,
+      );
+    }
+
+    // Apply role guard if enforceRoleGuard is true
+    if (!widget.enforceRoleGuard) return layoutContent;
 
     return RoleGuard(
       allowedRoles: const {AppUserRole.admin},
       deniedMessage: 'Access denied. Admin privileges are required.',
-      child: withBackground,
-    );
-  }
-
-  Widget _buildBody() {
-    final content = NotificationListener<ScrollNotification>(
-      onNotification: (notification) {
-        if (_selectedNavIndex != 0 || kIsWeb) {
-          return false;
-        }
-
-        if (notification is ScrollUpdateNotification) {
-          final delta = notification.scrollDelta ?? 0;
-          if (delta > 8 && _isNavVisible) {
-            _navRestoreTimer?.cancel();
-            setState(() => _isNavVisible = false);
-          } else if (delta < -8 && !_isNavVisible) {
-            _navRestoreTimer?.cancel();
-            setState(() => _isNavVisible = true);
-          }
-        } else if (notification is ScrollEndNotification) {
-          _navRestoreTimer?.cancel();
-          if (!_isNavVisible) {
-            _navRestoreTimer = Timer(const Duration(milliseconds: 900), () {
-              if (mounted && !_isNavVisible) {
-                setState(() => _isNavVisible = true);
-              }
-            });
-          }
-        }
-        return false;
-      },
-      child: IndexedStack(
-        index: _selectedNavIndex,
-        children: [
-          _buildHomeTab(),
-          _buildUsersTab(),
-          _buildBusinessesTab(),
-          _buildSettingsTab(),
-        ],
-      ),
-    );
-
-    final isDesktop = MediaQuery.sizeOf(context).width >= Breakpoints.desktop;
-    if (!isDesktop) return content;
-
-    final banneredContent = Column(
-      children: [
-        _buildAdminCityBanner(),
-        Expanded(child: content),
-      ],
-    );
-
-    return Row(
-      children: [
-        _buildNavRail(),
-        const VerticalDivider(
-          width: 1,
-          color: Color(0xFFBFDBFE),
-        ),
-        Expanded(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1400),
-              child: banneredContent,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAdminCityBanner() {
-    if (!kIsWeb) return const SizedBox.shrink();
-    return SizedBox(
-      width: double.infinity,
-      height: 130,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset(
-            'assets/Brisbane banner.webp',
-            fit: BoxFit.cover,
-          ),
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.25),
-                  Colors.black.withValues(alpha: 0.55),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            left: 20,
-            bottom: 18,
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.location_city_rounded,
-                  color: AppPalette.ochre,
-                  size: 24,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'Brisbane City',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.96),
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.6,
-                    shadows: const [
-                      Shadow(
-                        color: Colors.black54,
-                        offset: Offset(0, 1),
-                        blurRadius: 4,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget? _buildBottomNavigationBar() {
-    final isDesktop = MediaQuery.sizeOf(context).width >= Breakpoints.desktop;
-    if (isDesktop) return null;
-
-    return IgnorePointer(
-      ignoring: !_isNavVisible,
-      child: AnimatedSlide(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        offset: _isNavVisible ? Offset.zero : const Offset(0, 1),
-        child: _buildBottomNav(),
-      ),
-    );
-  }
-
-  Widget _buildNavRail() {
-    return NavigationRail(
-      selectedIndex: _selectedNavIndex,
-      onDestinationSelected: (index) => setState(() {
-        _selectedNavIndex = index;
-        _isNavVisible = true;
-      }),
-      backgroundColor: Colors.white,
-      selectedIconTheme: const IconThemeData(color: AppPalette.ochre, size: 28),
-      unselectedIconTheme: const IconThemeData(color: AppPalette.mutedText),
-      selectedLabelTextStyle: const TextStyle(
-        color: AppPalette.ochre,
-        fontWeight: FontWeight.w600,
-      ),
-      unselectedLabelTextStyle: const TextStyle(color: AppPalette.mutedText),
-      labelType: NavigationRailLabelType.all,
-      destinations: const [
-        NavigationRailDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home_rounded),
-          label: Text('Home'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.groups_outlined),
-          selectedIcon: Icon(Icons.groups_rounded),
-          label: Text('Users'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.business_outlined),
-          selectedIcon: Icon(Icons.business_rounded),
-          label: Text('Businesses'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.settings_outlined),
-          selectedIcon: Icon(Icons.settings_rounded),
-          label: Text('Settings'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBottomNav() {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          top: BorderSide(color: Color(0xFFBFDBFE), width: 1),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x1A1E3A8A),
-            blurRadius: 12,
-            offset: Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _NavItem(
-                icon: Icons.home_rounded,
-                label: 'Home',
-                isSelected: _selectedNavIndex == 0,
-                onTap: () => setState(() {
-                  _selectedNavIndex = 0;
-                  _isNavVisible = true;
-                }),
-              ),
-              _NavItem(
-                icon: Icons.groups_rounded,
-                label: 'Users',
-                isSelected: _selectedNavIndex == 1,
-                onTap: () => setState(() {
-                  _selectedNavIndex = 1;
-                  _isNavVisible = true;
-                }),
-              ),
-              _NavItem(
-                icon: Icons.business_rounded,
-                label: 'Businesses',
-                isSelected: _selectedNavIndex == 2,
-                onTap: () => setState(() {
-                  _selectedNavIndex = 2;
-                  _isNavVisible = true;
-                }),
-              ),
-              _NavItem(
-                icon: Icons.settings_rounded,
-                label: 'Settings',
-                isSelected: _selectedNavIndex == 4,
-                onTap: () => setState(() {
-                  _selectedNavIndex = 4;
-                  _isNavVisible = true;
-                }),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _appBarTitleForIndex(int index) {
-    switch (index) {
-      case 1:
-        return 'Users';
-      case 2:
-        return 'Businesses';
-      case 3:
-        return 'Settings';
-      default:
-        return 'Admin';
-    }
-  }
-
-  Widget _buildLogoutButton(BuildContext context) {
-    return IconButton(
-      tooltip: 'Logout',
-      icon: const Icon(Icons.logout_rounded, color: Color(0xFF1E3A8A)),
-      onPressed: () async {
-        final navigator = Navigator.of(context);
-        await AdminAuth.logout();
-        if (!mounted) return;
-        navigator.pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const AnimatedWelcomeScreen()),
-          (route) => false,
-        );
-      },
-    );
-  }
-
-  Widget _buildUsersTab() {
-    return AdminUserManagementScreen(enforceRoleGuard: false);
-  }
-
-  Widget _buildBusinessesTab() {
-    return AdminBusinessManagementScreen(enforceRoleGuard: false);
-  }
-
-  Widget _buildHomeTab() {
-    return CustomScrollView(
-      physics: const ClampingScrollPhysics(),
-      slivers: [
-        SliverToBoxAdapter(
-          child: Stack(
-            children: [
-              // Transparent spacer for hero height
-              const SizedBox(
-                height: 340,
-                width: double.infinity,
-              ),
-              // Title + Greeting + Search
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 12,
-                left: 16,
-                right: 16,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // BrisConnect logo
-                        Image.asset('assets/Brisconnect New.jpg', height: 48),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: RichText(
-                            text: const TextSpan(
-                              children: [
-                                TextSpan(
-                                  text: 'Admin ',
-                                  style: TextStyle(
-                                    fontSize: 30,
-                                    fontWeight: FontWeight.w900,
-                                    color: Color(0xFF1E3A8A),
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: 'Dashboard',
-                                  style: TextStyle(
-                                    fontSize: 30,
-                                    fontWeight: FontWeight.w900,
-                                    color: AppPalette.ochre,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        // Admin profile picture removed for cleaner admin header.
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Welcome back, Admin',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF3B82F6),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    // Search bar
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(30),
-                        border: Border.all(color: Color(0xFFBFDBFE)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Color(0x1A1E3A8A),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: TextField(
-                        decoration: InputDecoration(
-                          hintText: 'Search users, businesses, events...',
-                          hintStyle: TextStyle(
-                            color: AppPalette.mutedText,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          prefixIcon: const Icon(Icons.search_rounded,
-                              color: AppPalette.mutedText),
-                          suffixIcon: const Icon(Icons.mic_rounded,
-                              color: AppPalette.mutedText),
-                          border: InputBorder.none,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // ── Content sheet ──
-        SliverToBoxAdapter(
-          child: Transform.translate(
-            offset: const Offset(0, -24),
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFFF8FAFD),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                border: Border(
-                  top: BorderSide(color: Color(0xFFBFDBFE), width: 1),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 22),
-
-                  // ── Stats overview cards ──
-                  _buildStatsOverview(),
-                  const SizedBox(height: 28),
-
-                  // ── Quick Actions ──
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child:
-                        _buildSectionHeader('Quick Actions', onViewAll: null),
-                  ),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _buildQuickActions(),
-                  ),
-                  const SizedBox(height: 28),
-
-                  // ── Engagement & Activity row ──
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _buildEngagementOverview(),
-                  ),
-                  const SizedBox(height: 28),
-
-                  // ── Recent Users ──
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _buildSectionHeader('Recent Users',
-                        onViewAll: _openUsersManagement),
-                  ),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _buildRecentUsersSection(),
-                  ),
-                  const SizedBox(height: 28),
-
-                  // ── Weekly Analytics Chart ──
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _buildWeeklyAnalyticsSection(),
-                  ),
-                  const SizedBox(height: 40),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Top-level platform overview stats in a responsive grid.
-  Widget _buildStatsOverview() {
-    final items = [
-      _StatItem(
-        stream: widget.dashboardService.totalUsersCount(),
-        trendStream: widget.dashboardService.usersTrend(),
-        icon: Icons.groups_rounded,
-        iconColor: const Color(0xFF3B82F6),
-        label: 'Total Users',
-        onTap: _openUsersManagement,
-      ),
-      _StatItem(
-        stream: widget.dashboardService.totalBusinessesCount(),
-        trendStream: widget.dashboardService.businessesTrend(),
-        icon: Icons.business_rounded,
-        iconColor: const Color(0xFF1E3A8A),
-        label: 'Businesses',
-        onTap: _openBusinessManagement,
-      ),
-      _StatItem(
-        stream: widget.dashboardService.totalEventsCount(),
-        trendStream: widget.dashboardService.eventsTrend(),
-        icon: Icons.event_note_rounded,
-        iconColor: const Color(0xFFF59E0B),
-        label: 'Events',
-        onTap: _openEventsManagement,
-      ),
-      _StatItem(
-        stream: widget.dashboardService.pendingLocalUsersCount(),
-        trendStream: widget.dashboardService.approvalsTrend(),
-        icon: Icons.person_add_alt_1_rounded,
-        iconColor: const Color(0xFF10B981),
-        label: 'Pending Approvals',
-        onTap: _openUsersManagement,
-      ),
-    ];
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final crossAxisCount = constraints.maxWidth >= Breakpoints.desktop
-            ? 4
-            : constraints.maxWidth >= Breakpoints.tablet
-                ? 2
-                : 2;
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: crossAxisCount,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 1.55,
-            children: items.map((item) => _buildStatCard(item: item)).toList(),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildStatCard({required _StatItem item}) {
-    return StreamBuilder<int>(
-      stream: item.stream,
-      builder: (context, countSnapshot) {
-        return StreamBuilder<MetricTrend>(
-          stream: item.trendStream,
-          builder: (context, trendSnapshot) {
-            return _DashboardStatCard(
-              icon: item.icon,
-              iconColor: item.iconColor,
-              value: countSnapshot.data?.toString() ?? '—',
-              label: item.label,
-              trend: trendSnapshot.data,
-              onTap: item.onTap,
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildSectionHeader(String title, {VoidCallback? onViewAll}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFFE2E8F0),
-          ),
-        ),
-        if (onViewAll != null)
-          GestureDetector(
-            onTap: onViewAll,
-            child: const Row(
-              children: [
-                Text(
-                  'View All',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppPalette.ochre,
-                  ),
-                ),
-                SizedBox(width: 2),
-                Icon(Icons.chevron_right_rounded,
-                    color: AppPalette.ochre, size: 18),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildRecentUsersSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 10),
-        // Stream recent local users
-        StreamBuilder<List<Map<String, dynamic>>>(
-          stream: _recentUsersStream(),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: _adminMetricBackground,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                      color: AppPalette.charcoal.withValues(alpha: 0.08)),
-                ),
-                child: const Center(
-                  child: Text(
-                    'No recent users',
-                    style: TextStyle(color: _adminMetricSubtext),
-                  ),
-                ),
-              );
-            }
-            final users = snapshot.data!;
-            return Column(
-              children: users.map((user) {
-                final name = (user['name'] as String? ?? 'Unknown').trim();
-                final suburb = (user['suburb'] as String? ?? '').trim();
-                final status =
-                    (user['approvalStatus'] as String? ?? 'pending').trim();
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _RecentUserCard(
-                    name: name,
-                    subtitle: suburb,
-                    status: status,
-                    onTap: _openUsersManagement,
-                  ),
-                );
-              }).toList(),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  Stream<List<Map<String, dynamic>>> _recentUsersStream() {
-    try {
-      final fs = _referenceFirestore();
-      return fs
-          .collection('local_users')
-          .orderBy('createdAt', descending: true)
-          .limit(3)
-          .snapshots()
-          .map((snap) =>
-              snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
-    } catch (_) {
-      return const Stream.empty();
-    }
-  }
-
-  /// Access Firestore instance; works for real usage.
-  FirebaseFirestore _referenceFirestore() {
-    return FirebaseFirestore.instance;
-  }
-
-  /// Wide, tappable quick-action tiles laid out in a responsive grid.
-  Widget _buildQuickActions() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final crossAxisCount = constraints.maxWidth >= Breakpoints.desktop
-            ? 3
-            : constraints.maxWidth >= Breakpoints.tablet
-                ? 2
-                : 2;
-        return GridView.count(
-          crossAxisCount: crossAxisCount,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 2.4,
-          children: [
-            _QuickActionButton(
-              icon: Icons.business_outlined,
-              color: const Color(0xFF3B82F6),
-              label: 'Add Business',
-              onTap: _openCreateBusiness,
-            ),
-            _QuickActionButton(
-              icon: Icons.verified_outlined,
-              color: const Color(0xFF10B981),
-              label: 'Verify Business',
-              onTap: _openBusinessManagement,
-            ),
-            _QuickActionButton(
-              icon: Icons.event_available_outlined,
-              color: const Color(0xFFF59E0B),
-              label: 'Create Event',
-              onTap: _openCreateEvent,
-            ),
-            _QuickActionButton(
-              icon: Icons.report_outlined,
-              color: const Color(0xFFEF4444),
-              label: 'Review Reports',
-              onTap: _openReportsHub,
-            ),
-            _QuickActionButton(
-              icon: Icons.feedback_outlined,
-              color: const Color(0xFF8B5CF6),
-              label: 'Feedback',
-              onTap: _openFeedbackReview,
-            ),
-            _QuickActionButton(
-              icon: Icons.email_outlined,
-              color: const Color(0xFFEC4899),
-              label: 'Broadcast Email',
-              onTap: _openEmailBroadcast,
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  /// Horizontal panel showing engagement metrics with icons and labels.
-  Widget _buildEngagementOverview() {
-    final items = [
-      _EngagementItem(
-        stream: widget.dashboardService.totalProfileViewsCount(),
-        icon: Icons.visibility_rounded,
-        color: const Color(0xFF4F8FFF),
-        label: 'Profile Views',
-      ),
-      _EngagementItem(
-        stream: widget.dashboardService.totalSavesCount(),
-        icon: Icons.bookmark_rounded,
-        color: const Color(0xFF2ECC71),
-        label: 'Saves',
-      ),
-      _EngagementItem(
-        stream: widget.dashboardService.totalReviewsCount(),
-        icon: Icons.reviews_rounded,
-        color: const Color(0xFF9B59B6),
-        label: 'Reviews',
-      ),
-      _EngagementItem(
-        stream: widget.dashboardService.totalBuzzVotesCount(),
-        icon: Icons.bolt_rounded,
-        color: const Color(0xFF3BD0EE),
-        label: 'Buzz Votes',
-      ),
-      _EngagementItem(
-        stream: widget.dashboardService.totalCrowdReportsCount(),
-        icon: Icons.people_rounded,
-        color: const Color(0xFFF39C12),
-        label: 'Crowd Reports',
-      ),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionHeader('Engagement', onViewAll: _openBusinessManagement),
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: _adminMetricBackground,
-            borderRadius: BorderRadius.circular(20),
-            border:
-                Border.all(color: AppPalette.charcoal.withValues(alpha: 0.08)),
-          ),
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: items.map((item) => _EngagementChip(item: item)).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildWeeklyAnalyticsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Weekly Activity',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AppPalette.charcoal,
-              ),
-            ),
-            StreamBuilder<AdminWeeklyAnalytics>(
-              stream: widget.dashboardService.weeklyAnalytics(),
-              builder: (context, snapshot) {
-                final total = snapshot.hasData
-                    ? snapshot.data!.newUsers.values.reduce((a, b) => a + b) +
-                        snapshot.data!.businessRegistrations.values
-                            .reduce((a, b) => a + b) +
-                        snapshot.data!.eventsCreated.values
-                            .reduce((a, b) => a + b) +
-                        snapshot.data!.reportsReceived.values
-                            .reduce((a, b) => a + b)
-                    : null;
-                return Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppPalette.ochre.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    total != null ? '$total this week' : '—',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: AppPalette.ochre,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'New users, business registrations, events and reports',
-          style: TextStyle(
-            fontSize: 12,
-            color: _adminMetricSubtext,
-          ),
-        ),
-        const SizedBox(height: 14),
-        StreamBuilder<AdminWeeklyAnalytics>(
-          stream: widget.dashboardService.weeklyAnalytics(),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              return Container(
-                height: 220,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: _adminMetricBackground,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                      color: AppPalette.charcoal.withValues(alpha: 0.08)),
-                ),
-                child: const CircularProgressIndicator(color: AppPalette.ochre),
-              );
-            }
-
-            final analytics = snapshot.data!;
-            final maxY =
-                analytics.maxValue < 5 ? 5.0 : analytics.maxValue * 1.2;
-
-            return Container(
-              height: 260,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: _adminMetricBackground,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                    color: AppPalette.charcoal.withValues(alpha: 0.08)),
-              ),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: LineChart(
-                      LineChartData(
-                        gridData: FlGridData(
-                          show: true,
-                          drawVerticalLine: false,
-                          horizontalInterval: maxY / 5,
-                          getDrawingHorizontalLine: (_) => FlLine(
-                            color: Color(0xFFCBD5E1),
-                            strokeWidth: 1,
-                            dashArray: [4, 4],
-                          ),
-                        ),
-                        titlesData: FlTitlesData(
-                          topTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                          rightTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                          leftTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 32,
-                              interval: maxY / 5,
-                              getTitlesWidget: (value, meta) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 6),
-                                  child: Text(
-                                    value.toInt().toString(),
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: _adminMetricSubtext,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              interval: 1,
-                              getTitlesWidget: (value, meta) {
-                                const days = [
-                                  'Mon',
-                                  'Tue',
-                                  'Wed',
-                                  'Thu',
-                                  'Fri',
-                                  'Sat',
-                                  'Sun'
-                                ];
-                                final index = value.toInt();
-                                if (index < 0 || index >= days.length) {
-                                  return const SizedBox.shrink();
-                                }
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Text(
-                                    days[index],
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: _adminMetricSubtext,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                        borderData: FlBorderData(show: false),
-                        minX: 0,
-                        maxX: 6,
-                        minY: 0,
-                        maxY: maxY,
-                        lineBarsData: [
-                          _buildLineBarData(
-                            analytics.newUsers.values,
-                            AppPalette.ochre,
-                            showDots: true,
-                          ),
-                          _buildLineBarData(
-                            analytics.businessRegistrations.values,
-                            AppPalette.deepBlue,
-                          ),
-                          _buildLineBarData(
-                            analytics.eventsCreated.values,
-                            AppPalette.gold,
-                          ),
-                          _buildLineBarData(
-                            analytics.reportsReceived.values,
-                            Colors.red.shade700,
-                          ),
-                        ],
-                        lineTouchData: LineTouchData(
-                          touchTooltipData: LineTouchTooltipData(
-                            getTooltipColor: (_) => AppPalette.charcoal,
-                            getTooltipItems: (touchedSpots) {
-                              return touchedSpots.map((spot) {
-                                return LineTooltipItem(
-                                  '${spot.y.toInt()}',
-                                  const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 12,
-                                  ),
-                                );
-                              }).toList();
-                            },
-                          ),
-                        ),
-                        backgroundColor: _adminMetricBackground,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 14,
-                    runSpacing: 6,
-                    children: [
-                      _buildChartLegend('New Users', AppPalette.ochre),
-                      _buildChartLegend('Businesses', AppPalette.deepBlue),
-                      _buildChartLegend('Events', AppPalette.gold),
-                      _buildChartLegend('Reports', Colors.red.shade700),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  LineChartBarData _buildLineBarData(
-    List<int> values,
-    Color color, {
-    bool showDots = false,
-  }) {
-    return LineChartBarData(
-      spots: List.generate(
-        values.length,
-        (i) => FlSpot(i.toDouble(), values[i].toDouble()),
-      ),
-      isCurved: true,
-      color: color,
-      barWidth: 3,
-      isStrokeCapRound: true,
-      dotData: FlDotData(
-        show: showDots,
-        getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
-          radius: 4,
-          color: color,
-          strokeWidth: 2,
-          strokeColor: Colors.white,
-        ),
-      ),
-      belowBarData: BarAreaData(
-        show: true,
-        color: color.withValues(alpha: 0.08),
-      ),
-    );
-  }
-
-  Widget _buildChartLegend(String label, Color color) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 5),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: _adminMetricSubtext,
-          ),
-        ),
-      ],
+      child: layoutContent,
     );
   }
 
@@ -1308,243 +183,489 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ),
           const SizedBox(height: 20),
-
-          // ── Profile card (admin profile picture removed) ──
-          Card(
-            color: _adminMetricBackground,
-            elevation: 4,
-            shadowColor: AppPalette.cardShadow,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                  color: AppPalette.charcoal.withValues(alpha: 0.08)),
+          // Admin Profile Card
+          _buildAdminProfileCard(),
+          const SizedBox(height: 24),
+          // Account Section
+          _settingsSectionLabel('Account'),
+          _settingsCard(children: [
+            _settingsTile(
+              icon: Icons.person_outline_rounded,
+              title: 'Profile Details',
+              subtitle: 'View admin profile information',
+              onTap: () => _showProfileDetailsDialog(),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
+            _settingsTile(
+              icon: Icons.lock_outline_rounded,
+              title: 'Change Password',
+              subtitle: 'Update your admin account password',
+              onTap: () => _showChangePasswordDialog(),
+            ),
+          ]),
+          const SizedBox(height: 24),
+          // About Section
+          _settingsSectionLabel('About'),
+          _settingsCard(children: [
+            _settingsTile(
+              icon: Icons.info_outline_rounded,
+              title: 'About BrisConnect+',
+              subtitle: 'Version, credits & legal',
+              onTap: () => _showAboutDialog(),
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdminProfileCard() {
+    final email = AdminAuth.currentAdminEmail ?? '';
+    final username = email.isNotEmpty ? email.split('@').first : 'Admin';
+    
+    return Card(
+      color: _adminMetricBackground,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+            color: AdminNeonTheme.neonBlue.withValues(alpha: 0.28)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            const Icon(Icons.account_circle_rounded,
+                size: 48, color: AdminNeonTheme.neonBlue),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.account_circle_rounded,
-                      size: 48, color: AppPalette.deepBlue),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Admin',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: _adminMetricText,
-                          ),
-                        ),
-                        if ((AdminAuth.currentAdminEmail ?? '').isNotEmpty)
-                          Text(
-                            AdminAuth.currentAdminEmail!,
-                            style: const TextStyle(color: _adminMetricSubtext),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                      ],
+                  Text(
+                    username.replaceFirstMapped(
+                      RegExp('^.'),
+                      (match) => match.group(0)!.toUpperCase(),
+                    ),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: _adminMetricText,
+                    ),
+                  ),
+                  if (email.isNotEmpty)
+                    Text(
+                      email,
+                      style: const TextStyle(color: _adminMetricSubtext),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Administrator',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AdminNeonTheme.neonBlue,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // ── Account Settings ──
-          _settingsSectionLabel('Account Settings'),
-          Card(
-            color: _adminMetricBackground,
-            elevation: 4,
-            shadowColor: AppPalette.cardShadow,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                  color: AppPalette.charcoal.withValues(alpha: 0.08)),
-            ),
-            child: Column(
-              children: [
-                ListTile(
-                  leading: _settingsIcon(Icons.report_outlined),
-                  title: const Text('Reports Hub',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: _adminMetricText)),
-                  subtitle: const Text(
-                      'Moderate reported events and recommendations',
-                      style: TextStyle(color: _adminMetricSubtext)),
-                  trailing: const Icon(Icons.chevron_right_rounded,
-                      color: _adminMetricSubtext),
-                  onTap: _openReportsHub,
-                ),
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                ListTile(
-                  leading: _settingsIcon(Icons.store_outlined),
-                  title: const Text('Manage Businesses',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: _adminMetricText)),
-                  subtitle: const Text(
-                      'Verify, edit, deactivate and archive listings',
-                      style: TextStyle(color: _adminMetricSubtext)),
-                  trailing: const Icon(Icons.chevron_right_rounded,
-                      color: _adminMetricSubtext),
-                  onTap: _openBusinessManagement,
-                ),
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                ListTile(
-                  leading: _settingsIcon(Icons.dynamic_feed_outlined),
-                  title: const Text('Community Feed',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: _adminMetricText)),
-                  subtitle: const Text('Pin, highlight and remove feed content',
-                      style: TextStyle(color: _adminMetricSubtext)),
-                  trailing: const Icon(Icons.chevron_right_rounded,
-                      color: _adminMetricSubtext),
-                  onTap: _openCommunityFeed,
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // ── App Settings ──
-          _settingsSectionLabel('App Settings'),
-          Card(
-            color: _adminMetricBackground,
-            elevation: 4,
-            shadowColor: AppPalette.cardShadow,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                  color: AppPalette.charcoal.withValues(alpha: 0.08)),
-            ),
-            child: Column(
-              children: [
-                ListTile(
-                  leading: _settingsIcon(Icons.feedback_outlined),
-                  title: const Text('Feedback Review',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: _adminMetricText)),
-                  subtitle: const Text('Manage user feedback and responses',
-                      style: TextStyle(color: _adminMetricSubtext)),
-                  trailing: const Icon(Icons.chevron_right_rounded,
-                      color: _adminMetricSubtext),
-                  onTap: _openFeedbackReview,
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // ── BrisConnect ──
-          _settingsSectionLabel('BrisConnect+'),
-          Card(
-            color: _adminMetricBackground,
-            elevation: 4,
-            shadowColor: AppPalette.cardShadow,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                  color: AppPalette.charcoal.withValues(alpha: 0.08)),
-            ),
-            child: Column(
-              children: [
-                ListTile(
-                  leading: _settingsIcon(Icons.sms_outlined),
-                  title: const Text('SMS Broadcast',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: _adminMetricText)),
-                  subtitle: const Text('Send SMS announcements to users',
-                      style: TextStyle(color: _adminMetricSubtext)),
-                  trailing: const Icon(Icons.chevron_right_rounded,
-                      color: _adminMetricSubtext),
-                  onTap: _openSmsBroadcast,
-                ),
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                ListTile(
-                  leading: _settingsIcon(Icons.email_outlined),
-                  title: const Text('Email Broadcast',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: _adminMetricText)),
-                  subtitle: const Text('Send email announcements to users',
-                      style: TextStyle(color: _adminMetricSubtext)),
-                  trailing: const Icon(Icons.chevron_right_rounded,
-                      color: _adminMetricSubtext),
-                  onTap: _openEmailBroadcast,
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // ── Support ──
-          _settingsSectionLabel('Support'),
-          Card(
-            color: _adminMetricBackground,
-            elevation: 4,
-            shadowColor: AppPalette.cardShadow,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                  color: AppPalette.charcoal.withValues(alpha: 0.08)),
-            ),
-            child: Column(
-              children: [
-                ListTile(
-                  leading: _settingsIcon(Icons.help_outline_rounded),
-                  title: const Text('Help & Support',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: _adminMetricText)),
-                  subtitle: const Text('Get help with admin features',
-                      style: TextStyle(color: _adminMetricSubtext)),
-                  trailing: const Icon(Icons.chevron_right_rounded,
-                      color: _adminMetricSubtext),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Contact: brisconnect0@gmail.com')),
-                    );
-                  },
-                ),
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                ListTile(
-                  leading: _settingsIcon(Icons.info_outline_rounded),
-                  title: const Text('About BrisConnect+',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: _adminMetricText)),
-                  subtitle: const Text('Version, credits & legal',
-                      style: TextStyle(color: _adminMetricSubtext)),
-                  trailing: const Icon(Icons.chevron_right_rounded,
-                      color: _adminMetricSubtext),
-                  onTap: () {
-                    showAboutDialog(
-                      context: context,
-                      applicationName: 'BrisConnect+',
-                      applicationVersion: '1.0.0',
-                      applicationLegalese: '© 2026 BrisConnect+ Team',
-                      applicationIcon:
-                          Image.asset('assets/Brisconnect New.jpg', height: 48),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+
+  void _showProfileDetailsDialog() {
+    final email = AdminAuth.currentAdminEmail ?? '';
+    final username = email.isNotEmpty ? email.split('@').first : 'Admin';
+    
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AdminNeonTheme.bgDeepNavy,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AdminNeonTheme.glassBorder,
+              width: 1,
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Profile Details',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: _adminMetricText,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _profileDetailRow('Name', username),
+                const SizedBox(height: 16),
+                _profileDetailRow('Email', email),
+                const SizedBox(height: 16),
+                _profileDetailRow('Role', 'Administrator'),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AdminNeonTheme.neonBlue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _profileDetailRow(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: _adminMetricSubtext,
+            letterSpacing: 0.4,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: AdminNeonTheme.glassSurfaceAlt,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: AdminNeonTheme.glassBorder,
+              width: 1,
+            ),
+          ),
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: _adminMetricText,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showChangePasswordDialog() {
+    final formKey = GlobalKey<FormState>();
+    late String currentPassword;
+    late String newPassword;
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: StatefulBuilder(
+          builder: (context, setState) => Container(
+            decoration: BoxDecoration(
+              color: AdminNeonTheme.bgDeepNavy,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: AdminNeonTheme.glassBorder,
+                width: 1,
+              ),
+            ),
+            constraints: const BoxConstraints(maxWidth: 450),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Change Password',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: _adminMetricText,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Update your admin account password. This change only affects your account.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: _adminMetricSubtext,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildPasswordField(
+                        label: 'Current Password',
+                        onChanged: (value) => currentPassword = value,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Current password is required';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _buildPasswordField(
+                        label: 'New Password',
+                        onChanged: (value) => newPassword = value,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'New password is required';
+                          }
+                          if (value.length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _buildPasswordField(
+                        label: 'Confirm New Password',
+                        onChanged: (value) {
+                          // Validation is handled in the validator
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please confirm your new password';
+                          }
+                          if (value != newPassword) {
+                            return 'Passwords do not match';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 28),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    AdminNeonTheme.neonBlue.withValues(alpha: 0.2),
+                                foregroundColor: AdminNeonTheme.neonBlue,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: const BorderSide(
+                                    color: AdminNeonTheme.neonBlue,
+                                  ),
+                                ),
+                              ),
+                              onPressed: isLoading
+                                  ? null
+                                  : () => Navigator.pop(context),
+                              child: const Text('Cancel'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AdminNeonTheme.neonBlue,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              onPressed: isLoading
+                                  ? null
+                                  : () async {
+                                if (!formKey.currentState!.validate()) {
+                                  return;
+                                }
+                                
+                                setState(() => isLoading = true);
+                                
+                                try {
+                                  final user = fb_auth.FirebaseAuth.instance.currentUser;
+                                  if (user == null) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Error: Admin not authenticated'),
+                                          backgroundColor: AdminNeonTheme.neonRed,
+                                        ),
+                                      );
+                                    }
+                                    return;
+                                  }
+
+                                  // Re-authenticate with current password
+                                  final credential =
+                                      fb_auth.EmailAuthProvider.credential(
+                                    email: user.email!,
+                                    password: currentPassword,
+                                  );
+                                  
+                                  await user.reauthenticateWithCredential(credential);
+                                  
+                                  // Update password
+                                  await user.updatePassword(newPassword);
+                                  
+                                  if (mounted) {
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Password updated successfully'),
+                                        backgroundColor: AdminNeonTheme.neonBlue,
+                                      ),
+                                    );
+                                  }
+                                } on fb_auth.FirebaseAuthException catch (e) {
+                                  setState(() => isLoading = false);
+                                  if (mounted) {
+                                    String errorMessage =
+                                        'Failed to update password';
+                                    if (e.code == 'wrong-password') {
+                                      errorMessage = 'Current password is incorrect';
+                                    } else if (e.code == 'weak-password') {
+                                      errorMessage = 'New password is too weak';
+                                    } else if (e.code == 'requires-recent-login') {
+                                      errorMessage = 'Please log out and log back in';
+                                    }
+                                    
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(errorMessage),
+                                        backgroundColor: AdminNeonTheme.neonRed,
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  setState(() => isLoading = false);
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Error: ${e.toString()}'),
+                                        backgroundColor: AdminNeonTheme.neonRed,
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                              child: isLoading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                          Colors.white,
+                                        ),
+                                      ),
+                                    )
+                                  : const Text('Update Password'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPasswordField({
+    required String label,
+    required Function(String) onChanged,
+    required String? Function(String?) validator,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: _adminMetricSubtext,
+            letterSpacing: 0.4,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextFormField(
+          obscureText: true,
+          onChanged: onChanged,
+          validator: validator,
+          decoration: InputDecoration(
+            hintText: 'Enter $label',
+            hintStyle: const TextStyle(color: AdminNeonTheme.textMuted),
+            filled: true,
+            fillColor: AdminNeonTheme.glassSurfaceAlt,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AdminNeonTheme.glassBorder),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AdminNeonTheme.glassBorder),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(
+                color: AdminNeonTheme.neonBlue,
+                width: 2,
+              ),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AdminNeonTheme.neonRed),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
+          ),
+          style: const TextStyle(
+            color: _adminMetricText,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showAboutDialog() {
+    showAboutDialog(
+      context: context,
+      applicationName: 'BrisConnect+',
+      applicationVersion: '1.0.0',
+      applicationLegalese: '© 2026 BrisConnect+ Team',
+      applicationIcon:
+          Image.asset('assets/Brisconnect New.jpg', height: 48),
     );
   }
 
@@ -1568,594 +689,59 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       width: 38,
       height: 38,
       decoration: BoxDecoration(
-        color: AppPalette.deepBlue.withValues(alpha: 0.10),
+        color: AdminNeonTheme.neonBlue.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Icon(icon, color: AppPalette.deepBlue, size: 20),
+      child: Icon(icon, color: AdminNeonTheme.neonBlue, size: 20),
     );
   }
-}
 
-// ── Stat card for the overview grid ──
-class _DashboardStatCard extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String value;
-  final String label;
-  final MetricTrend? trend;
-  final VoidCallback? onTap;
-
-  const _DashboardStatCard({
-    required this.icon,
-    required this.iconColor,
-    required this.value,
-    required this.label,
-    this.trend,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: _adminMetricBackground,
-          borderRadius: BorderRadius.circular(20),
-          border:
-              Border.all(color: AppPalette.charcoal.withValues(alpha: 0.08)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: iconColor.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: iconColor, size: 22),
-                ),
-                const Spacer(),
-                if (trend != null)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: trend!.isUp
-                          ? Colors.green.shade50
-                          : Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: trend!.isUp
-                            ? Colors.green.shade300
-                            : Colors.red.shade300,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          trend!.isUp
-                              ? Icons.arrow_upward_rounded
-                              : Icons.arrow_downward_rounded,
-                          color: trend!.isUp
-                              ? Colors.green.shade700
-                              : Colors.red.shade700,
-                          size: 10,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          '${trend!.change.abs()}',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: trend!.isUp
-                                ? Colors.green.shade700
-                                : Colors.red.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    color: _adminMetricText,
-                    height: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: _adminMetricSubtext,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Quick action button ──
-class _QuickActionButton extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String label;
-  final VoidCallback onTap;
-
-  const _QuickActionButton({
-    required this.icon,
-    required this.color,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: _adminMetricBackground,
-          borderRadius: BorderRadius.circular(16),
-          border:
-              Border.all(color: AppPalette.charcoal.withValues(alpha: 0.08)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: _adminMetricText,
-                ),
-              ),
-            ),
-            const Icon(
-              Icons.arrow_forward_ios_rounded,
-              color: _adminMetricSubtext,
-              size: 14,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Engagement chip descriptor ──
-class _EngagementItem {
-  final Stream<int> stream;
-  final IconData icon;
-  final Color color;
-  final String label;
-
-  const _EngagementItem({
-    required this.stream,
-    required this.icon,
-    required this.color,
-    required this.label,
-  });
-}
-
-// ── Engagement metric chip ──
-class _EngagementChip extends StatelessWidget {
-  final _EngagementItem item;
-
-  const _EngagementChip({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<int>(
-      stream: item.stream,
-      builder: (context, snapshot) {
-        final value = snapshot.data?.toString() ?? '—';
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: item.color.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: item.color.withValues(alpha: 0.2)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(item.icon, color: item.color, size: 18),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: item.color,
-                      height: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    item.label,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: _adminMetricSubtext,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ── Recent user card ──
-class _RecentUserCard extends StatelessWidget {
-  final String name;
-  final String subtitle;
-  final String status;
-  final VoidCallback? onTap;
-
-  const _RecentUserCard({
-    required this.name,
-    required this.subtitle,
-    required this.status,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isActive = status == 'approved';
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: _adminMetricBackground,
-          borderRadius: BorderRadius.circular(14),
-          border:
-              Border.all(color: AppPalette.charcoal.withValues(alpha: 0.08)),
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: AppPalette.ochre.withValues(alpha: 0.18),
-              child: Text(
-                name.isNotEmpty ? name[0].toUpperCase() : '?',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: AppPalette.ochre,
-                  fontSize: 16,
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: _adminMetricText,
-                    ),
-                  ),
-                  if (subtitle.isNotEmpty)
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: _adminMetricSubtext,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: isActive ? Colors.green.shade50 : Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color:
-                      isActive ? Colors.green.shade300 : Colors.orange.shade300,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? Colors.green.shade600
-                          : Colors.orange.shade600,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    isActive ? 'Active' : 'Pending',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: isActive
-                          ? Colors.green.shade700
-                          : Colors.orange.shade700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Bottom nav item ──
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 56,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 22,
-              color: isSelected ? AppPalette.deepBlue : AppPalette.mutedText,
-            ),
-            const SizedBox(height: 2),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color:
-                      isSelected ? AppPalette.deepBlue : AppPalette.mutedText,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoryManagementSheet extends StatefulWidget {
-  const _CategoryManagementSheet({
-    required this.initialCategories,
-    required this.onSave,
-  });
-
-  final List<String> initialCategories;
-  final Future<void> Function(List<String>) onSave;
-
-  @override
-  State<_CategoryManagementSheet> createState() =>
-      _CategoryManagementSheetState();
-}
-
-class _CategoryManagementSheetState extends State<_CategoryManagementSheet> {
-  late final List<String> _categories;
-  final _addController = TextEditingController();
-  bool _isSaving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _categories = List<String>.from(widget.initialCategories);
-  }
-
-  @override
-  void dispose() {
-    _addController.dispose();
-    super.dispose();
-  }
-
-  void _addCategory() {
-    final value = _addController.text.trim();
-    if (value.isEmpty || _categories.contains(value)) return;
-    setState(() => _categories.add(value));
-    _addController.clear();
-  }
-
-  Future<void> _save() async {
-    setState(() => _isSaving = true);
-    try {
-      await widget.onSave(_categories);
-      if (mounted) Navigator.pop(context);
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to save categories.')),
-      );
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
+  Widget _settingsCard({required List<Widget> children}) {
+    final tiles = <Widget>[];
+    for (var i = 0; i < children.length; i++) {
+      tiles.add(children[i]);
+      if (i < children.length - 1) {
+        tiles.add(const Divider(
+          height: 1,
+          indent: 16,
+          endIndent: 16,
+          color: AdminNeonTheme.glassBorder,
+        ));
+      }
     }
+    return Card(
+      color: _adminMetricBackground,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: AdminNeonTheme.glassBorder),
+      ),
+      child: Column(children: tiles),
+    );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+  Widget _settingsTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: _settingsIcon(icon),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          color: _adminMetricText,
+        ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Manage Event Categories',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: AppPalette.charcoal,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Changes apply to all event forms across the app.',
-            style: TextStyle(color: AppPalette.mutedText),
-          ),
-          const SizedBox(height: 16),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 280),
-            child: ReorderableListView.builder(
-              shrinkWrap: true,
-              itemCount: _categories.length,
-              onReorder: (oldIndex, newIndex) {
-                setState(() {
-                  if (newIndex > oldIndex) newIndex--;
-                  final item = _categories.removeAt(oldIndex);
-                  _categories.insert(newIndex, item);
-                });
-              },
-              itemBuilder: (context, index) {
-                final cat = _categories[index];
-                return ListTile(
-                  key: ValueKey(cat),
-                  dense: true,
-                  leading: const Icon(Icons.drag_handle_rounded,
-                      color: AppPalette.mutedText),
-                  title: Text(cat,
-                      style: const TextStyle(
-                          color: AppPalette.charcoal,
-                          fontWeight: FontWeight.w600)),
-                  trailing: IconButton(
-                    icon: Icon(Icons.close_rounded,
-                        color: Colors.red.shade700, size: 20),
-                    onPressed: () =>
-                        setState(() => _categories.removeAt(index)),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _addController,
-                  decoration: const InputDecoration(
-                    hintText: 'New category name',
-                    isDense: true,
-                    border: OutlineInputBorder(),
-                  ),
-                  textCapitalization: TextCapitalization.words,
-                  onSubmitted: (_) => _addCategory(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton.filled(
-                onPressed: _addCategory,
-                icon: const Icon(Icons.add_rounded),
-                style: IconButton.styleFrom(
-                  backgroundColor: AppPalette.deepBlue,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: _isSaving ? null : _save,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppPalette.deepBlue,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              child: _isSaving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Text('Save Categories'),
-            ),
-          ),
-        ],
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(color: _adminMetricSubtext),
       ),
+      trailing:
+          const Icon(Icons.chevron_right_rounded, color: _adminMetricSubtext),
+      onTap: onTap,
     );
   }
 }

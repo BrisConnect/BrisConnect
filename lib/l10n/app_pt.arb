@@ -16,7 +16,7 @@
   "language": "Idioma",
   "locationRadius": "Raio de localização",
   "appearanceSettings": "Aparência",
-  "feedback": "Feedback",
+  "feedback": "Opinião",
   "myFeedback": "Meu feedback",
   "helpAndSupport": "Ajuda e suporte",
   "discover": "Descobrir",
@@ -243,7 +243,7 @@
       }
     }
   },
-  "categoryLabel": "Categoria: {category}",
+  "categoryLabel": "Category: {category}",
   "@categoryLabel": {
     "placeholders": {
       "category": {
@@ -251,7 +251,7 @@
       }
     }
   },
-  "severityLabel": "Gravidade: {severity}",
+  "severityLabel": "Severity: {severity}",
   "@severityLabel": {
     "placeholders": {
       "severity": {
@@ -265,7 +265,7 @@
   "languageGerman": "Alemão",
   "languageChinese": "Chinês",
   "languageArabic": "Árabe",
-  "languageHindi": "Hindi",
+  "languageHindi": "hindi",
   "languageItalian": "Italiano",
   "languageJapanese": "Japonês",
   "languageKorean": "Coreano",
@@ -288,7 +288,7 @@
   "businessNotifications": "Notificações comerciais",
   "about": "Sobre",
   "aboutDescription": "BrisConnect+ é um guia de cidade inteligente que ajuda visitantes e moradores locais a descobrir eventos, explorar atrações e capturar suas experiências em Brisbane em uma plataforma conectada.",
-  "versionLabel": "Versão {version}",
+  "versionLabel": "Version {version}",
   "@versionLabel": {
     "placeholders": {
       "version": {
@@ -319,5 +319,41 @@
   "statusPending": "Pendente",
   "statusInProgress": "Em andamento",
   "statusResolved": "Resolvido",
-  "statusWontFix": "Não vou consertar"
+  "statusWontFix": "Não vou consertar",
+  "@@locale": "pt",
+  "languagePunjabi": "Punjabi",
+  "foodBusinessDetails": "Detalhes da empresa",
+  "aboutThisFoodExperience": "Sobre esta experiência gastronômica",
+  "highlights": "Destaques",
+  "contactAndLinks": "Contato e links",
+  "gallery": "Galeria",
+  "openingHours": "Horário de funcionamento",
+  "menu": "Menu",
+  "menuFallback": "Menu",
+  "call": "Chamar",
+  "website": "Site",
+  "orderOnline": "Faça seu pedido online.",
+  "viewOnMap": "Ver no mapa",
+  "foodDiscoveryGuide": "Guia de Descoberta de Alimentos",
+  "foodDiscoveryGuideHelper": "Toque em reproduzir para ouvir o seu Guia de Descoberta Gastronômica descrever este local e seus destaques.",
+  "stop": "Parar",
+  "unableToStartNarration": "Não foi possível iniciar a narração do Guia de Descoberta de Alimentos neste momento.",
+  "unableToCallNumber": "Não consigo ligar para este número neste momento.",
+  "unableToSendEmail": "Não foi possível enviar e-mail neste momento.",
+  "foodSpotCannotBeShared": "Este local para comer não pode ser compartilhado no momento.",
+  "foodDescriptionIntro": "Step into {title}, a {cuisine} destination in the heart of {location}.",
+  "foodDescriptionRating": "Amado por moradores locais e visitantes, possui uma classificação de {rating} estrelas.",
+  "foodDescriptionCategories": "The menu celebrates {categories}, crafted with fresh, locally sourced ingredients.",
+  "foodDescriptionPrice": "Expect a {price} experience that balances quality and value.",
+  "foodDescriptionOutro": "Seja para um brunch descontraído, um almoço de negócios ou um jantar animado, o {title} oferece um ambiente acolhedor e sabores que capturam a essência da cena gastronômica de Brisbane.",
+  "foodNarrationWelcome": "Welcome to {title}",
+  "foodNarrationBadge": "This is a {badge} stop worth adding to your Brisbane food trail",
+  "foodNarrationCuisine": "It is best known for {cuisine}",
+  "foodNarrationLocation": "You will find it in {location}, where the local dining scene comes alive",
+  "foodNarrationDateTime": "You can usually visit during {dateTime}",
+  "foodNarrationDescription": "Here's what the experience feels like. {description}",
+  "foodNarrationPriceFree": "There is no entry cost to explore this food spot",
+  "foodNarrationPrice": "Pricing is listed as {price}",
+  "foodNarrationRating": "Visitors currently rate it {rating} out of 5",
+  "foodNarrationCategories": "Expect a mix of {categories}"
 }

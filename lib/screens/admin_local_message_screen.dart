@@ -117,6 +117,7 @@ class _AdminLocalMessageScreenState extends State<AdminLocalMessageScreen> {
   Widget build(BuildContext context) {
     final content = Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const LogoAppBarTitle('Message Local User'),
       ),
       body: _isLoading

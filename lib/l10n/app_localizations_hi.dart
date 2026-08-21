@@ -519,12 +519,12 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String categoryLabel(String category) {
-    return 'श्रेणी: $category';
+    return 'Category: $category';
   }
 
   @override
   String severityLabel(String severity) {
-    return 'गंभीरता: $severity';
+    return 'Severity: $severity';
   }
 
   @override
@@ -570,7 +570,7 @@ class AppLocalizationsHi extends AppLocalizations {
   String get languageGreek => 'यूनानी';
 
   @override
-  String get languagePunjabi => 'Punjabi';
+  String get languagePunjabi => 'पंजाबी';
 
   @override
   String get discoverTitle => 'स्थानीय भोजन की खोज करें';
@@ -601,7 +601,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String versionLabel(String version) {
-    return 'संस्करण $version';
+    return 'Version $version';
   }
 
   @override
@@ -683,64 +683,64 @@ class AppLocalizationsHi extends AppLocalizations {
   String get statusWontFix => 'ठीक नहीं होगा';
 
   @override
-  String get foodBusinessDetails => 'Business Details';
+  String get foodBusinessDetails => 'व्यवसाय विवरण';
 
   @override
-  String get aboutThisFoodExperience => 'About this Food Experience';
+  String get aboutThisFoodExperience => 'इस भोजन अनुभव के बारे में';
 
   @override
   String get highlights => 'Highlights';
 
   @override
-  String get contactAndLinks => 'Contact & Links';
+  String get contactAndLinks => 'संपर्क और लिंक';
 
   @override
-  String get gallery => 'Gallery';
+  String get gallery => 'गैलरी';
 
   @override
   String get openingHours => 'Opening Hours';
 
   @override
-  String get menu => 'Menu';
+  String get menu => 'मेनू';
 
   @override
-  String get menuFallback => 'Menu';
+  String get menuFallback => 'मेनू';
 
   @override
   String get call => 'Call';
 
   @override
-  String get website => 'Website';
+  String get website => 'वेबसाइट';
 
   @override
-  String get orderOnline => 'Order Online';
+  String get orderOnline => 'ऑनलाइन ऑर्डर करें';
 
   @override
-  String get viewOnMap => 'View on Map';
+  String get viewOnMap => 'मानचित्र पर देखें';
 
   @override
-  String get foodDiscoveryGuide => 'Food Discovery Guide';
+  String get foodDiscoveryGuide => 'खाद्य खोज मार्गदर्शिका';
 
   @override
   String get foodDiscoveryGuideHelper =>
-      'Tap play to hear your Food Discovery Guide describe this food spot and its highlights.';
+      'इस भोजनालय और इसकी खासियतों के बारे में आपके फ़ूड डिस्कवरी गाइड द्वारा दी गई जानकारी सुनने के लिए प्ले पर टैप करें।';
 
   @override
-  String get stop => 'Stop';
+  String get stop => 'रुकना';
 
   @override
   String get unableToStartNarration =>
-      'Unable to start Food Discovery Guide narration right now.';
+      'फ़ूड डिस्कवरी गाइड का वर्णन अभी शुरू नहीं किया जा सकता है।';
 
   @override
-  String get unableToCallNumber => 'Unable to call this number right now.';
+  String get unableToCallNumber => 'इस नंबर पर अभी कॉल नहीं हो पा रही है।';
 
   @override
   String get unableToSendEmail => 'Unable to send email right now.';
 
   @override
   String get foodSpotCannotBeShared =>
-      'This food spot cannot be shared right now.';
+      'इस खाने की जगह के बारे में अभी जानकारी साझा नहीं की जा सकती।';
 
   @override
   String foodDescriptionIntro(String title, String cuisine, String location) {
@@ -749,7 +749,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String foodDescriptionRating(String rating) {
-    return 'Loved by locals and visitors alike, it holds a $rating-star rating.';
+    return 'स्थानीय लोगों और पर्यटकों द्वारा समान रूप से पसंद किया जाने वाला यह स्थान $rating-स्टार रेटिंग रखता है।';
   }
 
   @override

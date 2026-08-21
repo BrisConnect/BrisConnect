@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:brisconnect/models/ai_generated_post.dart';
 
 /// Stores and retrieves AI-generated posts for business owners.
@@ -29,15 +30,20 @@ class AiPostStorageService {
         )
         .toFirestore();
 
+    debugPrint(
+        '[AiPostStorage] saving post imageUrl=${post.imageUrl} status=${post.status.name}');
+
     try {
       if (post.id != null && post.id!.isNotEmpty) {
         await _firestore.collection(_collection).doc(post.id).update(data);
         return post.id!;
       } else {
         final docRef = await _firestore.collection(_collection).add(data);
+        debugPrint('[AiPostStorage] saved post id=${docRef.id}');
         return docRef.id;
       }
     } catch (e) {
+      debugPrint('[AiPostStorage] save failed: $e');
       throw Exception('Failed to save AI post: $e');
     }
   }
@@ -60,8 +66,9 @@ class AiPostStorageService {
         .where('ownerId', isEqualTo: ownerId)
         .orderBy('updatedAt', descending: true)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => AiGeneratedPost.fromFirestore(doc)).toList());
+        .map((snapshot) => snapshot.docs
+            .map((doc) => AiGeneratedPost.fromFirestore(doc))
+            .toList());
   }
 
   /// Deletes an AI-generated post.

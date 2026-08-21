@@ -243,7 +243,7 @@
       }
     }
   },
-  "categoryLabel": "カテゴリ: {category}",
+  "categoryLabel": "Category: {category}",
   "@categoryLabel": {
     "placeholders": {
       "category": {
@@ -251,7 +251,7 @@
       }
     }
   },
-  "severityLabel": "重大度: {severity}",
+  "severityLabel": "Severity: {severity}",
   "@severityLabel": {
     "placeholders": {
       "severity": {
@@ -288,7 +288,7 @@
   "businessNotifications": "業務上のお知らせ",
   "about": "について",
   "aboutDescription": "BrisConnect+ は、訪問者や地元の人々がイベントを発見し、観光名所を探索し、ブリスベンでの体験を 1 つの接続されたプラットフォームで記録できるようにするスマート シティ ガイドです。",
-  "versionLabel": "バージョン {version}",
+  "versionLabel": "Version {version}",
   "@versionLabel": {
     "placeholders": {
       "version": {
@@ -319,5 +319,41 @@
   "statusPending": "保留中",
   "statusInProgress": "進行中",
   "statusResolved": "解決済み",
-  "statusWontFix": "直らない"
+  "statusWontFix": "直らない",
+  "@@locale": "ja",
+  "languagePunjabi": "パンジャブ語",
+  "foodBusinessDetails": "事業内容の詳細",
+  "aboutThisFoodExperience": "この食体験について",
+  "highlights": "ハイライト",
+  "contactAndLinks": "お問い合わせとリンク",
+  "gallery": "ギャラリー",
+  "openingHours": "営業時間",
+  "menu": "メニュー",
+  "menuFallback": "メニュー",
+  "call": "電話",
+  "website": "Webサイト",
+  "orderOnline": "オンラインで注文する",
+  "viewOnMap": "地図で表示",
+  "foodDiscoveryGuide": "食の発見ガイド",
+  "foodDiscoveryGuideHelper": "再生ボタンをタップして、フードディスカバリーガイドがこの飲食店とその見どころについて解説する音声をお聞きください。",
+  "stop": "停止",
+  "unableToStartNarration": "現在、フードディスカバリーガイドのナレーションを開始できません。",
+  "unableToCallNumber": "現在、この番号にはお電話いただけません。",
+  "unableToSendEmail": "現在、メールを送信できません。",
+  "foodSpotCannotBeShared": "この飲食店は現在、情報共有できません。",
+  "foodDescriptionIntro": "Step into {title}, a {cuisine} destination in the heart of {location}.",
+  "foodDescriptionRating": "地元の人々にも観光客にも愛されているこの店は、{rating}つ星の評価を受けています。",
+  "foodDescriptionCategories": "The menu celebrates {categories}, crafted with fresh, locally sourced ingredients.",
+  "foodDescriptionPrice": "Expect a {price} experience that balances quality and value.",
+  "foodDescriptionOutro": "ゆったりとしたブランチ、ビジネスランチ、活気のあるディナーなど、どんなシーンにも、{title}はブリスベンの食文化を体現する温かい雰囲気と味わいを提供します。",
+  "foodNarrationWelcome": "Welcome to {title}",
+  "foodNarrationBadge": "This is a {badge} stop worth adding to your Brisbane food trail",
+  "foodNarrationCuisine": "It is best known for {cuisine}",
+  "foodNarrationLocation": "You will find it in {location}, where the local dining scene comes alive",
+  "foodNarrationDateTime": "You can usually visit during {dateTime}",
+  "foodNarrationDescription": "Here's what the experience feels like. {description}",
+  "foodNarrationPriceFree": "There is no entry cost to explore this food spot",
+  "foodNarrationPrice": "Pricing is listed as {price}",
+  "foodNarrationRating": "Visitors currently rate it {rating} out of 5",
+  "foodNarrationCategories": "Expect a mix of {categories}"
 }

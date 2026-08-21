@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:brisconnect/features/admin/dashboard/admin_neon_theme.dart';
 import 'package:brisconnect/services/admin_user_management_service.dart';
 import 'package:brisconnect/services/local_email_notification_service.dart';
 import 'package:brisconnect/services/sms_notification_service.dart';
-import 'package:brisconnect/theme/app_palette.dart';
 
 class AdminUserManagementScreen extends StatefulWidget {
   AdminUserManagementScreen({
@@ -11,6 +11,7 @@ class AdminUserManagementScreen extends StatefulWidget {
     LocalEmailNotificationService? localEmailNotificationService,
     SmsNotificationService? smsNotificationService,
     this.enforceRoleGuard = true,
+    this.buildFullScaffold = true,
   })  : userManagementService =
             userManagementService ?? AdminUserManagementService(),
         localEmailNotificationService =
@@ -22,6 +23,7 @@ class AdminUserManagementScreen extends StatefulWidget {
   final LocalEmailNotificationService localEmailNotificationService;
   final SmsNotificationService smsNotificationService;
   final bool enforceRoleGuard;
+  final bool buildFullScaffold;
 
   @override
   State<AdminUserManagementScreen> createState() =>
@@ -30,7 +32,7 @@ class AdminUserManagementScreen extends StatefulWidget {
 
 class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   final TextEditingController _searchController = TextEditingController();
-  String _selectedRoleFilter = 'all'; // 'all', 'visitor', 'local', 'admin'
+  String _selectedRoleFilter = 'all'; // 'all', 'visitor', 'business_owner', 'admin'
   String _selectedStatusFilter =
       'all'; // 'all', 'active', 'inactive', 'pending', 'approved', 'rejected'
   String _sortOrder = 'newest'; // 'newest', 'oldest', 'name'
@@ -229,10 +231,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       filtered = filtered
           .where((u) => u.role == 'local' && u.isBusinessOwner)
           .toList();
-    } else if (_selectedRoleFilter == 'local') {
-      filtered = filtered
-          .where((u) => u.role == 'local' && !u.isBusinessOwner)
-          .toList();
     } else if (_selectedRoleFilter != 'all') {
       filtered = filtered
           .where((u) => u.role.toLowerCase() == _selectedRoleFilter)
@@ -279,11 +277,9 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: CustomScrollView(
-        physics: const ClampingScrollPhysics(),
-        slivers: [
+    final customScrollView = CustomScrollView(
+      physics: const ClampingScrollPhysics(),
+      slivers: [
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.only(
@@ -305,7 +301,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w800,
-                            color: AppPalette.charcoal,
+                            color: AdminNeonTheme.textPrimary,
                           ),
                         ),
                         SizedBox(height: 2),
@@ -314,7 +310,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
-                            color: AppPalette.mutedText,
+                            color: AdminNeonTheme.textSecondary,
                           ),
                         ),
                       ],
@@ -330,30 +326,26 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Container(
-                decoration: BoxDecoration(
-                  color: AppPalette.surface.withValues(alpha: 0.92),
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                decoration: AdminNeonTheme.glassCard(
+                  accent: AdminNeonTheme.neonBlue,
+                  radius: 30,
+                  borderOpacity: 0.35,
+                  borderWidth: 1,
                 ),
                 child: TextField(
                   controller: _searchController,
                   onChanged: (_) => setState(() {}),
+                  style: const TextStyle(color: AdminNeonTheme.textPrimary),
                   decoration: InputDecoration(
                     hintText: 'Search by name or email...',
                     hintStyle: TextStyle(
-                      color: AppPalette.mutedText,
+                      color: AdminNeonTheme.textMuted,
                       fontWeight: FontWeight.w500,
                     ),
                     prefixIcon: const Icon(Icons.search_rounded,
-                        color: AppPalette.mutedText),
+                        color: AdminNeonTheme.textMuted),
                     suffixIcon: const Icon(Icons.mic_rounded,
-                        color: AppPalette.mutedText),
+                        color: AdminNeonTheme.textMuted),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   ),
@@ -373,7 +365,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: AppPalette.charcoal,
+                  color: AdminNeonTheme.textPrimary,
                 ),
               ),
             ),
@@ -413,14 +405,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                   ),
                   const SizedBox(width: 8),
                   _FilterChipStyled(
-                    icon: Icons.place_rounded,
-                    label: 'Locals',
-                    selected: _selectedRoleFilter == 'local',
-                    onTap: () => setState(() => _selectedRoleFilter =
-                        _selectedRoleFilter == 'local' ? 'all' : 'local'),
-                  ),
-                  const SizedBox(width: 8),
-                  _FilterChipStyled(
                     icon: Icons.shield_rounded,
                     label: 'Admins',
                     selected: _selectedRoleFilter == 'admin',
@@ -443,7 +427,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: AppPalette.charcoal,
+                  color: AdminNeonTheme.textPrimary,
                 ),
               ),
             ),
@@ -517,7 +501,9 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const SliverFillRemaining(
-                  child: Center(child: CircularProgressIndicator()),
+                  child: Center(
+                    child: CircularProgressIndicator(color: AdminNeonTheme.neonOrange),
+                  ),
                 );
               }
 
@@ -529,7 +515,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                       child: Text(
                         'Error loading users: ${snapshot.error}',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppPalette.charcoal),
+                        style: const TextStyle(color: AdminNeonTheme.textPrimary),
                       ),
                     ),
                   ),
@@ -541,7 +527,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                 return const SliverFillRemaining(
                   child: Center(
                     child: Text('No users found',
-                        style: TextStyle(color: AppPalette.charcoal)),
+                        style: TextStyle(color: AdminNeonTheme.textSecondary)),
                   ),
                 );
               }
@@ -561,7 +547,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
-                              color: AppPalette.ochre,
+                              color: AdminNeonTheme.neonOrange,
                             ),
                           ),
                           const SizedBox(width: 6),
@@ -570,20 +556,27 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: AppPalette.charcoal,
+                              color: AdminNeonTheme.textPrimary,
                             ),
                           ),
                           const Spacer(),
                           PopupMenuButton<String>(
+                            color: AdminNeonTheme.glassSurfaceAlt,
                             onSelected: (value) =>
                                 setState(() => _sortOrder = value),
-                            itemBuilder: (ctx) => [
-                              const PopupMenuItem(
-                                  value: 'newest', child: Text('Newest')),
-                              const PopupMenuItem(
-                                  value: 'oldest', child: Text('Oldest')),
-                              const PopupMenuItem(
-                                  value: 'name', child: Text('Name')),
+                            itemBuilder: (ctx) => const [
+                              PopupMenuItem(
+                                  value: 'newest',
+                                  child: Text('Newest',
+                                      style: TextStyle(color: AdminNeonTheme.textPrimary))),
+                              PopupMenuItem(
+                                  value: 'oldest',
+                                  child: Text('Oldest',
+                                      style: TextStyle(color: AdminNeonTheme.textPrimary))),
+                              PopupMenuItem(
+                                  value: 'name',
+                                  child: Text('Name',
+                                      style: TextStyle(color: AdminNeonTheme.textPrimary))),
                             ],
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -593,7 +586,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
-                                    color: AppPalette.mutedText,
+                                    color: AdminNeonTheme.textSecondary,
                                   ),
                                 ),
                                 Text(
@@ -606,11 +599,11 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
                                     fontStyle: FontStyle.italic,
-                                    color: AppPalette.charcoal,
+                                    color: AdminNeonTheme.textPrimary,
                                   ),
                                 ),
                                 Icon(Icons.arrow_drop_down,
-                                    color: AppPalette.mutedText, size: 20),
+                                    color: AdminNeonTheme.textSecondary, size: 20),
                               ],
                             ),
                           ),
@@ -624,7 +617,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                     const SliverFillRemaining(
                       child: Center(
                         child: Text('No users match your filters',
-                            style: TextStyle(color: AppPalette.charcoal)),
+                            style: TextStyle(color: AdminNeonTheme.textSecondary)),
                       ),
                     )
                   else
@@ -661,8 +654,17 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
             },
           ),
         ],
-      ),
-    );
+      );
+    
+    // Return with or without Scaffold wrapper based on buildFullScaffold
+    if (widget.buildFullScaffold) {
+      return Scaffold(
+        backgroundColor: AdminNeonTheme.bgDeepNavy,
+        body: customScrollView,
+      );
+    } else {
+      return customScrollView;
+    }
   }
 }
 
@@ -692,13 +694,13 @@ class _FilterChipStyled extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: selected
-              ? AppPalette.ochre
-              : AppPalette.surface.withValues(alpha: 0.9),
+              ? AdminNeonTheme.neonOrange
+              : AdminNeonTheme.glassSurface.withValues(alpha: 0.85),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: selected
-                ? AppPalette.ochre
-                : AppPalette.border.withValues(alpha: 0.6),
+                ? AdminNeonTheme.neonOrange
+                : AdminNeonTheme.glassBorder,
           ),
         ),
         child: Row(
@@ -719,7 +721,7 @@ class _FilterChipStyled extends StatelessWidget {
                   size: 16,
                   color: selected
                       ? Colors.white
-                      : (iconColor ?? AppPalette.mutedText)),
+                      : (iconColor ?? AdminNeonTheme.textSecondary)),
               const SizedBox(width: 6),
             ],
             Text(
@@ -727,7 +729,7 @@ class _FilterChipStyled extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: selected ? Colors.white : AppPalette.charcoal,
+                color: selected ? Colors.white : AdminNeonTheme.textPrimary,
               ),
             ),
           ],
@@ -738,7 +740,7 @@ class _FilterChipStyled extends StatelessWidget {
 }
 
 // ── Redesigned user card ──
-class _UserCard extends StatelessWidget {
+class _UserCard extends StatefulWidget {
   final AdminUserRecord user;
   final VoidCallback? onDeactivate;
   final VoidCallback? onReactivate;
@@ -754,267 +756,279 @@ class _UserCard extends StatelessWidget {
   });
 
   @override
+  State<_UserCard> createState() => _UserCardState();
+}
+
+class _UserCardState extends State<_UserCard> {
+  bool _hovered = false;
+
+  AdminUserRecord get user => widget.user;
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppPalette.surface.withValues(alpha: 0.88),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppPalette.border.withValues(alpha: 0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Orange avatar
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: AppPalette.ochre.withValues(alpha: 0.15),
-                child: Text(
-                  user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: AppPalette.ochre,
-                    fontSize: 18,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.all(14),
+        decoration: AdminNeonTheme.glassCard(
+          accent: AdminNeonTheme.neonBlue,
+          radius: 14,
+          borderOpacity: _hovered ? 0.7 : 0.35,
+          borderWidth: _hovered ? 1.6 : 1.1,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Orange avatar
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: AdminNeonTheme.neonOrange.withValues(alpha: 0.16),
+                  child: Text(
+                    user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AdminNeonTheme.neonOrange,
+                      fontSize: 17,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
+                const SizedBox(width: 12),
 
-              // Name + role badge + email + created
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            user.name,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: AppPalette.charcoal,
+                // Name + role badge + email + created
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              user.name,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: AdminNeonTheme.textPrimary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppPalette.charcoal,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            user.role.toUpperCase(),
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                              letterSpacing: 0.5,
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AdminNeonTheme.neonBlue.withValues(alpha: 0.16),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: AdminNeonTheme.neonBlue.withValues(alpha: 0.4),
+                              ),
                             ),
+                            child: Text(
+                              user.role.toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: AdminNeonTheme.neonBlue,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (user.role == 'local') ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          'Approval: ${_approvalLabel(user.approvalStatus)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _approvalColor(user.approvalStatus),
                           ),
                         ),
                       ],
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          const Icon(Icons.mail_outline_rounded,
+                              size: 14, color: AdminNeonTheme.textMuted),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              user.email,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AdminNeonTheme.textSecondary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          const Icon(Icons.calendar_today_rounded,
+                              size: 14, color: AdminNeonTheme.textMuted),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Created: ${_formatDateTime(user.createdAt ?? DateTime.now())}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AdminNeonTheme.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Status badge - green/red reserved for account status only.
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (user.active ? Colors.green : Colors.red)
+                        .withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: (user.active ? Colors.green : Colors.red)
+                          .withValues(alpha: 0.45),
                     ),
-                    if (user.role == 'local') ...[
-                      const SizedBox(height: 4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: user.active ? Colors.green : Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
                       Text(
-                        'Approval: ${_approvalLabel(user.approvalStatus)}',
+                        user.active ? 'Active' : 'Inactive',
                         style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: _approvalColor(user.approvalStatus),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: user.active
+                              ? Colors.green.shade300
+                              : Colors.red.shade300,
                         ),
                       ),
                     ],
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.mail_outline_rounded,
-                            size: 14, color: AppPalette.mutedText),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            user.email,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppPalette.charcoal,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        const Icon(Icons.calendar_today_rounded,
-                            size: 14, color: AppPalette.mutedText),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Created: ${_formatDateTime(user.createdAt ?? DateTime.now())}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppPalette.mutedText,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              // Status badge
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color:
-                      user.active ? Colors.green.shade50 : Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: user.active
-                        ? Colors.green.shade300
-                        : Colors.red.shade300,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: BoxDecoration(
-                        color: user.active
-                            ? Colors.green.shade600
-                            : Colors.red.shade600,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      user.active ? 'Active' : 'Inactive',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: user.active
-                            ? Colors.green.shade700
-                            : Colors.red.shade700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          // Action buttons
-          const SizedBox(height: 12),
-
-          if (user.role == 'local' &&
-              (user.approvalStatus ?? 'pending') == 'pending')
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: onApprove,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text('Approve Local'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: onReject,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text('Reject Local'),
                   ),
                 ),
               ],
             ),
 
-          if (user.role == 'local' &&
-              (user.approvalStatus ?? 'pending') == 'pending')
-            const SizedBox(height: 8),
+            // Action buttons
+            const SizedBox(height: 10),
 
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              OutlinedButton(
-                onPressed: user.active ? onDeactivate : onReactivate,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppPalette.ochre,
-                  side: const BorderSide(color: AppPalette.ochre),
-                  shape: RoundedRectangleBorder(
+            if (user.role == 'local' &&
+                (user.approvalStatus ?? 'pending') == 'pending')
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: widget.onApprove,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF22C55E),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Approve Local'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: widget.onReject,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AdminNeonTheme.neonRed,
+                        side: const BorderSide(color: AdminNeonTheme.neonRed),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Reject Local'),
+                    ),
+                  ),
+                ],
+              ),
+
+            if (user.role == 'local' &&
+                (user.approvalStatus ?? 'pending') == 'pending')
+              const SizedBox(height: 8),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton(
+                  onPressed: user.active ? widget.onDeactivate : widget.onReactivate,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AdminNeonTheme.neonOrange,
+                    side: const BorderSide(color: AdminNeonTheme.neonOrange),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  ),
+                  child: Text(user.active ? 'View' : 'Reactivate'),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AdminNeonTheme.glassBorder),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                ),
-                child: Text(user.active ? 'View' : 'Reactivate'),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppPalette.border),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert_rounded,
-                      color: AppPalette.charcoal, size: 20),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
+                  child: PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert_rounded,
+                        color: AdminNeonTheme.textSecondary, size: 20),
+                    padding: EdgeInsets.zero,
+                    color: AdminNeonTheme.glassSurfaceAlt,
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
+                    onSelected: (value) {
+                      if (value == 'deactivate') {
+                        widget.onDeactivate?.call();
+                      } else if (value == 'reactivate') {
+                        widget.onReactivate?.call();
+                      }
+                    },
+                    itemBuilder: (ctx) => [
+                      if (user.active)
+                        const PopupMenuItem(
+                          value: 'deactivate',
+                          child: Text('Deactivate Account',
+                              style: TextStyle(color: AdminNeonTheme.textPrimary)),
+                        )
+                      else
+                        const PopupMenuItem(
+                          value: 'reactivate',
+                          child: Text('Reactivate Account',
+                              style: TextStyle(color: AdminNeonTheme.textPrimary)),
+                        ),
+                    ],
                   ),
-                  onSelected: (value) {
-                    if (value == 'deactivate') {
-                      onDeactivate?.call();
-                    } else if (value == 'reactivate') {
-                      onReactivate?.call();
-                    }
-                  },
-                  itemBuilder: (ctx) => [
-                    if (user.active)
-                      const PopupMenuItem(
-                        value: 'deactivate',
-                        child: Text('Deactivate Account'),
-                      )
-                    else
-                      const PopupMenuItem(
-                        value: 'reactivate',
-                        child: Text('Reactivate Account'),
-                      ),
-                  ],
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1033,11 +1047,11 @@ class _UserCard extends StatelessWidget {
   Color _approvalColor(String? approvalStatus) {
     switch ((approvalStatus ?? 'pending').toLowerCase()) {
       case 'approved':
-        return Colors.green.shade700;
+        return Colors.green.shade300;
       case 'rejected':
-        return Colors.red.shade700;
+        return Colors.red.shade300;
       default:
-        return Colors.orange.shade700;
+        return AdminNeonTheme.neonOrange;
     }
   }
 

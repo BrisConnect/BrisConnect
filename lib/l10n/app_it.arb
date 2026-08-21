@@ -4,7 +4,7 @@
   "signIn": "Accedi",
   "signUp": "Registrati",
   "signOut": "Esci",
-  "email": "Email",
+  "email": "E-mail",
   "password": "Password",
   "phone": "Telefono",
   "name": "Nome",
@@ -243,7 +243,7 @@
       }
     }
   },
-  "categoryLabel": "Categoria: {category}",
+  "categoryLabel": "Category: {category}",
   "@categoryLabel": {
     "placeholders": {
       "category": {
@@ -251,7 +251,7 @@
       }
     }
   },
-  "severityLabel": "Gravità: {severity}",
+  "severityLabel": "Severity: {severity}",
   "@severityLabel": {
     "placeholders": {
       "severity": {
@@ -288,7 +288,7 @@
   "businessNotifications": "Notifiche aziendali",
   "about": "Di",
   "aboutDescription": "BrisConnect+ è una guida intelligente della città che aiuta i visitatori e la gente del posto a scoprire eventi, esplorare attrazioni e catturare le loro esperienze a Brisbane in un'unica piattaforma connessa.",
-  "versionLabel": "Versione {version}",
+  "versionLabel": "Version {version}",
   "@versionLabel": {
     "placeholders": {
       "version": {
@@ -319,5 +319,39 @@
   "statusPending": "In attesa di",
   "statusInProgress": "In corso",
   "statusResolved": "Risolto",
-  "statusWontFix": "Non risolverà"
+  "statusWontFix": "Non risolverà",
+  "@@locale": "it",
+  "foodBusinessDetails": "Dettagli aziendali",
+  "aboutThisFoodExperience": "Informazioni su questa esperienza culinaria",
+  "highlights": "Punti salienti",
+  "contactAndLinks": "Contatti e link",
+  "gallery": "Galleria",
+  "openingHours": "Orari di apertura",
+  "menu": "Menu",
+  "menuFallback": "Menu",
+  "call": "Chiamata",
+  "website": "Sito web",
+  "orderOnline": "Ordina online",
+  "viewOnMap": "Visualizza sulla mappa",
+  "foodDiscoveryGuide": "Guida alla scoperta del cibo",
+  "foodDiscoveryGuideHelper": "Tocca play per ascoltare la tua Guida alla Scoperta del Cibo che descrive questo locale e i suoi punti di forza.",
+  "stop": "Fermare",
+  "unableToStartNarration": "Impossibile avviare la narrazione della Guida alla scoperta del cibo in questo momento.",
+  "unableToCallNumber": "Impossibile chiamare questo numero in questo momento.",
+  "unableToSendEmail": "Impossibile inviare l&#39;email in questo momento.",
+  "foodSpotCannotBeShared": "Questo locale non può essere condiviso al momento.",
+  "foodDescriptionIntro": "Step into {title}, a {cuisine} destination in the heart of {location}.",
+  "foodDescriptionRating": "Apprezzato sia dai residenti che dai turisti, vanta una valutazione di {rating} stelle.",
+  "foodDescriptionCategories": "The menu celebrates {categories}, crafted with fresh, locally sourced ingredients.",
+  "foodDescriptionPrice": "Expect a {price} experience that balances quality and value.",
+  "foodDescriptionOutro": "Che siate alla ricerca di un brunch rilassante, di un pranzo di lavoro o di una cena vivace, {title} offre un&#39;atmosfera accogliente e sapori che rispecchiano la scena gastronomica di Brisbane.",
+  "foodNarrationBadge": "This is a {badge} stop worth adding to your Brisbane food trail",
+  "foodNarrationCuisine": "It is best known for {cuisine}",
+  "foodNarrationLocation": "You will find it in {location}, where the local dining scene comes alive",
+  "foodNarrationDateTime": "You can usually visit during {dateTime}",
+  "foodNarrationDescription": "Here's what the experience feels like. {description}",
+  "foodNarrationPriceFree": "There is no entry cost to explore this food spot",
+  "foodNarrationPrice": "Pricing is listed as {price}",
+  "foodNarrationRating": "Visitors currently rate it {rating} out of 5",
+  "foodNarrationCategories": "Expect a mix of {categories}"
 }

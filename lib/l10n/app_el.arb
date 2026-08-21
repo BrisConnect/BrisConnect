@@ -4,7 +4,7 @@
   "signIn": "Σύνδεση",
   "signUp": "Εγγραφή",
   "signOut": "Αποσύνδεση",
-  "email": "Email",
+  "email": "E-mail",
   "password": "Κωδικός πρόσβασης",
   "phone": "Τηλέφωνο",
   "name": "Όνομα",
@@ -243,7 +243,7 @@
       }
     }
   },
-  "categoryLabel": "Κατηγορία: {category}",
+  "categoryLabel": "Category: {category}",
   "@categoryLabel": {
     "placeholders": {
       "category": {
@@ -251,7 +251,7 @@
       }
     }
   },
-  "severityLabel": "Σοβαρότητα: {severity}",
+  "severityLabel": "Severity: {severity}",
   "@severityLabel": {
     "placeholders": {
       "severity": {
@@ -288,7 +288,7 @@
   "businessNotifications": "Ειδοποιήσεις επιχειρήσεων",
   "about": "Για",
   "aboutDescription": "Το BrisConnect+ είναι ένας έξυπνος οδηγός πόλης που βοηθά τους επισκέπτες και τους ντόπιους να ανακαλύψουν εκδηλώσεις, να εξερευνήσουν αξιοθέατα και να αποτυπώσουν τις εμπειρίες τους στο Brisbane σε μια συνδεδεμένη πλατφόρμα.",
-  "versionLabel": "Έκδοση {version}",
+  "versionLabel": "Version {version}",
   "@versionLabel": {
     "placeholders": {
       "version": {
@@ -319,5 +319,41 @@
   "statusPending": "Εκκρεμής",
   "statusInProgress": "Σε εξέλιξη",
   "statusResolved": "Αποφασισμένος",
-  "statusWontFix": "Δεν θα διορθωθεί"
+  "statusWontFix": "Δεν θα διορθωθεί",
+  "@@locale": "el",
+  "languagePunjabi": "Παντζάμπι",
+  "foodBusinessDetails": "Στοιχεία Επιχείρησης",
+  "aboutThisFoodExperience": "Σχετικά με αυτήν την εμπειρία φαγητού",
+  "highlights": "Ανταύγειες",
+  "contactAndLinks": "Επικοινωνία &amp; Σύνδεσμοι",
+  "gallery": "Στοά",
+  "openingHours": "Ώρες Λειτουργίας",
+  "menu": "Μενού",
+  "menuFallback": "Μενού",
+  "call": "Κλήση",
+  "website": "Δικτυακός τόπος",
+  "orderOnline": "Παραγγείλτε online",
+  "viewOnMap": "Προβολή στον χάρτη",
+  "foodDiscoveryGuide": "Οδηγός Ανακάλυψης Τροφίμων",
+  "foodDiscoveryGuideHelper": "Πατήστε αναπαραγωγή για να ακούσετε τον Οδηγό Ανακάλυψης Γαστρονομίας σας να περιγράφει αυτό το μέρος για φαγητό και τα σημαντικότερα σημεία του.",
+  "stop": "Στάση",
+  "unableToStartNarration": "Δεν είναι δυνατή η έναρξη της αφήγησης του Οδηγού Ανακάλυψης Τροφίμων αυτήν τη στιγμή.",
+  "unableToCallNumber": "Δεν είναι δυνατή η κλήση αυτού του αριθμού αυτήν τη στιγμή.",
+  "unableToSendEmail": "Δεν είναι δυνατή η αποστολή email αυτήν τη στιγμή.",
+  "foodSpotCannotBeShared": "Αυτό το μέρος για φαγητό δεν μπορεί να κοινοποιηθεί αυτήν τη στιγμή.",
+  "foodDescriptionIntro": "Step into {title}, a {cuisine} destination in the heart of {location}.",
+  "foodDescriptionRating": "Αγαπημένο τόσο από τους ντόπιους όσο και από τους επισκέπτες, έχει βαθμολογία {rating}-αστέρια.",
+  "foodDescriptionCategories": "The menu celebrates {categories}, crafted with fresh, locally sourced ingredients.",
+  "foodDescriptionPrice": "Expect a {price} experience that balances quality and value.",
+  "foodDescriptionOutro": "Είτε ψάχνετε για ένα χαλαρό brunch, ένα επαγγελματικό γεύμα ή ένα ζωντανό δείπνο, το {title} προσφέρει μια φιλόξενη ατμόσφαιρα και γεύσεις που αποτυπώνουν την γαστρονομική σκηνή της Μπρίσμπεϊν.",
+  "foodNarrationWelcome": "Welcome to {title}",
+  "foodNarrationBadge": "This is a {badge} stop worth adding to your Brisbane food trail",
+  "foodNarrationCuisine": "It is best known for {cuisine}",
+  "foodNarrationLocation": "You will find it in {location}, where the local dining scene comes alive",
+  "foodNarrationDateTime": "You can usually visit during {dateTime}",
+  "foodNarrationDescription": "Here's what the experience feels like. {description}",
+  "foodNarrationPriceFree": "There is no entry cost to explore this food spot",
+  "foodNarrationPrice": "Pricing is listed as {price}",
+  "foodNarrationRating": "Visitors currently rate it {rating} out of 5",
+  "foodNarrationCategories": "Expect a mix of {categories}"
 }

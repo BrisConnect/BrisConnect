@@ -24,7 +24,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get signOut => 'Αποσύνδεση';
 
   @override
-  String get email => 'Email';
+  String get email => 'E-mail';
 
   @override
   String get password => 'Κωδικός πρόσβασης';
@@ -526,12 +526,12 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String categoryLabel(String category) {
-    return 'Κατηγορία: $category';
+    return 'Category: $category';
   }
 
   @override
   String severityLabel(String severity) {
-    return 'Σοβαρότητα: $severity';
+    return 'Severity: $severity';
   }
 
   @override
@@ -577,7 +577,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get languageGreek => 'Έλληνας';
 
   @override
-  String get languagePunjabi => 'Punjabi';
+  String get languagePunjabi => 'Παντζάμπι';
 
   @override
   String get discoverTitle => 'Ανακαλύψτε το τοπικό φαγητό';
@@ -608,7 +608,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String versionLabel(String version) {
-    return 'Έκδοση $version';
+    return 'Version $version';
   }
 
   @override
@@ -690,64 +690,66 @@ class AppLocalizationsEl extends AppLocalizations {
   String get statusWontFix => 'Δεν θα διορθωθεί';
 
   @override
-  String get foodBusinessDetails => 'Business Details';
+  String get foodBusinessDetails => 'Στοιχεία Επιχείρησης';
 
   @override
-  String get aboutThisFoodExperience => 'About this Food Experience';
+  String get aboutThisFoodExperience => 'Σχετικά με αυτήν την εμπειρία φαγητού';
 
   @override
-  String get highlights => 'Highlights';
+  String get highlights => 'Ανταύγειες';
 
   @override
-  String get contactAndLinks => 'Contact & Links';
+  String get contactAndLinks => 'Επικοινωνία &amp; Σύνδεσμοι';
 
   @override
-  String get gallery => 'Gallery';
+  String get gallery => 'Στοά';
 
   @override
-  String get openingHours => 'Opening Hours';
+  String get openingHours => 'Ώρες Λειτουργίας';
 
   @override
-  String get menu => 'Menu';
+  String get menu => 'Μενού';
 
   @override
-  String get menuFallback => 'Menu';
+  String get menuFallback => 'Μενού';
 
   @override
-  String get call => 'Call';
+  String get call => 'Κλήση';
 
   @override
-  String get website => 'Website';
+  String get website => 'Δικτυακός τόπος';
 
   @override
-  String get orderOnline => 'Order Online';
+  String get orderOnline => 'Παραγγείλτε online';
 
   @override
-  String get viewOnMap => 'View on Map';
+  String get viewOnMap => 'Προβολή στον χάρτη';
 
   @override
-  String get foodDiscoveryGuide => 'Food Discovery Guide';
+  String get foodDiscoveryGuide => 'Οδηγός Ανακάλυψης Τροφίμων';
 
   @override
   String get foodDiscoveryGuideHelper =>
-      'Tap play to hear your Food Discovery Guide describe this food spot and its highlights.';
+      'Πατήστε αναπαραγωγή για να ακούσετε τον Οδηγό Ανακάλυψης Γαστρονομίας σας να περιγράφει αυτό το μέρος για φαγητό και τα σημαντικότερα σημεία του.';
 
   @override
-  String get stop => 'Stop';
+  String get stop => 'Στάση';
 
   @override
   String get unableToStartNarration =>
-      'Unable to start Food Discovery Guide narration right now.';
+      'Δεν είναι δυνατή η έναρξη της αφήγησης του Οδηγού Ανακάλυψης Τροφίμων αυτήν τη στιγμή.';
 
   @override
-  String get unableToCallNumber => 'Unable to call this number right now.';
+  String get unableToCallNumber =>
+      'Δεν είναι δυνατή η κλήση αυτού του αριθμού αυτήν τη στιγμή.';
 
   @override
-  String get unableToSendEmail => 'Unable to send email right now.';
+  String get unableToSendEmail =>
+      'Δεν είναι δυνατή η αποστολή email αυτήν τη στιγμή.';
 
   @override
   String get foodSpotCannotBeShared =>
-      'This food spot cannot be shared right now.';
+      'Αυτό το μέρος για φαγητό δεν μπορεί να κοινοποιηθεί αυτήν τη στιγμή.';
 
   @override
   String foodDescriptionIntro(String title, String cuisine, String location) {
@@ -756,7 +758,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String foodDescriptionRating(String rating) {
-    return 'Loved by locals and visitors alike, it holds a $rating-star rating.';
+    return 'Αγαπημένο τόσο από τους ντόπιους όσο και από τους επισκέπτες, έχει βαθμολογία $rating-αστέρια.';
   }
 
   @override
@@ -771,7 +773,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String foodDescriptionOutro(String title) {
-    return 'Whether you are after a relaxed brunch, a business lunch, or a lively dinner, $title offers a welcoming atmosphere and flavours that capture Brisbane\'s dining scene.';
+    return 'Είτε ψάχνετε για ένα χαλαρό brunch, ένα επαγγελματικό γεύμα ή ένα ζωντανό δείπνο, το $title προσφέρει μια φιλόξενη ατμόσφαιρα και γεύσεις που αποτυπώνουν την γαστρονομική σκηνή της Μπρίσμπεϊν.';
   }
 
   @override

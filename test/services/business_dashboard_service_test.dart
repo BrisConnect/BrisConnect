@@ -130,7 +130,6 @@ void main() {
       expect(metrics.profileViews, 0);
       expect(metrics.saves, 0);
       expect(metrics.activePromotions, 0);
-      expect(metrics.upcomingEvents, 0);
       expect(metrics.newReviews, 0);
     });
 
@@ -267,7 +266,6 @@ void main() {
 
       final metrics = await service.getMetrics('owner@test.com');
       expect(metrics.activePromotions, 1);
-      expect(metrics.upcomingEvents, 1);
     });
 
     test('newReviews counted within rolling 7-day window', () async {

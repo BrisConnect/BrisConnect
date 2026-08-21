@@ -496,12 +496,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String categoryLabel(String category) {
-    return '类别： $category';
+    return 'Category: $category';
   }
 
   @override
   String severityLabel(String severity) {
-    return '严重性：$severity';
+    return 'Severity: $severity';
   }
 
   @override
@@ -547,7 +547,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get languageGreek => '希腊语';
 
   @override
-  String get languagePunjabi => 'Punjabi';
+  String get languagePunjabi => '旁遮普语';
 
   @override
   String get discoverTitle => '探索当地美食';
@@ -578,7 +578,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String versionLabel(String version) {
-    return '版本 $version';
+    return 'Version $version';
   }
 
   @override
@@ -712,7 +712,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String foodDescriptionIntro(String title, String cuisine, String location) {
-    return '走进$title，这是位于$location中心的一家$cuisine餐厅。';
+    return 'Step into $title, a $cuisine destination in the heart of $location.';
   }
 
   @override
@@ -722,12 +722,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String foodDescriptionCategories(String categories) {
-    return '菜单主打$categories，采用新鲜的本地食材精心烹制。';
+    return 'The menu celebrates $categories, crafted with fresh, locally sourced ingredients.';
   }
 
   @override
   String foodDescriptionPrice(String price) {
-    return '期待一次物有所值的$price体验。';
+    return 'Expect a $price experience that balances quality and value.';
   }
 
   @override
@@ -737,49 +737,50 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String foodNarrationWelcome(String title) {
-    return '欢迎来到$title';
+    return 'Welcome to $title';
   }
 
   @override
   String foodNarrationBadge(String badge) {
-    return '这是一个值得加入布里斯班美食之旅的$badge站点';
+    return 'This is a $badge stop worth adding to your Brisbane food trail';
   }
 
   @override
   String foodNarrationCuisine(String cuisine) {
-    return '它以$cuisine最为出名';
+    return 'It is best known for $cuisine';
   }
 
   @override
   String foodNarrationLocation(String location) {
-    return '您可以在$location找到它，那里的当地餐饮氛围十分活跃';
+    return 'You will find it in $location, where the local dining scene comes alive';
   }
 
   @override
   String foodNarrationDateTime(String dateTime) {
-    return '您通常可以在$dateTime期间光临';
+    return 'You can usually visit during $dateTime';
   }
 
   @override
   String foodNarrationDescription(String description) {
-    return '以下是此体验的感受。$description';
+    return 'Here\'s what the experience feels like. $description';
   }
 
   @override
-  String get foodNarrationPriceFree => '探索这个美食地点无需入场费用';
+  String get foodNarrationPriceFree =>
+      'There is no entry cost to explore this food spot';
 
   @override
   String foodNarrationPrice(String price) {
-    return '价格标注为$price';
+    return 'Pricing is listed as $price';
   }
 
   @override
   String foodNarrationRating(String rating) {
-    return '游客目前给它评分为$rating分（满分5分）';
+    return 'Visitors currently rate it $rating out of 5';
   }
 
   @override
   String foodNarrationCategories(String categories) {
-    return '可以品尝到$categories等多种风味';
+    return 'Expect a mix of $categories';
   }
 }

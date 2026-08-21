@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/models/visitor_photo.dart';
+import 'package:brisconnect/services/photo_report_service.dart';
 import 'package:brisconnect/services/visitor_photo_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/visitor_photo_upload_sheet.dart';
@@ -112,6 +113,54 @@ class _PhotoTile extends StatelessWidget {
 
   const _PhotoTile({required this.photo});
 
+  Future<void> _showReportSheet(BuildContext context) async {
+    final visitorEmail = VisitorAuth.currentVisitor?.email;
+    if (visitorEmail == null || visitorEmail.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in as a Visitor to report a photo.')),
+      );
+      return;
+    }
+
+    final reason = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text('Report this photo',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+            for (final reason in PhotoReportService.reportReasons)
+              ListTile(
+                title: Text(PhotoReportService.getReasonLabel(reason)),
+                onTap: () => Navigator.pop(ctx, reason),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (reason == null) return;
+
+    final submitted = await PhotoReportService().submitReport(
+      photoId: photo.id,
+      visitorEmail: visitorEmail,
+      reason: reason,
+    );
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(submitted
+            ? 'Report submitted. Thank you for helping keep our community safe.'
+            : 'Could not submit report. Please try again.'),
+        backgroundColor: submitted ? Colors.green : Colors.red,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
@@ -168,6 +217,22 @@ class _PhotoTile extends StatelessWidget {
                 ),
               ),
             ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: GestureDetector(
+              onTap: () => _showReportSheet(context),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.flag_outlined,
+                    color: Colors.white, size: 14),
+              ),
+            ),
+          ),
         ],
       ),
     );

@@ -6,14 +6,12 @@ import 'package:brisconnect/models/activity_feed_item.dart';
 
 /// Service for the Visitor community activity feed.
 ///
-/// Aggregates visible, moderated content from multiple sources:
+/// Aggregates visible content from multiple sources:
 /// - reviews (visitor recommendations)
 /// - business_events (published events)
 /// - businesses (newly listed food businesses)
 /// - promotions (scheduled promotions and published AI-generated promotions)
-///
-/// Photos are represented by review and event images today. A dedicated
-/// `photos` collection can be added later without changing the public API.
+/// - visitor_photos (visitor-contributed business/event photos)
 class ActivityFeedService {
   static const int _defaultPageSize = 20;
   static const int _maxPageSize = 100;
@@ -28,22 +26,26 @@ class ActivityFeedService {
   /// Returns a real-time stream of the latest [limit] activity items across
   /// all supported content types.
   ///
-  /// The stream is appropriate for the initial feed load and automatically
-  /// reflects new posts within Firestore's snapshot latency (typically < 1s).
+  /// The stream reacts to changes in any source collection (reviews, events,
+  /// businesses, promotions, AI posts, and visitor photos) so a newly uploaded
+  /// photo appears in the "All" feed without waiting for a review to change.
   Stream<List<ActivityFeedItem>> activityFeedStream(
       {int limit = _defaultPageSize}) {
     final effectiveLimit = _clampLimit(limit);
-    return _recentVisibleReviewsStream(effectiveLimit)
-        .asyncMap((reviews) async {
-      final events = await _recentPublishedEventsFuture(effectiveLimit);
-      final businesses = await _recentBusinessesFuture(effectiveLimit);
-      final promotions = await _recentPromotionsFuture(effectiveLimit);
-      return _mergeAndDeduplicate([
-        ...reviews,
-        ...events,
-        ...businesses,
-        ...promotions,
-      ], effectiveLimit);
+    return _feedChangeTriggers(effectiveLimit).asyncMap((_) async {
+      // Fetch all sources in parallel instead of sequentially awaiting each
+      // one — this was the main cause of slow (2s+) community feed loads.
+      final results = await Future.wait([
+        _recentVisibleReviewsFuture(effectiveLimit),
+        _recentPublishedEventsFuture(effectiveLimit),
+        _recentBusinessesFuture(effectiveLimit),
+        _recentPromotionsFuture(effectiveLimit),
+        _recentVisitorPhotosFuture(effectiveLimit),
+      ]);
+      return _mergeAndDeduplicate(
+        results.expand((list) => list).toList(),
+        effectiveLimit,
+      );
     });
   }
 
@@ -74,12 +76,17 @@ class ActivityFeedService {
       effectiveLimit,
       startAfter: startAfter,
     );
+    final photosFuture = _recentVisitorPhotosFuture(
+      effectiveLimit,
+      startAfter: startAfter,
+    );
 
     final results = await Future.wait([
       reviewsFuture,
       eventsFuture,
       businessesFuture,
       promotionsFuture,
+      photosFuture,
     ]);
 
     final merged = _mergeAndDeduplicate(
@@ -120,14 +127,57 @@ class ActivityFeedService {
       case ActivityFeedType.business:
         return _recentPromotionsStream(effectiveLimit);
       case ActivityFeedType.photo:
-        // Photos are not yet stored as a separate collection. Surface review
-        // and event images as photo activity until a dedicated collection is
-        // introduced.
-        return activityFeedStream(limit: effectiveLimit)
-            .map((items) => items.where((i) => i.imageUrl.isNotEmpty).toList());
+        return _recentVisitorPhotosStream(effectiveLimit)
+            .map((items) => _sortByPriorityThenDate(items));
+      case ActivityFeedType.trending:
+        return activityFeedStream(limit: effectiveLimit * 2).map(
+          (items) => _sortByTrending(
+            _filterByPriorityAndDate(items, effectiveLimit),
+          ),
+        );
+      case ActivityFeedType.nearby:
+        return activityFeedStream(limit: effectiveLimit * 3);
+      case ActivityFeedType.following:
+        return activityFeedStream(limit: effectiveLimit * 3);
+      case ActivityFeedType.newest:
+        return activityFeedStream(limit: effectiveLimit).map(
+          (items) =>
+              _sortByPriorityThenDate(items.take(effectiveLimit).toList()),
+        );
+      case ActivityFeedType.popular:
+        return activityFeedStream(limit: effectiveLimit * 2).map(
+          (items) => _sortByTrending(
+            _filterByPriorityAndDate(items, effectiveLimit),
+          ),
+        );
       case ActivityFeedType.all:
         return activityFeedStream(limit: effectiveLimit);
     }
+  }
+
+  /// Filters a merged list to the requested limit after applying priority sort.
+  List<ActivityFeedItem> _filterByPriorityAndDate(
+    List<ActivityFeedItem> items,
+    int limit,
+  ) {
+    _sortByPriorityThenDate(items);
+    return items.take(limit * 2).toList();
+  }
+
+  /// Sorts items by a simple trending score: highlighted/pinned first, then
+  /// recency weighted by engagement signals when metadata is present.
+  List<ActivityFeedItem> _sortByTrending(List<ActivityFeedItem> items) {
+    final now = DateTime.now();
+    final scored = items.map((item) {
+      double score = 0;
+      if (item.isPinned) score += 200;
+      if (item.isHighlighted) score += 100;
+      final ageHours = now.difference(item.createdAt).inHours.clamp(0, 168);
+      score += (168 - ageHours) * 0.5;
+      return (item, score);
+    }).toList();
+    scored.sort((a, b) => b.$2.compareTo(a.$2));
+    return scored.map((e) => e.$1).toList();
   }
 
   /// Pin an item so it appears at the top of the community feed.
@@ -178,16 +228,29 @@ class ActivityFeedService {
   ///
   /// Uses content-specific moderation flags so the item is excluded by the
   /// feed parsers and cannot reappear.
-  Future<void> removeItem(ActivityFeedItem item) async {
+  ///
+  /// [adminEmail] is recorded on photo removals so they go through the same
+  /// soft-delete/recovery trail as photo-report moderation.
+  Future<void> removeItem(ActivityFeedItem item, {String? adminEmail}) async {
     final ref =
         _firestore.collection(_collectionForType(item.type)).doc(item.id);
     switch (item.type) {
       case ActivityFeedType.review:
-      case ActivityFeedType.photo:
         await ref.update({
           'visible': false,
           'isFlagged': true,
           'deletedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        break;
+      case ActivityFeedType.photo:
+        // 'status' is not consulted by the visitor-facing photo galleries
+        // (getApprovedPhotosForBusiness/Event only check deletedAt) — use the
+        // same soft-delete fields as photo-report moderation so the photo
+        // actually disappears everywhere and stays 30-day recoverable.
+        await ref.update({
+          'deletedAt': FieldValue.serverTimestamp(),
+          'deletedBy': adminEmail,
           'updatedAt': FieldValue.serverTimestamp(),
         });
         break;
@@ -204,21 +267,32 @@ class ActivityFeedService {
         });
         break;
       case ActivityFeedType.all:
-        throw ArgumentError('Cannot remove a feed item with type all');
+      case ActivityFeedType.trending:
+      case ActivityFeedType.nearby:
+      case ActivityFeedType.following:
+      case ActivityFeedType.newest:
+      case ActivityFeedType.popular:
+        throw ArgumentError('Cannot remove an aggregated feed item');
     }
   }
 
   String _collectionForType(ActivityFeedType type) {
     switch (type) {
       case ActivityFeedType.review:
-      case ActivityFeedType.photo:
         return 'reviews';
+      case ActivityFeedType.photo:
+        return 'visitor_photos';
       case ActivityFeedType.event:
         return 'business_events';
       case ActivityFeedType.business:
         return 'businesses';
       case ActivityFeedType.all:
-        throw ArgumentError('No single collection for type all');
+      case ActivityFeedType.trending:
+      case ActivityFeedType.nearby:
+      case ActivityFeedType.following:
+      case ActivityFeedType.newest:
+      case ActivityFeedType.popular:
+        throw ArgumentError('No single collection for type $type');
     }
   }
 
@@ -227,13 +301,91 @@ class ActivityFeedService {
     return limit > _maxPageSize ? _maxPageSize : limit;
   }
 
+  /// Emits whenever any source collection used by the "All" feed changes.
+  ///
+  /// Errors from a single collection (e.g. a missing composite index) are
+  /// swallowed so they do not break refreshes triggered by other collections.
+  Stream<void> _feedChangeTriggers(int limit) {
+    final controller = StreamController<void>.broadcast();
+    final queries = <Stream<QuerySnapshot<Map<String, dynamic>>>>[
+      _recentVisibleReviewsQuery(limit).snapshots(),
+      _firestore
+          .collection('business_events')
+          .where('status', isEqualTo: 'published')
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .snapshots(),
+      _businessFeedQuery(limit).snapshots(),
+      _firestore
+          .collection('food_businesses')
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .snapshots(),
+      _firestore
+          .collection('promotions')
+          .where('status', isEqualTo: 'active')
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .snapshots(),
+      _firestore
+          .collection('ai_generated_posts')
+          .where('status', isEqualTo: 'published')
+          .where('postType', isEqualTo: 'promotion')
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .snapshots(),
+      _firestore
+          .collection('visitor_photos')
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .snapshots(),
+    ];
+
+    var activeSubscriptions = queries.length;
+    Timer? debounce;
+
+    void emit() {
+      debounce?.cancel();
+      debounce = Timer(const Duration(milliseconds: 200), () {
+        if (!controller.isClosed) controller.add(null);
+      });
+    }
+
+    for (final stream in queries) {
+      stream.listen(
+        (_) => emit(),
+        onError: (_) {
+          // A missing index or permission error on one collection should not
+          // prevent the feed from refreshing when other collections change.
+        },
+        onDone: () {
+          activeSubscriptions--;
+          if (activeSubscriptions == 0 && !controller.isClosed) {
+            controller.close();
+          }
+        },
+      );
+    }
+
+    controller.onCancel = () {
+      debounce?.cancel();
+    };
+
+    return controller.stream;
+  }
+
   Stream<List<ActivityFeedItem>> _recentVisibleReviewsStream(int limit) {
-    return _recentVisibleReviewsQuery(limit).snapshots().map(
-          (snapshot) => snapshot.docs
-              .map(ActivityFeedItem.fromReviewDoc)
-              .where((item) => item != null)
-              .cast<ActivityFeedItem>()
-              .toList(),
+    return _recentVisibleReviewsQuery(limit)
+        .snapshots()
+        .asyncMap(
+          (snapshot) async {
+            final items = snapshot.docs
+                .map(ActivityFeedItem.fromReviewDoc)
+                .where((item) => item != null)
+                .cast<ActivityFeedItem>()
+                .toList();
+            return _enrichReviewsWithBusinessNames(items);
+          },
         );
   }
 
@@ -246,10 +398,165 @@ class ActivityFeedService {
       query = query.startAfter([Timestamp.fromDate(startAfter)]);
     }
     final snapshot = await query.get();
-    return snapshot.docs
+    final items = snapshot.docs
         .map(ActivityFeedItem.fromReviewDoc)
         .where((item) => item != null)
         .cast<ActivityFeedItem>()
+        .toList();
+    return _enrichReviewsWithBusinessNames(items);
+  }
+
+  Future<List<ActivityFeedItem>> _enrichReviewsWithBusinessNames(
+    List<ActivityFeedItem> items,
+  ) async {
+    final businessIds = items
+        .map((i) => i.targetId)
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final names = <String, String?>{};
+    for (final id in businessIds) {
+      try {
+        final doc = await _firestore.collection('businesses').doc(id).get();
+        if (doc.exists) {
+          names[id] = (doc.data()?['businessName'] ?? doc.data()?['name'])
+              ?.toString()
+              .trim();
+        } else {
+          final foodDoc =
+              await _firestore.collection('food_businesses').doc(id).get();
+          if (foodDoc.exists) {
+            names[id] =
+                (foodDoc.data()?['businessName'] ?? foodDoc.data()?['name'])
+                    ?.toString()
+                    .trim();
+          }
+        }
+      } catch (_) {
+        names[id] = null;
+      }
+    }
+    return items
+        .map(
+          (item) => names[item.targetId]?.isNotEmpty == true
+              ? ActivityFeedItem(
+                  id: item.id,
+                  type: item.type,
+                  title: item.title,
+                  subtitle: item.subtitle,
+                  body: item.body,
+                  imageUrl: item.imageUrl,
+                  createdAt: item.createdAt,
+                  isPinned: item.isPinned,
+                  pinnedAt: item.pinnedAt,
+                  isHighlighted: item.isHighlighted,
+                  highlightedAt: item.highlightedAt,
+                  targetId: item.targetId,
+                  secondaryTargetId: item.secondaryTargetId,
+                  promotionLabel: item.promotionLabel,
+                  eventSuburb: item.eventSuburb,
+                  isFreeEntry: item.isFreeEntry,
+                  actorName: item.actorName,
+                  actorPhotoUrl: item.actorPhotoUrl,
+                  businessName: names[item.targetId],
+                )
+              : item,
+        )
+        .toList();
+  }
+
+  Stream<List<ActivityFeedItem>> _recentVisitorPhotosStream(int limit) {
+    return _firestore
+        .collection('visitor_photos')
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .asyncMap(
+          (snapshot) async {
+            final items = snapshot.docs
+                .map(ActivityFeedItem.fromVisitorPhotoDoc)
+                .where((item) => item != null)
+                .cast<ActivityFeedItem>()
+                .toList();
+            return _enrichVisitorPhotosWithBusinessNames(items);
+          },
+        );
+  }
+
+  Future<List<ActivityFeedItem>> _recentVisitorPhotosFuture(
+    int limit, {
+    DateTime? startAfter,
+  }) async {
+    var query = _firestore
+        .collection('visitor_photos')
+        .orderBy('createdAt', descending: true)
+        .limit(limit);
+    if (startAfter != null) {
+      query = query.startAfter([Timestamp.fromDate(startAfter)]);
+    }
+    final snapshot = await query.get();
+    final items = snapshot.docs
+        .map(ActivityFeedItem.fromVisitorPhotoDoc)
+        .where((item) => item != null)
+        .cast<ActivityFeedItem>()
+        .toList();
+    return _enrichVisitorPhotosWithBusinessNames(items);
+  }
+
+  Future<List<ActivityFeedItem>> _enrichVisitorPhotosWithBusinessNames(
+    List<ActivityFeedItem> items,
+  ) async {
+    final businessIds = items
+        .map((i) => i.targetId)
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final names = <String, String?>{};
+    for (final id in businessIds) {
+      try {
+        final doc = await _firestore.collection('businesses').doc(id).get();
+        if (doc.exists) {
+          names[id] = (doc.data()?['businessName'] ?? doc.data()?['name'])
+              ?.toString()
+              .trim();
+        } else {
+          final foodDoc =
+              await _firestore.collection('food_businesses').doc(id).get();
+          if (foodDoc.exists) {
+            names[id] =
+                (foodDoc.data()?['businessName'] ?? foodDoc.data()?['name'])
+                    ?.toString()
+                    .trim();
+          }
+        }
+      } catch (_) {
+        names[id] = null;
+      }
+    }
+    return items
+        .map(
+          (item) => names[item.targetId]?.isNotEmpty == true
+              ? ActivityFeedItem(
+                  id: item.id,
+                  type: item.type,
+                  title: item.title,
+                  subtitle: item.subtitle,
+                  body: item.body,
+                  imageUrl: item.imageUrl,
+                  createdAt: item.createdAt,
+                  isPinned: item.isPinned,
+                  pinnedAt: item.pinnedAt,
+                  isHighlighted: item.isHighlighted,
+                  highlightedAt: item.highlightedAt,
+                  targetId: item.targetId,
+                  secondaryTargetId: item.secondaryTargetId,
+                  promotionLabel: item.promotionLabel,
+                  eventSuburb: item.eventSuburb,
+                  isFreeEntry: item.isFreeEntry,
+                  actorName: item.actorName,
+                  actorPhotoUrl: item.actorPhotoUrl,
+                  businessName: names[item.targetId],
+                )
+              : item,
+        )
         .toList();
   }
 
@@ -294,12 +601,64 @@ class ActivityFeedService {
     if (startAfter != null) {
       query = query.startAfter([Timestamp.fromDate(startAfter)]);
     }
-    final snapshot = await query.get();
-    return snapshot.docs
+    final canonicalFuture = query.get();
+    final legacyFuture = _legacyBusinessesQuery(limit, startAfter: startAfter);
+
+    final results = await Future.wait([canonicalFuture, legacyFuture]);
+    final canonicalItems = results[0].docs
         .map(ActivityFeedItem.fromBusinessDoc)
+        .where((item) => item != null)
+        .cast<ActivityFeedItem>();
+    final legacyItems = _filterAndSortLegacyBusinesses(results[1], limit);
+
+    final merged = [...canonicalItems, ...legacyItems];
+    merged.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return merged.take(limit).toList();
+  }
+
+  /// Fetches the most recent legacy `food_businesses` documents.
+  ///
+  /// Falls back to an unordered query if the required `createdAt` index is
+  /// missing, then sorts locally.
+  Future<QuerySnapshot<Map<String, dynamic>>> _legacyBusinessesQuery(
+    int limit, {
+    DateTime? startAfter,
+  }) async {
+    var query = _firestore
+        .collection('food_businesses')
+        .orderBy('createdAt', descending: true)
+        .limit(limit);
+    if (startAfter != null) {
+      query = query.startAfter([Timestamp.fromDate(startAfter)]);
+    }
+    try {
+      return await query.get();
+    } catch (e) {
+      // If ordering fails (missing index or mixed field types), fall back to
+      // a simple query and filter/sort in memory.
+      var fallback = _firestore.collection('food_businesses').limit(limit * 4);
+      try {
+        final snap = await fallback.get();
+        return snap;
+      } catch (_) {
+        return _firestore.collection('food_businesses').limit(0).get();
+      }
+    }
+  }
+
+  /// Returns only legacy documents with a parseable `createdAt` timestamp,
+  /// sorted newest first and capped to [limit].
+  List<ActivityFeedItem> _filterAndSortLegacyBusinesses(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+    int limit,
+  ) {
+    final items = snapshot.docs
+        .map(ActivityFeedItem.fromFoodBusinessDoc)
         .where((item) => item != null)
         .cast<ActivityFeedItem>()
         .toList();
+    items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return items.take(limit).toList();
   }
 
   /// Base query for businesses that are allowed in the public feed.

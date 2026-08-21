@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:flutter/foundation.dart';
 
 import 'package:brisconnect/services/email_code_auth_service.dart';
+import 'package:brisconnect/services/session_persistence_service.dart';
 
 class AdminAuth {
   static bool _isAdminLoggedIn = false;
@@ -138,6 +139,7 @@ class AdminAuth {
       _profileImageStoragePath =
           (data['profileImageStoragePath'] as String?)?.trim();
       _isAdminLoggedIn = true;
+      await SessionPersistenceService.setLastRole('admin');
       profileVersion.value++;
       return true;
     } on FirebaseException catch (error) {
@@ -162,6 +164,7 @@ class AdminAuth {
     _profileImageUrl = null;
     _profileImageStoragePath = null;
     profileVersion.value++;
+    await SessionPersistenceService.clear();
   }
 
   static Future<bool> updateProfile({required String name}) async {
@@ -208,6 +211,7 @@ class AdminAuth {
       _profileImageUrl = (data['profileImageUrl'] as String?)?.trim();
       _profileImageStoragePath = (data['profileImageStoragePath'] as String?)?.trim();
       _isAdminLoggedIn = true;
+      await SessionPersistenceService.setLastRole('admin');
       profileVersion.value++;
       return true;
     } catch (_) {

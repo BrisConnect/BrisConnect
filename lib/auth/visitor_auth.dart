@@ -8,6 +8,8 @@ import 'package:crypto/crypto.dart';
 import 'package:brisconnect/config/app_config.dart';
 import 'package:brisconnect/services/business_dashboard_service.dart';
 import 'package:brisconnect/services/email_code_auth_service.dart';
+import 'package:brisconnect/services/fcm_service.dart';
+import 'package:brisconnect/services/session_persistence_service.dart';
 import 'package:brisconnect/services/sms_notification_service.dart';
 import 'package:brisconnect/services/visitor_email_notification_service.dart';
 import 'package:brisconnect/services/app_display_settings_controller.dart';
@@ -29,8 +31,12 @@ class VisitorUser {
   final bool nearbyEventsEnabled;
   final bool recommendedEventsEnabled;
   final bool emailNotificationsEnabled;
-  final bool useCurrentLocation;
-  final int locationRadiusKm;
+  final bool nearbyPromotionsEnabled;
+  final bool savedBusinessUpdatesEnabled;
+  final bool trendingBusinessesEnabled;
+  final bool promotionExpiryRemindersEnabled;
+  final bool newBusinessDiscoveryEnabled;
+  final bool personalisedRecommendationsEnabled;
   final bool locationAccessEnabled;
   final String themePreference;
   final double textScaleFactor;
@@ -56,8 +62,12 @@ class VisitorUser {
     this.nearbyEventsEnabled = true,
     this.recommendedEventsEnabled = true,
     this.emailNotificationsEnabled = true,
-    this.useCurrentLocation = true,
-    this.locationRadiusKm = 20,
+    this.nearbyPromotionsEnabled = true,
+    this.savedBusinessUpdatesEnabled = true,
+    this.trendingBusinessesEnabled = true,
+    this.promotionExpiryRemindersEnabled = true,
+    this.newBusinessDiscoveryEnabled = true,
+    this.personalisedRecommendationsEnabled = true,
     this.locationAccessEnabled = true,
     this.themePreference = 'system',
     this.textScaleFactor = 1.0,
@@ -84,8 +94,12 @@ class VisitorUser {
     bool? nearbyEventsEnabled,
     bool? recommendedEventsEnabled,
     bool? emailNotificationsEnabled,
-    bool? useCurrentLocation,
-    int? locationRadiusKm,
+    bool? nearbyPromotionsEnabled,
+    bool? savedBusinessUpdatesEnabled,
+    bool? trendingBusinessesEnabled,
+    bool? promotionExpiryRemindersEnabled,
+    bool? newBusinessDiscoveryEnabled,
+    bool? personalisedRecommendationsEnabled,
     bool? locationAccessEnabled,
     String? themePreference,
     double? textScaleFactor,
@@ -114,8 +128,20 @@ class VisitorUser {
           recommendedEventsEnabled ?? this.recommendedEventsEnabled,
       emailNotificationsEnabled:
           emailNotificationsEnabled ?? this.emailNotificationsEnabled,
-      useCurrentLocation: useCurrentLocation ?? this.useCurrentLocation,
-      locationRadiusKm: locationRadiusKm ?? this.locationRadiusKm,
+      nearbyPromotionsEnabled:
+          nearbyPromotionsEnabled ?? this.nearbyPromotionsEnabled,
+      savedBusinessUpdatesEnabled:
+          savedBusinessUpdatesEnabled ?? this.savedBusinessUpdatesEnabled,
+      trendingBusinessesEnabled:
+          trendingBusinessesEnabled ?? this.trendingBusinessesEnabled,
+      promotionExpiryRemindersEnabled:
+          promotionExpiryRemindersEnabled ??
+              this.promotionExpiryRemindersEnabled,
+      newBusinessDiscoveryEnabled:
+          newBusinessDiscoveryEnabled ?? this.newBusinessDiscoveryEnabled,
+      personalisedRecommendationsEnabled:
+          personalisedRecommendationsEnabled ??
+              this.personalisedRecommendationsEnabled,
       locationAccessEnabled:
           locationAccessEnabled ?? this.locationAccessEnabled,
       themePreference: themePreference ?? this.themePreference,
@@ -236,8 +262,12 @@ class VisitorAuth {
         'nearbyEventsEnabled': true,
         'recommendedEventsEnabled': true,
         'emailNotificationsEnabled': true,
-        'useCurrentLocation': true,
-        'locationRadiusKm': 20,
+        'nearbyPromotionsEnabled': true,
+        'savedBusinessUpdatesEnabled': true,
+        'trendingBusinessesEnabled': true,
+        'promotionExpiryRemindersEnabled': true,
+        'newBusinessDiscoveryEnabled': true,
+        'personalisedRecommendationsEnabled': true,
         'locationAccessEnabled': true,
         'themePreference': 'system',
         'textScaleFactor': 1.0,
@@ -496,8 +526,18 @@ class VisitorAuth {
             (data['recommendedEventsEnabled'] as bool?) ?? true,
         emailNotificationsEnabled:
             (data['emailNotificationsEnabled'] as bool?) ?? true,
-        useCurrentLocation: (data['useCurrentLocation'] as bool?) ?? true,
-        locationRadiusKm: (data['locationRadiusKm'] as num?)?.toInt() ?? 20,
+        nearbyPromotionsEnabled:
+            (data['nearbyPromotionsEnabled'] as bool?) ?? true,
+        savedBusinessUpdatesEnabled:
+            (data['savedBusinessUpdatesEnabled'] as bool?) ?? true,
+        trendingBusinessesEnabled:
+            (data['trendingBusinessesEnabled'] as bool?) ?? true,
+        promotionExpiryRemindersEnabled:
+            (data['promotionExpiryRemindersEnabled'] as bool?) ?? true,
+        newBusinessDiscoveryEnabled:
+            (data['newBusinessDiscoveryEnabled'] as bool?) ?? true,
+        personalisedRecommendationsEnabled:
+            (data['personalisedRecommendationsEnabled'] as bool?) ?? true,
         locationAccessEnabled: (data['locationAccessEnabled'] as bool?) ?? true,
         themePreference: (data['themePreference'] as String?) ?? 'system',
         textScaleFactor: (data['textScaleFactor'] as num?)?.toDouble() ?? 1.0,
@@ -529,12 +569,21 @@ class VisitorAuth {
       _currentVisitor = user;
       _interestedEventsVersion.value++;
       _profileVersion.value++;
+      await SessionPersistenceService.setLastRole('visitor');
       AppDisplaySettingsController.applyFromPersisted(
         locationAccessEnabled: user.locationAccessEnabled,
         themePreference: user.themePreference,
         textScaleFactor: user.textScaleFactor,
         language: user.language,
       );
+
+      // Refresh the FCM token now that the visitor role is known so it is
+      // stored under visitor_users/{email}/fcmTokens for push delivery.
+      FcmService.instance.refreshToken().catchError((e) {
+        debugPrint('[VisitorAuth] FCM token refresh failed: $e');
+        return null;
+      });
+
       return true;
     } on fb_auth.FirebaseAuthException catch (error) {
       debugPrint('[VisitorAuth] Firebase Auth login failed: ${error.code}');
@@ -629,6 +678,7 @@ class VisitorAuth {
     _currentVisitor = null;
     _interestedEventsVersion.value++;
     _profileVersion.value++;
+    await SessionPersistenceService.clear();
   }
 
   @visibleForTesting
@@ -922,8 +972,18 @@ class VisitorAuth {
             (data['recommendedEventsEnabled'] as bool?) ?? true,
         emailNotificationsEnabled:
             (data['emailNotificationsEnabled'] as bool?) ?? true,
-        useCurrentLocation: (data['useCurrentLocation'] as bool?) ?? true,
-        locationRadiusKm: (data['locationRadiusKm'] as num?)?.toInt() ?? 20,
+        nearbyPromotionsEnabled:
+            (data['nearbyPromotionsEnabled'] as bool?) ?? true,
+        savedBusinessUpdatesEnabled:
+            (data['savedBusinessUpdatesEnabled'] as bool?) ?? true,
+        trendingBusinessesEnabled:
+            (data['trendingBusinessesEnabled'] as bool?) ?? true,
+        promotionExpiryRemindersEnabled:
+            (data['promotionExpiryRemindersEnabled'] as bool?) ?? true,
+        newBusinessDiscoveryEnabled:
+            (data['newBusinessDiscoveryEnabled'] as bool?) ?? true,
+        personalisedRecommendationsEnabled:
+            (data['personalisedRecommendationsEnabled'] as bool?) ?? true,
         locationAccessEnabled: (data['locationAccessEnabled'] as bool?) ?? true,
         themePreference: (data['themePreference'] as String?) ?? 'system',
         textScaleFactor: (data['textScaleFactor'] as num?)?.toDouble() ?? 1.0,
@@ -945,6 +1005,7 @@ class VisitorAuth {
       _currentVisitor = user;
       _interestedEventsVersion.value++;
       _profileVersion.value++;
+      await SessionPersistenceService.setLastRole('visitor');
       AppDisplaySettingsController.applyFromPersisted(
         locationAccessEnabled: user.locationAccessEnabled,
         themePreference: user.themePreference,
@@ -1096,11 +1157,13 @@ class VisitorAuth {
       return false;
     }
 
+    final normalizedId = businessId.trim();
     final updatedIds = List<String>.from(current.savedBusinessIds);
-    if (updatedIds.contains(businessId)) {
-      updatedIds.remove(businessId);
+    final isSaving = !updatedIds.contains(normalizedId);
+    if (isSaving) {
+      updatedIds.add(normalizedId);
     } else {
-      updatedIds.add(businessId);
+      updatedIds.remove(normalizedId);
     }
 
     final updated = current.copyWith(savedBusinessIds: updatedIds);
@@ -1115,24 +1178,16 @@ class VisitorAuth {
       debugPrint('[VisitorAuth] Failed to persist saved businesses: $error');
     });
 
-    return true;
-  }
+    // Best-effort update the business owner's dashboard metrics. Only count
+    // new saves — toggling a save off must not also inflate the counter.
+    if (isSaving) {
+      BusinessDashboardService().recordSave(
+        normalizedId,
+        visitorId: fb_auth.FirebaseAuth.instance.currentUser?.uid,
+      );
+    }
 
-  static Future<bool> setLocationSettings({
-    bool? useCurrentLocation,
-    int? locationRadiusKm,
-  }) async {
-    return _mergeCurrentVisitor(
-      firestoreData: {
-        if (useCurrentLocation != null)
-          'useCurrentLocation': useCurrentLocation,
-        if (locationRadiusKm != null) 'locationRadiusKm': locationRadiusKm,
-      },
-      updatedUser: (current) => current.copyWith(
-        useCurrentLocation: useCurrentLocation,
-        locationRadiusKm: locationRadiusKm,
-      ),
-    );
+    return true;
   }
 
   static Future<bool> setGeneralAppSettings({
@@ -1163,6 +1218,12 @@ class VisitorAuth {
     bool? nearbyEventsEnabled,
     bool? recommendedEventsEnabled,
     bool? emailNotificationsEnabled,
+    bool? nearbyPromotionsEnabled,
+    bool? savedBusinessUpdatesEnabled,
+    bool? trendingBusinessesEnabled,
+    bool? promotionExpiryRemindersEnabled,
+    bool? newBusinessDiscoveryEnabled,
+    bool? personalisedRecommendationsEnabled,
   }) async {
     return _mergeCurrentVisitor(
       firestoreData: {
@@ -1179,6 +1240,19 @@ class VisitorAuth {
           'recommendedEventsEnabled': recommendedEventsEnabled,
         if (emailNotificationsEnabled != null)
           'emailNotificationsEnabled': emailNotificationsEnabled,
+        if (nearbyPromotionsEnabled != null)
+          'nearbyPromotionsEnabled': nearbyPromotionsEnabled,
+        if (savedBusinessUpdatesEnabled != null)
+          'savedBusinessUpdatesEnabled': savedBusinessUpdatesEnabled,
+        if (trendingBusinessesEnabled != null)
+          'trendingBusinessesEnabled': trendingBusinessesEnabled,
+        if (promotionExpiryRemindersEnabled != null)
+          'promotionExpiryRemindersEnabled': promotionExpiryRemindersEnabled,
+        if (newBusinessDiscoveryEnabled != null)
+          'newBusinessDiscoveryEnabled': newBusinessDiscoveryEnabled,
+        if (personalisedRecommendationsEnabled != null)
+          'personalisedRecommendationsEnabled':
+              personalisedRecommendationsEnabled,
       },
       updatedUser: (current) => current.copyWith(
         notificationsEnabled: notificationsEnabled,
@@ -1188,6 +1262,13 @@ class VisitorAuth {
         nearbyEventsEnabled: nearbyEventsEnabled,
         recommendedEventsEnabled: recommendedEventsEnabled,
         emailNotificationsEnabled: emailNotificationsEnabled,
+        nearbyPromotionsEnabled: nearbyPromotionsEnabled,
+        savedBusinessUpdatesEnabled: savedBusinessUpdatesEnabled,
+        trendingBusinessesEnabled: trendingBusinessesEnabled,
+        promotionExpiryRemindersEnabled: promotionExpiryRemindersEnabled,
+        newBusinessDiscoveryEnabled: newBusinessDiscoveryEnabled,
+        personalisedRecommendationsEnabled:
+            personalisedRecommendationsEnabled,
       ),
     );
   }

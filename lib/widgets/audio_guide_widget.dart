@@ -1,7 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/l10n/app_localizations.dart';
+import 'package:brisconnect/services/app_display_settings_controller.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 
 class AiNarrationWidget extends StatefulWidget {
@@ -20,15 +24,42 @@ class AiNarrationWidget extends StatefulWidget {
 
 class _AiNarrationWidgetState extends State<AiNarrationWidget> {
   late final FlutterTts _tts;
+  late final AudioPlayer _audioPlayer;
   bool _speaking = false;
   bool _loading = false;
+  bool _usingCloudTts = false;
 
   @override
   void initState() {
     super.initState();
     _tts = FlutterTts();
+    _audioPlayer = AudioPlayer();
     _initializeTts();
     _setupTtsHandlers();
+    _setupAudioPlayerHandlers();
+
+    // Listen for locale changes. When the user changes their language preference,
+    // rebuild this widget so the TTS language updates on the next playback.
+    localeChangeNotifier.addListener(_onLocaleChanged);
+  }
+
+  void _onLocaleChanged() {
+    if (!mounted) return;
+    setState(() {
+      // Trigger rebuild so the new locale is applied on next playback
+    });
+  }
+
+  void _setupAudioPlayerHandlers() {
+    _audioPlayer.playerStateStream.listen((playerState) {
+      if (!mounted) return;
+      if (playerState.processingState == ProcessingState.completed) {
+        setState(() {
+          _speaking = false;
+          _loading = false;
+        });
+      }
+    });
   }
 
   void _setupTtsHandlers() {
@@ -145,15 +176,58 @@ class _AiNarrationWidgetState extends State<AiNarrationWidget> {
     return text;
   }
 
+  /// Attempts to synthesize audio using the cloud function fallback.
+  /// Returns base64-encoded MP3 audio, or null if synthesis fails.
+  Future<String?> _synthesizeWithCloud() async {
+    try {
+      final profileLanguage = VisitorAuth.currentVisitor?.language ?? 'en';
+      final narration = _sanitizeNarration(widget.narrationText);
+      if (narration.isEmpty) return null;
+
+      final callable = FirebaseFunctions.instanceFor(region: 'australia-southeast1')
+          .httpsCallable('synthesizeNarration');
+      final response = await callable.call({
+        'text': narration,
+        'languageCode': profileLanguage,
+      });
+
+      if (response.data is Map && response.data['audioContent'] is String) {
+        return response.data['audioContent'] as String;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[AiNarrationWidget] Cloud TTS failed: $e');
+      return null;
+    }
+  }
+
+  /// Plays audio from base64-encoded MP3 data.
+  Future<void> _playAudioFromBase64(String base64Audio) async {
+    final dataUri = 'data:audio/mp3;base64,$base64Audio';
+    try {
+      await _audioPlayer.setAudioSource(AudioSource.uri(Uri.parse(dataUri)));
+      await _audioPlayer.play();
+    } catch (e) {
+      debugPrint('[AiNarrationWidget] Audio playback failed: $e');
+      rethrow;
+    }
+  }
+
   @override
   void dispose() {
+    localeChangeNotifier.removeListener(_onLocaleChanged);
     _tts.stop();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
   Future<void> _togglePlayback() async {
     if (_speaking) {
-      await _tts.stop();
+      if (_usingCloudTts) {
+        await _audioPlayer.stop();
+      } else {
+        await _tts.stop();
+      }
       if (!mounted) return;
       setState(() {
         _speaking = false;
@@ -164,15 +238,46 @@ class _AiNarrationWidgetState extends State<AiNarrationWidget> {
 
     setState(() => _loading = true);
     try {
-      await _initializeTts();
       final narration = _sanitizeNarration(widget.narrationText);
       if (narration.isEmpty) {
         throw Exception('Narration text is empty');
       }
-      await _tts.stop();
-      await Future<void>.delayed(const Duration(milliseconds: 40));
-      await _tts.speak(narration);
-    } catch (_) {
+
+      // Prefer premium cloud TTS on the web so users hear native, high-quality
+      // voices (Chirp3 HD) for every supported language. Fall back to the
+      // browser's local TTS only when the cloud call fails.
+      if (kIsWeb) {
+        try {
+          final audioBase64 = await _synthesizeWithCloud();
+          if (audioBase64 != null) {
+            setState(() => _usingCloudTts = true);
+            await _playAudioFromBase64(audioBase64);
+            return;
+          }
+        } catch (cloudError) {
+          debugPrint('[AiNarrationWidget] Cloud TTS failed, trying local: $cloudError');
+        }
+
+        // Cloud failed or returned nothing - try browser local TTS as fallback.
+        try {
+          await _initializeTts();
+          await _tts.stop();
+          await Future<void>.delayed(const Duration(milliseconds: 40));
+          await _tts.speak(narration);
+          setState(() => _usingCloudTts = false);
+          return;
+        } catch (ttsError) {
+          debugPrint('[AiNarrationWidget] Local web TTS fallback failed: $ttsError');
+          throw Exception('Both cloud and local TTS failed');
+        }
+      } else {
+        await _initializeTts();
+        await _tts.stop();
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+        await _tts.speak(narration);
+        setState(() => _usingCloudTts = false);
+      }
+    } catch (e) {
       if (!mounted) return;
       final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -194,8 +299,10 @@ class _AiNarrationWidgetState extends State<AiNarrationWidget> {
     final profileLanguage = VisitorAuth.currentVisitor?.language ?? 'en';
     final ttsLocale = _resolveTtsLanguage(profileLanguage);
     // Apply the locale early so a language change takes effect before the
-    // user presses play again.
-    _tts.setLanguage(ttsLocale).catchError((_) {});
+    // user presses play again (mobile only; web uses cloud fallback).
+    if (!kIsWeb) {
+      _tts.setLanguage(ttsLocale).catchError((_) {});
+    }
 
     final l10n = AppLocalizations.of(context)!;
     final buttonIcon = _speaking

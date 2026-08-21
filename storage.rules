@@ -78,10 +78,28 @@ service firebase.storage {
       allow write: if isSignedIn() || request.auth == null;
     }
 
+    // Menu item photos (business owner's Menu / Services section).
+    match /menu_items/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn() || request.auth == null;
+    }
+
     // Visitor-contributed photos for businesses and events.
     // Dev: allow public read/write for unsigned macOS builds. Restrict to
     // authenticated owners before production.
     match /visitor_photos/{userEmail}/{targetType}/{targetId}/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn() || request.auth == null;
+    }
+
+    // Photo/video attachments on community feed comments.
+    match /post_comments_media/{visitorId}/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn() || request.auth == null;
+    }
+
+    // Photo/video attachments on business owner promotions (Premium feature).
+    match /promotion_media/{ownerId}/{fileName} {
       allow read: if true;
       allow write: if isSignedIn() || request.auth == null;
     }

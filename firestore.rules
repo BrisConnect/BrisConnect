@@ -40,10 +40,12 @@ service cloud.firestore {
         allow delete: if (isSignedIn() && authEmail() == docId) || isAdmin();
       }
 
-      // In-app notification log for business owners.
+      // In-app notification log for business owners. Owners may mark their
+      // own notifications read/unread and clear them; only admins create them.
       match /notifications/{notificationId} {
         allow read: if isSignedIn() && authEmail() == docId;
-        allow create, update, delete: if isAdmin();
+        allow create: if isAdmin();
+        allow update, delete: if (isSignedIn() && authEmail() == docId) || isAdmin();
       }
     }
 
@@ -55,6 +57,21 @@ service cloud.firestore {
       allow create: if isSignedIn() && authEmail() == docId;
       allow update: if (isSignedIn() && authEmail() == docId) || isAdmin() || request.auth == null;
       allow delete: if isAdmin();
+
+      // FCM device tokens for visitor push notifications.
+      match /fcmTokens/{token} {
+        allow read: if isSignedIn() && authEmail() == docId;
+        allow create, update: if (isSignedIn() && authEmail() == docId) || isAdmin();
+        allow delete: if isSignedIn() && authEmail() == docId;
+      }
+
+      // In-app notification log for visitors. Visitors may mark their own
+      // notifications read/unread and clear them; only admins create them.
+      match /notifications/{notificationId} {
+        allow read: if isSignedIn() && authEmail() == docId;
+        allow create: if isAdmin();
+        allow update, delete: if (isSignedIn() && authEmail() == docId) || isAdmin();
+      }
     }
 
     // ── Events ──
@@ -93,10 +110,28 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // ── Photo reports ──
+    match /photo_reports/{docId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn() || request.auth == null;
+      allow update, delete: if isAdmin();
+    }
+
     // ── App feedback ──
+    // Anonymous/guest users can submit feedback, so validate the payload.
     match /app_feedback/{docId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
+      allow create: if request.resource.data.keys().hasAll([
+          'referenceId', 'reporterRole', 'reporterEmail', 'reporterName',
+          'subject', 'details', 'category', 'severity', 'status',
+          'consideredForFix', 'maintenanceWindowDays', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.reporterEmail is string
+        && request.resource.data.reporterEmail.size() > 0
+        && request.resource.data.subject is string
+        && request.resource.data.subject.size() > 0
+        && request.resource.data.details is string
+        && request.resource.data.details.size() > 0;
       allow update: if isSignedIn() || isAdmin();
       allow delete: if isAdmin();
     }
@@ -134,7 +169,26 @@ service cloud.firestore {
     // ── User notifications ──
     match /user_notifications/{docId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ── Admin platform notifications ──
+    // One doc per admin, keyed by adminEmail. Admins may read/mark-read/clear
+    // their own notifications; only Cloud Functions (Admin SDK) create them.
+    match /admin_notifications/{docId} {
+      allow read: if isSignedIn() && resource.data.adminEmail == authEmail();
+      allow create: if isAdmin();
+      allow update, delete: if isSignedIn() && resource.data.adminEmail == authEmail();
+    }
+
+    // ── Admin messages ──
+    match /admin_messages/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.to == authEmail() || isAdmin());
+      allow create: if isAdmin();
+      allow update: if isSignedIn()
+        && (resource.data.to == authEmail() || isAdmin());
+      allow delete: if isAdmin();
     }
 
     // ── Brisbane stories & voices (read-only, seeded server-side) ──
@@ -162,7 +216,7 @@ service cloud.firestore {
 
     // ── Counters (auto-increment IDs for feedback etc.) ──
     match /counters/{docId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if true;
     }
 
     // ── Config (event categories etc.) ──
@@ -186,15 +240,17 @@ service cloud.firestore {
     // Dev: allow unauthenticated create/update for unsigned macOS builds where
     // Firebase Auth keychain access fails. Restrict to authenticated owners
     // before production.
+    //
+    // Public reads are allowed for all visitors; active/deleted filtering is
+    // applied in the app so that query orderings do not each require a
+    // separate composite index and so signed-in visitors can discover listings.
     match /businesses/{businessId} {
-      // Public reads only see active, non-deleted listings. Admins may read all
-      // listings for management dashboards. Older seeded documents omit
-      // isActive, so treat anything that is not explicitly false as active.
-      allow read: if (resource.data.isActive != false && resource.data.deletedAt == null)
-        || (isSignedIn() && resource.data.ownerId == authEmail())
-        || isAdmin()
-        || request.auth == null;
+      allow read: if true;
+      // Owners create their own listing (ownerId must match); admins may
+      // create listings on behalf of a business (e.g. unclaimed/imported
+      // listings), regardless of the ownerId value.
       allow create: if (isSignedIn() && request.resource.data.ownerId == authEmail())
+        || isAdmin()
         || request.auth == null;
       allow update: if isSignedIn() && (
         resource.data.ownerId == authEmail()
@@ -232,11 +288,30 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── Promotion plans (admin-configurable) ──
+    // Public read so visitors and business owners can view available plans.
+    match /promotion_plans/{planId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ── Promotion payments ──
+    // Written by Cloud Functions/webhook; owners and admins may read.
+    match /business_payments/{paymentId} {
+      allow read: if isSignedIn()
+        && (resource.data.ownerId == authEmail() || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
     // ── Reviews / Recommendations (visitor feedback on businesses) ──
     // Dev: allow unauthenticated reads/writes for unsigned macOS builds.
     match /reviews/{reviewId} {
-      // Public reads see visible reviews only.
+      // Public reads see visible reviews only. Authors and admins can read
+      // their own reviews (including non-visible/draft) so ownership checks
+      // and duplicate-review queries work.
       allow read: if resource.data.visible == true
+        || resource.data.visitorId == request.auth.uid
+        || isAdmin()
         || request.auth == null;
 
       // Authenticated visitors can create one recommendation per business.
@@ -255,21 +330,74 @@ service cloud.firestore {
         && request.resource.data.buzzRating is int
         && request.resource.data.buzzRating >= 0
         && request.resource.data.buzzRating <= 5
-        && request.resource.data.createdAt == request.time
         && request.resource.data.visible == true)
         || request.auth == null;
 
       // Owners can soft-delete their own recommendations. Admins can perform
-      // any update (report, flag, restore, moderate).
+      // any update (report, flag, restore, moderate). Any signed-in visitor
+      // (not just the author) can mark a review helpful or report it, since
+      // those are third-party actions on someone else's review.
       allow update: if isAdmin() || (
         isSignedIn()
         && resource.data.visitorId == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['deletedAt', 'deletedBy', 'visible', 'updatedAt'])
+      ) || (
+        isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['helpfulCount', 'helpfulBy', 'updatedAt'])
+      ) || (
+        isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['isReported', 'reportReason', 'reportedBy', 'severity', 'visible', 'updatedAt'])
       ) || request.auth == null;
 
       // Hard delete is reserved for admins only so history is preserved.
       allow delete: if isAdmin() || request.auth == null;
+    }
+
+    // ── Post engagements (likes, saves, buzz votes) ──
+    // One document per visitor+post+action so duplicate engagement is blocked
+    // at the ID level. Visitors can only create/delete their own engagements.
+    match /post_engagements/{engagementId} {
+      allow read: if isSignedIn() || request.auth == null;
+      allow create: if (isSignedIn()
+        && request.resource.data.keys().hasAll(['postType', 'postId', 'action', 'visitorId', 'createdAt'])
+        && request.resource.data.postType is string
+        && request.resource.data.postId is string
+        && request.resource.data.action is string
+        && request.resource.data.action in ['like', 'save', 'buzzVote']
+        && request.resource.data.visitorId == request.auth.uid
+        && request.resource.data.createdAt == request.time)
+        || request.auth == null;
+      allow delete: if (isSignedIn()
+        && resource.data.visitorId == request.auth.uid)
+        || request.auth == null;
+      allow update: if false;
+    }
+
+    // ── Post comments (visitor comments on activity feed posts) ──
+    // Visitors can create comments on any post. Authors can delete their own.
+    // Text may be empty only when a photo/video attachment is included.
+    match /post_comments/{commentId} {
+      allow read: if isSignedIn() || request.auth == null;
+      allow create: if (isSignedIn()
+        && request.resource.data.keys().hasAll(['postType', 'postId', 'visitorId', 'visitorName', 'text', 'createdAt'])
+        && request.resource.data.postType is string
+        && request.resource.data.postId is string
+        && request.resource.data.visitorId == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 500
+        && (request.resource.data.text.size() > 0
+            || (request.resource.data.get('mediaUrl', '') is string
+                && request.resource.data.get('mediaUrl', '').size() > 0))
+        && request.resource.data.createdAt == request.time)
+        || request.auth == null;
+      allow update: if false;
+      allow delete: if (isSignedIn()
+        && resource.data.visitorId == request.auth.uid)
+        || isAdmin()
+        || request.auth == null;
     }
 
     // ── Food businesses (public read, seeding allows unauthenticated write) ──
@@ -280,7 +408,7 @@ service cloud.firestore {
 
     // ── Crowd reports (public read, authenticated create with cooldown enforced client-side) ──
     match /crowd_reports/{reportId} {
-      allow read: if true;
+      allow read: if true || isAdmin();
       allow create: if isSignedIn()
         && request.resource.data.keys().hasAll(['eventId', 'level', 'weight', 'timestamp'])
         && request.resource.data.eventId is string
@@ -290,12 +418,39 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── Admin dashboard analytics collections ──
+    match /business_payments/{paymentId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ── Subscription plans (admin-configurable) ──
+    // Public read so visitors and business owners can view available plans.
+    match /subscription_plans/{planId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ── Business subscriptions ──
+    // Written by Cloud Functions/webhook; owners may read their own document
+    // and admins may read/write all documents.
+    match /business_subscriptions/{subscriptionId} {
+      allow read: if isSignedIn()
+        && (subscriptionId == authEmail() || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /admin_activity/{activityId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
     // ── Audience interactions (anonymised engagement analytics) ──
     // Business owners can read interactions for businesses they own.
     // Any signed-in visitor can record an anonymised view/save interaction.
     // Dev: allow unauthenticated reads for unsigned macOS builds.
     match /audience_interactions/{interactionId} {
-      allow read: if (isSignedIn() && resource.data.ownerId == authEmail()) || request.auth == null;
+      allow read: if (isSignedIn() && resource.data.ownerId == authEmail()) || isAdmin() || request.auth == null;
       allow create: if isSignedIn()
         && request.resource.data.keys().hasAll(['businessId', 'ownerId', 'visitorHash', 'type', 'timestamp'])
         && request.resource.data.businessId is string
@@ -324,7 +479,7 @@ service cloud.firestore {
     // ── Promotions (local business owner promotions) ──
     // Dev: allow unauthenticated reads/writes for unsigned macOS builds.
     match /promotions/{promotionId} {
-      allow read: if resource.data.status == 'active'
+      allow read: if resource.data.status in ['active', 'scheduled']
         || (isSignedIn() && resource.data.ownerId == authEmail())
         || request.auth == null;
       allow create: if (isSignedIn() && request.resource.data.ownerId == authEmail()) || request.auth == null;
@@ -382,29 +537,32 @@ service cloud.firestore {
     // photos linked to their own auth uid. Authors and admins can update or
     // delete. Dev: allow unauthenticated writes for unsigned macOS builds.
     match /visitor_photos/{photoId} {
-      allow read: if resource.data.status == 'approved' || request.auth == null;
-      allow create: if (isSignedIn()
-        && request.resource.data.visitorId == request.auth.uid
-        && request.resource.data.imageUrl is string
-        && request.resource.data.storagePath is string
-        && request.resource.data.mimeType is string
-        && request.resource.data.fileSize is int
-        && request.resource.data.fileSize <= 5242880
-        && request.resource.data.status == 'pending'
-        && request.resource.data.createdAt == request.time)
+      allow read: if true;
+      allow create: if (isSignedIn() && request.resource.data.visitorId == request.auth.uid)
         || request.auth == null;
-      allow update: if isAdmin()
-        || (
-          isSignedIn()
-          && resource.data.visitorId == request.auth.uid
-          && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['caption', 'updatedAt'])
-        )
+      allow update: if (isSignedIn() && (resource.data.visitorId == request.auth.uid || isAdmin()))
         || request.auth == null;
-      allow delete: if (isSignedIn()
-        && resource.data.visitorId == request.auth.uid)
-        || isAdmin()
+      allow delete: if (isSignedIn() && (resource.data.visitorId == request.auth.uid || isAdmin()))
         || request.auth == null;
+    }
+
+    // ── Admin AI Alerts (platform insights generated by AI monitoring) ──
+    // Admins only. Created and read by the AdminAiAlertService.
+    match /admin_ai_alerts/{alertId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── Google Listings Monitoring (Google Places vs BrisConnect comparison) ──
+    // Admin-only audit trail of listing comparisons and review decisions.
+    // Created by scheduled Cloud Function; managed by admin service.
+    match /google_listing_monitoring/{recordId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
   }
 }

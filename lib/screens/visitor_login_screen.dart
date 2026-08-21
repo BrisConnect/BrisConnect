@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
-import 'package:brisconnect/screens/visitor_signup_screen.dart';
+import 'package:brisconnect/screens/visitor_registration_screen.dart';
 import 'package:brisconnect/services/email_code_auth_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/utils/auth_validation.dart';
@@ -29,7 +29,8 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
   @override
   void initState() {
     super.initState();
-    _identifierController = TextEditingController(text: widget.initialEmail ?? '');
+    _identifierController =
+        TextEditingController(text: widget.initialEmail ?? '');
   }
 
   @override
@@ -180,7 +181,8 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                   child: Column(
                     children: [
                       // Logo
@@ -219,12 +221,14 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
                                 InlineStatusMessage(
                                   message: _statusMessage!,
                                   type: _statusType,
-                                  actionLabel: _statusType == InlineStatusType.error
-                                      ? 'Retry'
-                                      : null,
-                                  onAction: _statusType == InlineStatusType.error
-                                      ? (_isSubmitting ? null : _login)
-                                      : null,
+                                  actionLabel:
+                                      _statusType == InlineStatusType.error
+                                          ? 'Retry'
+                                          : null,
+                                  onAction:
+                                      _statusType == InlineStatusType.error
+                                          ? (_isSubmitting ? null : _login)
+                                          : null,
                                 ),
                                 const SizedBox(height: 10),
                               ],
@@ -233,7 +237,8 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
                               TextFormField(
                                 controller: _identifierController,
                                 keyboardType: TextInputType.emailAddress,
-                                style: const TextStyle(color: AppPalette.charcoal),
+                                style:
+                                    const TextStyle(color: AppPalette.charcoal),
                                 decoration: _fieldDecoration(
                                   hintText: 'Email',
                                   prefixIcon: Icons.mail_outline,
@@ -247,7 +252,8 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
                                 controller: _codeController,
                                 keyboardType: TextInputType.number,
                                 textInputAction: TextInputAction.done,
-                                style: const TextStyle(color: AppPalette.charcoal),
+                                style:
+                                    const TextStyle(color: AppPalette.charcoal),
                                 decoration: _fieldDecoration(
                                   hintText: 'Enter 6-digit code',
                                   prefixIcon: Icons.vpn_key_outlined,
@@ -263,7 +269,8 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
                                 height: 52,
                                 child: ElevatedButton(
                                   onPressed: _isSendingCode ? null : _sendCode,
-                                  style: EnhancedButtonStyles.fullWidthPrimaryButton(),
+                                  style: EnhancedButtonStyles
+                                      .fullWidthPrimaryButton(),
                                   child: _isSendingCode
                                       ? const SizedBox(
                                           height: 20,
@@ -274,7 +281,9 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
                                           ),
                                         )
                                       : Text(
-                                          _codeSent ? 'Resend Code' : 'Send Code',
+                                          _codeSent
+                                              ? 'Resend Code'
+                                              : 'Send Code',
                                           style: const TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.w600,
@@ -291,11 +300,13 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppPalette.surfaceAlt,
                                     foregroundColor: AppPalette.ochre,
-                                    disabledBackgroundColor:
-                                        AppPalette.surfaceAlt.withValues(alpha: 0.5),
+                                    disabledBackgroundColor: AppPalette
+                                        .surfaceAlt
+                                        .withValues(alpha: 0.5),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(14),
-                                      side: const BorderSide(color: AppPalette.ochre),
+                                      side: const BorderSide(
+                                          color: AppPalette.ochre),
                                     ),
                                   ),
                                   child: _isSubmitting
@@ -344,7 +355,7 @@ class _VisitorLoginScreenState extends State<VisitorLoginScreen> {
                                         context,
                                         MaterialPageRoute(
                                           builder: (_) =>
-                                              const VisitorSignUpScreen(),
+                                              const VisitorRegistrationScreen(),
                                         ),
                                       );
                                     },

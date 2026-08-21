@@ -22,5 +22,11 @@
   "bugs": {
     "url": "https://github.com/BrisConnect/BrisConnect/issues"
   },
-  "homepage": "https://github.com/BrisConnect/BrisConnect#readme"
+  "homepage": "https://github.com/BrisConnect/BrisConnect#readme",
+  "dependencies": {
+    "@google-cloud/firestore": "^8.7.1"
+  },
+  "devDependencies": {
+    "firebase-admin": "^14.2.0"
+  }
 }

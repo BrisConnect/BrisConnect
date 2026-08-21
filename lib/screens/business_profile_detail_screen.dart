@@ -4,8 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/models/business.dart';
 import 'package:brisconnect/screens/business_map_screen.dart';
+import 'package:brisconnect/services/business_dashboard_service.dart';
 import 'package:brisconnect/services/business_profile_service.dart';
-import 'package:brisconnect/services/review_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 import 'package:brisconnect/widgets/submit_review_bottom_sheet.dart';
@@ -27,16 +27,33 @@ class BusinessProfileDetailScreen extends StatefulWidget {
 class _BusinessProfileDetailScreenState
     extends State<BusinessProfileDetailScreen> {
   final _businessService = BusinessProfileService();
-  final _reviewService = ReviewService();
+  final _dashboardService = BusinessDashboardService();
   final _auth = FirebaseAuth.instance;
   Business? _business;
   bool _isLoading = true;
+  bool _viewTracked = false;
 
   @override
   void initState() {
     super.initState();
     _loadBusinessProfile();
+    _trackView();
     VisitorAuth.savedAttractionsVersion.addListener(_onSavedChanged);
+  }
+
+  Future<void> _trackView() async {
+    if (_viewTracked) return;
+    _viewTracked = true;
+    try {
+      final visitorId = _auth.currentUser?.uid ??
+          VisitorAuth.currentVisitor?.email;
+      await _dashboardService.recordProfileView(
+        widget.businessId,
+        visitorId: visitorId,
+      );
+    } catch (_) {
+      // Analytics should never block the UI.
+    }
   }
 
   @override
@@ -169,19 +186,6 @@ class _BusinessProfileDetailScreenState
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please sign in to leave a recommendation')),
-      );
-      return;
-    }
-
-    // Check if user already reviewed
-    final hasReviewed = await _reviewService.hasVisitorReviewedBusiness(
-      widget.businessId,
-      user.uid,
-    );
-
-    if (hasReviewed && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You have already recommended this business')),
       );
       return;
     }

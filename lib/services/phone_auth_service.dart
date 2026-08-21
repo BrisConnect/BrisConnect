@@ -216,6 +216,11 @@ class PhoneAuthService {
         return 'No internet connection. Please try again.';
       case 'quota-exceeded':
         return 'SMS quota exceeded. Please try email sign-in instead.';
+      case 'web-context-cancelled':
+      case 'captcha-check-failed':
+        return 'Phone verification was cancelled. Please try again.';
+      case 'app-not-authorized':
+        return 'This app is not authorized for phone sign-in. Please use email sign-in instead.';
       default:
         return e.message ?? 'Could not send code. Please try again.';
     }

@@ -9,7 +9,7 @@ class AppLocalizationsKo extends AppLocalizations {
   AppLocalizationsKo([String locale = 'ko']) : super(locale);
 
   @override
-  String get appTitle => 'BrisConnect+';
+  String get appTitle => '브리스커넥트+';
 
   @override
   String get welcome => '환영합니다';
@@ -498,12 +498,12 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String categoryLabel(String category) {
-    return '카테고리: $category';
+    return 'Category: $category';
   }
 
   @override
   String severityLabel(String severity) {
-    return '심각도: $severity';
+    return 'Severity: $severity';
   }
 
   @override
@@ -549,7 +549,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get languageGreek => '그리스어';
 
   @override
-  String get languagePunjabi => 'Punjabi';
+  String get languagePunjabi => '펀자브어';
 
   @override
   String get discoverTitle => '현지 음식을 발견해보세요';
@@ -580,7 +580,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String versionLabel(String version) {
-    return '버전 $version';
+    return 'Version $version';
   }
 
   @override
@@ -657,64 +657,62 @@ class AppLocalizationsKo extends AppLocalizations {
   String get statusWontFix => '수정되지 않음';
 
   @override
-  String get foodBusinessDetails => 'Business Details';
+  String get foodBusinessDetails => '사업 상세 정보';
 
   @override
-  String get aboutThisFoodExperience => 'About this Food Experience';
+  String get aboutThisFoodExperience => '이 음식 체험에 대하여';
 
   @override
-  String get highlights => 'Highlights';
+  String get highlights => '하이라이트';
 
   @override
-  String get contactAndLinks => 'Contact & Links';
+  String get contactAndLinks => '연락처 및 링크';
 
   @override
-  String get gallery => 'Gallery';
+  String get gallery => '갱도';
 
   @override
-  String get openingHours => 'Opening Hours';
+  String get openingHours => '영업시간';
 
   @override
-  String get menu => 'Menu';
+  String get menu => '메뉴';
 
   @override
-  String get menuFallback => 'Menu';
+  String get menuFallback => '메뉴';
 
   @override
-  String get call => 'Call';
+  String get call => '부르다';
 
   @override
-  String get website => 'Website';
+  String get website => '웹사이트';
 
   @override
-  String get orderOnline => 'Order Online';
+  String get orderOnline => '온라인으로 주문하세요';
 
   @override
-  String get viewOnMap => 'View on Map';
+  String get viewOnMap => '지도에서 보기';
 
   @override
-  String get foodDiscoveryGuide => 'Food Discovery Guide';
+  String get foodDiscoveryGuide => '음식 탐험 가이드';
 
   @override
   String get foodDiscoveryGuideHelper =>
-      'Tap play to hear your Food Discovery Guide describe this food spot and its highlights.';
+      '재생 버튼을 눌러 푸드 디스커버리 가이드가 이 음식점과 그 주요 특징에 대해 설명하는 것을 들어보세요.';
 
   @override
-  String get stop => 'Stop';
+  String get stop => '멈추다';
 
   @override
-  String get unableToStartNarration =>
-      'Unable to start Food Discovery Guide narration right now.';
+  String get unableToStartNarration => '지금은 음식 탐험 가이드 음성 재생을 시작할 수 없습니다.';
 
   @override
-  String get unableToCallNumber => 'Unable to call this number right now.';
+  String get unableToCallNumber => '지금은 이 번호로 전화를 걸 수 없습니다.';
 
   @override
-  String get unableToSendEmail => 'Unable to send email right now.';
+  String get unableToSendEmail => '지금은 이메일을 보낼 수 없습니다.';
 
   @override
-  String get foodSpotCannotBeShared =>
-      'This food spot cannot be shared right now.';
+  String get foodSpotCannotBeShared => '이 음식점 정보는 현재 공유할 수 없습니다.';
 
   @override
   String foodDescriptionIntro(String title, String cuisine, String location) {
@@ -723,7 +721,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String foodDescriptionRating(String rating) {
-    return 'Loved by locals and visitors alike, it holds a $rating-star rating.';
+    return '현지인과 관광객 모두에게 사랑받는 이곳은 별점 $rating점을 받았습니다.';
   }
 
   @override
@@ -738,7 +736,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String foodDescriptionOutro(String title) {
-    return 'Whether you are after a relaxed brunch, a business lunch, or a lively dinner, $title offers a welcoming atmosphere and flavours that capture Brisbane\'s dining scene.';
+    return '편안한 브런치, 비즈니스 점심, 활기 넘치는 저녁 식사 등 무엇을 원하시든, $title은 브리즈번의 다이닝 문화를 담아낸 따뜻한 분위기와 풍미를 선사합니다.';
   }
 
   @override

@@ -1,6 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/l10n/app_localizations.dart';
+import 'package:brisconnect/mixins/locale_listener_mixin.dart';
+import 'package:brisconnect/services/business_dashboard_service.dart';
 import 'package:brisconnect/services/share/content_share_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/audio_guide_widget.dart';
@@ -11,7 +15,7 @@ import 'package:brisconnect/utils/responsive_utils.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 import 'package:brisconnect/widgets/share_bottom_sheet.dart';
 
-class FoodDetailScreen extends StatelessWidget {
+class FoodDetailScreen extends StatefulWidget {
   const FoodDetailScreen({
     super.key,
     required this.id,
@@ -37,6 +41,7 @@ class FoodDetailScreen extends StatelessWidget {
     this.shareService,
     this.menu = const [],
     this.photoGallery = const [],
+    this.isGoogleListing = false,
   });
 
   final String id;
@@ -62,6 +67,63 @@ class FoodDetailScreen extends StatelessWidget {
   final ContentShareService? shareService;
   final List<Map<String, dynamic>> menu;
   final List<String> photoGallery;
+  final bool isGoogleListing;
+
+  @override
+  State<FoodDetailScreen> createState() => _FoodDetailScreenState();
+}
+
+class _FoodDetailScreenState extends State<FoodDetailScreen>
+    with LocaleListenerMixin<FoodDetailScreen> {
+  bool _viewTracked = false;
+
+  @override
+  @override
+  void initState() {
+    super.initState();
+    setupLocaleListener();
+    _trackView();
+  }
+
+  Future<void> _trackView() async {
+    if (_viewTracked) return;
+    _viewTracked = true;
+    try {
+      final visitorId = FirebaseAuth.instance.currentUser?.uid ??
+          VisitorAuth.currentVisitor?.email;
+      await BusinessDashboardService().recordProfileView(
+        widget.id,
+        visitorId: visitorId,
+        ownerId: widget.email,
+      );
+    } catch (_) {
+      // Analytics should never block the UI.
+    }
+  }
+
+  String get id => widget.id;
+  String get title => widget.title;
+  String get description => widget.description;
+  String get location => widget.location;
+  String get cuisine => widget.cuisine;
+  String get imageUrl => widget.imageUrl;
+  List<String> get categories => widget.categories;
+  double? get rating => widget.rating;
+  String? get badge => widget.badge;
+  String? get dateTime => widget.dateTime;
+  String? get price => widget.price;
+  String? get mapQuery => widget.mapQuery;
+  String? get webLink => widget.webLink;
+  String? get phone => widget.phone;
+  String? get email => widget.email;
+  String? get openingHours => widget.openingHours;
+  String? get facebookUrl => widget.facebookUrl;
+  String? get instagramUrl => widget.instagramUrl;
+  String? get onlineOrderUrl => widget.onlineOrderUrl;
+  String? get aiAudio => widget.aiAudio;
+  ContentShareService? get shareService => widget.shareService;
+  List<Map<String, dynamic>> get menu => widget.menu;
+  List<String> get photoGallery => widget.photoGallery;
 
   String _buildRichDescription(AppLocalizations l10n) {
     if (description.trim().length > 80 &&
@@ -224,10 +286,73 @@ class FoodDetailScreen extends StatelessWidget {
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final maxContentWidth =
-              ResponsiveUtils.isDesktop(context) ? 900.0 : double.infinity;
-          final horizontalPadding =
-              ResponsiveUtils.isDesktop(context) ? 32.0 : 16.0;
+          final isDesktop = ResponsiveUtils.isDesktop(context);
+          final maxContentWidth = isDesktop ? 1120.0 : double.infinity;
+          final horizontalPadding = isDesktop ? 32.0 : 16.0;
+
+          final mainColumn = <Widget>[
+            _buildAboutSection(context, l10n),
+            const SizedBox(height: 24),
+            if (photoGallery.isNotEmpty) ...[
+              _buildGallerySection(l10n),
+              const SizedBox(height: 24),
+            ],
+            if (menu.isNotEmpty) ...[
+              _buildMenuSection(l10n),
+              const SizedBox(height: 24),
+            ],
+            if (narrationText.isNotEmpty) ...[
+              _buildAudioGuideSection(narrationText, l10n),
+              const SizedBox(height: 24),
+            ],
+            // Google Listing Badge
+            if (widget.isGoogleListing)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                color: const Color(0xFF4285F4).withValues(alpha: 0.1),
+                margin: const EdgeInsets.only(bottom: 24),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.info_outline,
+                      color: Color(0xFF4285F4),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Google Listing • Reviews and reports disabled for external listings',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue.shade700,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            // Crowd Report - only for BrisConnect businesses
+            if (!widget.isGoogleListing) ...[
+              _buildCrowdReportSection(),
+              const SizedBox(height: 24),
+            ],
+            // Reviews - only for BrisConnect businesses
+            if (!widget.isGoogleListing)
+              _buildReviewsSection(),
+          ];
+
+          final sidebarColumn = <Widget>[
+            if (categories.isNotEmpty) ...[
+              _buildHighlightsSection(l10n),
+              const SizedBox(height: 24),
+            ],
+            _buildContactActionsSection(context, l10n),
+            const SizedBox(height: 24),
+            if ((openingHours ?? '').trim().isNotEmpty)
+              _buildOpeningHoursSection(l10n),
+          ];
 
           return Center(
             child: ConstrainedBox(
@@ -257,34 +382,40 @@ class FoodDetailScreen extends StatelessWidget {
                           const SizedBox(height: 20),
                           const Divider(color: AppPalette.border),
                           const SizedBox(height: 24),
-                          _buildAboutSection(context, l10n),
-                          const SizedBox(height: 24),
-                          if (categories.isNotEmpty) ...[
-                            _buildHighlightsSection(l10n),
-                            const SizedBox(height: 24),
-                          ],
-                          _buildContactActionsSection(context, l10n),
-                          const SizedBox(height: 24),
-                          if (photoGallery.isNotEmpty) ...[
-                            _buildGallerySection(l10n),
-                            const SizedBox(height: 24),
-                          ],
-                          if ((openingHours ?? '').trim().isNotEmpty) ...[
-                            _buildOpeningHoursSection(l10n),
-                            const SizedBox(height: 24),
-                          ],
-                          if (menu.isNotEmpty) ...[
-                            _buildMenuSection(l10n),
-                            const SizedBox(height: 24),
-                          ],
-                          if (narrationText.isNotEmpty) ...[
-                            _buildAudioGuideSection(narrationText, l10n),
-                            const SizedBox(height: 24),
-                          ],
-                          _buildCrowdReportSection(),
-                          const SizedBox(height: 24),
-                          _buildReviewsSection(),
-                          const SizedBox(height: 24),
+                          if (isDesktop)
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: mainColumn,
+                                  ),
+                                ),
+                                const SizedBox(width: 24),
+                                Expanded(
+                                  flex: 1,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: sidebarColumn,
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ...sidebarColumn,
+                                const SizedBox(height: 24),
+                                ...mainColumn,
+                              ],
+                            ),
                         ],
                       ),
                     ),
@@ -869,9 +1000,17 @@ class _ContentSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppPalette.surface,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppPalette.border),
+        border: Border.all(color: AppPalette.ochre.withValues(alpha: 0.3), width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.14),
+            blurRadius: 26,
+            offset: const Offset(0, 10),
+            spreadRadius: -2,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

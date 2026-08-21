@@ -111,6 +111,11 @@ class EmailCodeAuthService {
             'Sign-in service unavailable. Please check your connection and try again.';
         return SendCodeResult.unknownError;
       }
+      if (e.code == 'internal' || e.code == 'unavailable') {
+        _lastErrorMessage =
+            'Email service temporarily unavailable. Please try again in a moment.';
+        return SendCodeResult.unknownError;
+      }
       return SendCodeResult.unknownError;
     } catch (e) {
       debugPrint('[EmailCodeAuthService] sendCode unexpected error: $e');
@@ -180,6 +185,8 @@ class EmailCodeAuthService {
         _lastErrorMessage = 'Invalid code. Please check your email and try again, or request a new code.';
       } else if (e.code == 'unauthenticated') {
         _lastErrorMessage = 'Sign-in session expired. Please request a new code.';
+      } else if (e.code == 'not-found') {
+        _lastErrorMessage = 'Code not found. Please request a new code.';
       } else if (e.code == 'deadline-exceeded') {
         _lastErrorMessage = 'This code has expired. Please request a new one.';
       } else if (e.code == 'resource-exhausted') {

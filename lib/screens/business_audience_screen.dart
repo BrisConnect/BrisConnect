@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:brisconnect/services/audience_analytics_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 
@@ -23,6 +24,7 @@ class _BusinessAudienceScreenState extends State<BusinessAudienceScreen> {
   final _service = AudienceAnalyticsService();
   DateTimeRange _dateRange = _defaultRange();
   Future<AudienceAnalyticsData>? _dataFuture;
+  Timer? _autoRefreshTimer;
 
   static DateTimeRange _defaultRange() {
     final now = DateTime.now();
@@ -37,6 +39,17 @@ class _BusinessAudienceScreenState extends State<BusinessAudienceScreen> {
   void initState() {
     super.initState();
     _loadData();
+    // Audience data must never be more than 15 minutes stale.
+    _autoRefreshTimer = Timer.periodic(
+      const Duration(minutes: 15),
+      (_) => _loadData(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    super.dispose();
   }
 
   void _loadData() {
@@ -104,7 +117,7 @@ class _BusinessAudienceScreenState extends State<BusinessAudienceScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
+      backgroundColor: const Color(0xFFEBF4FF),
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -130,14 +143,14 @@ class _BusinessAudienceScreenState extends State<BusinessAudienceScreen> {
                 Text(
                   'Audience',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: Colors.black.withValues(alpha: 0.6),
                     fontSize: 13,
                   ),
                 ),
                 const Text(
                   'Who is engaging',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: Colors.black,
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
@@ -171,7 +184,7 @@ class _BusinessAudienceScreenState extends State<BusinessAudienceScreen> {
             Expanded(
               child: Text(
                 '$startText – $endText',
-                style: const TextStyle(color: Colors.white, fontSize: 14),
+                style: const TextStyle(color: Colors.black, fontSize: 14),
                 semanticsLabel:
                     'Selected date range from $startText to $endText',
               ),
@@ -299,7 +312,7 @@ class _BusinessAudienceScreenState extends State<BusinessAudienceScreen> {
               'Only $total interaction${total == 1 ? '' : 's'} recorded in this range. '
               'Results may not yet be statistically meaningful.',
               style: const TextStyle(
-                color: Color(0xFF8B8FA8),
+                color: AppPalette.mutedText,
                 fontSize: 13,
               ),
             ),
@@ -420,11 +433,11 @@ class _BusinessAudienceScreenState extends State<BusinessAudienceScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: const [
               Text('12am',
-                  style: TextStyle(color: Color(0xFF8B8FA8), fontSize: 10)),
+                  style: TextStyle(color: AppPalette.mutedText, fontSize: 10)),
               Text('12pm',
-                  style: TextStyle(color: Color(0xFF8B8FA8), fontSize: 10)),
+                  style: TextStyle(color: AppPalette.mutedText, fontSize: 10)),
               Text('11pm',
-                  style: TextStyle(color: Color(0xFF8B8FA8), fontSize: 10)),
+                  style: TextStyle(color: AppPalette.mutedText, fontSize: 10)),
             ],
           ),
         ],
@@ -499,7 +512,7 @@ class _BusinessAudienceScreenState extends State<BusinessAudienceScreen> {
             children: days
                 .map((d) => Text(d,
                     style: const TextStyle(
-                        color: Color(0xFF8B8FA8), fontSize: 10)))
+                        color: AppPalette.mutedText, fontSize: 10)))
                 .toList(),
           ),
         ],
@@ -538,7 +551,7 @@ class _SectionLabel extends StatelessWidget {
     return Text(
       text,
       style: const TextStyle(
-        color: Colors.white,
+        color: Colors.black,
         fontSize: 15,
         fontWeight: FontWeight.bold,
       ),
@@ -582,7 +595,7 @@ class _OverviewCard extends StatelessWidget {
             Text(
               label,
               style: const TextStyle(
-                color: Color(0xFF8B8FA8),
+                color: AppPalette.mutedText,
                 fontSize: 11,
               ),
             ),
@@ -617,13 +630,13 @@ class _LegendItem extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(color: Colors.white70, fontSize: 13),
+            style: const TextStyle(color: Colors.black87, fontSize: 13),
           ),
         ),
         Text(
           value,
           style: const TextStyle(
-            color: Colors.white,
+            color: Colors.black,
             fontWeight: FontWeight.w600,
             fontSize: 13,
           ),
@@ -657,7 +670,7 @@ class _AudienceErrorCard extends StatelessWidget {
               child: Text(
                 message,
                 style: const TextStyle(
-                  color: Color(0xFF8B8FA8),
+                  color: AppPalette.mutedText,
                   fontSize: 14,
                 ),
               ),
@@ -685,13 +698,13 @@ class _AudienceEmptyCard extends StatelessWidget {
       child: Row(
         children: [
           const Icon(Icons.bar_chart_rounded,
-              color: Color(0xFF8B8FA8), size: 22),
+              color: AppPalette.mutedText, size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               message,
               style: const TextStyle(
-                color: Color(0xFF8B8FA8),
+                color: AppPalette.mutedText,
                 fontSize: 14,
               ),
             ),
@@ -709,7 +722,7 @@ class _AudienceErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
+      backgroundColor: const Color(0xFFEBF4FF),
       body: SafeArea(
         child: _AudienceErrorCard(message: message),
       ),

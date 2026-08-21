@@ -1,6 +1,54 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:brisconnect/services/review_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
+
+class _SectionLabel extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+
+  const _SectionLabel({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 18, color: AppPalette.ochre),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+                color: AppPalette.charcoal,
+              ),
+            ),
+          ],
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            subtitle!,
+            style: const TextStyle(
+              color: AppPalette.mutedText,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
 
 class SubmitReviewBottomSheet extends StatefulWidget {
   final String businessId;
@@ -45,7 +93,8 @@ class _SubmitReviewBottomSheetState extends State<SubmitReviewBottomSheet> {
   Future<void> _submitReview() async {
     if (_commentController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please share why you recommend this business')),
+        const SnackBar(
+            content: Text('Please share why you recommend this business')),
       );
       return;
     }
@@ -71,7 +120,8 @@ class _SubmitReviewBottomSheetState extends State<SubmitReviewBottomSheet> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Recommendation submitted successfully!')),
+          const SnackBar(
+              content: Text('Recommendation submitted successfully!')),
         );
         widget.onReviewSubmitted(reviewId);
         Navigator.pop(context);
@@ -109,189 +159,190 @@ class _SubmitReviewBottomSheetState extends State<SubmitReviewBottomSheet> {
               children: [
                 // Header
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Recommend this Business',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppPalette.ochre.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.rate_review_rounded,
+                          color: AppPalette.ochre, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Recommend this Business',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: AppPalette.charcoal,
+                        ),
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(Icons.close_rounded,
+                          color: AppPalette.mutedText),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
                 // Star Rating
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Rating',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: List.generate(5, (index) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: GestureDetector(
-                            onTap: () => setState(() => _rating = index + 1),
-                            child: Icon(
-                              index < _rating ? Icons.star : Icons.star_border,
-                              color: AppPalette.ochre,
-                              size: 32,
-                            ),
+                _SectionLabel(
+                  icon: Icons.star_rounded,
+                  title: 'Your Rating',
+                  subtitle: '$_rating out of 5 stars',
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: List.generate(5, (index) {
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: GestureDetector(
+                        onTap: () => setState(() => _rating = index + 1),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          transform: index < _rating
+                              ? (Matrix4.identity()..scale(1.05))
+                              : Matrix4.identity(),
+                          child: Icon(
+                            index < _rating
+                                ? Icons.star_rounded
+                                : Icons.star_border_rounded,
+                            color: AppPalette.ochre,
+                            size: 36,
                           ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$_rating out of 5 stars',
-                      style: TextStyle(
-                        color: AppPalette.mutedText,
-                        fontSize: 12,
+                        ),
                       ),
-                    ),
-                  ],
+                    );
+                  }),
                 ),
                 const SizedBox(height: 20),
 
                 // Buzz Rating
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Buzz Rating',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'How much buzz is this business generating?',
-                      style: TextStyle(
-                        color: AppPalette.mutedText,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: List.generate(5, (index) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: GestureDetector(
-                            onTap: () => setState(() => _buzzRating = index + 1),
-                            child: Icon(
-                              index < _buzzRating
-                                  ? Icons.flash_on
-                                  : Icons.flash_on_outlined,
-                              color: AppPalette.ochre,
-                              size: 32,
-                            ),
+                _SectionLabel(
+                  icon: Icons.flash_on_rounded,
+                  title: 'Buzz Rating',
+                  subtitle: _buzzRating > 0
+                      ? '$_buzzRating out of 5 lightning bolts'
+                      : 'How much buzz is this business generating?',
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: List.generate(5, (index) {
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: GestureDetector(
+                        onTap: () => setState(() => _buzzRating = index + 1),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          transform: index < _buzzRating
+                              ? (Matrix4.identity()..scale(1.05))
+                              : Matrix4.identity(),
+                          child: Icon(
+                            index < _buzzRating
+                                ? Icons.flash_on_rounded
+                                : Icons.flash_on_outlined,
+                            color: AppPalette.ochre,
+                            size: 32,
                           ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _buzzRating > 0
-                          ? '$_buzzRating out of 5 lightning bolts'
-                          : 'Tap a lightning bolt to rate the buzz',
-                      style: TextStyle(
-                        color: AppPalette.mutedText,
-                        fontSize: 12,
+                        ),
                       ),
-                    ),
-                  ],
+                    );
+                  }),
                 ),
                 const SizedBox(height: 20),
 
                 // Comment Input
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Why do you recommend this business?',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _commentController,
-                      maxLines: 4,
-                      minLines: 3,
-                      maxLength: 500,
-                      enabled: !_isSubmitting,
-                      decoration: InputDecoration(
-                        hintText: 'Share what you loved about your visit...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        contentPadding: const EdgeInsets.all(12),
-                      ),
-                    ),
-                  ],
+                _SectionLabel(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  title: 'Why do you recommend this business?',
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _commentController,
+                  maxLines: 4,
+                  minLines: 3,
+                  maxLength: 500,
+                  enabled: !_isSubmitting,
+                  decoration: InputDecoration(
+                    hintText: 'Share what you loved about your visit...',
+                    filled: true,
+                    fillColor: AppPalette.surfaceAlt.withValues(alpha: 0.4),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                          color: AppPalette.border.withValues(alpha: 0.6)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          const BorderSide(color: AppPalette.ochre, width: 1.5),
+                    ),
+                    contentPadding: const EdgeInsets.all(14),
+                    counterStyle: const TextStyle(
+                      color: AppPalette.mutedText,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
 
                 // Privacy consent
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Checkbox(
-                          value: _privacyConsent,
-                          onChanged: _isSubmitting
-                              ? null
-                              : (value) =>
-                                  setState(() => _privacyConsent = value ?? false),
-                          activeColor: AppPalette.ochre,
-                        ),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 12),
-                            child: Text(
-                              _privacyNotice,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppPalette.mutedText,
-                              ),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppPalette.surfaceAlt.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppPalette.border.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Checkbox(
+                        value: _privacyConsent,
+                        onChanged: _isSubmitting
+                            ? null
+                            : (value) => setState(
+                                () => _privacyConsent = value ?? false),
+                        activeColor: AppPalette.ochre,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Text(
+                            _privacyNotice,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppPalette.mutedText,
+                              height: 1.4,
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 20),
 
                 // Submit Button
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
+                  child: ElevatedButton.icon(
                     onPressed: _isSubmitting ? null : _submitReview,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      backgroundColor: AppPalette.ochre,
-                    ),
-                    child: _isSubmitting
+                    icon: _isSubmitting
                         ? const SizedBox(
-                            height: 20,
-                            width: 20,
+                            height: 18,
+                            width: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                               valueColor: AlwaysStoppedAnimation<Color>(
@@ -299,13 +350,24 @@ class _SubmitReviewBottomSheetState extends State<SubmitReviewBottomSheet> {
                               ),
                             ),
                           )
-                        : const Text(
-                            'Submit Recommendation',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
+                        : const Icon(Icons.send_rounded, size: 18),
+                    label: _isSubmitting
+                        ? const Text('Submitting...')
+                        : const Text('Submit Recommendation'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      backgroundColor: AppPalette.ochre,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor:
+                          AppPalette.mutedText.withValues(alpha: 0.3),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      textStyle: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15,
+                      ),
+                    ),
                   ),
                 ),
               ],

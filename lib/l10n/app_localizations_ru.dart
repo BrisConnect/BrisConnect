@@ -524,12 +524,12 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String categoryLabel(String category) {
-    return 'Категория: $category';
+    return 'Category: $category';
   }
 
   @override
   String severityLabel(String severity) {
-    return 'Серьезность: $severity';
+    return 'Severity: $severity';
   }
 
   @override
@@ -575,7 +575,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get languageGreek => 'Греческий';
 
   @override
-  String get languagePunjabi => 'Punjabi';
+  String get languagePunjabi => 'Пенджаби';
 
   @override
   String get discoverTitle => 'Откройте для себя местную еду';
@@ -606,7 +606,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String versionLabel(String version) {
-    return 'Версия $version';
+    return 'Version $version';
   }
 
   @override
@@ -687,64 +687,66 @@ class AppLocalizationsRu extends AppLocalizations {
   String get statusWontFix => 'Не исправлю';
 
   @override
-  String get foodBusinessDetails => 'Business Details';
+  String get foodBusinessDetails => 'Сведения о компании';
 
   @override
-  String get aboutThisFoodExperience => 'About this Food Experience';
+  String get aboutThisFoodExperience => 'Об этом гастрономическом опыте';
 
   @override
-  String get highlights => 'Highlights';
+  String get highlights => 'Основные моменты';
 
   @override
-  String get contactAndLinks => 'Contact & Links';
+  String get contactAndLinks => 'Контакты и ссылки';
 
   @override
-  String get gallery => 'Gallery';
+  String get gallery => 'Галерея';
 
   @override
-  String get openingHours => 'Opening Hours';
+  String get openingHours => 'Часы работы';
 
   @override
-  String get menu => 'Menu';
+  String get menu => 'Меню';
 
   @override
-  String get menuFallback => 'Menu';
+  String get menuFallback => 'Меню';
 
   @override
-  String get call => 'Call';
+  String get call => 'Вызов';
 
   @override
-  String get website => 'Website';
+  String get website => 'Веб-сайт';
 
   @override
-  String get orderOnline => 'Order Online';
+  String get orderOnline => 'Заказать онлайн';
 
   @override
-  String get viewOnMap => 'View on Map';
+  String get viewOnMap => 'Посмотреть на карте';
 
   @override
-  String get foodDiscoveryGuide => 'Food Discovery Guide';
+  String get foodDiscoveryGuide => 'Путеводитель по кулинарным открытиям';
 
   @override
   String get foodDiscoveryGuideHelper =>
-      'Tap play to hear your Food Discovery Guide describe this food spot and its highlights.';
+      'Нажмите кнопку воспроизведения, чтобы услышать, как ваш гид по гастрономическим открытиям описывает это место и его достопримечательности.';
 
   @override
-  String get stop => 'Stop';
+  String get stop => 'Останавливаться';
 
   @override
   String get unableToStartNarration =>
-      'Unable to start Food Discovery Guide narration right now.';
+      'В данный момент не удаётся запустить озвучку «Путеводителя по кулинарным открытиям».';
 
   @override
-  String get unableToCallNumber => 'Unable to call this number right now.';
+  String get unableToCallNumber =>
+      'В данный момент позвонить по этому номеру невозможно.';
 
   @override
-  String get unableToSendEmail => 'Unable to send email right now.';
+  String get unableToSendEmail =>
+      'В данный момент отправить электронное письмо невозможно.';
 
   @override
   String get foodSpotCannotBeShared =>
-      'This food spot cannot be shared right now.';
+      'В данный момент информацию об этом месте, где можно поесть, делиться ею нельзя.';
 
   @override
   String foodDescriptionIntro(String title, String cuisine, String location) {
@@ -753,7 +755,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String foodDescriptionRating(String rating) {
-    return 'Loved by locals and visitors alike, it holds a $rating-star rating.';
+    return 'Этот ресторан, любимый как местными жителями, так и туристами, имеет рейтинг в $rating звезд.';
   }
 
   @override
@@ -768,7 +770,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String foodDescriptionOutro(String title) {
-    return 'Whether you are after a relaxed brunch, a business lunch, or a lively dinner, $title offers a welcoming atmosphere and flavours that capture Brisbane\'s dining scene.';
+    return 'Независимо от того, предпочитаете ли вы неспешный бранч, деловой обед или оживленный ужин, $title предлагает гостеприимную атмосферу и вкусы, отражающие гастрономическую сцену Брисбена.';
   }
 
   @override

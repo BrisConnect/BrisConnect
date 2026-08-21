@@ -10,7 +10,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:brisconnect/auth/app_user_role.dart';
 import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/models/event_item.dart';
-import 'package:brisconnect/screens/business_audience_screen.dart';
 import 'package:brisconnect/screens/business_search_screen.dart';
 import 'package:brisconnect/screens/business_map_screen.dart';
 import 'package:brisconnect/services/business_profile_service.dart';
@@ -23,6 +22,8 @@ import 'package:brisconnect/screens/vendor_reviews_screen.dart';
 import 'package:brisconnect/screens/business_profile_screen.dart';
 import 'package:brisconnect/screens/local_settings_screen.dart';
 import 'package:brisconnect/screens/business_notification_settings_screen.dart';
+import 'package:brisconnect/screens/owner_notifications_screen.dart';
+import 'package:brisconnect/widgets/owner_notification_bell.dart';
 import 'package:brisconnect/screens/my_feedback_screen.dart';
 import 'package:brisconnect/screens/welcome_screen_new.dart';
 import 'package:brisconnect/services/firestore_service.dart';
@@ -47,12 +48,18 @@ class LocalPortalScreen extends StatefulWidget {
     this.submittedEventsStreamOverride,
     this.enforceRoleGuard = true,
     this.initialTabIndex = 0,
+    this.checkoutStatus,
+    this.checkoutSessionId,
+    this.portalStatus,
   });
 
   final LocalEventService? localEventService;
   final Stream<List<EventItem>>? submittedEventsStreamOverride;
   final bool enforceRoleGuard;
   final int initialTabIndex;
+  final String? checkoutStatus;
+  final String? checkoutSessionId;
+  final String? portalStatus;
 
   @override
   State<LocalPortalScreen> createState() => _LocalPortalScreenState();
@@ -125,6 +132,79 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
     _selectedIndex = widget.initialTabIndex;
     _updateUserPreferences();
   }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _handleCheckoutReturn();
+  }
+
+  void _handleCheckoutReturn() {
+    final checkout = widget.checkoutStatus;
+    final portal = widget.portalStatus;
+    if ((checkout == null && portal == null) || !mounted) return;
+
+    // Only handle the return once per widget lifecycle.
+    if (_checkoutHandled) return;
+    _checkoutHandled = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      if (checkout == 'success') {
+        _showCheckoutSuccess();
+      } else if (checkout == 'cancel') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Checkout cancelled. You can try again anytime.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else if (portal == 'return') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Welcome back. Your billing session has ended.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    });
+  }
+
+  void _showCheckoutSuccess() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 8),
+            Text(
+              'Payment Successful',
+              style: TextStyle(color: AppPalette.charcoal),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Thank you! Your purchase was successful. It may take a moment to appear across the app.',
+          style: TextStyle(color: AppPalette.mutedText),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text(
+              'Done',
+              style: TextStyle(color: AppPalette.ochre),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _checkoutHandled = false;
 
   @override
   void dispose() {
@@ -821,7 +901,9 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                     } catch (e) {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(l10n.errorLoadingMap(e.toString()))),
+                          SnackBar(
+                              content:
+                                  Text(l10n.errorLoadingMap(e.toString()))),
                         );
                       }
                     }
@@ -955,14 +1037,21 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                         if (isMobile)
                           Row(
                             children: [
-                              ClipOval(
-                                child: Container(
-                                  width: 64,
-                                  height: 64,
-                                  color: Colors.white.withValues(alpha: 0.1),
-                                  child: Image.asset(
-                                      'assets/Brisconnect New.jpg',
-                                      fit: BoxFit.cover),
+                              InkWell(
+                                onTap: () => Navigator.of(context).pushNamedAndRemoveUntil(
+                                  '/welcome',
+                                  (route) => false,
+                                ),
+                                borderRadius: BorderRadius.circular(32),
+                                child: ClipOval(
+                                  child: Container(
+                                    width: 64,
+                                    height: 64,
+                                    color: Colors.white.withValues(alpha: 0.1),
+                                    child: Image.asset(
+                                        'assets/Brisconnect New.jpg',
+                                        fit: BoxFit.cover),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -1194,9 +1283,7 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
       setState(() => _pendingProfileImageBytes = null);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text(l10n.imageTooLarge)),
+        SnackBar(content: Text(l10n.imageTooLarge)),
       );
       return;
     }
@@ -1809,11 +1896,6 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
               label: Text(l10n.dashboard),
             ),
             NavigationRailDestination(
-              icon: const Icon(Icons.people_outline_rounded),
-              selectedIcon: const Icon(Icons.people_rounded),
-              label: Text(l10n.audience),
-            ),
-            NavigationRailDestination(
               icon: const Icon(Icons.dynamic_feed_outlined),
               selectedIcon: const Icon(Icons.dynamic_feed_rounded),
               label: Text(l10n.feed),
@@ -1840,9 +1922,6 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                   index: _selectedIndex,
                   children: [
                     BusinessDashboardScreen(
-                      ownerId: LocalAuth.currentLocal?.email ?? '',
-                    ),
-                    BusinessAudienceScreen(
                       ownerId: LocalAuth.currentLocal?.email ?? '',
                     ),
                     VendorFeedScreen(),
@@ -1880,6 +1959,14 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
               profileImage: _profileImageProvider(LocalAuth.currentLocal),
               userName: LocalAuth.currentLocal?.name ?? l10n.localUser,
               userEmail: LocalAuth.currentLocal?.email,
+              notificationBell: OwnerNotificationBell(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const OwnerNotificationsScreen(),
+                  ),
+                ),
+              ),
             )
           : isHome
               ? null
@@ -1892,8 +1979,19 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                   title: LogoAppBarTitle(
                     _appBarTitleForIndex(_selectedIndex),
                   ),
-                  backgroundColor: AppPalette.ochre,
-                  foregroundColor: Colors.white,
+                  actions: [
+                    OwnerNotificationBell(
+                      iconColor: AppPalette.charcoal,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const OwnerNotificationsScreen(),
+                        ),
+                      ),
+                    ),
+                  ],
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppPalette.charcoal,
                   elevation: 0,
                 ),
       body: isDesktop
@@ -1906,9 +2004,6 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                   BusinessDashboardScreen(
                     ownerId: LocalAuth.currentLocal?.email ?? '',
                   ),
-                  BusinessAudienceScreen(
-                    ownerId: LocalAuth.currentLocal?.email ?? '',
-                  ),
                   VendorFeedScreen(),
                   VendorReviewsScreen(),
                   BusinessProfileScreen(),
@@ -1918,12 +2013,11 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
       bottomNavigationBar: isDesktop ? null : _buildLocalBottomNav(),
     );
 
-    // Wrap scaffold with solid dark navy background
+    // Wrap scaffold with a soft light blue background
     final withBackground = Stack(
       children: [
-        // Dark navy background
         const Positioned.fill(
-          child: ColoredBox(color: Color(0xFF0D1117)),
+          child: ColoredBox(color: Color(0xFFEBF4FF)),
         ),
         scaffold,
       ],
@@ -2000,28 +2094,22 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
                   onTap: () => setState(() => _selectedIndex = 0),
                 ),
                 _LocalNavItem(
-                  icon: Icons.people_alt_rounded,
-                  label: l10n.audience,
+                  icon: Icons.dynamic_feed_rounded,
+                  label: l10n.feed,
                   isSelected: _selectedIndex == 1,
                   onTap: () => setState(() => _selectedIndex = 1),
                 ),
                 _LocalNavItem(
-                  icon: Icons.dynamic_feed_rounded,
-                  label: l10n.feed,
+                  icon: Icons.reviews_rounded,
+                  label: l10n.reviews,
                   isSelected: _selectedIndex == 2,
                   onTap: () => setState(() => _selectedIndex = 2),
                 ),
                 _LocalNavItem(
-                  icon: Icons.reviews_rounded,
-                  label: l10n.reviews,
-                  isSelected: _selectedIndex == 3,
-                  onTap: () => setState(() => _selectedIndex = 3),
-                ),
-                _LocalNavItem(
                   icon: Icons.business_center_rounded,
                   label: l10n.businessLabel,
-                  isSelected: _selectedIndex == 4,
-                  onTap: () => setState(() => _selectedIndex = 4),
+                  isSelected: _selectedIndex == 3,
+                  onTap: () => setState(() => _selectedIndex = 3),
                 ),
               ],
             ),
@@ -2034,12 +2122,10 @@ class _LocalPortalScreenState extends State<LocalPortalScreen> {
   String _appBarTitleForIndex(int index) {
     switch (index) {
       case 1:
-        return l10n.audience;
-      case 2:
         return l10n.feed;
-      case 3:
+      case 2:
         return l10n.reviews;
-      case 4:
+      case 3:
         return l10n.profile;
       case 0:
       default:

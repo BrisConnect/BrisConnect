@@ -14,6 +14,8 @@ class PromotionSchedule {
   final DateTime? endAt;
   final PromotionStatus status;
   final DateTime createdAt;
+  final String? mediaUrl;
+  final String? mediaType;
 
   const PromotionSchedule({
     this.id,
@@ -25,6 +27,8 @@ class PromotionSchedule {
     this.endAt,
     this.status = PromotionStatus.draft,
     required this.createdAt,
+    this.mediaUrl,
+    this.mediaType,
   });
 
   Map<String, dynamic> toFirestore() {
@@ -37,6 +41,8 @@ class PromotionSchedule {
       'endAt': endAt == null ? null : Timestamp.fromDate(endAt!),
       'status': status.name,
       'createdAt': Timestamp.fromDate(createdAt),
+      if (mediaUrl != null) 'mediaUrl': mediaUrl,
+      if (mediaType != null) 'mediaType': mediaType,
     };
   }
 
@@ -52,6 +58,8 @@ class PromotionSchedule {
       endAt: (data['endAt'] as Timestamp?)?.toDate(),
       status: _parseStatus(data['status'] as String?),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
+      mediaUrl: data['mediaUrl'] as String?,
+      mediaType: data['mediaType'] as String?,
     );
   }
 
@@ -81,6 +89,8 @@ class PromotionSchedule {
     DateTime? endAt,
     PromotionStatus? status,
     DateTime? createdAt,
+    String? mediaUrl,
+    String? mediaType,
   }) {
     return PromotionSchedule(
       id: id ?? this.id,
@@ -92,6 +102,8 @@ class PromotionSchedule {
       endAt: endAt ?? this.endAt,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
+      mediaUrl: mediaUrl ?? this.mediaUrl,
+      mediaType: mediaType ?? this.mediaType,
     );
   }
 }

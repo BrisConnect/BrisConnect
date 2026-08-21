@@ -12,7 +12,12 @@ import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
 
 class CreateBusinessScreen extends StatefulWidget {
-  const CreateBusinessScreen({super.key});
+  const CreateBusinessScreen({
+    super.key,
+    this.enforceRoleGuard = true,
+  });
+
+  final bool enforceRoleGuard;
 
   @override
   State<CreateBusinessScreen> createState() => _CreateBusinessScreenState();
@@ -226,9 +231,7 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
+    if (FirebaseAuth.instance.currentUser == null) {
       return Scaffold(
         backgroundColor: AppPalette.background,
         appBar: AppBar(
@@ -271,41 +274,38 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
       return _buildApprovalBlockedScreen(context);
     }
 
-    return RoleGuard(
-      allowedRoles: const {AppUserRole.local},
-      deniedMessage: 'Access denied. Local users can create business profiles.',
-      child: Scaffold(
-        backgroundColor: AppPalette.background,
-        appBar: AppBar(
-          title: const LogoAppBarTitle('Create Business'),
-        ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: AppPalette.surface,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppPalette.border),
-            ),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Business Name
-                  TextFormField(
-                    controller: _businessNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Business Name',
-                      hintText: 'Enter your business name',
-                    ),
-                    validator: (value) =>
-                        (value == null || value.trim().isEmpty)
-                            ? 'Business name is required'
-                            : null,
+    final content = Scaffold(
+      backgroundColor: AppPalette.background,
+      appBar: AppBar(
+        title: const LogoAppBarTitle('Create Business'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: AppPalette.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppPalette.border),
+          ),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Business Name
+                TextFormField(
+                  controller: _businessNameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Business Name',
+                    hintText: 'Enter your business name',
                   ),
-                  const SizedBox(height: 16),
+                  validator: (value) =>
+                      (value == null || value.trim().isEmpty)
+                          ? 'Business name is required'
+                          : null,
+                ),
+                const SizedBox(height: 16),
 
                   // Category
                   DropdownButtonFormField<String>(
@@ -506,7 +506,16 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
             ),
           ),
         ),
-      ),
+      );
+
+    if (!widget.enforceRoleGuard) {
+      return content;
+    }
+
+    return RoleGuard(
+      allowedRoles: const {AppUserRole.local},
+      deniedMessage: 'Access denied. Local users can create business profiles.',
+      child: content,
     );
   }
 }

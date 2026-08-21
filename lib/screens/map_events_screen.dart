@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
@@ -5,10 +7,13 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_maps_cluster_manager_2/google_maps_cluster_manager_2.dart'
+    as cluster;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import 'package:brisconnect/auth/local_auth.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/models/business.dart';
@@ -18,58 +23,25 @@ import 'package:brisconnect/screens/visitor_event_detail_screen.dart';
 import 'package:brisconnect/services/business_profile_service.dart';
 import 'package:brisconnect/services/firestore_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
-import 'package:brisconnect/widgets/fallback_image.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
+import 'package:brisconnect/widgets/map/map_bottom_sheet.dart';
+import 'package:brisconnect/widgets/map/map_filter_sheets.dart';
+import 'package:brisconnect/widgets/map/map_floating_controls.dart';
+import 'package:brisconnect/widgets/map/map_legend.dart';
+import 'package:brisconnect/widgets/map/map_marker_helper.dart';
+import 'package:brisconnect/widgets/map/map_models.dart';
+import 'package:brisconnect/widgets/map/map_search_bar.dart';
+import 'package:brisconnect/widgets/map/map_selected_pin_card.dart';
 
-enum _MapPinType {
-  event,
-  attraction,
-  stadium,
-  olympicVenue,
-  culturalVenue,
-  food,
-}
-
-class _MapPin {
-  const _MapPin({
-    required this.id,
-    required this.title,
-    required this.location,
-    required this.latitude,
-    required this.longitude,
-    required this.type,
-    required this.source,
-    this.imageUrl,
-    this.badge,
-    this.description,
-    this.price,
-    this.rating,
-    this.categories,
-    this.phone,
-    this.website,
-    this.rawItem,
-  });
-
-  final String id;
-  final String title;
-  final String location;
-  final double latitude;
-  final double longitude;
-  final _MapPinType type;
-  final String source;
-  final String? imageUrl;
-  final String? badge;
-  final String? description;
-  final String? price;
-  final double? rating;
-  final List<String>? categories;
-  final String? phone;
-  final String? website;
-  final Map<String, dynamic>? rawItem;
-}
-
+/// Discovery map for BrisConnect+. Displays events, attractions and food
+/// businesses with clustering, live status badges, responsive layouts and
+/// modern Material 3 controls.
 class MapEventsScreen extends StatefulWidget {
-  const MapEventsScreen({super.key, this.embedded = false, this.onBackPressed});
+  const MapEventsScreen({
+    super.key,
+    this.embedded = false,
+    this.onBackPressed,
+  });
 
   final bool embedded;
   final VoidCallback? onBackPressed;
@@ -82,19 +54,14 @@ class _MapEventsScreenState extends State<MapEventsScreen>
     with TickerProviderStateMixin {
   GoogleMapController? _mapController;
   final TextEditingController _searchController = TextEditingController();
+  final MapMarkerHelper _markerHelper = MapMarkerHelper();
+  cluster.ClusterManager<MapPin>? _clusterManager;
+  Set<Marker> _clusterMarkers = {};
+  Marker? _userLocationMarker;
+  String? _lastClusterPinSignature;
 
   Timer? _searchDebounce;
   StreamSubscription<Position>? _positionSubscription;
-  late final AnimationController _pulseController;
-  List<_MapPin>? _cachedAllPins;
-  String? _cachedAllPinsSignature;
-  List<_MapPin>? _cachedFilteredPins;
-  String? _cachedFilteredPinsSignature;
-  Set<Marker>? _cachedMarkers;
-  String? _cachedMarkersSignature;
-  Timer? _markerThrottleTimer;
-  DateTime _lastMarkerRebuildAt = DateTime.fromMillisecondsSinceEpoch(0);
-  String? _pendingMarkerSignature;
 
   // Live data sources for the map pins.
   final BusinessProfileService _businessService = BusinessProfileService();
@@ -108,18 +75,20 @@ class _MapEventsScreenState extends State<MapEventsScreen>
   StreamSubscription<List<Map<String, dynamic>>>? _eventsSub;
   StreamSubscription<List<Map<String, dynamic>>>? _foodBusinessesSub;
 
-  _MapPin? _selectedPin;
+  MapPin? _selectedPin;
+  cluster.Cluster<MapPin>? _selectedCluster;
   LatLng? _userLocation;
   bool _followUser = true;
   bool _showResultsSheet = false;
-  bool _useVibrantMap = true;
-  bool _use3dMode = false;
+  bool _nearMeMode = false;
   String? _locationStatus;
   String _searchQuery = '';
-  _MapPinType? _selectedType;
+  MapPinType? _selectedType;
   bool _showOnlyFavourites = false;
   final Set<String> _selectedFoodCategories = <String>{};
-  List<String> _foodCategories = <String>[];
+
+  MapStyle _mapStyle = MapStyle.normal;
+  double _bearing = 0;
 
   static const LatLng _defaultCenter = LatLng(-27.4698, 153.0251);
 
@@ -127,7 +96,8 @@ class _MapEventsScreenState extends State<MapEventsScreen>
   static const double _brisbaneLat = -27.4698;
   static const double _brisbaneLng = 153.0251;
   static const double _defaultRadiusKm = 30.0;
-  static const Duration _markerThrottleWindow = Duration(milliseconds: 140);
+
+  static const List<double> _radiusOptions = [1, 3, 5, 10, 1000];
 
   late double _radiusKm;
 
@@ -135,109 +105,186 @@ class _MapEventsScreenState extends State<MapEventsScreen>
   void initState() {
     super.initState();
     _radiusKm = _profileRadiusKm();
-    _selectedType = null; // Show all pin types by default
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    )..repeat(reverse: true);
-    // Don't auto-track GPS on emulator — start at Brisbane default.
-    // Live tracking can be triggered by the user tapping the recenter button.
+    _markerHelper.preload();
 
-    // Listen to live Firestore data and rebuild pins as it changes.
-    // For development, fall back to all businesses if none are verified so the
-    // map is usable before admin verification is complete.
     _businessSub = _businessService.getVerifiedBusinessesStream().listen(
-      (businesses) {
-        debugPrint(
-            '[MapEventsScreen] Received ${businesses.length} verified businesses');
-        if (businesses.isEmpty) {
-          debugPrint('[MapEventsScreen] Falling back to all businesses');
-          _loadAllBusinessesForDev();
-          return;
-        }
-        for (final b in businesses) {
-          debugPrint(
-              '  biz=${b.businessName} lat=${b.lat} lng=${b.lng} verified=${b.isVerified}');
-        }
-        _latestBusinesses = businesses;
-        _emitDiscoverItems();
-      },
-      onError: (Object e) {
-        debugPrint('[MapEventsScreen] Businesses stream error: $e');
-        _loadAllBusinessesForDev();
-      },
-    );
+          _onBusinessesReceived,
+          onError: (_) => _loadAllBusinessesForDev(),
+        );
     _eventsSub = _firestoreService.getEvents().listen(
       (events) {
-        debugPrint('[MapEventsScreen] Received ${events.length} events');
         _latestEvents = events;
         _emitDiscoverItems();
       },
-      onError: (Object e) {
-        debugPrint('[MapEventsScreen] Events stream error: $e');
+      onError: (_) {
         _latestEvents ??= <Map<String, dynamic>>[];
         _emitDiscoverItems();
       },
     );
     _foodBusinessesSub = _loadFoodBusinessesStream().listen(
       (items) {
-        debugPrint('[MapEventsScreen] Received ${items.length} food businesses');
         _latestFoodBusinesses = items;
         _emitDiscoverItems();
       },
-      onError: (Object e) {
-        debugPrint('[MapEventsScreen] Food businesses stream error: $e');
+      onError: (_) {
         _latestFoodBusinesses ??= <Map<String, dynamic>>[];
         _emitDiscoverItems();
       },
     );
   }
 
-  /// Stream of local food businesses from the dedicated collection.
-  Stream<List<Map<String, dynamic>>> _loadFoodBusinessesStream() {
-    return FirebaseFirestore.instance
-        .collection('food_businesses')
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
-        final cuisineTypes = data['cuisineTypes'];
-        final categories = cuisineTypes is List
-            ? cuisineTypes.map((v) => '$v').toList()
-            : <String>[];
-        return <String, dynamic>{
-          'id': doc.id,
-          'section': 'food',
-          'badge': 'FOOD',
-          'title': data['name'] ?? data['businessName'] ?? 'Untitled',
-          'description': data['description'] ?? '',
-          'location': data['address'] ?? '',
-          'imageUrl': data['imageUrl'] ??
-              data['logoUrl'] ??
-              data['coverImageUrl'] ??
-              '',
-          'categories': categories,
-          'category': categories.isNotEmpty ? categories.first : '',
-          'rating': data['rating'] ?? data['averageRating'] ?? 0,
-          'price': data['priceRange'] ?? '',
-          'latitude': data['latitude'] ?? data['lat'],
-          'longitude': data['longitude'] ?? data['lng'],
-        };
-      }).toList();
-    });
+  void _onBusinessesReceived(List<Business> businesses) {
+    if (businesses.isEmpty) {
+      _loadAllBusinessesForDev();
+      return;
+    }
+    _latestBusinesses = businesses;
+    _emitDiscoverItems();
   }
 
-  /// Read the user's profile locationRadiusKm (local or visitor).
-  /// For development on macOS we cap the minimum at the default so the map
-  /// is not accidentally filtered to an empty result.
+  Stream<List<Map<String, dynamic>>> _loadFoodBusinessesStream() {
+    final canonical =
+        FirebaseFirestore.instance.collection('businesses').snapshots();
+    final legacy =
+        FirebaseFirestore.instance.collection('food_businesses').snapshots();
+
+    return _combineLatest2(
+      canonical,
+      legacy,
+      (QuerySnapshot<Map<String, dynamic>> canonicalSnap,
+          QuerySnapshot<Map<String, dynamic>> legacySnap) {
+        final merged = <String, Map<String, dynamic>>{};
+
+        for (final doc in canonicalSnap.docs) {
+          final data = doc.data();
+          if (data['deletedAt'] != null) continue;
+          if (data['isActive'] == false) continue;
+          merged[doc.id] = _mapBusinessDocToMapItem(doc);
+        }
+
+        for (final doc in legacySnap.docs) {
+          if (merged.containsKey(doc.id)) continue;
+          merged[doc.id] = _mapFoodBusinessDocToMapItem(doc);
+        }
+
+        return merged.values.toList();
+      },
+    );
+  }
+
+  Map<String, dynamic> _mapBusinessDocToMapItem(
+      QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data();
+    final rawCategories = data['cuisineTypes'];
+    final category = data['category']?.toString();
+    List<String> categories;
+    if (rawCategories is List && rawCategories.isNotEmpty) {
+      categories = rawCategories.map((v) => '$v').toList();
+    } else if (category != null && category.isNotEmpty) {
+      categories = [category];
+    } else {
+      categories = <String>[];
+    }
+    return <String, dynamic>{
+      'id': doc.id,
+      'section': 'food',
+      'badge': category ?? 'Food',
+      'title': data['businessName'] ?? data['name'] ?? 'Untitled',
+      'description': data['description'] ?? '',
+      'location': data['address'] ?? '',
+      'imageUrl':
+          data['coverImageUrl'] ?? data['logoUrl'] ?? data['imageUrl'] ?? '',
+      'categories': categories,
+      'category': categories.isNotEmpty ? categories.first : '',
+      'rating': data['rating'] ?? data['averageRating'] ?? 0,
+      'price': data['priceRange'] ?? '',
+      'latitude': data['latitude'] ?? data['lat'],
+      'longitude': data['longitude'] ?? data['lng'],
+      ...data,
+    };
+  }
+
+  Map<String, dynamic> _mapFoodBusinessDocToMapItem(
+      QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data();
+    final rawCategories = data['cuisineTypes'];
+    final category = data['category']?.toString();
+    List<String> categories;
+    if (rawCategories is List && rawCategories.isNotEmpty) {
+      categories = rawCategories.map((v) => '$v').toList();
+    } else if (category != null && category.isNotEmpty) {
+      categories = [category];
+    } else {
+      categories = <String>[];
+    }
+    return <String, dynamic>{
+      'id': doc.id,
+      'section': 'food',
+      'badge': category ?? 'Food',
+      'title': data['name'] ?? data['businessName'] ?? 'Untitled',
+      'description': data['description'] ?? '',
+      'location': data['address'] ?? '',
+      'imageUrl':
+          data['imageUrl'] ?? data['logoUrl'] ?? data['coverImageUrl'] ?? '',
+      'categories': categories,
+      'category': categories.isNotEmpty ? categories.first : '',
+      'rating': data['rating'] ?? data['averageRating'] ?? 0,
+      'price': data['priceRange'] ?? '',
+      'latitude': data['latitude'] ?? data['lat'],
+      'longitude': data['longitude'] ?? data['lng'],
+      ...data,
+    };
+  }
+
+  Stream<R> _combineLatest2<T1, T2, R>(
+    Stream<T1> stream1,
+    Stream<T2> stream2,
+    R Function(T1, T2) combiner,
+  ) {
+    T1? latest1;
+    T2? latest2;
+    var has1 = false;
+    var has2 = false;
+
+    final controller = StreamController<R>.broadcast();
+
+    void emit() {
+      if (has1 && has2 && !controller.isClosed) {
+        controller.add(combiner(latest1 as T1, latest2 as T2));
+      }
+    }
+
+    stream1.listen(
+      (value) {
+        latest1 = value;
+        has1 = true;
+        emit();
+      },
+      onError: controller.addError,
+      onDone: () {
+        if (!controller.isClosed) controller.close();
+      },
+    );
+
+    stream2.listen(
+      (value) {
+        latest2 = value;
+        has2 = true;
+        emit();
+      },
+      onError: controller.addError,
+      onDone: () {
+        if (!controller.isClosed) controller.close();
+      },
+    );
+
+    return controller.stream;
+  }
+
   static double _profileRadiusKm() {
     final local = LocalAuth.currentLocal;
     if (local != null) {
       return math.max(local.locationRadiusKm.toDouble(), _defaultRadiusKm);
-    }
-    final visitor = VisitorAuth.currentVisitor;
-    if (visitor != null) {
-      return math.max(visitor.locationRadiusKm.toDouble(), _defaultRadiusKm);
     }
     return _defaultRadiusKm;
   }
@@ -245,18 +292,8 @@ class _MapEventsScreenState extends State<MapEventsScreen>
   void _loadAllBusinessesForDev() {
     _businessSub?.cancel();
     _businessSub = _businessService.getAllBusinessesStream().listen(
-      (businesses) {
-        debugPrint(
-            '[MapEventsScreen] Received ${businesses.length} all businesses (dev fallback)');
-        for (final b in businesses) {
-          debugPrint(
-              '  biz=${b.businessName} lat=${b.lat} lng=${b.lng} verified=${b.isVerified}');
-        }
-        _latestBusinesses = businesses;
-        _emitDiscoverItems();
-      },
-      onError: (Object e) {
-        debugPrint('[MapEventsScreen] All businesses stream error: $e');
+      _onBusinessesReceived,
+      onError: (_) {
         _latestBusinesses ??= <Business>[];
         _emitDiscoverItems();
       },
@@ -266,9 +303,7 @@ class _MapEventsScreenState extends State<MapEventsScreen>
   @override
   void dispose() {
     _mapController?.dispose();
-    _pulseController.dispose();
     _searchDebounce?.cancel();
-    _markerThrottleTimer?.cancel();
     _positionSubscription?.cancel();
     _businessSub?.cancel();
     _eventsSub?.cancel();
@@ -310,6 +345,7 @@ class _MapEventsScreenState extends State<MapEventsScreen>
           _userLocation = LatLng(current.latitude, current.longitude);
           _locationStatus = null;
         });
+        await _updateUserLocationMarker();
       }
     } catch (_) {
       if (!mounted) return;
@@ -324,18 +360,45 @@ class _MapEventsScreenState extends State<MapEventsScreen>
         accuracy: LocationAccuracy.high,
         distanceFilter: 15,
       ),
-    ).listen((position) {
+    ).listen((position) async {
       if (!mounted) return;
       setState(() {
         _userLocation = LatLng(position.latitude, position.longitude);
         _locationStatus = null;
       });
+      await _updateUserLocationMarker();
 
       if (_followUser) {
         _mapController?.animateCamera(
           CameraUpdate.newLatLng(_userLocation!),
         );
       }
+    });
+  }
+
+  Future<void> _updateUserLocationMarker() async {
+    final userLocation = _userLocation;
+    if (userLocation == null) return;
+
+    BitmapDescriptor icon;
+    try {
+      icon = await _markerHelper.bitmapForUserLocation();
+    } catch (e) {
+      debugPrint('Custom user-location marker failed: $e');
+      icon = BitmapDescriptor.defaultMarkerWithHue(
+        BitmapDescriptor.hueAzure,
+      );
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _userLocationMarker = Marker(
+        markerId: const MarkerId('__user_location__'),
+        position: userLocation,
+        icon: icon,
+        anchor: const Offset(0.5, 0.5),
+        zIndex: 100,
+      );
     });
   }
 
@@ -347,6 +410,7 @@ class _MapEventsScreenState extends State<MapEventsScreen>
     }
 
     setState(() => _followUser = true);
+    _updateUserLocationMarker();
     _mapController?.animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(target: user, zoom: 14),
@@ -354,7 +418,7 @@ class _MapEventsScreenState extends State<MapEventsScreen>
     );
   }
 
-  void _focusPin(_MapPin pin) {
+  void _focusPin(MapPin pin) {
     setState(() {
       _selectedPin = pin;
       _followUser = false;
@@ -382,63 +446,12 @@ class _MapEventsScreenState extends State<MapEventsScreen>
     });
   }
 
-  String _buildDataSignature({
-    required List<Map<String, dynamic>> discoverItems,
-    required List<dynamic> attractions,
-  }) {
-    return '${identityHashCode(discoverItems)}:${discoverItems.length}:${identityHashCode(attractions)}:${attractions.length}:${_radiusKm.toStringAsFixed(2)}';
-  }
-
-  String _selectedPinSignature() {
-    final selected = _selectedPin;
-    if (selected == null) {
-      return 'none';
-    }
-    return '${selected.source}:${selected.id}:${selected.type.name}';
-  }
-
-  String _userLocationSignature() {
-    final user = _userLocation;
-    if (user == null) {
-      return 'none';
-    }
-    return '${user.latitude.toStringAsFixed(3)},${user.longitude.toStringAsFixed(3)}';
-  }
-
-  List<_MapPin> _getAllPins({
-    required List<Map<String, dynamic>> discoverItems,
-    required List<dynamic> attractions,
-  }) {
-    final signature = _buildDataSignature(
-      discoverItems: discoverItems,
-      attractions: attractions,
-    );
-    if (_cachedAllPins != null && _cachedAllPinsSignature == signature) {
-      return _cachedAllPins!;
-    }
-
-    final rebuilt = _buildPins(
-      discoverItems: discoverItems,
-      attractions: attractions,
-    );
-    _cachedAllPins = rebuilt;
-    _cachedAllPinsSignature = signature;
-    _cachedFilteredPins = null;
-    _cachedFilteredPinsSignature = null;
-    _cachedMarkers = null;
-    _cachedMarkersSignature = null;
-    return rebuilt;
-  }
-
-  /// Rebuild the discover-items stream whenever businesses, events or food
-  /// businesses update.
   void _emitDiscoverItems() {
     final businesses = _latestBusinesses ?? <Business>[];
     final events = _latestEvents ?? <Map<String, dynamic>>[];
     final foodBusinesses = _latestFoodBusinesses ?? <Map<String, dynamic>>[];
     final items = _buildDiscoverItems(businesses, events, foodBusinesses);
 
-    // Rebuild the unique, sorted list of food categories from food businesses.
     final categories = foodBusinesses
         .expand((food) {
           final list = food['categories'];
@@ -451,15 +464,10 @@ class _MapEventsScreenState extends State<MapEventsScreen>
         .toSet()
         .toList();
     categories.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    _foodCategories = categories;
 
-    debugPrint(
-        '[MapEventsScreen] Built ${items.length} discover items (radiusKm=$_radiusKm), ${_foodCategories.length} food categories');
     _discoverItemsController.add(items);
   }
 
-  /// Convert verified businesses, approved events and food businesses into
-  /// the discover-item shape expected by [_discoverPins].
   List<Map<String, dynamic>> _buildDiscoverItems(
     List<Business> businesses,
     List<Map<String, dynamic>> events,
@@ -470,8 +478,6 @@ class _MapEventsScreenState extends State<MapEventsScreen>
     for (final business in businesses) {
       var lat = business.lat;
       var lng = business.lng;
-      // Dev fallback: businesses saved before geocoding fixes get a default
-      // Brisbane CBD coordinate with deterministic jitter based on name.
       if (lat == null || lng == null) {
         final jitter = (business.businessName.hashCode % 1000) / 10000 - 0.05;
         final jitterLng = (business.businessName.hashCode % 997) / 10000 - 0.05;
@@ -495,6 +501,7 @@ class _MapEventsScreenState extends State<MapEventsScreen>
             : const <String>[],
         'phone': business.contactNumber,
         'website': business.website ?? '',
+        '_business': business,
       });
     }
 
@@ -514,7 +521,8 @@ class _MapEventsScreenState extends State<MapEventsScreen>
       var lat = _toDouble(food['latitude']) ?? _toDouble(food['lat']);
       var lng = _toDouble(food['longitude']) ?? _toDouble(food['lng']);
       if (lat == null || lng == null) {
-        final jitter = ((food['title'] as String? ?? '').hashCode % 1000) / 10000 - 0.05;
+        final jitter =
+            ((food['title'] as String? ?? '').hashCode % 1000) / 10000 - 0.05;
         final jitterLng =
             ((food['title'] as String? ?? '').hashCode % 997) / 10000 - 0.05;
         lat = _brisbaneLat + jitter;
@@ -534,63 +542,37 @@ class _MapEventsScreenState extends State<MapEventsScreen>
     return items;
   }
 
-  List<_MapPin> _getFilteredPins(List<_MapPin> allPins) {
-    final selectedTypeName = _selectedType?.name ?? 'all';
-    final foodCategorySignature = _selectedFoodCategories.toList()..sort();
-    final signature =
-        '${_cachedAllPinsSignature ?? 'none'}:$_searchQuery:$selectedTypeName:$_showOnlyFavourites:${foodCategorySignature.join(',')}';
-    if (_cachedFilteredPins != null &&
-        _cachedFilteredPinsSignature == signature) {
-      return _cachedFilteredPins!;
+  List<MapPin> _getAllPins(List<Map<String, dynamic>> discoverItems) {
+    final combined = _discoverPins(discoverItems);
+
+    final deduped = <String, MapPin>{};
+    for (final pin in combined) {
+      deduped[pin.key] = pin;
     }
 
-    final filtered = _filteredPins(allPins);
-    _cachedFilteredPins = filtered;
-    _cachedFilteredPinsSignature = signature;
-    _cachedMarkers = null;
-    _cachedMarkersSignature = null;
-    return filtered;
+    final pins = deduped.values
+        .where((pin) => _isWithinRadius(pin.latitude, pin.longitude))
+        .toList(growable: false);
+
+    if (_nearMeMode) {
+      // Sort by distance from the user (or Brisbane CBD if location unknown).
+      final center = _nearMeCenter;
+      pins.sort((a, b) {
+        final distA = _distanceKm(
+            center.latitude, center.longitude, a.latitude, a.longitude);
+        final distB = _distanceKm(
+            center.latitude, center.longitude, b.latitude, b.longitude);
+        return distA.compareTo(distB);
+      });
+    } else {
+      pins.sort(
+          (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    }
+    return pins;
   }
 
-  Set<Marker> _getMarkers(List<_MapPin> pins) {
-    final signature =
-        '${_cachedFilteredPinsSignature ?? 'none'}:${_selectedPinSignature()}:${_userLocationSignature()}';
-    if (_cachedMarkers != null && _cachedMarkersSignature == signature) {
-      return _cachedMarkers!;
-    }
-
-    final elapsed = DateTime.now().difference(_lastMarkerRebuildAt);
-    if (_cachedMarkers != null && elapsed < _markerThrottleWindow) {
-      _pendingMarkerSignature = signature;
-      _scheduleMarkerRefresh(_markerThrottleWindow - elapsed);
-      return _cachedMarkers!;
-    }
-
-    final markers = _buildMarkers(pins);
-    _cachedMarkers = markers;
-    _cachedMarkersSignature = signature;
-    _lastMarkerRebuildAt = DateTime.now();
-    _pendingMarkerSignature = null;
-    return markers;
-  }
-
-  void _scheduleMarkerRefresh(Duration delay) {
-    if (_markerThrottleTimer?.isActive ?? false) {
-      return;
-    }
-
-    _markerThrottleTimer = Timer(delay, () {
-      _markerThrottleTimer = null;
-      if (!mounted || _pendingMarkerSignature == null) {
-        return;
-      }
-      _pendingMarkerSignature = null;
-      setState(() {});
-    });
-  }
-
-  List<_MapPin> _discoverPins(List<Map<String, dynamic>> items) {
-    final pins = <_MapPin>[];
+  List<MapPin> _discoverPins(List<Map<String, dynamic>> items) {
+    final pins = <MapPin>[];
 
     for (final item in items) {
       final section = (item['section'] as String? ?? '').trim().toLowerCase();
@@ -608,33 +590,36 @@ class _MapEventsScreenState extends State<MapEventsScreen>
         (item['location'] as String? ?? ''),
       ].join(' ').toLowerCase();
 
-      late final _MapPinType type;
+      late final MapPinType type;
       switch (section) {
         case 'events':
-          type = _MapPinType.event;
+          type = MapPinType.event;
           break;
         case 'stadiums':
           type = (textBlob.contains('olympic') || textBlob.contains('2032'))
-              ? _MapPinType.olympicVenue
-              : _MapPinType.stadium;
+              ? MapPinType.olympicVenue
+              : MapPinType.stadium;
           break;
         case 'historical':
           type = textBlob.contains('cultur')
-              ? _MapPinType.culturalVenue
-              : _MapPinType.attraction;
+              ? MapPinType.culturalVenue
+              : MapPinType.attraction;
           break;
         case 'food':
-          type = _MapPinType.food;
+          type = MapPinType.food;
           break;
         default:
           continue;
       }
 
+      final business = item['_business'] as Business?;
+      final status = _computePinStatus(item, business);
+
       pins.add(
-        _MapPin(
+        MapPin(
           id: id,
           title: title,
-          location: (item['location'] as String? ?? 'Location TBA').trim(),
+          locationName: (item['location'] as String? ?? 'Location TBA').trim(),
           latitude: lat,
           longitude: lng,
           type: type,
@@ -651,6 +636,13 @@ class _MapEventsScreenState extends State<MapEventsScreen>
           phone: (item['phone'] as String? ?? '').trim(),
           website: (item['website'] as String? ?? '').trim(),
           rawItem: item,
+          isOpenNow: status.isOpenNow,
+          isClosingSoon: status.isClosingSoon,
+          isVerified: status.isVerified,
+          isPopular: status.isPopular,
+          isPremium: status.isPremium,
+          crowdLevel: status.crowdLevel,
+          waitTime: status.waitTime,
         ),
       );
     }
@@ -658,46 +650,101 @@ class _MapEventsScreenState extends State<MapEventsScreen>
     return pins;
   }
 
-  List<_MapPin> _buildPins({
-    required List<Map<String, dynamic>> discoverItems,
-    required List<dynamic> attractions,
-  }) {
-    // Include all discover pins so the type filter can show food, events, etc.
-    final combined = _discoverPins(discoverItems);
+  _PinStatus _computePinStatus(Map<String, dynamic> item, Business? business) {
+    final now = DateTime.now();
 
-    final deduped = <String, _MapPin>{};
-    for (final pin in combined) {
-      final key = '${pin.source}:${pin.id}:${pin.type.name}';
-      deduped[key] = pin;
+    bool? openNow;
+    bool? closingSoon;
+    if (business != null && business.businessHours != null) {
+      final dayName = _dayName(now.weekday);
+      final dayHours = business.businessHours!.hours[dayName];
+      if (dayHours != null) {
+        openNow = _isCurrentlyOpen(dayHours, now);
+        closingSoon = openNow == true && _isClosingSoon(dayHours, now);
+      }
     }
 
-    final pins = deduped.values
-        .where((pin) => _isWithinRadius(pin.latitude, pin.longitude))
-        .toList(growable: false);
-    pins.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
-    debugPrint(
-        '[MapEventsScreen] _buildPins returned ${pins.length} pins within radius');
-    return pins;
+    final isVerified =
+        business?.isVerified == true || item['isVerified'] == true;
+    final buzz =
+        (business?.buzzScore ?? (item['buzzScore'] as num?)?.toDouble() ?? 0.0);
+    final savedCount =
+        business?.savedCount ?? (item['savedCount'] as num?)?.toInt() ?? 0;
+    final rating = (business?.rating ?? (item['rating'] as num?)?.toInt() ?? 0);
+    final isTrending =
+        business?.isTrending == true || item['isTrending'] == true;
+
+    final isPopular = isTrending || buzz >= 60 || savedCount >= 20;
+    final isPremium =
+        isVerified && (rating >= 4 || savedCount >= 30 || buzz >= 75);
+
+    final crowdLevel = item['crowdLevel']?.toString();
+    final waitTime = item['waitTime']?.toString();
+
+    return _PinStatus(
+      isOpenNow: openNow,
+      isClosingSoon: closingSoon,
+      isVerified: isVerified,
+      isPopular: isPopular,
+      isPremium: isPremium,
+      crowdLevel: crowdLevel,
+      waitTime: waitTime,
+    );
   }
 
-  List<_MapPin> _filteredPins(List<_MapPin> allPins) {
+  bool _isCurrentlyOpen(DayHours dayHours, DateTime now) {
+    if (dayHours.isClosed) return false;
+    if (dayHours.openTime == null || dayHours.closeTime == null) return false;
+    final open = _parseTime(dayHours.openTime!, now);
+    final close = _parseTime(dayHours.closeTime!, now);
+    if (open == null || close == null) return false;
+    return now.isAfter(open) && now.isBefore(close);
+  }
+
+  bool _isClosingSoon(DayHours dayHours, DateTime now) {
+    if (dayHours.closeTime == null) return false;
+    final close = _parseTime(dayHours.closeTime!, now);
+    if (close == null) return false;
+    return close.difference(now).inMinutes <= 30 &&
+        close.difference(now).inMinutes >= 0;
+  }
+
+  DateTime? _parseTime(String time, DateTime now) {
+    final parts = time.trim().split(':');
+    if (parts.length < 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    return DateTime(now.year, now.month, now.day, hour, minute);
+  }
+
+  String _dayName(int weekday) {
+    const days = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    return days[weekday - 1];
+  }
+
+  List<MapPin> _getFilteredPins(List<MapPin> allPins) {
     final query = _searchQuery;
     final savedBusinessIds = VisitorAuth.getSavedBusinessIds();
-    final filtered = allPins.where((pin) {
-      if (_selectedType != null && pin.type != _selectedType) {
-        return false;
-      }
+
+    return allPins.where((pin) {
+      if (_selectedType != null && pin.type != _selectedType) return false;
 
       if (_showOnlyFavourites) {
-        // Visitor favourites on the map should only show saved Local Food
-        // Businesses, not events or other saved places.
-        if (pin.type != _MapPinType.food ||
-            !savedBusinessIds.contains(pin.id)) {
+        if (pin.type != MapPinType.food || !savedBusinessIds.contains(pin.id)) {
           return false;
         }
       }
 
-      if (_selectedType == _MapPinType.food &&
+      if (_selectedType == MapPinType.food &&
           _selectedFoodCategories.isNotEmpty) {
         final pinCategories = pin.categories ?? [];
         final matchesCategory = _selectedFoodCategories.any(
@@ -708,157 +755,106 @@ class _MapEventsScreenState extends State<MapEventsScreen>
         if (!matchesCategory) return false;
       }
 
-      if (query.isEmpty) {
-        return true;
-      }
+      if (query.isEmpty) return true;
 
       return pin.title.toLowerCase().contains(query) ||
-          pin.location.toLowerCase().contains(query) ||
-          _pinTypeLabel(pin.type).toLowerCase().contains(query);
+          pin.locationName.toLowerCase().contains(query) ||
+          pin.type.label.toLowerCase().contains(query);
     }).toList(growable: false);
-
-    if (_showOnlyFavourites) {
-      debugPrint(
-        '[MapEventsScreen] Favourites filter: ${savedBusinessIds.length} saved IDs, ${filtered.length} pins shown',
-      );
-    }
-    return filtered;
   }
 
-  /// Show a bottom sheet with food categories extracted from the loaded pins.
-  /// Tapping a category toggles it; the map then only shows food pins that
-  /// match at least one selected category.
-  void _showFoodCategorySelector(List<_MapPin> allPins) {
-    final categories = allPins
-        .where((pin) => pin.type == _MapPinType.food)
-        .expand((pin) => pin.categories ?? const <String>[])
-        .map((c) => c.trim())
-        .where((c) => c.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  void _updateClusterItems(List<MapPin> pins) {
+    final signature = _pinsSignature(pins);
+    if (_lastClusterPinSignature == signature) return;
+    _lastClusterPinSignature = signature;
+    _clusterManager?.setItems(pins);
+  }
 
-    if (categories.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No food categories available.')),
-      );
+  String _pinsSignature(List<MapPin> pins) {
+    var hash = pins.length;
+    for (var i = 0; i < pins.length; i++) {
+      hash = hash ^ pins[i].key.hashCode ^ i;
+    }
+    return '$hash';
+  }
+
+  Future<Marker> _buildClusterMarker(cluster.Cluster<MapPin> cluster) async {
+    final zoom = await _mapController?.getZoomLevel() ?? 12;
+    final icon = await _markerHelper.bitmapForCluster(cluster, zoom: zoom);
+    final capturedCluster = cluster;
+    return Marker(
+      markerId: MarkerId(capturedCluster.getId()),
+      position: capturedCluster.location,
+      icon: icon,
+      consumeTapEvents: false,
+      onTap: () => _onClusterTap(capturedCluster, zoom),
+    );
+  }
+
+  void _onClusterTap(cluster.Cluster<MapPin> tappedCluster, double zoom) {
+    if (!tappedCluster.isMultiple) {
+      _focusPin(tappedCluster.items.first);
       return;
     }
 
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => _FoodCategorySheet(
-        categories: categories,
-        selectedCategories: _selectedFoodCategories,
-        onToggle: (category) {
-          setState(() {
-            if (_selectedFoodCategories.contains(category)) {
-              _selectedFoodCategories.remove(category);
-            } else {
-              _selectedFoodCategories.add(category);
-            }
-          });
-        },
-        onClear: () => setState(() => _selectedFoodCategories.clear()),
-      ),
-    );
+    setState(() {
+      _selectedCluster = tappedCluster;
+      _selectedPin = null;
+      _followUser = false;
+    });
+
+    // On web, ensure the cluster popup is visible by zooming in slightly
+    // so the cluster stays on screen while the popup renders.
+    if (kIsWeb) {
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(tappedCluster.location, zoom + 1),
+      );
+    }
   }
 
-  Widget _buildSelectedCategoryTags() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFDEE3EA)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.filter_list_rounded,
-                  size: 14, color: AppPalette.deepBlue),
-              const SizedBox(width: 6),
-              const Expanded(
-                child: Text(
-                  'Selected food categories',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppPalette.charcoal,
-                  ),
-                ),
-              ),
-              GestureDetector(
-                onTap: () => setState(() => _selectedFoodCategories.clear()),
-                child: Text(
-                  'Clear',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppPalette.ochre,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: (_selectedFoodCategories.toList()
-                  ..sort(
-                      (a, b) => a.toLowerCase().compareTo(b.toLowerCase())))
-                .map(
-                  (category) => Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppPalette.ochre.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: AppPalette.ochre.withValues(alpha: 0.4),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          category,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: AppPalette.ochre,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        GestureDetector(
-                          onTap: () => setState(
-                              () => _selectedFoodCategories.remove(category)),
-                          child: const Icon(
-                            Icons.close_rounded,
-                            size: 14,
-                            color: AppPalette.ochre,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-        ],
-      ),
+  void _zoomIntoCluster() {
+    final selected = _selectedCluster;
+    final controller = _mapController;
+    if (selected == null || controller == null) return;
+
+    controller.animateCamera(
+      CameraUpdate.newLatLngZoom(selected.location, 17),
     );
+    setState(() => _selectedCluster = null);
   }
 
-  /// Haversine distance from a reference point to a given lat/lng, in km.
+  void _viewClusterBusinesses() {
+    final selected = _selectedCluster;
+    if (selected == null) return;
+
+    setState(() {
+      _selectedCluster = null;
+      _showResultsSheet = true;
+    });
+    // Focus the map on the cluster location so the surrounding pins remain
+    // visible in the results sheet.
+    if (_mapController != null) {
+      _mapController!.animateCamera(
+        CameraUpdate.newLatLngZoom(selected.location, 16),
+      );
+    }
+  }
+
+  double? _toDouble(Object? value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  bool _isWithinRadius(double lat, double lng) {
+    final from = _nearMeCenter;
+    return _distanceKm(from.latitude, from.longitude, lat, lng) <= _radiusKm;
+  }
+
+  LatLng get _nearMeCenter => _nearMeMode && _userLocation != null
+      ? _userLocation!
+      : const LatLng(_brisbaneLat, _brisbaneLng);
+
   static double _distanceKm(
       double fromLat, double fromLng, double toLat, double toLng) {
     const double toRad = math.pi / 180;
@@ -874,95 +870,16 @@ class _MapEventsScreenState extends State<MapEventsScreen>
     return earthKm * c;
   }
 
-  /// Returns true when the point is within [_radiusKm] of Brisbane CBD.
-  bool _isWithinRadius(double lat, double lng) {
-    return _distanceKm(_brisbaneLat, _brisbaneLng, lat, lng) <= _radiusKm;
-  }
-
-  /// Distance from the user (or Brisbane CBD) to a pin, formatted.
   String _distanceLabel(double lat, double lng) {
     final fromLat = _userLocation?.latitude ?? _brisbaneLat;
     final fromLng = _userLocation?.longitude ?? _brisbaneLng;
     final km = _distanceKm(fromLat, fromLng, lat, lng);
-    if (km < 1) {
-      return '${(km * 1000).round()} m away';
-    }
+    if (km < 1) return '${(km * 1000).round()} m away';
     return '${km.toStringAsFixed(1)} km away';
   }
 
-  Color _baseTypeColor(_MapPinType type) {
-    switch (type) {
-      case _MapPinType.event:
-        return const Color(0xFFF2994A);
-      case _MapPinType.food:
-        return const Color(0xFFEB5757);
-      case _MapPinType.stadium:
-      case _MapPinType.olympicVenue:
-        return const Color(0xFF9B51E0);
-      case _MapPinType.attraction:
-      case _MapPinType.culturalVenue:
-        return const Color(0xFF2F80ED);
-    }
-  }
-
-  Color _pinColor(_MapPinType type) {
-    final base = _baseTypeColor(type);
-    if (_selectedType == null || _selectedType == type) {
-      return base;
-    }
-    return const Color(0xFF9FB0C0);
-  }
-
-  IconData _pinIcon(_MapPinType type) {
-    switch (type) {
-      case _MapPinType.event:
-        return Icons.event;
-      case _MapPinType.attraction:
-        return Icons.place;
-      case _MapPinType.stadium:
-        return Icons.stadium;
-      case _MapPinType.olympicVenue:
-        return Icons.emoji_events;
-      case _MapPinType.culturalVenue:
-        return Icons.account_balance;
-      case _MapPinType.food:
-        return Icons.local_dining;
-    }
-  }
-
-  String _pinTypeLabel(_MapPinType type) {
-    switch (type) {
-      case _MapPinType.event:
-        return 'Event';
-      case _MapPinType.attraction:
-        return 'Attraction';
-      case _MapPinType.stadium:
-        return 'Stadium';
-      case _MapPinType.olympicVenue:
-        return 'Olympic Venue';
-      case _MapPinType.culturalVenue:
-        return 'Cultural History';
-      case _MapPinType.food:
-        return 'Food';
-    }
-  }
-
-  double? _toDouble(Object? value) {
-    if (value is num) {
-      return value.toDouble();
-    }
-    if (value is String) {
-      return double.tryParse(value);
-    }
-    return null;
-  }
-
-  void _openPinDetail(_MapPin pin) {
-    debugPrint(
-      '[MapEventsScreen] Opening pin detail: id=${pin.id}, source=${pin.source}, type=${pin.type.name}',
-    );
-
-    if (pin.type == _MapPinType.event) {
+  void _openPinDetail(MapPin pin) {
+    if (pin.type == MapPinType.event) {
       final raw = pin.rawItem;
       if (raw != null) {
         Navigator.of(context).push(
@@ -974,11 +891,7 @@ class _MapEventsScreenState extends State<MapEventsScreen>
       return;
     }
 
-    // Food pins come from either the canonical 'businesses' collection or the
-    // visitor-focused 'food_businesses' collection. Route to the dedicated
-    // food-business detail screen first; it handles the food_businesses lookup
-    // directly and gives a richer food-specific UI.
-    if (pin.type == _MapPinType.food) {
+    if (pin.type == MapPinType.food) {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => FoodBusinessDetailScreen(businessId: pin.id),
@@ -987,8 +900,6 @@ class _MapEventsScreenState extends State<MapEventsScreen>
       return;
     }
 
-    // Attractions, stadiums and venues fall back to the generic business
-    // profile, which also tries food_businesses if businesses is empty.
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => BusinessProfileViewScreen(
@@ -999,32 +910,24 @@ class _MapEventsScreenState extends State<MapEventsScreen>
     );
   }
 
-  Future<void> _launchNavigation(_MapPin pin) async {
-    // Show travel mode picker
+  Future<void> _launchNavigation(MapPin pin) async {
     final mode = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (_) => _NavModeSheet(name: pin.title),
+      builder: (_) => NavModeSheet(name: pin.title),
     );
     if (mode == null) return;
 
     final lat = pin.latitude;
     final lng = pin.longitude;
 
-    // Google Maps native app (driving, walking, transit, bicycling)
-    final googleNativeUri = Uri.parse(
-      'google.navigation:q=$lat,$lng&mode=$mode',
-    );
-    // Google Maps web fallback
+    final googleNativeUri =
+        Uri.parse('google.navigation:q=$lat,$lng&mode=$mode');
     final googleWebUri = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1'
-      '&destination=$lat,$lng'
-      '&travelmode=${_googleWebMode(mode)}',
+      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=${_googleWebMode(mode)}',
     );
-    // Apple Maps fallback (iOS)
-    final appleUri = Uri.parse(
-      'maps://?daddr=$lat,$lng&dirflg=${_appleDirFlag(mode)}',
-    );
+    final appleUri =
+        Uri.parse('maps://?daddr=$lat,$lng&dirflg=${_appleDirFlag(mode)}');
 
     if (await canLaunchUrl(googleNativeUri)) {
       await launchUrl(googleNativeUri);
@@ -1064,47 +967,107 @@ class _MapEventsScreenState extends State<MapEventsScreen>
     }
   }
 
-  Set<Marker> _buildMarkers(List<_MapPin> pins) {
-    return pins
-        .asMap()
-        .entries
-        .map((entry) => _buildMarker(entry.value, entry.key))
-        .toSet();
-  }
+  void _showFoodCategorySelector(List<MapPin> allPins) {
+    final categories = allPins
+        .where((pin) => pin.type == MapPinType.food)
+        .expand((pin) => pin.categories ?? const <String>[])
+        .map((c) => c.trim())
+        .where((c) => c.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
-  Marker _buildMarker(_MapPin pin, int index) {
-    final selected = _selectedPin != null &&
-        _selectedPin!.id == pin.id &&
-        _selectedPin!.source == pin.source &&
-        _selectedPin!.type == pin.type;
+    if (categories.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No food categories available.')),
+      );
+      return;
+    }
 
-    return Marker(
-      markerId: MarkerId('${pin.source}-${pin.id}'),
-      position: LatLng(pin.latitude, pin.longitude),
-      infoWindow: const InfoWindow(),
-      onTap: () => _focusPin(pin),
-      icon: BitmapDescriptor.defaultMarkerWithHue(
-        _getHueForType(pin.type, selected),
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => FoodCategorySheet(
+        categories: categories,
+        selectedCategories: _selectedFoodCategories,
+        onToggle: (category) {
+          setState(() {
+            if (_selectedFoodCategories.contains(category)) {
+              _selectedFoodCategories.remove(category);
+            } else {
+              _selectedFoodCategories.add(category);
+            }
+          });
+        },
+        onClear: () => setState(() => _selectedFoodCategories.clear()),
       ),
     );
   }
 
-  double _getHueForType(_MapPinType type, bool selected) {
-    if (selected) {
-      return BitmapDescriptor.hueYellow;
-    }
+  void _showRadiusSelector() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => MapRadiusSheet(
+        selectedKm: _radiusKm,
+        options: _radiusOptions,
+        onSelected: (km) {
+          setState(() => _radiusKm = km);
+          _emitDiscoverItems();
+        },
+      ),
+    );
+  }
 
-    switch (type) {
-      case _MapPinType.event:
-        return BitmapDescriptor.hueOrange;
-      case _MapPinType.food:
-        return BitmapDescriptor.hueRed;
-      case _MapPinType.stadium:
-      case _MapPinType.olympicVenue:
-        return BitmapDescriptor.hueMagenta;
-      case _MapPinType.attraction:
-      case _MapPinType.culturalVenue:
-        return BitmapDescriptor.hueCyan;
+  void _showMapStyleSelector() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => MapStyleSheet(
+        currentStyle: _mapStyle,
+        onSelected: (style) => setState(() => _mapStyle = style),
+      ),
+    );
+  }
+
+  void _resetCompass() {
+    if (_mapController == null) return;
+    _mapController!.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: _userLocation ?? _defaultCenter,
+          zoom: 14,
+          bearing: 0,
+          tilt: 0,
+        ),
+      ),
+    );
+  }
+
+  MapType get _googleMapType {
+    switch (_mapStyle) {
+      case MapStyle.satellite:
+        return MapType.satellite;
+      case MapStyle.terrain:
+        return MapType.terrain;
+      case MapStyle.normal:
+      case MapStyle.dark:
+        return MapType.normal;
+    }
+  }
+
+  String? get _darkMapStyleJson =>
+      _mapStyle == MapStyle.dark ? _darkStyle : null;
+
+  void _applyMapStyle(GoogleMapController controller) {
+    final style = _darkMapStyleJson;
+    if (style != null) {
+      controller.setMapStyle(style);
+    } else {
+      controller.setMapStyle(null);
     }
   }
 
@@ -1114,1199 +1077,682 @@ class _MapEventsScreenState extends State<MapEventsScreen>
       stream: _discoverItemsController.stream,
       builder: (context, snapshot) {
         final discoverItems = snapshot.data ?? const <Map<String, dynamic>>[];
-        final allPins = _getAllPins(
-          discoverItems: discoverItems,
-          attractions: const <dynamic>[],
-        );
+        final allPins = _getAllPins(discoverItems);
         final pins = _getFilteredPins(allPins);
-        final markers = _getMarkers(pins);
+
+        // Keep the cluster manager in sync with visible pins.
+        _updateClusterItems(pins);
 
         if (pins.isEmpty && _showResultsSheet) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              setState(() => _showResultsSheet = false);
-            }
+            if (mounted) setState(() => _showResultsSheet = false);
           });
         }
 
         if (_selectedPin != null) {
-          final selectedExists = pins.any(
-            (pin) =>
-                pin.id == _selectedPin!.id &&
-                pin.source == _selectedPin!.source &&
-                pin.type == _selectedPin!.type,
-          );
+          final selectedExists =
+              pins.any((pin) => pin.key == _selectedPin!.key);
           if (!selectedExists) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                setState(() => _selectedPin = null);
-              }
+              if (mounted) setState(() => _selectedPin = null);
             });
           }
         }
 
-        final mapCenter = _userLocation ?? _defaultCenter;
+        if (_selectedCluster != null) {
+          final clusterExists = pins.any(
+            (pin) => _selectedCluster!.items.any((c) => c.key == pin.key),
+          );
+          if (!clusterExists) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _selectedCluster = null);
+            });
+          }
+        }
 
-        // Google Maps is not supported on macOS desktop. Show a fallback list
-        // view so development on macOS still allows testing the rest of the
-        // feature. On the web, defer building the platform view until after the
-        // first frame so the underlying HTML element exists before the Maps JS
-        // SDK tries to observe it.
-        final useMapFallback = !kIsWeb && Platform.isMacOS;
-
-        final body = Stack(
-          children: [
-            if (useMapFallback)
-              _MacOSFallbackMap(
-                pins: pins,
-                userLocation: _userLocation,
-                selectedPin: _selectedPin,
-                onPinTap: (pin) => setState(() => _selectedPin = pin),
-              )
-            else
-              _DeferredWebMap(
-                center: mapCenter,
-                markers: markers,
-                use3dMode: _use3dMode,
-                useVibrantMap: _useVibrantMap,
-                myLocationEnabled: true,
-                onMapCreated: (controller) => _mapController = controller,
-                onTap: () => setState(() {
-                  _selectedPin = null;
-                  _followUser = false;
-                }),
-              ),
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        const Color(0x0F0F2740),
-                        Colors.transparent,
-                        const Color(0x140F2740),
-                      ],
-                      stops: const [0, 0.32, 1],
-                    ),
-                  ),
+        return widget.embedded
+            ? _buildBody(pins, allPins)
+            : Scaffold(
+                backgroundColor: AppPalette.background,
+                appBar: AppBar(
+                  title: const LogoAppBarTitle('Map Explorer'),
+                  backgroundColor: AppPalette.ochre,
+                  foregroundColor: Colors.white,
                 ),
-              ),
-            ),
-            SafeArea(
-              child: PointerInterceptor(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 2),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.white.withValues(alpha: 0.96),
-                            Colors.white.withValues(alpha: 0.9),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFD4DBE4)),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x22000000),
-                            blurRadius: 12,
-                            offset: Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          if (widget.onBackPressed != null)
-                            GestureDetector(
-                              onTap: widget.onBackPressed,
-                              child: const Padding(
-                                padding: EdgeInsets.only(right: 6),
-                                child: Icon(Icons.arrow_back_rounded,
-                                    color: AppPalette.deepBlue, size: 22),
-                              ),
-                            ),
-                          const Icon(Icons.search,
-                              color: Colors.black54, size: 18),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: TextField(
-                              controller: _searchController,
-                              onChanged: _handleSearchChanged,
-                              decoration: const InputDecoration(
-                                hintText:
-                                    'Search places, categories, locations',
-                                border: InputBorder.none,
-                                isDense: true,
-                                hintStyle: TextStyle(fontSize: 13),
-                              ),
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ),
-                          if (_searchController.text.isNotEmpty)
-                            IconButton(
-                              icon: const Icon(Icons.close, size: 18),
-                              onPressed: () {
-                                _searchController.clear();
-                                _handleSearchChanged('');
-                              },
-                            ),
-                        ],
-                      ),
-                    ),
-                    if (_locationStatus != null)
-                      Container(
-                        margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFDEE3EA)),
-                        ),
-                        child: Text(
-                          _locationStatus!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppPalette.mutedText,
-                          ),
-                        ),
-                      ),
-                    if (_selectedType == _MapPinType.food &&
-                        _selectedFoodCategories.isNotEmpty)
-                      _buildSelectedCategoryTags(),
-                  ],
-                ),
-              ),
-            ),
-            if (pins.isEmpty)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text(
-                    'No places match your filters right now.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppPalette.mutedText),
-                  ),
-                ),
-              )
-            else if (_showResultsSheet)
-              DraggableScrollableSheet(
-                minChildSize: 0.1,
-                initialChildSize: 0.1,
-                maxChildSize: 0.55,
-                snap: true,
-                snapSizes: const [0.1, 0.3, 0.55],
-                builder: (context, controller) {
-                  return Container(
-                    decoration: const BoxDecoration(
-                      color: AppPalette.surface,
-                      borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(22)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 14,
-                          offset: Offset(0, -3),
-                        ),
-                      ],
-                    ),
-                    clipBehavior: Clip.hardEdge,
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 8),
-                        Container(
-                          width: 44,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            color: AppPalette.border.withValues(alpha: 0.9),
-                            borderRadius: BorderRadius.circular(99),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 8, 14, 7),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${pins.length} places nearby',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        color: AppPalette.charcoal,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'Brisbane CBD + surroundings',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: AppPalette.mutedText
-                                            .withValues(alpha: 0.9),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (_userLocation != null)
-                                const Text(
-                                  'Live GPS on',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppPalette.deepBlue,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              IconButton(
-                                tooltip: 'Hide results',
-                                onPressed: () =>
-                                    setState(() => _showResultsSheet = false),
-                                icon: const Icon(
-                                  Icons.keyboard_arrow_down_rounded,
-                                  color: AppPalette.mutedText,
-                                ),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Divider(height: 1),
-                        Expanded(
-                          child: ListView.builder(
-                            controller: controller,
-                            itemCount: pins.length,
-                            itemBuilder: (context, index) {
-                              final pin = pins[index];
-                              final selected = _selectedPin != null &&
-                                  _selectedPin!.id == pin.id &&
-                                  _selectedPin!.source == pin.source &&
-                                  _selectedPin!.type == pin.type;
-
-                              return ListTile(
-                                onTap: () => _focusPin(pin),
-                                leading: CircleAvatar(
-                                  backgroundColor: _pinColor(pin.type)
-                                      .withValues(alpha: 0.14),
-                                  child: Icon(
-                                    _pinIcon(pin.type),
-                                    color: _pinColor(pin.type),
-                                    size: 16,
-                                  ),
-                                ),
-                                title: Text(
-                                  pin.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontWeight: selected
-                                        ? FontWeight.w800
-                                        : FontWeight.w600,
-                                    color: AppPalette.charcoal,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  '${_pinTypeLabel(pin.type)} • ${_distanceLabel(pin.latitude, pin.longitude)}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                dense: true,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 2,
-                                ),
-                                trailing: selected
-                                    ? const Icon(Icons.my_location,
-                                        color: AppPalette.deepBlue)
-                                    : null,
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            if (_selectedPin != null)
-              Positioned(
-                left: 14,
-                right: 14,
-                bottom: _showResultsSheet ? 230 : 96,
-                top: 100,
-                child: PointerInterceptor(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxWidth: 380,
-                        maxHeight: 520,
-                      ),
-                      child: _SelectedPinCard(
-                        pin: _selectedPin!,
-                        distanceLabel: _distanceLabel(
-                          _selectedPin!.latitude,
-                          _selectedPin!.longitude,
-                        ),
-                        onNavigate: () => _launchNavigation(_selectedPin!),
-                        onViewDetails: () => _openPinDetail(_selectedPin!),
-                        onClose: () => setState(() => _selectedPin = null),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            Positioned(
-              right: 12,
-              bottom: 82,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 3D toggle
-                  Material(
-                    color: Colors.transparent,
-                    child: Ink(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.white.withValues(alpha: 0.97),
-                            Colors.white.withValues(alpha: 0.9),
-                          ],
-                        ),
-                        border: Border.all(
-                          color: _use3dMode
-                              ? AppPalette.ochre.withValues(alpha: 0.6)
-                              : const Color(0xFFD4DAE2),
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x24000000),
-                            blurRadius: 10,
-                            offset: Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: IconButton(
-                        tooltip: _use3dMode ? 'Flat view' : '3D buildings',
-                        onPressed: () {
-                          setState(() => _use3dMode = !_use3dMode);
-                          final center = _userLocation ?? _defaultCenter;
-                          _mapController?.animateCamera(
-                            CameraUpdate.newCameraPosition(
-                              CameraPosition(
-                                target: center,
-                                zoom: _use3dMode ? 17 : 14,
-                                tilt: _use3dMode ? 45 : 0,
-                              ),
-                            ),
-                          );
-                        },
-                        icon: Icon(
-                          _use3dMode
-                              ? Icons.view_in_ar_rounded
-                              : Icons.view_in_ar_outlined,
-                          color: _use3dMode ? AppPalette.ochre : Colors.black87,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  // Map style toggle
-                  Material(
-                    color: Colors.transparent,
-                    child: Ink(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.white.withValues(alpha: 0.97),
-                            Colors.white.withValues(alpha: 0.9),
-                          ],
-                        ),
-                        border: Border.all(
-                          color: _useVibrantMap
-                              ? AppPalette.deepBlue.withValues(alpha: 0.34)
-                              : const Color(0xFFD4DAE2),
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x24000000),
-                            blurRadius: 10,
-                            offset: Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: IconButton(
-                        tooltip: _useVibrantMap
-                            ? 'Use clean map style'
-                            : 'Use vibrant map style',
-                        onPressed: () =>
-                            setState(() => _useVibrantMap = !_useVibrantMap),
-                        icon: Icon(
-                          _useVibrantMap
-                              ? Icons.layers_rounded
-                              : Icons.map_rounded,
-                          color: _useVibrantMap
-                              ? AppPalette.deepBlue
-                              : Colors.black87,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Material(
-                    color: Colors.transparent,
-                    child: Ink(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.white.withValues(alpha: 0.97),
-                            Colors.white.withValues(alpha: 0.9),
-                          ],
-                        ),
-                        border: Border.all(
-                          color: _followUser
-                              ? AppPalette.deepBlue.withValues(alpha: 0.34)
-                              : const Color(0xFFD4DAE2),
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x24000000),
-                            blurRadius: 10,
-                            offset: Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: IconButton(
-                        tooltip: _followUser ? 'Following GPS' : 'Track Me',
-                        onPressed: _recenterOnUser,
-                        icon: Icon(
-                          _followUser ? Icons.my_location : Icons.gps_fixed,
-                          color: _followUser
-                              ? AppPalette.deepBlue
-                              : Colors.black87,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Material(
-                    color: Colors.transparent,
-                    child: Ink(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.white.withValues(alpha: 0.97),
-                            Colors.white.withValues(alpha: 0.9),
-                          ],
-                        ),
-                        border: Border.all(
-                          color: _showResultsSheet
-                              ? AppPalette.deepBlue.withValues(alpha: 0.34)
-                              : const Color(0xFFD4DAE2),
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x24000000),
-                            blurRadius: 10,
-                            offset: Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: IconButton(
-                        tooltip: _showResultsSheet
-                            ? 'Hide results'
-                            : 'Show results (${pins.length})',
-                        onPressed: () {
-                          if (pins.isEmpty) {
-                            return;
-                          }
-                          setState(
-                              () => _showResultsSheet = !_showResultsSheet);
-                        },
-                        icon: Icon(
-                          _showResultsSheet
-                              ? Icons.expand_more
-                              : Icons.list_alt_rounded,
-                          color: _showResultsSheet
-                              ? AppPalette.deepBlue
-                              : Colors.black87,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Floating action bar: My Location, Nearby, Food Filters, Favourites.
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: _showResultsSheet ? 240 : 96,
-              child: PointerInterceptor(
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(28),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x24000000),
-                        blurRadius: 14,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _MapActionButton(
-                        icon: Icons.my_location_rounded,
-                        label: 'My Location',
-                        isActive: _followUser && _userLocation != null,
-                        onTap: _recenterOnUser,
-                      ),
-                      _MapActionButton(
-                        icon: Icons.near_me_rounded,
-                        label: 'Nearby',
-                        isActive: _showResultsSheet,
-                        onTap: () {
-                          if (pins.isEmpty) return;
-                          setState(() => _showResultsSheet = true);
-                        },
-                      ),
-                      _MapActionButton(
-                        icon: Icons.restaurant_rounded,
-                        label: 'Food',
-                        isActive: _selectedType == _MapPinType.food,
-                        onTap: () {
-                          if (_selectedType == _MapPinType.food) {
-                            setState(() {
-                              _selectedType = null;
-                              _selectedFoodCategories.clear();
-                            });
-                          } else {
-                            setState(() => _selectedType = _MapPinType.food);
-                            _showFoodCategorySelector(allPins);
-                          }
-                        },
-                      ),
-                      _MapActionButton(
-                        icon: Icons.favorite_rounded,
-                        label: 'Favourites',
-                        isActive: _showOnlyFavourites,
-                        onTap: () {
-                          if (!VisitorAuth.isVisitorLoggedIn) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                    'Please log in as a Visitor to see your favourites.'),
-                              ),
-                            );
-                            return;
-                          }
-                          setState(
-                              () => _showOnlyFavourites = !_showOnlyFavourites);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-
-        if (widget.embedded) return body;
-
-        return Scaffold(
-          backgroundColor: AppPalette.background,
-          appBar: AppBar(
-            title: const LogoAppBarTitle('Map Explorer'),
-            backgroundColor: AppPalette.ochre,
-            foregroundColor: Colors.white,
-          ),
-          body: body,
-        );
+                body: _buildBody(pins, allPins),
+              );
       },
     );
   }
-}
 
-/// Card shown when a map pin is tapped. Displays an image, name, category,
-/// distance, address, description, rating and quick action buttons.
-class _SelectedPinCard extends StatelessWidget {
-  const _SelectedPinCard({
-    required this.pin,
-    required this.distanceLabel,
-    required this.onNavigate,
-    required this.onViewDetails,
-    required this.onClose,
-  });
+  Widget _buildBody(List<MapPin> pins, List<MapPin> allPins) {
+    final useMapFallback = !kIsWeb && Platform.isMacOS;
 
-  final _MapPin pin;
-  final String distanceLabel;
-  final VoidCallback onNavigate;
-  final VoidCallback onViewDetails;
-  final VoidCallback onClose;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final isDesktop = width >= 1100;
+        final isTablet = width >= 700 && !isDesktop;
 
-  @override
-  Widget build(BuildContext context) {
-    final imageUrl = (pin.imageUrl ?? '').trim();
-    final badge = (pin.badge ?? '').trim();
-    final description = (pin.description ?? '').trim();
-    final categories = pin.categories ??
-        (badge.isNotEmpty ? [badge] : const <String>[]);
-
-    return Material(
-      color: Colors.white,
-      elevation: 8,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        onTap: onViewDetails,
-        borderRadius: BorderRadius.circular(18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(18)),
-              child: FallbackImage(
-                imageUrl: imageUrl,
-                height: 160,
-                width: double.infinity,
-                category: badge,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 12, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _pinColor(pin.type)
-                              .withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          _pinTypeLabel(pin.type),
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: _pinColor(pin.type),
-                          ),
-                        ),
-                      ),
-                      if (pin.rating != null && pin.rating! > 0) ...[
-                        const SizedBox(width: 8),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.star_rounded,
-                                color: AppPalette.gold, size: 14),
-                            const SizedBox(width: 2),
-                            Text(
-                              pin.rating!.toStringAsFixed(1),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: AppPalette.charcoal,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                      const Spacer(),
-                      GestureDetector(
-                        onTap: onClose,
-                        child: const Icon(
-                          Icons.close_rounded,
-                          color: Colors.black54,
-                          size: 20,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    pin.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: AppPalette.charcoal,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$distanceLabel • ${pin.location}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppPalette.mutedText,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (description.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.black87,
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                  if (categories.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: categories
-                          .take(2)
-                          .map(
-                            (cat) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppPalette.deepBlue
-                                    .withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                cat,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppPalette.deepBlue,
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: onNavigate,
-                          icon: const Icon(Icons.directions_rounded,
-                              size: 16),
-                          label: const Text('Directions'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppPalette.ochre,
-                            foregroundColor: Colors.white,
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 8),
-                            textStyle: const TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 12),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: onViewDetails,
-                          icon: const Icon(Icons.info_outline_rounded,
-                              size: 16),
-                          label: const Text('Details'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppPalette.deepBlue,
-                            side: const BorderSide(
-                                color: AppPalette.deepBlue),
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 8),
-                            textStyle: const TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 12),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+        if (isDesktop) {
+          return _buildDesktopLayout(pins, allPins, useMapFallback);
+        }
+        if (isTablet) {
+          return _buildTabletLayout(pins, allPins, useMapFallback);
+        }
+        return _buildMobileLayout(pins, allPins, useMapFallback);
+      },
     );
   }
 
-  Color _pinColor(_MapPinType type) {
-    switch (type) {
-      case _MapPinType.event:
-        return const Color(0xFFF2994A);
-      case _MapPinType.food:
-        return const Color(0xFFEB5757);
-      case _MapPinType.stadium:
-      case _MapPinType.olympicVenue:
-        return const Color(0xFF9B51E0);
-      case _MapPinType.attraction:
-      case _MapPinType.culturalVenue:
-        return const Color(0xFF2F80ED);
-    }
-  }
-
-  String _pinTypeLabel(_MapPinType type) {
-    switch (type) {
-      case _MapPinType.event:
-        return 'Event';
-      case _MapPinType.attraction:
-        return 'Attraction';
-      case _MapPinType.stadium:
-        return 'Stadium';
-      case _MapPinType.olympicVenue:
-        return 'Olympic Venue';
-      case _MapPinType.culturalVenue:
-        return 'Cultural History';
-      case _MapPinType.food:
-        return 'Food';
-    }
-  }
-}
-
-/// Compact circular action button used in the floating map action bar.
-class _MapActionButton extends StatelessWidget {
-  const _MapActionButton({
-    required this.icon,
-    required this.label,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final backgroundColor = isActive ? AppPalette.ochre : Colors.transparent;
-    final foregroundColor = isActive ? Colors.white : Colors.black87;
-    return Material(
-      color: backgroundColor,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          width: 68,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+  Widget _buildDesktopLayout(
+      List<MapPin> pins, List<MapPin> allPins, bool useMapFallback) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 380,
+          child: _buildSidebar(pins, allPins),
+        ),
+        Expanded(
+          child: Stack(
             children: [
-              Icon(icon, color: foregroundColor, size: 22),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: foregroundColor,
+              _buildMap(pins, useMapFallback),
+              Positioned(
+                top: 16,
+                left: 16,
+                right: 16,
+                child: _buildSearchBar(allPins),
+              ),
+              if (_locationStatus != null)
+                Positioned(
+                  top: 84,
+                  left: 16,
+                  right: 16,
+                  child: _buildLocationStatusBanner(),
                 ),
+              Positioned(
+                right: 16,
+                bottom: 24,
+                child: _buildFloatingButtons(),
+              ),
+              if (_selectedPin != null)
+                Positioned(
+                  right: 90,
+                  bottom: 24,
+                  width: 380,
+                  child: _buildSelectedPinCard(),
+                )
+              else if (_selectedCluster != null)
+                Positioned(
+                  right: 90,
+                  bottom: 24,
+                  child: _buildClusterPopup(),
+                ),
+              const Positioned(
+                left: 16,
+                bottom: 24,
+                child: MapLegend(),
               ),
             ],
           ),
         ),
-      ),
+      ],
     );
   }
-}
 
-class _NavModeSheet extends StatelessWidget {
-  const _NavModeSheet({required this.name});
-  final String name;
+  Widget _buildTabletLayout(
+      List<MapPin> pins, List<MapPin> allPins, bool useMapFallback) {
+    return Stack(
+      children: [
+        _buildMap(pins, useMapFallback),
+        Positioned(
+          top: 16,
+          left: 16,
+          right: 120,
+          child: _buildSearchBar(allPins),
+        ),
+        if (_locationStatus != null)
+          Positioned(
+            top: 84,
+            left: 16,
+            right: 16,
+            child: _buildLocationStatusBanner(),
+          ),
+        Positioned(
+          right: 16,
+          top: 80,
+          child: _buildFloatingButtons(),
+        ),
+        if (_selectedPin != null)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 110,
+            child: _buildSelectedPinCard(),
+          )
+        else if (_selectedCluster != null)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 110,
+            child: _buildClusterPopup(),
+          ),
+        const Positioned(
+          left: 16,
+          bottom: 16,
+          child: MapLegend(),
+        ),
+        Positioned(
+          right: 16,
+          left: 210,
+          bottom: 16,
+          child: Center(
+            child: _buildBottomActionBar(pins, allPins),
+          ),
+        ),
+      ],
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    const modes = [
-      (icon: Icons.directions_car_rounded, label: 'Drive', mode: 'd'),
-      (icon: Icons.directions_walk_rounded, label: 'Walk', mode: 'w'),
-      (icon: Icons.directions_bus_rounded, label: 'Transit', mode: 'r'),
-      (icon: Icons.directions_bike_rounded, label: 'Bicycle', mode: 'b'),
-    ];
+  Widget _buildMobileLayout(
+      List<MapPin> pins, List<MapPin> allPins, bool useMapFallback) {
+    return Stack(
+      children: [
+        _buildMap(pins, useMapFallback),
+        Positioned(
+          top: 12,
+          left: 12,
+          right: 72,
+          child: _buildSearchBar(allPins),
+        ),
+        if (_locationStatus != null)
+          Positioned(
+            top: 80,
+            left: 12,
+            right: 12,
+            child: _buildLocationStatusBanner(),
+          ),
+        Positioned(
+          right: 12,
+          top: 12,
+          child: _buildFloatingButtons(),
+        ),
+        if (pins.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                _nearMeMode && _userLocation == null
+                    ? 'Enable location services to see nearby food.'
+                    : 'No places match your filters right now.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppPalette.mutedText),
+              ),
+            ),
+          )
+        else if (_showResultsSheet)
+          MapResultsBottomSheet(
+            pins: pins,
+            selectedPin: _selectedPin,
+            controller: ScrollController(),
+            onPinTap: _focusPin,
+            onDismiss: () => setState(() => _showResultsSheet = false),
+            userLocationActive: _userLocation != null,
+            subtitle: _radiusSubtitle(),
+          ),
+        if (_selectedPin != null)
+          Positioned(
+            left: 14,
+            right: 14,
+            bottom: _showResultsSheet ? 230 : 100,
+            top: 100,
+            child: PointerInterceptor(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 420,
+                    maxHeight: 560,
+                  ),
+                  child: _buildSelectedPinCard(),
+                ),
+              ),
+            ),
+          )
+        else if (_selectedCluster != null)
+          Positioned(
+            left: 14,
+            right: 14,
+            bottom: _showResultsSheet ? 230 : 100,
+            top: 100,
+            child: PointerInterceptor(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 420,
+                    maxHeight: 560,
+                  ),
+                  child: _buildClusterPopup(),
+                ),
+              ),
+            ),
+          ),
+        const Positioned(
+          left: 12,
+          bottom: 16,
+          child: MapLegend(),
+        ),
+        Positioned(
+          right: 12,
+          left: 210,
+          bottom: _showResultsSheet ? 240 : 16,
+          child: Center(
+            child: _buildBottomActionBar(pins, allPins),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSidebar(List<MapPin> pins, List<MapPin> allPins) {
     return Container(
-      decoration: const BoxDecoration(
-        color: AppPalette.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      color: AppPalette.surface,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(2),
-            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: _buildSearchBar(allPins),
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Navigate to $name',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: AppPalette.deepBlue,
-            ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _buildBottomActionBar(pins, allPins),
           ),
-          const SizedBox(height: 6),
-          const Text('Choose travel mode',
-              style: TextStyle(color: Colors.grey)),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: modes
-                .map((m) => _ModeButton(
-                      icon: m.icon,
-                      label: m.label,
-                      onTap: () => Navigator.pop(context, m.mode),
-                    ))
-                .toList(),
+          const SizedBox(height: 8),
+          if (_locationStatus != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildLocationStatusBanner(),
+            ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: pins.length,
+              itemBuilder: (context, index) {
+                final pin = pins[index];
+                final selected = _selectedPin?.key == pin.key;
+                final status = MapMarkerHelper().statusForPin(pin);
+                final color = MapMarkerHelper.statusColor(status);
+
+                return ListTile(
+                  onTap: () => _focusPin(pin),
+                  leading: CircleAvatar(
+                    backgroundColor: color.withValues(alpha: 0.14),
+                    child: Icon(pin.type.icon, color: color, size: 18),
+                  ),
+                  title: Text(
+                    pin.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                      color: AppPalette.charcoal,
+                    ),
+                  ),
+                  subtitle: Text(
+                    pin.type.label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppPalette.mutedText.withValues(alpha: 0.9),
+                    ),
+                  ),
+                  trailing: selected
+                      ? const Icon(Icons.my_location,
+                          color: AppPalette.deepBlue)
+                      : null,
+                );
+              },
+            ),
           ),
         ],
       ),
     );
   }
-}
 
-/// Bottom sheet that lists available food categories and lets the user
-/// toggle which ones are shown on the map.
-class _FoodCategorySheet extends StatelessWidget {
-  const _FoodCategorySheet({
-    required this.categories,
-    required this.selectedCategories,
-    required this.onToggle,
-    required this.onClear,
-  });
-
-  final List<String> categories;
-  final Set<String> selectedCategories;
-  final ValueChanged<String> onToggle;
-  final VoidCallback onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppPalette.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Food Categories',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    color: AppPalette.deepBlue,
-                  ),
-                ),
-                if (selectedCategories.isNotEmpty)
-                  TextButton(
-                    onPressed: onClear,
-                    child: const Text(
-                      'Clear all',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: AppPalette.ochre,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Tap categories to show matching food pins on the map.',
-              style: TextStyle(fontSize: 13, color: AppPalette.mutedText),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: categories.map((category) {
-                final isSelected = selectedCategories.contains(category);
-                return GestureDetector(
-                  onTap: () => onToggle(category),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppPalette.ochre
-                          : Colors.white.withValues(alpha: 0.9),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: isSelected
-                            ? AppPalette.ochre
-                            : AppPalette.border,
-                      ),
-                      boxShadow: isSelected
-                          ? [
-                              BoxShadow(
-                                color: AppPalette.ochre.withValues(alpha: 0.25),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (isSelected) ...[
-                          const Icon(
-                            Icons.check_rounded,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 6),
-                        ],
-                        Text(
-                          category,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: isSelected ? Colors.white : AppPalette.charcoal,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppPalette.ochre,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  textStyle: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                ),
-                child: Text(
-                  selectedCategories.isEmpty
-                      ? 'Show all food pins'
-                      : 'Show ${selectedCategories.length} selected',
-                ),
-              ),
-            ),
-          ],
-        ),
+  Widget _buildSearchBar(List<MapPin> allPins) {
+    return PointerInterceptor(
+      child: MapSearchBar(
+        controller: _searchController,
+        onChanged: _handleSearchChanged,
+        onSubmitted: _handleSearchChanged,
+        onFilterTap: () => _showFoodCategorySelector(allPins),
+        onNearbyTap:
+            LocalAuth.isLocalLoggedIn ? _showRadiusSelector : null,
+        onClear: () => setState(() => _searchQuery = ''),
+        onBackPressed: widget.onBackPressed,
+        filterActive:
+            _selectedFoodCategories.isNotEmpty || _selectedType != null,
+        nearbyActive: _radiusKm != _defaultRadiusKm,
       ),
     );
   }
+
+  Widget _buildLocationStatusBanner() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFDEE3EA)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Text(
+        _locationStatus!,
+        textAlign: TextAlign.center,
+        style: const TextStyle(fontSize: 12, color: AppPalette.mutedText),
+      ),
+    );
+  }
+
+  Widget _buildFloatingButtons() {
+    return PointerInterceptor(
+      child: MapFloatingButtons(
+        followingUser: _followUser && _userLocation != null,
+        onMyLocation: _recenterOnUser,
+        onCompass: _resetCompass,
+        onMapStyle: _showMapStyleSelector,
+        bearing: _bearing,
+      ),
+    );
+  }
+
+  Widget _buildBottomActionBar(List<MapPin> pins, List<MapPin> allPins) {
+    return PointerInterceptor(
+      child: MapBottomActionBar(
+        followingUser: _followUser && _userLocation != null,
+        resultsVisible: _showResultsSheet,
+        selectedType: _selectedType,
+        showOnlyFavourites: _showOnlyFavourites,
+        onMyLocation: _recenterOnUser,
+        onNearby: () {
+          if (pins.isEmpty && !_nearMeMode) return;
+          setState(() {
+            _nearMeMode = true;
+            _showResultsSheet = true;
+            _selectedType = MapPinType.food;
+          });
+          // If we don't have the user's location yet, try to fetch it.
+          if (_userLocation == null) {
+            _startLiveTracking().then((_) => _emitDiscoverItems());
+          }
+        },
+        onFood: () {
+          if (_selectedType == MapPinType.food) {
+            setState(() {
+              _selectedType = null;
+              _selectedFoodCategories.clear();
+            });
+          } else {
+            setState(() => _selectedType = MapPinType.food);
+            _showFoodCategorySelector(allPins);
+          }
+        },
+        onFavourites: () {
+          if (!VisitorAuth.isVisitorLoggedIn) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content:
+                    Text('Please log in as a Visitor to see your favourites.'),
+              ),
+            );
+            return;
+          }
+          setState(() => _showOnlyFavourites = !_showOnlyFavourites);
+        },
+        resultCount: pins.length,
+      ),
+    );
+  }
+
+  Widget _buildSelectedPinCard() {
+    final pin = _selectedPin!;
+    return PointerInterceptor(
+      child: MapSelectedPinCard(
+        pin: pin,
+        distanceLabel: _distanceLabel(pin.latitude, pin.longitude),
+        onNavigate: () => _launchNavigation(pin),
+        onViewDetails: () => _openPinDetail(pin),
+        onClose: () => setState(() => _selectedPin = null),
+      ),
+    );
+  }
+
+  Widget _buildClusterPopup() {
+    final selected = _selectedCluster!;
+    final items = selected.items.toList();
+    final type = items.isEmpty ? MapPinType.food : items.first.type;
+    final topRated = items.where((p) => (p.rating ?? 0) >= 4.5).length;
+    final openNow =
+        items.where((p) => _statusForPin(p).isOpenNow == true).length;
+    final trending = items.where((p) => _statusForPin(p).isPopular).length;
+
+    return PointerInterceptor(
+      child: ClusterInfoPopup(
+        count: items.length,
+        type: type,
+        topRated: topRated,
+        openNow: openNow,
+        trending: trending,
+        onViewBusinesses: _viewClusterBusinesses,
+        onZoomIn: _zoomIntoCluster,
+      ),
+    );
+  }
+
+  _PinStatus _statusForPin(MapPin pin) {
+    final status = MapMarkerHelper().statusForPin(pin);
+    final isOpenNow = status == MapPinStatus.open;
+    final isPopular = status == MapPinStatus.popular ||
+        (pin.rawItem?['trending'] as bool? ?? false);
+    final isPremium = status == MapPinStatus.premium ||
+        (pin.rawItem?['isPremium'] as bool? ?? false);
+    final isVerified = status == MapPinStatus.verified ||
+        (pin.rawItem?['verified'] as bool? ?? false);
+    return _PinStatus(
+      isOpenNow: isOpenNow,
+      isVerified: isVerified,
+      isPopular: isPopular,
+      isPremium: isPremium,
+    );
+  }
+
+  Widget _buildMap(List<MapPin> pins, bool useMapFallback) {
+    if (useMapFallback) {
+      return _MacOSFallbackMap(
+        pins: pins,
+        userLocation: _userLocation,
+        selectedPin: _selectedPin,
+        onPinTap: (pin) => setState(() => _selectedPin = pin),
+      );
+    }
+
+    return _DeferredWebMap(
+      center: _userLocation ?? _defaultCenter,
+      mapType: _googleMapType,
+      darkStyleJson: _darkMapStyleJson,
+      myLocationEnabled: false,
+      markers: {
+        ..._clusterMarkers,
+        if (_userLocationMarker != null) _userLocationMarker!,
+      },
+      onCameraIdle: () => _clusterManager?.updateMap(),
+      onMapCreated: (controller) {
+        _mapController = controller;
+        _applyMapStyle(controller);
+        _clusterManager ??= cluster.ClusterManager<MapPin>(
+          pins,
+          (markers) {
+            if (mounted) {
+              setState(() => _clusterMarkers = markers);
+            }
+          },
+          markerBuilder: _buildClusterMarker,
+          levels: const [1, 4.25, 6.75, 8.25, 11.5, 14.5, 16.0, 16.5, 20.0],
+          extraPercent: 0.2,
+          stopClusteringZoom: 17,
+        );
+        _clusterManager!.setMapId(controller.mapId);
+      },
+      onCameraMove: (position) {
+        _clusterManager?.onCameraMove(position, forceUpdate: false);
+        setState(() => _bearing = position.bearing);
+      },
+      onTap: () => setState(() {
+        _selectedPin = null;
+        _followUser = false;
+      }),
+    );
+  }
+
+  String _radiusSubtitle() {
+    if (_radiusKm >= 1000) return 'Entire Brisbane';
+    if (_nearMeMode && _userLocation != null) {
+      return 'Within ${_radiusKm.toStringAsFixed(0)} km of your location';
+    }
+    return 'Within ${_radiusKm.toStringAsFixed(0)} km of Brisbane CBD';
+  }
+
+  static const String _darkStyle = '''
+[
+  {"elementType": "geometry", "stylers": [{"color": "#242f3e"}]},
+  {"elementType": "labels.text.stroke", "stylers": [{"color": "#242f3e"}]},
+  {"elementType": "labels.text.fill", "stylers": [{"color": "#746855"}]},
+  {"featureType": "administrative.locality", "elementType": "labels.text.fill", "stylers": [{"color": "#d59563"}]},
+  {"featureType": "poi", "elementType": "labels.text.fill", "stylers": [{"color": "#d59563"}]},
+  {"featureType": "poi.park", "elementType": "geometry", "stylers": [{"color": "#263c3f"}]},
+  {"featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [{"color": "#6b9a76"}]},
+  {"featureType": "road", "elementType": "geometry", "stylers": [{"color": "#38414e"}]},
+  {"featureType": "road", "elementType": "geometry.stroke", "stylers": [{"color": "#212a37"}]},
+  {"featureType": "road", "elementType": "labels.text.fill", "stylers": [{"color": "#9ca5b3"}]},
+  {"featureType": "road.highway", "elementType": "geometry", "stylers": [{"color": "#746855"}]},
+  {"featureType": "road.highway", "elementType": "geometry.stroke", "stylers": [{"color": "#1f2835"}]},
+  {"featureType": "road.highway", "elementType": "labels.text.fill", "stylers": [{"color": "#f3d19c"}]},
+  {"featureType": "transit", "elementType": "geometry", "stylers": [{"color": "#2f3948"}]},
+  {"featureType": "transit.station", "elementType": "labels.text.fill", "stylers": [{"color": "#d59563"}]},
+  {"featureType": "water", "elementType": "geometry", "stylers": [{"color": "#17263c"}]},
+  {"featureType": "water", "elementType": "labels.text.fill", "stylers": [{"color": "#515c6d"}]},
+  {"featureType": "water", "elementType": "labels.text.stroke", "stylers": [{"color": "#17263c"}]}
+]
+''';
 }
 
-class _ModeButton extends StatelessWidget {
-  const _ModeButton(
-      {required this.icon, required this.label, required this.onTap});
-  final IconData icon;
-  final String label;
+class _PinStatus {
+  const _PinStatus({
+    this.isOpenNow,
+    this.isClosingSoon,
+    required this.isVerified,
+    required this.isPopular,
+    required this.isPremium,
+    this.crowdLevel,
+    this.waitTime,
+  });
+
+  final bool? isOpenNow;
+  final bool? isClosingSoon;
+  final bool isVerified;
+  final bool isPopular;
+  final bool isPremium;
+  final String? crowdLevel;
+  final String? waitTime;
+}
+
+/// Defers building the GoogleMap web platform view until after the first
+/// frame. This avoids an `IntersectionObserver` race where the Google Maps JS
+/// SDK tries to observe the underlying HTML element before Flutter has
+/// attached it to the DOM.
+class _DeferredWebMap extends StatefulWidget {
+  const _DeferredWebMap({
+    required this.center,
+    required this.mapType,
+    required this.darkStyleJson,
+    required this.myLocationEnabled,
+    required this.markers,
+    required this.onMapCreated,
+    required this.onCameraMove,
+    required this.onCameraIdle,
+    required this.onTap,
+  });
+
+  final LatLng center;
+  final MapType mapType;
+  final String? darkStyleJson;
+  final bool myLocationEnabled;
+  final Set<Marker> markers;
+  final void Function(GoogleMapController) onMapCreated;
+  final void Function(CameraPosition) onCameraMove;
+  final VoidCallback onCameraIdle;
   final VoidCallback onTap;
 
   @override
+  State<_DeferredWebMap> createState() => _DeferredWebMapState();
+}
+
+class _DeferredWebMapState extends State<_DeferredWebMap> {
+  bool _ready = false;
+  GoogleMapController? _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _ready = true);
+    });
+  }
+
+  @override
+  void didUpdateWidget(_DeferredWebMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.mapType != widget.mapType ||
+        oldWidget.darkStyleJson != widget.darkStyleJson) {
+      _applyStyle();
+    }
+  }
+
+  Future<void> _applyStyle() async {
+    final controller = _controller;
+    if (controller == null) return;
+    if (widget.darkStyleJson != null) {
+      await controller.setMapStyle(widget.darkStyleJson);
+    } else {
+      await controller.setMapStyle(null);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppPalette.ochre,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: Colors.white, size: 26),
-          ),
-          const SizedBox(height: 6),
-          Text(label,
-              style: const TextStyle(fontSize: 12, color: AppPalette.deepBlue)),
-        ],
+    if (!_ready) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return GoogleMap(
+      initialCameraPosition: CameraPosition(
+        target: widget.center,
+        zoom: 11.6,
       ),
+      onMapCreated: (controller) {
+        _controller = controller;
+        widget.onMapCreated(controller);
+      },
+      onCameraMove: widget.onCameraMove,
+      onCameraIdle: widget.onCameraIdle,
+      onTap: (_) => widget.onTap(),
+      markers: widget.markers,
+      myLocationButtonEnabled: false,
+      myLocationEnabled: widget.myLocationEnabled,
+      zoomControlsEnabled: true,
+      mapType: widget.mapType,
     );
   }
 }
@@ -2322,12 +1768,12 @@ class _MacOSFallbackMap extends StatelessWidget {
     required this.onPinTap,
   });
 
-  final List<_MapPin> pins;
+  final List<MapPin> pins;
   final LatLng? userLocation;
-  final _MapPin? selectedPin;
-  final ValueChanged<_MapPin> onPinTap;
+  final MapPin? selectedPin;
+  final ValueChanged<MapPin> onPinTap;
 
-  double _distanceKm(_MapPin pin) {
+  double _distanceKm(MapPin pin) {
     final from = userLocation ?? const LatLng(-27.4698, 153.0251);
     const r = 6371.0;
     final dLat = _toRad(pin.latitude - from.latitude);
@@ -2343,20 +1789,9 @@ class _MacOSFallbackMap extends StatelessWidget {
 
   double _toRad(double deg) => deg * math.pi / 180;
 
-  IconData _iconForType(_MapPinType type) {
-    return switch (type) {
-      _MapPinType.food => Icons.restaurant_rounded,
-      _MapPinType.event => Icons.event_rounded,
-      _MapPinType.attraction => Icons.attractions_rounded,
-      _MapPinType.culturalVenue => Icons.museum_rounded,
-      _MapPinType.stadium => Icons.stadium_rounded,
-      _MapPinType.olympicVenue => Icons.sports_rounded,
-    };
-  }
-
   @override
   Widget build(BuildContext context) {
-    final sorted = List<_MapPin>.from(pins)
+    final sorted = List<MapPin>.from(pins)
       ..sort((a, b) => _distanceKm(a).compareTo(_distanceKm(b)));
 
     return Container(
@@ -2384,16 +1819,16 @@ class _MacOSFallbackMap extends StatelessWidget {
                     itemCount: sorted.length,
                     itemBuilder: (context, index) {
                       final pin = sorted[index];
-                      final isSelected = selectedPin?.id == pin.id;
+                      final isSelected = selectedPin?.key == pin.key;
+                      final status = MapMarkerHelper().statusForPin(pin);
+                      final color = MapMarkerHelper.statusColor(status);
+
                       return ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: isSelected
-                              ? AppPalette.ochre
-                              : AppPalette.deepBlue.withValues(alpha: 0.12),
+                          backgroundColor: color.withValues(alpha: 0.14),
                           child: Icon(
-                            _iconForType(pin.type),
-                            color:
-                                isSelected ? Colors.white : AppPalette.deepBlue,
+                            pin.type.icon,
+                            color: isSelected ? Colors.white : color,
                             size: 18,
                           ),
                         ),
@@ -2406,11 +1841,11 @@ class _MacOSFallbackMap extends StatelessWidget {
                           ),
                         ),
                         subtitle: Text(
-                          '${pin.location} · ${_distanceKm(pin).toStringAsFixed(1)} km',
+                          '${pin.locationName} · ${_distanceKm(pin).toStringAsFixed(1)} km',
                           style: TextStyle(color: AppPalette.mutedText),
                         ),
                         tileColor: isSelected
-                            ? AppPalette.ochre.withValues(alpha: 0.08)
+                            ? color.withValues(alpha: 0.08)
                             : Colors.transparent,
                         onTap: () => onPinTap(pin),
                       );
@@ -2419,67 +1854,6 @@ class _MacOSFallbackMap extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Defers building the GoogleMap web platform view until after the first
-/// frame. This avoids an `IntersectionObserver` race where the Google Maps JS
-/// SDK tries to observe the underlying HTML element before Flutter has
-/// attached it to the DOM.
-class _DeferredWebMap extends StatefulWidget {
-  const _DeferredWebMap({
-    required this.center,
-    required this.markers,
-    required this.use3dMode,
-    required this.useVibrantMap,
-    required this.myLocationEnabled,
-    required this.onMapCreated,
-    required this.onTap,
-  });
-
-  final LatLng center;
-  final Set<Marker> markers;
-  final bool use3dMode;
-  final bool useVibrantMap;
-  final bool myLocationEnabled;
-  final void Function(GoogleMapController) onMapCreated;
-  final VoidCallback onTap;
-
-  @override
-  State<_DeferredWebMap> createState() => _DeferredWebMapState();
-}
-
-class _DeferredWebMapState extends State<_DeferredWebMap> {
-  bool _ready = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _ready = true);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_ready) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    return GoogleMap(
-      initialCameraPosition: CameraPosition(
-        target: widget.center,
-        zoom: 11.6,
-      ),
-      onMapCreated: widget.onMapCreated,
-      onTap: (_) => widget.onTap(),
-      markers: widget.markers,
-      myLocationButtonEnabled: false,
-      myLocationEnabled: widget.myLocationEnabled,
-      zoomControlsEnabled: true,
-      buildingsEnabled: widget.use3dMode,
-      tiltGesturesEnabled: true,
-      mapType: widget.useVibrantMap ? MapType.normal : MapType.terrain,
     );
   }
 }

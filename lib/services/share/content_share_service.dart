@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -151,11 +152,17 @@ class ContentShareService {
             return ShareResult.copied;
           }
         case 'instagram':
-          // Instagram does not expose a public share URL. On mobile the best
-          // UX is to present the native share sheet so the user can pick the
-          // Instagram app (Story/Post/DM) if it accepts the content, with the
-          // link already copied to the clipboard as a reliable fallback.
+          // Instagram has no public web share URL. On the web we open
+          // Instagram in a new tab and copy the link so the user can paste it.
+          // On mobile we present the native share sheet.
           try {
+            if (kIsWeb) {
+              await launchUrl(
+                Uri.parse('https://www.instagram.com/'),
+                mode: LaunchMode.externalApplication,
+              );
+              return ShareResult.shared;
+            }
             await SharePlus.instance.share(
               ShareParams(
                 text: shareText,
@@ -164,13 +171,20 @@ class ContentShareService {
             );
             return ShareResult.shared;
           } catch (_) {
-            // The native share sheet may fail when Instagram is selected or
-            // when running under certain iOS conditions. The link is already
-            // on the clipboard, so report success with the copy fallback.
             return ShareResult.copied;
           }
         case 'tiktok':
-          return ShareResult.copied;
+          // TikTok has no public share URL. Open TikTok web and keep the link
+          // on the clipboard so the user can paste it.
+          try {
+            await launchUrl(
+              Uri.parse('https://www.tiktok.com/upload?lang=en'),
+              mode: LaunchMode.externalApplication,
+            );
+            return ShareResult.shared;
+          } catch (_) {
+            return ShareResult.copied;
+          }
         case 'native':
           try {
             await SharePlus.instance.share(

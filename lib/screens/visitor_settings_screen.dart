@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/l10n/app_localizations.dart';
-import 'package:brisconnect/screens/location_settings_screen.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -110,7 +109,7 @@ class _VisitorSettingsScreenState extends State<VisitorSettingsScreen> {
     return Scaffold(
       backgroundColor: AppPalette.background,
       appBar: AppBar(
-        title: LogoAppBarTitle(l10n.locationRadius),
+        title: LogoAppBarTitle(l10n.locationSettings),
       ),
       body: visitor == null
           ? Center(
@@ -152,35 +151,6 @@ class _VisitorSettingsScreenState extends State<VisitorSettingsScreen> {
                     activeThumbColor: AppPalette.deepBlue,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Card(
-                  color: AppPalette.surface,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: const BorderSide(color: AppPalette.border),
-                  ),
-                  child: ListTile(
-                    title: Text(
-                      l10n.locationSettings,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    subtitle: Text(
-                      l10n.setSearchRadius,
-                    ),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              const LocationSettingsScreen.visitor(),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
                 const SizedBox(height: 24),
 
                 _SectionLabel(l10n.about),

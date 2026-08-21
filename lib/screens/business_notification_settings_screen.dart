@@ -20,6 +20,14 @@ class _BusinessNotificationSettingsScreenState
   bool _offerExpiry = true;
   bool _newReview = true;
   bool _businessUpdates = true;
+  bool _audienceActivity = true;
+  bool _socialShare = true;
+  bool _buzzVote = true;
+  bool _verificationUpdates = true;
+  bool _promotionStatus = true;
+  bool _promotionPerformance = true;
+  bool _adminMessages = true;
+  bool _reportedContent = true;
   bool _isSaving = false;
 
   @override
@@ -31,6 +39,14 @@ class _BusinessNotificationSettingsScreenState
       _offerExpiry = user.notifyOfferExpiry;
       _newReview = user.notifyNewReview;
       _businessUpdates = user.notifyBusinessUpdates;
+      _audienceActivity = user.notifyAudienceActivity;
+      _socialShare = user.notifySocialShare;
+      _buzzVote = user.notifyBuzzVote;
+      _verificationUpdates = user.notifyVerificationUpdates;
+      _promotionStatus = user.notifyPromotionStatus;
+      _promotionPerformance = user.notifyPromotionPerformance;
+      _adminMessages = user.notifyAdminMessages;
+      _reportedContent = user.notifyReportedContent;
     }
   }
 
@@ -49,6 +65,16 @@ class _BusinessNotificationSettingsScreenState
       notifyOfferExpiry: key == 'offerExpiry' ? value : null,
       notifyNewReview: key == 'newReview' ? value : null,
       notifyBusinessUpdates: key == 'businessUpdates' ? value : null,
+      notifyAudienceActivity: key == 'audienceActivity' ? value : null,
+      notifySocialShare: key == 'socialShare' ? value : null,
+      notifyBuzzVote: key == 'buzzVote' ? value : null,
+      notifyVerificationUpdates:
+          key == 'verificationUpdates' ? value : null,
+      notifyPromotionStatus: key == 'promotionStatus' ? value : null,
+      notifyPromotionPerformance:
+          key == 'promotionPerformance' ? value : null,
+      notifyAdminMessages: key == 'adminMessages' ? value : null,
+      notifyReportedContent: key == 'reportedContent' ? value : null,
     );
 
     if (mounted) {
@@ -140,6 +166,95 @@ class _BusinessNotificationSettingsScreenState
               'businessUpdates',
               value,
               (v) => _businessUpdates = v,
+            ),
+          ),
+          _buildSwitch(
+            key: const Key('switch_audienceActivity'),
+            title: 'Profile views & saves',
+            subtitle: 'Notify me when visitors view or save my business.',
+            value: _audienceActivity,
+            onChanged: (value) => _toggle(
+              'audienceActivity',
+              value,
+              (v) => _audienceActivity = v,
+            ),
+          ),
+          _buildSwitch(
+            key: const Key('switch_socialShare'),
+            title: 'Social shares',
+            subtitle: 'Notify me when someone shares my business.',
+            value: _socialShare,
+            onChanged: (value) => _toggle(
+              'socialShare',
+              value,
+              (v) => _socialShare = v,
+            ),
+          ),
+          _buildSwitch(
+            key: const Key('switch_buzzVote'),
+            title: 'Buzz votes',
+            subtitle: 'Notify me when someone buzz-votes my business.',
+            value: _buzzVote,
+            onChanged: (value) => _toggle(
+              'buzzVote',
+              value,
+              (v) => _buzzVote = v,
+            ),
+          ),
+          const Divider(height: 1, indent: 16, endIndent: 16),
+          _buildSwitch(
+            key: const Key('switch_verificationUpdates'),
+            title: 'Verification updates',
+            subtitle: 'Notify me when my business verification status changes.',
+            value: _verificationUpdates,
+            onChanged: (value) => _toggle(
+              'verificationUpdates',
+              value,
+              (v) => _verificationUpdates = v,
+            ),
+          ),
+          _buildSwitch(
+            key: const Key('switch_promotionStatus'),
+            title: 'Promotion status',
+            subtitle: 'Notify me when my promotion is approved, published, rejected, or expiring.',
+            value: _promotionStatus,
+            onChanged: (value) => _toggle(
+              'promotionStatus',
+              value,
+              (v) => _promotionStatus = v,
+            ),
+          ),
+          _buildSwitch(
+            key: const Key('switch_promotionPerformance'),
+            title: 'Promotion performance',
+            subtitle: 'Notify me when my promotion receives strong engagement.',
+            value: _promotionPerformance,
+            onChanged: (value) => _toggle(
+              'promotionPerformance',
+              value,
+              (v) => _promotionPerformance = v,
+            ),
+          ),
+          _buildSwitch(
+            key: const Key('switch_adminMessages'),
+            title: 'Admin messages',
+            subtitle: 'Notify me when BrisConnect Admin sends an important message or requires action.',
+            value: _adminMessages,
+            onChanged: (value) => _toggle(
+              'adminMessages',
+              value,
+              (v) => _adminMessages = v,
+            ),
+          ),
+          _buildSwitch(
+            key: const Key('switch_reportedContent'),
+            title: 'Reported content',
+            subtitle: 'Notify me when content associated with my business requires action.',
+            value: _reportedContent,
+            onChanged: (value) => _toggle(
+              'reportedContent',
+              value,
+              (v) => _reportedContent = v,
             ),
           ),
           if (_isSaving)

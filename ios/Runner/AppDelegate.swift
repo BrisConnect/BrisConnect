@@ -64,6 +64,13 @@ import UserNotifications
     }
     let link = args["link"] as? String
 
+    let urlString = "instagram-stories://share?source_application=\(facebookAppID)"
+    guard let url = URL(string: urlString),
+          UIApplication.shared.canOpenURL(url) else {
+      result(FlutterError(code: "APP_NOT_INSTALLED", message: "Instagram is not installed", details: nil))
+      return
+    }
+
     let pasteboard = UIPasteboard.general
     var pasteboardItems: [String: Any] = [
       "com.instagram.sharedSticker.backgroundImage": imageData.data,
@@ -76,14 +83,11 @@ import UserNotifications
     let pasteboardOptions = [UIPasteboard.OptionsKey.expirationDate: Date(timeIntervalSinceNow: 60 * 5)]
     pasteboard.setItems([pasteboardItems], options: pasteboardOptions)
 
-    let urlString = "instagram-stories://share?source_application=\(facebookAppID)"
-    guard let url = URL(string: urlString),
-          UIApplication.shared.canOpenURL(url) else {
-      result(FlutterError(code: "APP_NOT_INSTALLED", message: "Instagram is not installed", details: nil))
-      return
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+      UIApplication.shared.open(url, options: [:]) { _ in
+        result(true)
+      }
     }
-    UIApplication.shared.open(url, options: [:], completionHandler: nil)
-    result(true)
   }
 
   private func shareToFacebookStory(call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -93,6 +97,13 @@ import UserNotifications
       return
     }
     let link = args["link"] as? String
+
+    let urlString = "facebook-stories://share?source_application=\(facebookAppID)"
+    guard let url = URL(string: urlString),
+          UIApplication.shared.canOpenURL(url) else {
+      result(FlutterError(code: "APP_NOT_INSTALLED", message: "Facebook is not installed", details: nil))
+      return
+    }
 
     let pasteboard = UIPasteboard.general
     var pasteboardItems: [String: Any] = [
@@ -105,14 +116,11 @@ import UserNotifications
     let pasteboardOptions = [UIPasteboard.OptionsKey.expirationDate: Date(timeIntervalSinceNow: 60 * 5)]
     pasteboard.setItems([pasteboardItems], options: pasteboardOptions)
 
-    let urlString = "facebook-stories://share?source_application=\(facebookAppID)"
-    guard let url = URL(string: urlString),
-          UIApplication.shared.canOpenURL(url) else {
-      result(FlutterError(code: "APP_NOT_INSTALLED", message: "Facebook is not installed", details: nil))
-      return
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+      UIApplication.shared.open(url, options: [:]) { _ in
+        result(true)
+      }
     }
-    UIApplication.shared.open(url, options: [:], completionHandler: nil)
-    result(true)
   }
 
   override func application(

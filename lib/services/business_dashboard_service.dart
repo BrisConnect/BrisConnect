@@ -11,8 +11,9 @@ import 'package:brisconnect/services/audience_analytics_service.dart';
 class BusinessDashboardMetrics {
   final int profileViews;
   final int saves;
+  final int socialShares;
+  final int totalSocialShares;
   final int activePromotions;
-  final int upcomingEvents;
   final int newReviews;
   final int totalReviews;
   final double averageRating;
@@ -20,8 +21,8 @@ class BusinessDashboardMetrics {
   final int totalBuzzVotes;
   final double profileViewsChange;
   final double savesChange;
+  final double socialSharesChange;
   final double activePromotionsChange;
-  final double upcomingEventsChange;
   final double newReviewsChange;
   final double buzzScore;
   final String? crowdLevel;
@@ -30,8 +31,9 @@ class BusinessDashboardMetrics {
   const BusinessDashboardMetrics({
     this.profileViews = 0,
     this.saves = 0,
+    this.socialShares = 0,
+    this.totalSocialShares = 0,
     this.activePromotions = 0,
-    this.upcomingEvents = 0,
     this.newReviews = 0,
     this.totalReviews = 0,
     this.averageRating = 0.0,
@@ -39,12 +41,66 @@ class BusinessDashboardMetrics {
     this.totalBuzzVotes = 0,
     this.profileViewsChange = 0,
     this.savesChange = 0,
+    this.socialSharesChange = 0,
     this.activePromotionsChange = 0,
-    this.upcomingEventsChange = 0,
     this.newReviewsChange = 0,
     this.buzzScore = 0.0,
     this.crowdLevel,
     this.crowdReportCount = 0,
+  });
+}
+
+/// Daily metric history for a business owner's listings.
+class BusinessDailyHistory {
+  /// Short day labels (e.g. Mon, Tue) ordered oldest → newest.
+  final List<String> labels;
+
+  /// Daily profile view counts aligned with [labels].
+  final List<int> views;
+
+  /// Daily save/favourite counts aligned with [labels].
+  final List<int> saves;
+
+  /// Daily new review counts aligned with [labels].
+  final List<int> reviews;
+
+  /// Cumulative total review counts aligned with [labels].
+  final List<int> totalReviews;
+
+  /// Daily average star rating (1-5) aligned with [labels].
+  final List<double> averageRatings;
+
+  /// Daily average buzz rating (1-5) aligned with [labels].
+  final List<double> averageBuzzRatings;
+
+  /// Cumulative average buzz rating (1-5) aligned with [labels].
+  final List<double> cumulativeAverageBuzzRatings;
+
+  /// Daily social share counts aligned with [labels].
+  final List<int> shares;
+
+  /// Daily active promotion counts aligned with [labels].
+  final List<int> promotions;
+
+  /// Daily buzz vote counts aligned with [labels].
+  final List<int> buzzVotes;
+
+  /// Daily crowd report counts aligned with [labels].
+  final List<int> crowdReports;
+
+  const BusinessDailyHistory({
+    this.labels = const [],
+    this.views = const [],
+    this.saves = const [],
+    this.reviews = const [],
+    this.totalReviews = const [],
+    this.averageRatings = const [],
+    this.averageBuzzRatings = const [],
+    this.cumulativeAverageBuzzRatings = const [],
+    this.shares = const [],
+    this.promotions = const [],
+    this.buzzVotes = const [],
+    this.crowdReports = const [],
   });
 }
 
@@ -66,10 +122,10 @@ class BusinessDashboardService {
   FirebaseFirestore get firestore => _firestore;
 
   static const String _businessesCollection = 'businesses';
-  static const String _businessEventsCollection = 'business_events';
   static const String _reviewsCollection = 'reviews';
   static const String _promotionsCollection = 'promotions';
   static const String _crowdReportsCollection = 'crowd_reports';
+  static const String _socialSharesCollection = 'social_shares';
 
   /// Real-time aggregated metrics for all businesses owned by [ownerId].
   ///
@@ -85,6 +141,416 @@ class BusinessDashboardService {
   Future<BusinessDashboardMetrics> getMetrics(String ownerId) async {
     final businesses = await _businessesForOwner(ownerId).first;
     return _metricsForBusinesses(businesses);
+  }
+
+  /// Stream of social share counts for [businessIds] in the current and
+  /// previous 7-day windows.
+  Stream<_SharesResult> _socialSharesStream(
+    List<String> businessIds,
+    DateTime weekAgo,
+    DateTime twoWeeksAgo,
+  ) {
+    if (businessIds.isEmpty) {
+      return Stream.value(const _SharesResult());
+    }
+
+    final chunks = _chunk(businessIds, 10);
+    final chunkStreams = chunks.map((chunk) {
+      return _firestore
+          .collection(_socialSharesCollection)
+          .where('businessId', whereIn: chunk)
+          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(twoWeeksAgo))
+          .snapshots()
+          .map(_SharesResult.fromSnapshot);
+    }).toList();
+
+    if (chunkStreams.length == 1) return chunkStreams.first;
+
+    late StreamController<_SharesResult> controller;
+    final subscriptions = <StreamSubscription<_SharesResult>>[];
+    final latest = List<_SharesResult?>.filled(chunkStreams.length, null);
+
+    void emitIfReady() {
+      if (latest.every((r) => r != null)) {
+        controller.add(
+          latest.whereType<_SharesResult>().reduce((a, b) => a.merge(b)),
+        );
+      }
+    }
+
+    controller = StreamController<_SharesResult>(
+      onListen: () {
+        for (var i = 0; i < chunkStreams.length; i++) {
+          subscriptions.add(
+            chunkStreams[i].listen(
+              (result) {
+                latest[i] = result;
+                emitIfReady();
+              },
+              onError: controller.addError,
+            ),
+          );
+        }
+      },
+      onCancel: () async {
+        for (final sub in subscriptions) {
+          await sub.cancel();
+        }
+      },
+    );
+
+    return controller.stream.distinct();
+  }
+
+  /// Real-time daily metric history for the last [days] days across all
+  /// businesses owned by [ownerId].
+  Stream<BusinessDailyHistory> dailyHistoryStream(
+    String ownerId, {
+    int days = 7,
+  }) {
+    return _businessesForOwner(ownerId).asyncExpand((businesses) {
+      return _dailyHistoryStreamForBusinesses(businesses, days: days);
+    });
+  }
+
+  Stream<BusinessDailyHistory> _dailyHistoryStreamForBusinesses(
+    List<Business> businesses, {
+    int days = 7,
+  }) {
+    if (businesses.isEmpty) {
+      return Stream.value(const BusinessDailyHistory());
+    }
+
+    final businessIds = businesses.map((b) => b.id!).toList();
+    final ownerId = businesses.first.ownerId;
+    final now = DateTime.now();
+    final start = now.subtract(Duration(days: days - 1));
+
+    final reviewAggregatesStream = _dailyReviewAggregatesStream(
+      businessIds: businessIds,
+      start: start,
+      days: days,
+    );
+    final sharesStream = _dailyCountsStream(
+      collection: _socialSharesCollection,
+      businessIds: businessIds,
+      field: 'createdAt',
+      start: start,
+      days: days,
+    );
+    final crowdStream = _dailyCountsStream(
+      collection: _crowdReportsCollection,
+      businessIds: businessIds,
+      field: 'timestamp',
+      start: start,
+      days: days,
+    );
+
+    final intFallback = List<int>.filled(days, 0);
+    final aggregateFallback = List<_DailyReviewAggregate>.filled(
+      days,
+      const _DailyReviewAggregate(),
+      growable: false,
+    );
+
+    return _combineLatest4<
+        List<_DailyReviewAggregate>,
+        List<int>,
+        List<int>,
+        List<int>,
+        BusinessDailyHistory>(
+      _streamWithFallback(reviewAggregatesStream, aggregateFallback),
+      _streamWithFallback(sharesStream, intFallback),
+      _streamWithFallback(crowdStream, intFallback),
+      Stream.value(_activePromotionHistory(ownerId, days: days)),
+      (aggregates, shares, crowd, promotions) {
+        final labels = <String>[];
+        final views = List<int>.filled(days, 0);
+        final saves = List<int>.filled(days, 0);
+        final reviews = List<int>.filled(days, 0);
+        final totalReviews = List<int>.filled(days, 0);
+        final averageRatings = List<double>.filled(days, 0);
+        final averageBuzzRatings = List<double>.filled(days, 0);
+        final cumulativeAverageBuzzRatings = List<double>.filled(days, 0);
+        final buzzVotes = List<int>.filled(days, 0);
+        final dayNames = <String>['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+        var cumulativeReviews = 0;
+        var cumulativeBuzzTotal = 0;
+        var cumulativeBuzzCount = 0;
+        for (var i = 0; i < days; i++) {
+          final date = start.add(Duration(days: i));
+          labels.add(dayNames[date.weekday % 7]);
+          final key = _formatDate(date);
+
+          for (final business in businesses) {
+            views[i] += business.viewHistory[key] ?? 0;
+            saves[i] += business.saveHistory[key] ?? 0;
+          }
+
+          reviews[i] = aggregates[i].count;
+          buzzVotes[i] = aggregates[i].buzzVoteCount;
+          averageRatings[i] = aggregates[i].averageRating;
+          averageBuzzRatings[i] = aggregates[i].averageBuzz;
+          cumulativeReviews += aggregates[i].count;
+          totalReviews[i] = cumulativeReviews;
+          cumulativeBuzzTotal += aggregates[i].totalBuzz;
+          cumulativeBuzzCount += aggregates[i].buzzVoteCount;
+          cumulativeAverageBuzzRatings[i] = cumulativeBuzzCount > 0
+              ? cumulativeBuzzTotal / cumulativeBuzzCount
+              : 0.0;
+        }
+
+        return BusinessDailyHistory(
+          labels: labels,
+          views: views,
+          saves: saves,
+          reviews: reviews,
+          totalReviews: totalReviews,
+          averageRatings: averageRatings,
+          averageBuzzRatings: averageBuzzRatings,
+          cumulativeAverageBuzzRatings: cumulativeAverageBuzzRatings,
+          buzzVotes: buzzVotes,
+          shares: shares,
+          crowdReports: crowd,
+          promotions: promotions,
+        );
+      },
+    );
+  }
+
+  List<int> _activePromotionHistory(String ownerId, {int days = 7}) {
+    // Active promotions is a point-in-time metric; no daily history is stored.
+    // Return a flat line equal to today's count so the card still renders a graph.
+    return List<int>.filled(days, 0);
+  }
+
+  /// Per-day review aggregates (count, average rating, average buzz).
+  Stream<List<_DailyReviewAggregate>> _dailyReviewAggregatesStream({
+    required List<String> businessIds,
+    required DateTime start,
+    required int days,
+  }) {
+    if (businessIds.isEmpty) {
+      return Stream.value(
+        List<_DailyReviewAggregate>.filled(days, const _DailyReviewAggregate(), growable: false),
+      );
+    }
+
+    final chunks = _chunk(businessIds, 10);
+    final chunkStreams = chunks.map((chunk) {
+      return _firestore
+          .collection(_reviewsCollection)
+          .where('businessId', whereIn: chunk)
+          .where('visible', isEqualTo: true)
+          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+          .snapshots()
+          .map((snap) => _groupReviewsByDay(snap.docs, start, days));
+    }).toList();
+
+    if (chunkStreams.length == 1) return chunkStreams.first;
+
+    late StreamController<List<_DailyReviewAggregate>> controller;
+    final subscriptions = <StreamSubscription<List<_DailyReviewAggregate>>>[];
+    final latest = List<List<_DailyReviewAggregate>?>.filled(chunkStreams.length, null);
+
+    void emitIfReady() {
+      if (latest.every((r) => r != null)) {
+        final combined = List<_DailyReviewAggregate>.generate(days, (i) {
+          var count = 0;
+          var totalRating = 0;
+          var totalBuzz = 0;
+          var buzzVoteCount = 0;
+          for (final list in latest.whereType<List<_DailyReviewAggregate>>()) {
+            final agg = list[i];
+            count += agg.count;
+            totalRating += agg.totalRating;
+            totalBuzz += agg.totalBuzz;
+            buzzVoteCount += agg.buzzVoteCount;
+          }
+          return _DailyReviewAggregate(
+            count: count,
+            totalRating: totalRating,
+            totalBuzz: totalBuzz,
+            buzzVoteCount: buzzVoteCount,
+          );
+        }, growable: false);
+        controller.add(combined);
+      }
+    }
+
+    controller = StreamController<List<_DailyReviewAggregate>>(
+      onListen: () {
+        for (var i = 0; i < chunkStreams.length; i++) {
+          subscriptions.add(
+            chunkStreams[i].listen(
+              (result) {
+                latest[i] = result;
+                emitIfReady();
+              },
+              onError: controller.addError,
+            ),
+          );
+        }
+      },
+      onCancel: () async {
+        for (final sub in subscriptions) {
+          await sub.cancel();
+        }
+      },
+    );
+
+    return controller.stream.distinct();
+  }
+
+  List<_DailyReviewAggregate> _groupReviewsByDay(
+    List<QueryDocumentSnapshot> docs,
+    DateTime start,
+    int days,
+  ) {
+    final aggregates = List<_DailyReviewAggregate>.filled(
+      days,
+      const _DailyReviewAggregate(),
+      growable: false,
+    );
+    // Fill with mutable instances so we can accumulate values.
+    for (var i = 0; i < days; i++) {
+      aggregates[i] = const _DailyReviewAggregate();
+    }
+
+    for (final doc in docs) {
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+      if (createdAt == null || createdAt.isBefore(start)) continue;
+
+      final dayIndex = createdAt.difference(start).inDays;
+      if (dayIndex < 0 || dayIndex >= days) continue;
+
+      final rating = (data['rating'] as num?)?.toInt() ?? 0;
+      final buzz = (data['buzzRating'] as num?)?.toInt() ?? 0;
+      final current = aggregates[dayIndex];
+      aggregates[dayIndex] = _DailyReviewAggregate(
+        count: current.count + 1,
+        totalRating: current.totalRating + rating,
+        totalBuzz: current.totalBuzz + (buzz > 0 ? buzz : 0),
+        buzzVoteCount: current.buzzVoteCount + (buzz > 0 ? 1 : 0),
+      );
+    }
+
+    return aggregates;
+  }
+
+  Stream<List<int>> _dailyCountsStream({
+    required String collection,
+    required List<String> businessIds,
+    required String field,
+    required DateTime start,
+    required int days,
+    bool stringField = false,
+    bool Function(Map<String, dynamic> data)? countIf,
+  }) {
+    if (businessIds.isEmpty) {
+      return Stream.value(List<int>.filled(days, 0));
+    }
+
+    final chunks = _chunk(businessIds, 10);
+    final chunkStreams = chunks.map((chunk) {
+      final query = _firestore
+          .collection(collection)
+          .where('businessId', whereIn: chunk);
+
+      final boundedQuery = stringField
+          ? query.where(field, isGreaterThanOrEqualTo: _formatDate(start))
+          : query.where(field, isGreaterThanOrEqualTo: Timestamp.fromDate(start));
+
+      return boundedQuery
+          .snapshots()
+          .map((snap) => _groupByDay(snap.docs, field, stringField, start, days, countIf: countIf));
+    }).toList();
+
+    if (chunkStreams.length == 1) return chunkStreams.first;
+
+    late StreamController<List<int>> controller;
+    final subscriptions = <StreamSubscription<List<int>>>[];
+    final latest = List<List<int>?>.filled(chunkStreams.length, null);
+
+    void emitIfReady() {
+      if (latest.every((r) => r != null)) {
+        final combined = List<int>.filled(days, 0);
+        for (var i = 0; i < days; i++) {
+          for (final list in latest.whereType<List<int>>()) {
+            combined[i] += list[i];
+          }
+        }
+        controller.add(combined);
+      }
+    }
+
+    controller = StreamController<List<int>>(
+      onListen: () {
+        for (var i = 0; i < chunkStreams.length; i++) {
+          subscriptions.add(
+            chunkStreams[i].listen(
+              (result) {
+                latest[i] = result;
+                emitIfReady();
+              },
+              onError: controller.addError,
+            ),
+          );
+        }
+      },
+      onCancel: () async {
+        for (final sub in subscriptions) {
+          await sub.cancel();
+        }
+      },
+    );
+
+    return controller.stream.distinct();
+  }
+
+  List<int> _groupByDay(
+    List<QueryDocumentSnapshot> docs,
+    String field,
+    bool stringField,
+    DateTime start,
+    int days, {
+    bool Function(Map<String, dynamic> data)? countIf,
+  }) {
+    final counts = List<int>.filled(days, 0);
+
+    for (final doc in docs) {
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      if (countIf != null && !countIf(data)) continue;
+
+      final raw = data[field];
+      DateTime? date;
+
+      if (raw is Timestamp) {
+        date = raw.toDate();
+      } else if (raw is String) {
+        try {
+          final parts = raw.split('-');
+          if (parts.length == 3) {
+            date = DateTime(
+              int.parse(parts[2]),
+              int.parse(parts[1]),
+              int.parse(parts[0]),
+            );
+          }
+        } catch (_) {}
+      }
+
+      if (date == null || date.isBefore(start)) continue;
+
+      final dayIndex = date.difference(start).inDays;
+      if (dayIndex >= 0 && dayIndex < days) {
+        counts[dayIndex] += 1;
+      }
+    }
+
+    return counts;
   }
 
   /// Stream of the businesses owned by [ownerId].
@@ -119,31 +585,31 @@ class BusinessDashboardService {
     late StreamController<BusinessDashboardMetrics> controller;
     StreamSubscription<List<Business>>? businessesSub;
     StreamSubscription<int>? promotionsSub;
-    StreamSubscription<int>? eventsSub;
     StreamSubscription<_ReviewsResult>? reviewsSub;
     StreamSubscription<_CrowdResult>? crowdSub;
+    StreamSubscription<_SharesResult>? sharesSub;
 
     List<Business>? latestBusinesses;
     int? latestPromotions;
-    int? latestEvents;
     _ReviewsResult? latestReviews;
     _CrowdResult? latestCrowd;
+    _SharesResult? latestShares;
 
     void emitIfReady() {
       if (latestBusinesses == null ||
           latestPromotions == null ||
-          latestEvents == null ||
           latestReviews == null ||
-          latestCrowd == null) {
+          latestCrowd == null ||
+          latestShares == null) {
         return;
       }
       controller.add(
         _computeMetrics(
           latestBusinesses!,
           latestPromotions!,
-          latestEvents!,
           latestReviews!,
           latestCrowd!,
+          latestShares!,
           weekAgo,
           twoWeeksAgo,
         ),
@@ -166,13 +632,6 @@ class BusinessDashboardService {
           },
           onError: controller.addError,
         );
-        eventsSub = _upcomingEventsStream(ownerId, now).listen(
-          (value) {
-            latestEvents = value;
-            emitIfReady();
-          },
-          onError: controller.addError,
-        );
         reviewsSub = _reviewsStream(businessIds, twoWeeksAgo).listen(
           (result) {
             latestReviews = result;
@@ -187,13 +646,20 @@ class BusinessDashboardService {
           },
           onError: controller.addError,
         );
+        sharesSub = _socialSharesStream(businessIds, weekAgo, twoWeeksAgo).listen(
+          (result) {
+            latestShares = result;
+            emitIfReady();
+          },
+          onError: controller.addError,
+        );
       },
       onCancel: () async {
         await businessesSub?.cancel();
         await promotionsSub?.cancel();
-        await eventsSub?.cancel();
         await reviewsSub?.cancel();
         await crowdSub?.cancel();
+        await sharesSub?.cancel();
       },
     );
 
@@ -204,9 +670,9 @@ class BusinessDashboardService {
   BusinessDashboardMetrics _computeMetrics(
     List<Business> businesses,
     int activePromotions,
-    int upcomingEvents,
     _ReviewsResult reviews,
     _CrowdResult crowd,
+    _SharesResult shares,
     DateTime weekAgo,
     DateTime twoWeeksAgo,
   ) {
@@ -224,8 +690,9 @@ class BusinessDashboardService {
     return BusinessDashboardMetrics(
       profileViews: currentViews,
       saves: currentSaves,
+      socialShares: shares.currentWeekCount,
+      totalSocialShares: shares.totalCount,
       activePromotions: activePromotions,
-      upcomingEvents: upcomingEvents,
       newReviews: reviews.currentWeekCount,
       totalReviews: reviews.totalCount,
       averageRating: reviews.averageRating,
@@ -233,8 +700,11 @@ class BusinessDashboardService {
       totalBuzzVotes: reviews.totalBuzzVotes,
       profileViewsChange: _percentageChange(currentViews, previousViews),
       savesChange: _percentageChange(currentSaves, previousSaves),
+      socialSharesChange: _percentageChange(
+        shares.currentWeekCount,
+        shares.previousWeekCount,
+      ),
       activePromotionsChange: 0,
-      upcomingEventsChange: 0,
       newReviewsChange: _percentageChange(
         reviews.currentWeekCount,
         reviews.previousWeekCount,
@@ -259,9 +729,10 @@ class BusinessDashboardService {
     final viewsResult = _profileViewsFromBusinesses(businesses, weekAgo, twoWeeksAgo);
     final savesResult = _savesFromBusinesses(businesses, weekAgo, twoWeeksAgo);
     final activePromotions = await _activePromotions(ownerId);
-    final upcomingEvents = await _upcomingEvents(ownerId, now);
     final reviewsResult = await _newReviews(businessIds, weekAgo, twoWeeksAgo);
     final allReviewsResult = await _allReviews(businessIds);
+    final sharesResult = await _newSocialShares(_firestore, businessIds, weekAgo, twoWeeksAgo);
+    final allSharesCount = await _allSocialShares(businessIds);
     final buzzScore = _averageBuzzScore(businesses);
     final crowdStatus = await _latestCrowdStatus(businessIds);
 
@@ -271,12 +742,15 @@ class BusinessDashboardService {
     final previousSaves = savesResult['previous'] ?? 0;
     final currentReviews = reviewsResult['current'] ?? 0;
     final previousReviews = reviewsResult['previous'] ?? 0;
+    final currentShares = sharesResult['current'] ?? 0;
+    final previousShares = sharesResult['previous'] ?? 0;
 
     return BusinessDashboardMetrics(
       profileViews: currentViews,
       saves: currentSaves,
+      socialShares: currentShares,
+      totalSocialShares: allSharesCount,
       activePromotions: activePromotions,
-      upcomingEvents: upcomingEvents,
       newReviews: currentReviews,
       totalReviews: allReviewsResult.totalCount,
       averageRating: allReviewsResult.averageRating,
@@ -284,8 +758,8 @@ class BusinessDashboardService {
       totalBuzzVotes: allReviewsResult.totalBuzzVotes,
       profileViewsChange: _percentageChange(currentViews, previousViews),
       savesChange: _percentageChange(currentSaves, previousSaves),
+      socialSharesChange: _percentageChange(currentShares, previousShares),
       activePromotionsChange: 0,
-      upcomingEventsChange: 0,
       newReviewsChange: _percentageChange(currentReviews, previousReviews),
       buzzScore: buzzScore,
       crowdLevel: crowdStatus?.level,
@@ -305,9 +779,14 @@ class BusinessDashboardService {
       if (history.isNotEmpty) {
         current += _sumHistoryInRange(history, weekAgo, DateTime.now());
         previous += _sumHistoryInRange(history, twoWeeksAgo, weekAgo);
-      } else {
+      } else if (business.createdAt != null &&
+          business.createdAt!.isAfter(weekAgo)) {
+        // No daily history yet, but the listing is brand new, so every
+        // lifetime view genuinely happened within the current week.
         current += business.viewCount;
       }
+      // Otherwise there is no way to know which week legacy views happened
+      // in, so they are left out rather than misreported as "this week".
     }
     return {'current': current, 'previous': previous};
   }
@@ -324,9 +803,14 @@ class BusinessDashboardService {
       if (history.isNotEmpty) {
         current += _sumHistoryInRange(history, weekAgo, DateTime.now());
         previous += _sumHistoryInRange(history, twoWeeksAgo, weekAgo);
-      } else {
+      } else if (business.createdAt != null &&
+          business.createdAt!.isAfter(weekAgo)) {
+        // No daily history yet, but the listing is brand new, so every
+        // lifetime save genuinely happened within the current week.
         current += business.savedCount;
       }
+      // Otherwise there is no way to know which week legacy saves happened
+      // in, so they are left out rather than misreported as "this week".
     }
     return {'current': current, 'previous': previous};
   }
@@ -352,26 +836,7 @@ class BusinessDashboardService {
         .map((snapshot) => snapshot.size);
   }
 
-  Future<int> _upcomingEvents(String ownerId, DateTime now) async {
-    final snapshot = await _firestore
-        .collection(_businessEventsCollection)
-        .where('ownerId', isEqualTo: ownerId)
-        .where('status', isEqualTo: 'published')
-        .where('date', isGreaterThanOrEqualTo: _formatDate(now))
-        .count()
-        .get();
-    return snapshot.count ?? 0;
-  }
 
-  Stream<int> _upcomingEventsStream(String ownerId, DateTime now) {
-    return _firestore
-        .collection(_businessEventsCollection)
-        .where('ownerId', isEqualTo: ownerId)
-        .where('status', isEqualTo: 'published')
-        .where('date', isGreaterThanOrEqualTo: _formatDate(now))
-        .snapshots()
-        .map((snapshot) => snapshot.size);
-  }
 
   Future<Map<String, int>> _newReviews(
     List<String> businessIds,
@@ -476,6 +941,23 @@ class BusinessDashboardService {
       results.add(_ReviewsResult.fromSnapshot(snapshot));
     }
     return results.reduce((a, b) => a.merge(b));
+  }
+
+  /// Total social shares across [businessIds] (all-time).
+  Future<int> _allSocialShares(List<String> businessIds) async {
+    if (businessIds.isEmpty) return 0;
+
+    const collection = 'social_shares';
+    var total = 0;
+    for (final businessId in businessIds) {
+      final snapshot = await _firestore
+          .collection(collection)
+          .where('businessId', isEqualTo: businessId)
+          .count()
+          .get();
+      total += snapshot.count ?? 0;
+    }
+    return total;
   }
 
   /// Average [Business.buzzScore] across [businesses], weighted by review count.
@@ -585,12 +1067,84 @@ class BusinessDashboardService {
     return controller.stream.distinct();
   }
 
+  /// Returns a stream that emits [fallback] whenever the source stream errors.
+  /// This keeps dashboards rendering even if a single Firestore query fails
+  /// (for example because a composite index is missing).
+  Stream<T> _streamWithFallback<T>(Stream<T> source, T fallback) {
+    late StreamController<T> controller;
+    StreamSubscription<T>? subscription;
+
+    controller = StreamController<T>(
+      onListen: () {
+        subscription = source.listen(
+          controller.add,
+          onError: (_) => controller.add(fallback),
+          onDone: controller.close,
+        );
+      },
+      onCancel: () async {
+        await subscription?.cancel();
+      },
+    );
+
+    return controller.stream;
+  }
+
   List<List<T>> _chunk<T>(List<T> list, int size) {
     final chunks = <List<T>>[];
     for (var i = 0; i < list.length; i += size) {
       chunks.add(list.sublist(i, i + size > list.length ? list.length : i + size));
     }
     return chunks;
+  }
+
+  /// Combines the latest values from 4 streams into a single stream.
+  Stream<R> _combineLatest4<T1, T2, T3, T4, R>(
+    Stream<T1> stream1,
+    Stream<T2> stream2,
+    Stream<T3> stream3,
+    Stream<T4> stream4,
+    R Function(T1, T2, T3, T4) combiner,
+  ) {
+    late StreamController<R> controller;
+    StreamSubscription<T1>? sub1;
+    StreamSubscription<T2>? sub2;
+    StreamSubscription<T3>? sub3;
+    StreamSubscription<T4>? sub4;
+
+    T1? latest1;
+    T2? latest2;
+    T3? latest3;
+    T4? latest4;
+
+    bool allReady() =>
+        latest1 != null &&
+        latest2 != null &&
+        latest3 != null &&
+        latest4 != null;
+
+    void emit() {
+      if (allReady()) {
+        controller.add(combiner(latest1 as T1, latest2 as T2, latest3 as T3, latest4 as T4));
+      }
+    }
+
+    controller = StreamController<R>(
+      onListen: () {
+        sub1 = stream1.listen((v) { latest1 = v; emit(); }, onError: controller.addError);
+        sub2 = stream2.listen((v) { latest2 = v; emit(); }, onError: controller.addError);
+        sub3 = stream3.listen((v) { latest3 = v; emit(); }, onError: controller.addError);
+        sub4 = stream4.listen((v) { latest4 = v; emit(); }, onError: controller.addError);
+      },
+      onCancel: () async {
+        await sub1?.cancel();
+        await sub2?.cancel();
+        await sub3?.cancel();
+        await sub4?.cancel();
+      },
+    );
+
+    return controller.stream.distinct();
   }
 
   int _sumHistoryInRange(
@@ -645,27 +1199,42 @@ class BusinessDashboardService {
   Future<void> recordProfileView(
     String businessId, {
     String? visitorId,
+    String? ownerId,
   }) async {
     final today = _formatDate(DateTime.now());
     try {
-      final businessDoc = await _firestore
-          .collection(_businessesCollection)
-          .doc(businessId)
-          .get();
-      final ownerId = businessDoc.data()?['ownerId'] as String? ?? '';
+      String effectiveOwnerId = (ownerId ?? '').trim();
+      if (effectiveOwnerId.isEmpty) {
+        final businessDoc = await _firestore
+            .collection(_businessesCollection)
+            .doc(businessId)
+            .get();
+        effectiveOwnerId =
+            businessDoc.data()?['ownerId'] as String? ?? '';
+      }
 
-      await _firestore.collection(_businessesCollection).doc(businessId).set({
+      final updatePayload = <String, dynamic>{
         'viewCount': FieldValue.increment(1),
-        'viewHistory.$today': FieldValue.increment(1),
         'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      };
+      if (effectiveOwnerId.isNotEmpty) {
+        updatePayload['ownerId'] = effectiveOwnerId;
+      }
+
+      final docRef =
+          _firestore.collection(_businessesCollection).doc(businessId);
+      await docRef.set(updatePayload, SetOptions(merge: true));
+      // Dotted-path nested field increments must go through update(), not
+      // set(merge:true) — on some platforms the latter stores the dotted
+      // string as a literal top-level field instead of nesting it.
+      await docRef.update({'viewHistory.$today': FieldValue.increment(1)});
 
       if (visitorId != null &&
           visitorId.trim().isNotEmpty &&
-          ownerId.isNotEmpty) {
+          effectiveOwnerId.isNotEmpty) {
         await _audienceAnalyticsService?.recordInteraction(
           businessId: businessId,
-          ownerId: ownerId,
+          ownerId: effectiveOwnerId,
           visitorId: visitorId,
           type: AudienceInteractionType.view,
         );
@@ -691,11 +1260,16 @@ class BusinessDashboardService {
           .get();
       final ownerId = businessDoc.data()?['ownerId'] as String? ?? '';
 
-      await _firestore.collection(_businessesCollection).doc(businessId).set({
+      final docRef =
+          _firestore.collection(_businessesCollection).doc(businessId);
+      await docRef.set({
         'savedCount': FieldValue.increment(1),
-        'saveHistory.$today': FieldValue.increment(1),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+      // Dotted-path nested field increments must go through update(), not
+      // set(merge:true) — on some platforms the latter stores the dotted
+      // string as a literal top-level field instead of nesting it.
+      await docRef.update({'saveHistory.$today': FieldValue.increment(1)});
 
       if (visitorId != null &&
           visitorId.trim().isNotEmpty &&
@@ -723,6 +1297,61 @@ class _CrowdStatusSummary {
     required this.reportCount,
     required this.lastReported,
   });
+}
+
+/// One-time fetch of social share counts for [businessIds] in the current
+/// and previous 7-day windows.
+Future<Map<String, int>> _newSocialShares(
+  FirebaseFirestore firestore,
+  List<String> businessIds,
+  DateTime weekAgo,
+  DateTime twoWeeksAgo,
+) async {
+  if (businessIds.isEmpty) {
+    return {'current': 0, 'previous': 0};
+  }
+
+  const collection = 'social_shares';
+  var current = 0;
+  var previous = 0;
+  for (final businessId in businessIds) {
+    final currentSnap = await firestore
+        .collection(collection)
+        .where('businessId', isEqualTo: businessId)
+        .where('createdAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(weekAgo))
+        .count()
+        .get();
+    final previousSnap = await firestore
+        .collection(collection)
+        .where('businessId', isEqualTo: businessId)
+        .where('createdAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(twoWeeksAgo))
+        .where('createdAt', isLessThan: Timestamp.fromDate(weekAgo))
+        .count()
+        .get();
+    current += currentSnap.count ?? 0;
+    previous += previousSnap.count ?? 0;
+  }
+  return {'current': current, 'previous': previous};
+}
+
+/// Mutable accumulator for daily review aggregates.
+class _DailyReviewAggregate {
+  final int count;
+  final int totalRating;
+  final int totalBuzz;
+  final int buzzVoteCount;
+
+  const _DailyReviewAggregate({
+    this.count = 0,
+    this.totalRating = 0,
+    this.totalBuzz = 0,
+    this.buzzVoteCount = 0,
+  });
+
+  double get averageRating => count > 0 ? totalRating / count : 0.0;
+  double get averageBuzz => buzzVoteCount > 0 ? totalBuzz / buzzVoteCount : 0.0;
 }
 
 /// Aggregated review data derived from a Firestore snapshot.
@@ -882,5 +1511,54 @@ class _CrowdResult {
       'High' => 3.0,
       _ => 2.0,
     };
+  }
+}
+
+/// Aggregated social share data for the current and previous 7-day windows.
+class _SharesResult {
+  final int currentWeekCount;
+  final int previousWeekCount;
+  final int totalCount;
+
+  const _SharesResult({
+    this.currentWeekCount = 0,
+    this.previousWeekCount = 0,
+    this.totalCount = 0,
+  });
+
+  factory _SharesResult.fromSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final now = DateTime.now();
+    final weekAgo = now.subtract(const Duration(days: 7));
+    final twoWeeksAgo = now.subtract(const Duration(days: 14));
+
+    var currentWeekCount = 0;
+    var previousWeekCount = 0;
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+      final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+      if (createdAt == null) continue;
+      if (!createdAt.isBefore(weekAgo)) {
+        currentWeekCount++;
+      } else if (!createdAt.isBefore(twoWeeksAgo) && createdAt.isBefore(weekAgo)) {
+        previousWeekCount++;
+      }
+    }
+
+    return _SharesResult(
+      currentWeekCount: currentWeekCount,
+      previousWeekCount: previousWeekCount,
+      totalCount: snapshot.docs.length,
+    );
+  }
+
+  _SharesResult merge(_SharesResult other) {
+    return _SharesResult(
+      currentWeekCount: currentWeekCount + other.currentWeekCount,
+      previousWeekCount: previousWeekCount + other.previousWeekCount,
+      totalCount: totalCount + other.totalCount,
+    );
   }
 }

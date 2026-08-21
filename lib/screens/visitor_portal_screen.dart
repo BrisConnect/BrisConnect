@@ -2,10 +2,11 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/gestures.dart';
 import '../l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
@@ -19,6 +20,8 @@ import 'package:brisconnect/widgets/food_review_dialog.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/fallback_image.dart';
 import 'package:brisconnect/auth/visitor_auth.dart';
+import 'package:brisconnect/auth/admin_auth.dart';
+import 'package:brisconnect/mixins/locale_listener_mixin.dart';
 
 import 'package:brisconnect/services/app_display_settings_controller.dart';
 import 'package:brisconnect/services/firestore_service.dart';
@@ -28,22 +31,34 @@ import 'package:brisconnect/services/visitor_notification_service.dart';
 import 'package:brisconnect/screens/welcome_screen_new.dart';
 import 'package:brisconnect/services/firebase_media_service.dart';
 import 'package:brisconnect/services/review_service.dart';
+import 'package:brisconnect/services/share/content_share_service.dart';
+import 'package:brisconnect/services/weather_service.dart';
 import 'package:brisconnect/utils/error_messages.dart';
+import '../widgets/share_bottom_sheet.dart';
 import 'package:brisconnect/utils/profile_image_utils.dart';
 import 'visitor_settings_screen.dart';
 import 'appearance_settings_screen.dart';
 import 'my_feedback_screen.dart';
 import 'map_events_screen.dart';
-import 'business_search_screen.dart';
 import 'visitor_activity_feed_screen.dart';
 import '../widgets/inline_status_message.dart';
 import '../widgets/reusable_event_card.dart';
 import '../widgets/logo_app_bar_title.dart';
 import '../widgets/help_support_sheet.dart';
 import '../widgets/desktop_top_app_bar.dart';
+import '../widgets/visitor_notification_bell.dart';
+import '../widgets/discover_business_card.dart';
+import '../widgets/discover_search_bar.dart';
+import '../widgets/discover_section_header.dart';
 import '../utils/responsive_utils.dart';
+import '../models/business.dart';
+import 'feedback_form_screen.dart';
 
 class VisitorPortalScreen extends StatefulWidget {
+  /// Global key used by nested helper widgets to access the portal's state
+  /// without passing callbacks through many layers.
+  static final GlobalKey globalKey = GlobalKey();
+
   const VisitorPortalScreen({
     super.key,
   });
@@ -52,7 +67,46 @@ class VisitorPortalScreen extends StatefulWidget {
   State<VisitorPortalScreen> createState() => _VisitorPortalScreenState();
 }
 
-class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
+class _VisitorPortalHelper {
+  static ({bool isOpen, String label})? getOpenStatus(
+      Map<String, dynamic> item) {
+    return _VisitorPortalScreenState._staticOpenStatus(item);
+  }
+
+  static Future<void> openFoodDetails(
+      BuildContext context, Map<String, dynamic> item) async {
+    return _VisitorPortalScreenState._staticOpenFoodDetails(context, item);
+  }
+}
+
+class _VisitorPortalScreenState extends State<VisitorPortalScreen>
+    with LocaleListenerMixin<VisitorPortalScreen>, SingleTickerProviderStateMixin {
+  String _greetingForHour(int hour) {
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  String _weatherTagline() {
+    if (_weatherLoading) return 'Checking the weather in Brisbane…';
+    if (_weatherError != null || _weather == null) {
+      return 'Discover local food and experiences in Brisbane';
+    }
+    final temp = _weather!.temperature.round();
+    final condition = _weather!.description.toLowerCase();
+    String suggestion;
+    if (temp >= 28) {
+      suggestion = 'stay cool with refreshing local bites';
+    } else if (temp >= 20) {
+      suggestion = 'perfect weather to explore local flavours';
+    } else if (temp >= 10) {
+      suggestion = 'a great day to warm up with local favourites';
+    } else {
+      suggestion = 'ideal weather to discover local comfort food';
+    }
+    return "It's $temp°C and $condition in Brisbane — $suggestion.";
+  }
+
   final TextEditingController _searchController = TextEditingController();
   FirebaseMediaService? _mediaService;
   Uint8List? _pendingProfileImageBytes;
@@ -98,12 +152,9 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     }
   }
 
-  Stream<List<Map<String, dynamic>>>? _discoverRadiusStreamCache;
   Stream<List<Map<String, dynamic>>>? _approvedEventsStreamCache;
   late double _userLatitude;
   late double _userLongitude;
-  late int _radiusKm;
-  late bool _isUsingRadius;
   final ValueNotifier<bool> _navVisibleNotifier = ValueNotifier<bool>(true);
   DateTime? _lastNavToggle;
 
@@ -114,6 +165,12 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     _VisitorPriceFilter.free,
     _VisitorPriceFilter.paid,
   };
+  _QuickCategory? _selectedQuickCategory;
+
+  final WeatherService _weatherService = WeatherService();
+  BrisbaneWeather? _weather;
+  bool _weatherLoading = false;
+  String? _weatherError;
 
   // Caches for expensive list computations so they don't re-run on every
   // frame caused by animations, scrolling, or nested ValueListenableBuilders.
@@ -125,10 +182,13 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   List<Map<String, dynamic>>? _cachedTopRatedFoodItems;
   List<Map<String, dynamic>>? _cachedTopRatedFoodSource;
   @override
+  @override
   void initState() {
     super.initState();
+    setupLocaleListener();
     // Stream caches are lazily initialized in _discoverItemsStream().
     _updateUserPreferences();
+    _loadWeather();
 
     final visitor = VisitorAuth.currentVisitor;
     if (visitor != null) {
@@ -144,19 +204,32 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   }
 
   void _updateUserPreferences() {
-    final visitor = VisitorAuth.currentVisitor;
-    if (visitor != null) {
-      _radiusKm = visitor.locationRadiusKm;
-      _isUsingRadius = visitor.useCurrentLocation;
-    } else {
-      _radiusKm = 20;
-      _isUsingRadius = false;
-    }
-
     // Use default Brisbane location
     final (defaultLat, defaultLon) = LocationUtilities.getDefaultLocation();
     _userLatitude = defaultLat;
     _userLongitude = defaultLon;
+  }
+
+  Future<void> _loadWeather() async {
+    if (!mounted) return;
+    setState(() => _weatherLoading = true);
+    try {
+      final weather = await _weatherService.fetchBrisbaneWeather();
+      if (mounted) {
+        setState(() {
+          _weather = weather;
+          _weatherError = null;
+          _weatherLoading = false;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _weatherError = error.toString();
+          _weatherLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -164,8 +237,25 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     _searchDebounce?.cancel();
     _navVisibleNotifier.dispose();
     _searchController.dispose();
+    _weatherService.dispose();
     super.dispose();
   }
+
+  // Static helpers used by private child widgets that need access to
+  // instance methods without passing callbacks through many layers.
+  static ({bool isOpen, String label})? _staticOpenStatus(
+      Map<String, dynamic> item) {
+    return _staticState?._getOpenStatus(item);
+  }
+
+  static Future<void> _staticOpenFoodDetails(
+      BuildContext context, Map<String, dynamic> item) async {
+    return _staticState?._openFoodDetails(item);
+  }
+
+  static _VisitorPortalScreenState? get _staticState => _staticKey.currentState;
+  static final GlobalKey<_VisitorPortalScreenState> _staticKey =
+      VisitorPortalScreen.globalKey as GlobalKey<_VisitorPortalScreenState>;
 
   Stream<List<Map<String, dynamic>>> _approvedEventsStream() {
     final stream = _approvedEventsStreamCache ??= (_firestoreService ??=
@@ -245,7 +335,31 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                 parsed.month == sel.month &&
                 parsed.day == sel.day;
           })();
-      return matchesSection && matchesSearch && matchesPrice && matchesDate;
+      var matchesQuickCategory = true;
+      if (_selectedQuickCategory != null) {
+        final lower = _selectedQuickCategory!.label.toLowerCase();
+        final rating = (item['rating'] as num?)?.toDouble() ?? 0.0;
+        if (lower == 'top rated') {
+          matchesQuickCategory = rating >= 4.0;
+        } else if (lower == 'trending') {
+          final reviewCount = (item['reviewCount'] as num?)?.toInt() ?? 0;
+          matchesQuickCategory = rating >= 3.5 && reviewCount > 0;
+        } else {
+          final categoryList = (item['categories'] as List?)
+                  ?.map((v) => '$v'.trim().toLowerCase())
+                  .toList(growable: false) ??
+              const <String>[];
+          final singleCategory =
+              (item['category'] as String? ?? '').toLowerCase();
+          matchesQuickCategory = singleCategory.contains(lower) ||
+              categoryList.any((c) => c.contains(lower));
+        }
+      }
+      return matchesSection &&
+          matchesSearch &&
+          matchesPrice &&
+          matchesDate &&
+          matchesQuickCategory;
     }).toList();
   }
 
@@ -390,7 +504,8 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     return '${_searchController.text.trim()}_'
         '${_selectedSections.toString()}_'
         '${_selectedPriceFilters.toString()}_'
-        '${_selectedEventDate?.millisecondsSinceEpoch ?? 0}';
+        '${_selectedEventDate?.millisecondsSinceEpoch ?? 0}_'
+        '${_selectedQuickCategory?.label ?? ''}';
   }
 
   List<Map<String, dynamic>> _getCachedFoodItems(
@@ -400,10 +515,31 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     if (!identical(_cachedFoodSource, items) || _cachedFoodFilterKey != key) {
       _cachedFoodSource = items;
       _cachedFoodFilterKey = key;
-      _cachedFoodItems = _filterItems(
+      var filtered = _filterItems(
         items,
         section: _VisitorFilterSection.food,
       );
+      final quickLabel = _selectedQuickCategory?.label.toLowerCase();
+      if (quickLabel == 'top rated') {
+        filtered = List<Map<String, dynamic>>.of(filtered)
+          ..sort((a, b) {
+            final ratingA = (a['rating'] as num?)?.toDouble() ?? 0.0;
+            final ratingB = (b['rating'] as num?)?.toDouble() ?? 0.0;
+            return ratingB.compareTo(ratingA);
+          });
+      } else if (quickLabel == 'trending') {
+        filtered = List<Map<String, dynamic>>.of(filtered)
+          ..sort((a, b) {
+            final ratingA = (a['rating'] as num?)?.toDouble() ?? 0.0;
+            final ratingB = (b['rating'] as num?)?.toDouble() ?? 0.0;
+            final countA = (a['reviewCount'] as num?)?.toInt() ?? 0;
+            final countB = (b['reviewCount'] as num?)?.toInt() ?? 0;
+            final scoreA = ratingA * countA;
+            final scoreB = ratingB * countB;
+            return scoreB.compareTo(scoreA);
+          });
+      }
+      _cachedFoodItems = filtered;
     }
     return _cachedFoodItems ?? items;
   }
@@ -457,6 +593,71 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
       _cachedTopRatedFoodItems = _topRatedFoodItems(items);
     }
     return _cachedTopRatedFoodItems ?? const <Map<String, dynamic>>[];
+  }
+
+  DateTime? _itemCreatedAt(Map<String, dynamic> item) {
+    final raw = item['createdAt'];
+    if (raw is Timestamp) return raw.toDate();
+    if (raw is DateTime) return raw;
+    return null;
+  }
+
+  List<Map<String, dynamic>> _foodItemsOnly(
+    List<Map<String, dynamic>> items,
+  ) {
+    return items
+        .where((item) =>
+            (item['section'] as String? ?? '').trim().toLowerCase() == 'food')
+        .toList(growable: false);
+  }
+
+  List<Map<String, dynamic>> _trendingThisWeekItems(
+    List<Map<String, dynamic>> items,
+  ) {
+    final food = _foodItemsOnly(items);
+    final scored = food
+        .map((item) {
+          final rating = (item['rating'] as num?)?.toDouble() ?? 0.0;
+          final reviewCount = (item['reviewCount'] as num?)?.toInt() ?? 0;
+          final score = rating * reviewCount;
+          return (item: item, score: score, rating: rating);
+        })
+        .where((entry) => entry.rating >= 3.5 && entry.score > 0)
+        .toList();
+    scored.sort((a, b) => b.score.compareTo(a.score));
+    return scored.take(10).map((entry) => entry.item).toList(growable: false);
+  }
+
+  List<Map<String, dynamic>> _recentlyAddedItems(
+    List<Map<String, dynamic>> items,
+  ) {
+    final food = _foodItemsOnly(items);
+    final withDate =
+        food.where((item) => _itemCreatedAt(item) != null).toList();
+    withDate.sort(
+      (a, b) => _itemCreatedAt(b)!.compareTo(_itemCreatedAt(a)!),
+    );
+    return withDate.take(10).toList(growable: false);
+  }
+
+  List<Map<String, dynamic>> _communityPicksItems(
+    List<Map<String, dynamic>> items,
+  ) {
+    final food = _foodItemsOnly(items);
+    final picked = food.where((item) {
+      final rating = (item['rating'] as num?)?.toDouble() ?? 0.0;
+      final reviewCount = (item['reviewCount'] as num?)?.toInt() ?? 0;
+      return rating >= 4.5 && reviewCount >= 3;
+    }).toList();
+    picked.sort((a, b) {
+      final ratingA = (a['rating'] as num?)?.toDouble() ?? 0.0;
+      final ratingB = (b['rating'] as num?)?.toDouble() ?? 0.0;
+      final countA = (a['reviewCount'] as num?)?.toInt() ?? 0;
+      final countB = (b['reviewCount'] as num?)?.toInt() ?? 0;
+      final byRating = ratingB.compareTo(ratingA);
+      return byRating != 0 ? byRating : countB.compareTo(countA);
+    });
+    return picked.take(10).toList(growable: false);
   }
 
   DateTime? _parseDateFromString(String value) {
@@ -791,10 +992,13 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     final section =
         (itemData?['section'] as String? ?? '').trim().toLowerCase();
     final isEvent = section == 'events';
+    final isFood = section == 'food';
 
     final didUpdate = isEvent
         ? VisitorAuth.toggleInterestedEvent(id)
-        : VisitorAuth.toggleSavedAttraction(id);
+        : isFood
+            ? VisitorAuth.toggleSavedBusiness(id)
+            : VisitorAuth.toggleSavedAttraction(id);
     if (!didUpdate) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -810,7 +1014,9 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     // 3. Event data is available
     final isNowSaved = isEvent
         ? VisitorAuth.isInterestedInEvent(id)
-        : VisitorAuth.isAttractionSaved(id);
+        : isFood
+            ? VisitorAuth.isBusinessSaved(id)
+            : VisitorAuth.isAttractionSaved(id);
     if (isEvent &&
         isNowSaved &&
         VisitorAuth.areEventRemindersEnabled() &&
@@ -851,6 +1057,17 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.eventRemovedFromInterested(eventTitle))),
+      );
+    } else if (isFood) {
+      final title = itemData?['title'] as String? ?? 'Food business';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isNowSaved
+                ? 'Saved $title to your list'
+                : 'Removed $title from your list',
+          ),
+        ),
       );
     } else {
       final title = itemData?['title'] as String? ?? 'Attraction';
@@ -972,6 +1189,55 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     }
   }
 
+  Future<void> _shareContent(Map<String, dynamic> item) async {
+    final id = (item['id'] as String? ?? '').trim();
+    final title = (item['title'] as String? ?? '').trim();
+    if (id.isEmpty || title.isEmpty || !mounted) return;
+
+    final section = (item['section'] as String? ?? '').trim();
+    final type = section == 'food'
+        ? ShareContentType.food
+        : section == 'events'
+            ? ShareContentType.event
+            : ShareContentType.business;
+
+    await showShareBottomSheet(
+      context: context,
+      type: type,
+      id: id,
+      title: title,
+      description: (item['description'] as String?)?.trim(),
+      location: (item['location'] as String?)?.trim(),
+      dateTime: (item['dateTime'] as String?)?.trim(),
+      imageUrl: (item['imageUrl'] as String?)?.trim().isNotEmpty ?? false
+          ? (item['imageUrl'] as String?)!.trim()
+          : null,
+      businessId: id,
+      businessName: title,
+    );
+  }
+
+  Future<void> _shareDiscoverBusiness(Map<String, dynamic> item) async {
+    final id = (item['id'] as String? ?? '').trim();
+    final title = (item['title'] as String? ?? '').trim();
+    if (id.isEmpty || !mounted) return;
+
+    await showShareBottomSheet(
+      context: context,
+      type: ShareContentType.food,
+      id: id,
+      title: title.isNotEmpty ? title : 'Food spot',
+      description: (item['description'] as String?)?.trim(),
+      location: (item['location'] as String?)?.trim()
+          ?? (item['suburb'] as String?)?.trim(),
+      imageUrl: (item['imageUrl'] as String?)?.trim().isNotEmpty ?? false
+          ? (item['imageUrl'] as String?)!.trim()
+          : null,
+      businessId: id,
+      businessName: title.isNotEmpty ? title : 'Food spot',
+    );
+  }
+
   void _showItemDetails(Map<String, dynamic> item) {
     final imageUrl = (item['imageUrl'] as String? ?? '').trim();
     final title = (item['title'] as String? ?? 'Event').trim();
@@ -1019,7 +1285,10 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                       .toList(),
                   cuisine: item['cuisine'] as String?,
                   rating: (item['rating'] as num?)?.toDouble(),
-                  onShareTap: null,
+                  suburb: item['suburb'] as String?,
+                  isVerified: (item['isVerified'] as bool?) ?? false,
+                  createdAt: item['createdAt'] as DateTime?,
+                  onShareTap: () => _shareContent(item),
                   onWebTap: null,
                   onFavoriteTap: null,
                   cardColor: AppPalette.surface.withValues(alpha: 0.80),
@@ -1079,6 +1348,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           menu: _parseMenu(item['menu']),
           photoGallery:
               _parsePhotoGallery(item['photoGallery'], item['imageUrl']),
+          isGoogleListing: item['isGoogleListing'] ?? false,
         ),
       ),
     );
@@ -1148,7 +1418,13 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     final visitorEmail = VisitorAuth.currentVisitor?.email ?? '';
     final isFavorite = isEvent
         ? VisitorAuth.isInterestedInEvent(id)
-        : VisitorAuth.isAttractionSaved(id);
+        : section == 'food'
+            ? VisitorAuth.isBusinessSaved(id)
+            : VisitorAuth.isAttractionSaved(id);
+    final distance = _formatDistance(item);
+    final openStatus = _getOpenStatus(item);
+    final rawWaitTime = item['waitTime'];
+    final waitTime = rawWaitTime != null ? '$rawWaitTime'.trim() : null;
 
     return Column(
       children: [
@@ -1174,6 +1450,13 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               .toList(),
           cuisine: item['cuisine'] as String?,
           rating: (item['rating'] as num?)?.toDouble(),
+          distance: distance,
+          isOpenNow: openStatus?.isOpen,
+          openStatusText: openStatus?.label,
+          waitTime: waitTime,
+          suburb: item['suburb'] as String?,
+          isVerified: (item['isVerified'] as bool?) ?? false,
+          createdAt: item['createdAt'] as DateTime?,
           isFavorite: isFavorite,
           cardColor: AppPalette.surface.withValues(alpha: 0.80),
           border: isEvent
@@ -1182,13 +1465,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                   color: const Color(0xFF93C5FD),
                   width: 1.5,
                 ),
-          onShareTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                  content: Text(l10n.shareTitle(
-                      item['title'] as String? ?? l10n.eventFallback))),
-            );
-          },
+          onShareTap: () => _shareContent(item),
           onCardTap: () async {
             final section = (item['section'] as String? ?? '').trim();
             if (section == 'events') {
@@ -1439,9 +1716,12 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               final section = (item['section'] as String? ?? '').trim();
               final badge = (item['badge'] as String? ?? '').trim();
               final isEvent = section == 'events';
+              final isFood = section == 'food';
               final isFavorite = isEvent
                   ? VisitorAuth.isInterestedInEvent(id)
-                  : VisitorAuth.isAttractionSaved(id);
+                  : isFood
+                      ? VisitorAuth.isBusinessSaved(id)
+                      : VisitorAuth.isAttractionSaved(id);
 
               return GestureDetector(
                 onTap: () async {
@@ -1608,110 +1888,263 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
               ),
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(width: 14),
-              itemBuilder: (context, index) {
-                final item = items[index];
-                final id = (item['id'] as String? ?? '').trim();
-                final imageUrl = (item['imageUrl'] as String? ?? '').trim();
-                final title = (item['title'] as String? ?? 'Food').trim();
-                final location = (item['location'] as String? ?? '').trim();
-                final rating = (item['rating'] as num?)?.toDouble() ?? 0.0;
-                final reviewCount = (item['reviewCount'] as num?)?.toInt() ?? 0;
-                final isFavorite = VisitorAuth.isBusinessSaved(id);
-
-                return GestureDetector(
-                  onTap: () => _openFoodDetails(item),
-                  child: SizedBox(
-                    width: 180,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Stack(
-                          children: [
-                            FallbackImage(
-                              imageUrl: imageUrl,
-                              height: 140,
-                              width: 180,
-                              borderRadius: BorderRadius.circular(16),
-                              category: 'food',
-                            ),
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: GestureDetector(
-                                onTap: () {
-                                  VisitorAuth.toggleSavedBusiness(id);
-                                  setState(() {});
-                                },
-                                child: Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.85),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    isFavorite
-                                        ? Icons.bookmark_rounded
-                                        : Icons.bookmark_border_rounded,
-                                    size: 18,
-                                    color: isFavorite
-                                        ? AppPalette.ochre
-                                        : AppPalette.mutedText,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppPalette.charcoal,
-                            height: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.star_rounded,
-                              color: AppPalette.gold,
-                              size: 14,
-                            ),
-                            const SizedBox(width: 3),
-                            Text(
-                              '${rating.toStringAsFixed(1)} · $reviewCount reviews',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppPalette.mutedText,
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (location.isNotEmpty)
-                          Text(
-                            location,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppPalette.mutedText,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+              itemBuilder: (context, index) =>
+                  _buildCompactFoodCard(items[index]),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCompactFoodCard(Map<String, dynamic> item) {
+    final id = (item['id'] as String? ?? '').trim();
+    final imageUrl = (item['imageUrl'] as String? ?? '').trim();
+    final title = (item['title'] as String? ?? 'Food').trim();
+    final location = (item['location'] as String? ?? '').trim();
+    final suburb = (item['suburb'] as String? ?? '').trim();
+    final rating = (item['rating'] as num?)?.toDouble() ?? 0.0;
+    final reviewCount = (item['reviewCount'] as num?)?.toInt() ?? 0;
+    final isFavorite = VisitorAuth.isBusinessSaved(id);
+    final isVerified = (item['isVerified'] as bool?) ?? false;
+    final createdAt = item['createdAt'] as DateTime?;
+
+    return GestureDetector(
+      onTap: () => _openFoodDetails(item),
+      child: SizedBox(
+        width: 180,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                FallbackImage(
+                  imageUrl: imageUrl,
+                  height: 140,
+                  width: 180,
+                  borderRadius: BorderRadius.circular(16),
+                  category: 'food',
+                ),
+                if (isVerified)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.92),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.verified_rounded,
+                              size: 12, color: Color(0xFF047857)),
+                          SizedBox(width: 3),
+                          Text(
+                            'Verified',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF047857),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: GestureDetector(
+                    onTap: () {
+                      VisitorAuth.toggleSavedBusiness(id);
+                      setState(() {});
+                    },
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isFavorite
+                            ? Icons.bookmark_rounded
+                            : Icons.bookmark_border_rounded,
+                        size: 18,
+                        color: isFavorite
+                            ? AppPalette.ochre
+                            : AppPalette.mutedText,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppPalette.charcoal,
+                height: 1.2,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(
+                  Icons.star_rounded,
+                  color: AppPalette.gold,
+                  size: 14,
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  '${rating.toStringAsFixed(1)} · $reviewCount reviews',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppPalette.mutedText,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                const Icon(
+                  Icons.place_rounded,
+                  color: AppPalette.mutedText,
+                  size: 12,
+                ),
+                const SizedBox(width: 3),
+                Expanded(
+                  child: Text(
+                    suburb.isNotEmpty ? suburb : location,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppPalette.mutedText,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (createdAt != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  _formatTimeAgo(createdAt),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: AppPalette.mutedText.withValues(alpha: 0.8),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomeSectionCarousel(
+    String title,
+    String subtitle,
+    List<Map<String, dynamic>> items,
+  ) {
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    final isDesktop = ResponsiveUtils.isDesktop(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: isDesktop ? 32 : 20,
+          ),
+          child: _SectionHeader(
+            title: title,
+            subtitle: subtitle,
+            titleSize: isDesktop ? 24 : 20,
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 230,
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(
+              dragDevices: {
+                PointerDeviceKind.touch,
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.trackpad,
+              },
+            ),
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(
+                horizontal: isDesktop ? 32 : 20,
+              ),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 14),
+              itemBuilder: (context, index) =>
+                  _buildCompactFoodCard(items[index]),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  final List<_QuickCategory> _quickCategories = const [
+    _QuickCategory(label: 'Cafes', emoji: '☕'),
+    _QuickCategory(label: 'Burgers', emoji: '🍔'),
+    _QuickCategory(label: 'Asian', emoji: '🍜'),
+    _QuickCategory(label: 'Pizza', emoji: '🍕'),
+    _QuickCategory(label: 'Desserts', emoji: '🍰'),
+    _QuickCategory(label: 'Healthy', emoji: '🥗'),
+    _QuickCategory(label: 'Top rated', emoji: '⭐'),
+    _QuickCategory(label: 'Trending', emoji: '🔥'),
+  ];
+
+  void _applyQuickCategoryFilter(_QuickCategory category) {
+    setState(() {
+      if (_selectedQuickCategory?.label == category.label) {
+        _selectedQuickCategory = null;
+      } else {
+        _selectedQuickCategory = category;
+      }
+    });
+  }
+
+  bool _isQuickCategoryActive(_QuickCategory category) {
+    return _selectedQuickCategory?.label == category.label;
+  }
+
+  Widget _buildQuickCategoryChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Row(
+        children: _quickCategories.map((category) {
+          final isActive = _isQuickCategoryActive(category);
+          return Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: _CategoryChip(
+              label: category.label,
+              emoji: category.emoji,
+              isSelected: isActive,
+              onTap: () => _applyQuickCategoryFilter(category),
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 
@@ -1863,46 +2296,307 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   }
 
   Stream<List<Map<String, dynamic>>> _discoverFoodStream() {
-    return FirebaseFirestore.instance
+    final canonical = FirebaseFirestore.instance
+        .collection('businesses')
+        .orderBy('rating', descending: true)
+        .snapshots();
+    final legacy = FirebaseFirestore.instance
         .collection('food_businesses')
         .orderBy('rating', descending: true)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
-        final cuisineTypes = data['cuisineTypes'];
-        final categories = cuisineTypes is List
-            ? cuisineTypes.map((v) => '$v').toList()
-            : <String>[];
-        return <String, dynamic>{
-          'id': doc.id,
-          'section': 'food',
-          'badge': 'FOOD',
-          'title': data['name'] ?? data['businessName'] ?? 'Untitled',
-          'description': data['description'] ?? '',
-          'location': data['address'] ?? '',
-          'imageUrl': data['imageUrl'] ??
-              data['logoUrl'] ??
-              data['coverImageUrl'] ??
-              '',
-          'categories': categories,
-          'category': categories.isNotEmpty ? categories.first : '',
-          'rating': data['rating'] ?? data['averageRating'] ?? 0,
-          'reviewCount': data['reviewCount'] ?? data['reviewsCount'] ?? 0,
-          'price': data['priceRange'] ?? '',
-          'phone': data['phone'] ?? '',
-          'website': data['website'] ?? '',
-          'openingHours': data['openingHours'] ?? '',
-          'email': data['email'] ?? '',
-          'facebookUrl': data['facebookUrl'] ?? data['facebook'] ?? '',
-          'instagramUrl': data['instagramUrl'] ?? data['instagram'] ?? '',
-          'onlineOrderUrl':
-              data['onlineOrderUrl'] ?? data['onlineOrderLink'] ?? '',
-          'menu': data['menu'] ?? const <Map<String, dynamic>>[],
-          'photoGallery': data['photoGallery'] ?? const <String>[],
-        };
-      }).toList();
-    });
+        .snapshots();
+
+    return _combineLatest2(
+      canonical,
+      legacy,
+      (QuerySnapshot<Map<String, dynamic>> canonicalSnap,
+          QuerySnapshot<Map<String, dynamic>> legacySnap) {
+        final merged = <String, Map<String, dynamic>>{};
+
+        for (final doc in canonicalSnap.docs) {
+          final data = doc.data();
+          if (data['deletedAt'] != null) continue;
+          if (data['isActive'] == false) continue;
+          merged[doc.id] = _mapBusinessDocToDiscoverItem(doc);
+        }
+
+        for (final doc in legacySnap.docs) {
+          if (merged.containsKey(doc.id)) continue;
+          merged[doc.id] = _mapFoodBusinessDocToDiscoverItem(doc);
+        }
+
+        final items = merged.values.toList();
+        items.sort((a, b) {
+          // Paid featured/promoted listings always rank first.
+          final featuredA =
+              (a['isFeatured'] == true || a['isPromoted'] == true) ? 1 : 0;
+          final featuredB =
+              (b['isFeatured'] == true || b['isPromoted'] == true) ? 1 : 0;
+          if (featuredA != featuredB) {
+            return featuredB.compareTo(featuredA);
+          }
+
+          final ratingA = (a['rating'] as num?)?.toDouble() ?? 0.0;
+          final ratingB = (b['rating'] as num?)?.toDouble() ?? 0.0;
+          return ratingB.compareTo(ratingA);
+        });
+        return items;
+      },
+    );
+  }
+
+  Stream<R> _combineLatest2<T1, T2, R>(
+    Stream<T1> stream1,
+    Stream<T2> stream2,
+    R Function(T1, T2) combiner,
+  ) {
+    T1? latest1;
+    T2? latest2;
+    var has1 = false;
+    var has2 = false;
+
+    final controller = StreamController<R>.broadcast();
+
+    void emit() {
+      if (has1 && has2 && !controller.isClosed) {
+        controller.add(combiner(latest1 as T1, latest2 as T2));
+      }
+    }
+
+    stream1.listen(
+      (value) {
+        latest1 = value;
+        has1 = true;
+        emit();
+      },
+      onError: controller.addError,
+      onDone: () {
+        if (!controller.isClosed) controller.close();
+      },
+    );
+
+    stream2.listen(
+      (value) {
+        latest2 = value;
+        has2 = true;
+        emit();
+      },
+      onError: controller.addError,
+      onDone: () {
+        if (!controller.isClosed) controller.close();
+      },
+    );
+
+    return controller.stream;
+  }
+
+  Map<String, dynamic> _mapBusinessDocToDiscoverItem(
+      QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data();
+    final rawCategories = data['cuisineTypes'];
+    final category = data['category']?.toString();
+    List<String> categories;
+    if (rawCategories is List && rawCategories.isNotEmpty) {
+      categories = rawCategories.map((v) => '$v').toList();
+    } else if (category != null && category.isNotEmpty) {
+      categories = [category];
+    } else {
+      categories = <String>[];
+    }
+    return <String, dynamic>{
+      'id': doc.id,
+      'section': 'food',
+      'badge': 'FOOD',
+      'title': data['businessName'] ?? data['name'] ?? 'Untitled',
+      'description': data['description'] ?? '',
+      'location': data['address'] ?? '',
+      'imageUrl':
+          data['coverImageUrl'] ?? data['logoUrl'] ?? data['imageUrl'] ?? '',
+      'categories': categories,
+      'category': categories.isNotEmpty ? categories.first : '',
+      'rating': data['rating'] ?? data['averageRating'] ?? 0,
+      'reviewCount': data['reviewCount'] ?? data['reviewsCount'] ?? 0,
+      'price': data['priceRange'] ?? '',
+      'phone': data['phone'] ?? data['contactNumber'] ?? '',
+      'website': data['website'] ?? '',
+      'openingHours': data['openingHours'] ??
+          (data['businessHours'] is String ? data['businessHours'] : ''),
+      'email': data['email'] ?? data['businessEmail'] ?? '',
+      'facebookUrl': data['facebookUrl'] ??
+          data['facebook'] ??
+          data['socialMedia']?['facebook'] ??
+          '',
+      'instagramUrl': data['instagramUrl'] ??
+          data['instagram'] ??
+          data['socialMedia']?['instagram'] ??
+          '',
+      'onlineOrderUrl': data['onlineOrderUrl'] ?? data['onlineOrderLink'] ?? '',
+      'menu': data['menu'] ?? const <Map<String, dynamic>>[],
+      'photoGallery': data['photoGallery'] ?? const <String>[],
+      'latitude': data['latitude'],
+      'longitude': data['longitude'],
+      'waitTime': data['waitTime'],
+      'businessHours': data['businessHours'],
+      'createdAt': _toDateTime(data['createdAt']),
+      'suburb': (data['suburb'] as String? ?? '').trim().isNotEmpty
+          ? (data['suburb'] as String?)?.trim()
+          : _extractSuburb(data['address'] as String?),
+      'isVerified': data['isVerified'] == true,
+      'isFeatured': data['isFeatured'] == true,
+      'isPromoted': data['isPromoted'] == true,
+      'isGoogleListing': data['isGoogleListing'] ?? false,
+    };
+  }
+
+  Map<String, dynamic> _mapFoodBusinessDocToDiscoverItem(
+      QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data();
+    final rawCategories = data['cuisineTypes'];
+    final category = data['category']?.toString();
+    List<String> categories;
+    if (rawCategories is List && rawCategories.isNotEmpty) {
+      categories = rawCategories.map((v) => '$v').toList();
+    } else if (category != null && category.isNotEmpty) {
+      categories = [category];
+    } else {
+      categories = <String>[];
+    }
+    return <String, dynamic>{
+      'id': doc.id,
+      'section': 'food',
+      'badge': 'FOOD',
+      'title': data['name'] ?? data['businessName'] ?? 'Untitled',
+      'description': data['description'] ?? '',
+      'location': data['address'] ?? '',
+      'imageUrl':
+          data['imageUrl'] ?? data['logoUrl'] ?? data['coverImageUrl'] ?? '',
+      'categories': categories,
+      'category': categories.isNotEmpty ? categories.first : '',
+      'rating': data['rating'] ?? data['averageRating'] ?? 0,
+      'reviewCount': data['reviewCount'] ?? data['reviewsCount'] ?? 0,
+      'price': data['priceRange'] ?? '',
+      'phone': data['phone'] ?? data['contactNumber'] ?? '',
+      'website': data['website'] ?? '',
+      'openingHours': data['openingHours'] ??
+          (data['businessHours'] is String ? data['businessHours'] : ''),
+      'email': data['email'] ?? data['businessEmail'] ?? '',
+      'facebookUrl': data['facebookUrl'] ??
+          data['facebook'] ??
+          data['socialMedia']?['facebook'] ??
+          '',
+      'instagramUrl': data['instagramUrl'] ??
+          data['instagram'] ??
+          data['socialMedia']?['instagram'] ??
+          '',
+      'onlineOrderUrl': data['onlineOrderUrl'] ?? data['onlineOrderLink'] ?? '',
+      'menu': data['menu'] ?? const <Map<String, dynamic>>[],
+      'photoGallery': data['photoGallery'] ?? const <String>[],
+      'latitude': data['latitude'] ?? data['coordinates']?['latitude'],
+      'longitude': data['longitude'] ?? data['coordinates']?['longitude'],
+      'waitTime': data['waitTime'],
+      'businessHours': data['businessHours'],
+      'createdAt': _toDateTime(data['createdAt']),
+      'suburb': (data['suburb'] as String? ?? '').trim().isNotEmpty
+          ? (data['suburb'] as String?)?.trim()
+          : _extractSuburb(data['address'] as String?),
+      'isVerified': data['isVerified'] == true,
+      'isFeatured': data['isFeatured'] == true,
+      'isPromoted': data['isPromoted'] == true,
+      'isGoogleListing': data['isGoogleListing'] ?? false,
+    };
+  }
+
+  /// Returns a compact distance string from the user's location to the item,
+  /// or null when coordinates are unavailable.
+  String? _formatDistance(Map<String, dynamic> item) {
+    final lat = (item['latitude'] as num?)?.toDouble();
+    final lng = (item['longitude'] as num?)?.toDouble();
+    if (lat == null || lng == null) return null;
+
+    final distanceKm = LocationUtilities.calculateDistance(
+      lat1: _userLatitude,
+      lon1: _userLongitude,
+      lat2: lat,
+      lon2: lng,
+    );
+
+    if (distanceKm < 1.0) {
+      return '${(distanceKm * 1000).toStringAsFixed(0)} m';
+    }
+    return '${distanceKm.toStringAsFixed(1)} km';
+  }
+
+  /// Determines whether a business is currently open based on its structured
+  /// [businessHours] map. Returns null if no hours are available.
+  ({bool isOpen, String label})? _getOpenStatus(Map<String, dynamic> item) {
+    final rawHours = item['businessHours'];
+    if (rawHours is! Map<String, dynamic>) return null;
+
+    try {
+      final hours = BusinessHours.fromFirestore(rawHours);
+      final now = DateTime.now();
+      final dayName = DateFormat('EEEE').format(now);
+      final dayHours = hours.getHoursForDay(dayName);
+      if (dayHours == null) return null;
+
+      if (dayHours.isClosed) {
+        return (isOpen: false, label: 'Closed');
+      }
+
+      final openTime = dayHours.openTime;
+      final closeTime = dayHours.closeTime;
+      if (openTime == null || closeTime == null) return null;
+
+      final currentMinutes = now.hour * 60 + now.minute;
+      final openParts = openTime.split(':');
+      final closeParts = closeTime.split(':');
+      final openMinutes =
+          int.parse(openParts[0]) * 60 + int.parse(openParts[1]);
+      final closeMinutes =
+          int.parse(closeParts[0]) * 60 + int.parse(closeParts[1]);
+
+      final isOpen =
+          currentMinutes >= openMinutes && currentMinutes < closeMinutes;
+      return (isOpen: isOpen, label: isOpen ? 'Open now' : 'Closed');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Pulls a suburb/neighbourhood out of a comma-separated address string.
+  /// Falls back to the first non-empty segment if the structure is unclear.
+  String? _extractSuburb(String? address) {
+    final parts = (address ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return null;
+    if (parts.length >= 3) return parts[parts.length - 2];
+    if (parts.length == 2) return parts.first;
+    return parts.first;
+  }
+
+  DateTime? _toDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is Timestamp) return value.toDate();
+    return null;
+  }
+
+  String _formatTimeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+
+  static String _formatCompactTimeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
   }
 
   List<Map<String, dynamic>> _parseMenu(dynamic raw) {
@@ -1933,17 +2627,17 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     return urls;
   }
 
-  Widget _buildDiscoverBody() {
+  Widget _buildDiscoverContent() {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _discoverFoodStream(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+      builder: (context, foodSnapshot) {
+        if (foodSnapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (snapshot.hasError) {
+        if (foodSnapshot.hasError) {
           final message = AppErrorMessages.fromException(
-            snapshot.error,
+            foodSnapshot.error,
             fallback: AppLocalizations.of(context)!.unableToLoadDiscover,
           );
           return Center(
@@ -1962,230 +2656,675 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
         return ValueListenableBuilder<int>(
           valueListenable: VisitorAuth.interestedEventsVersion,
           builder: (context, _, __) {
-            final items = snapshot.data ?? const <Map<String, dynamic>>[];
+            final items = foodSnapshot.data ?? const <Map<String, dynamic>>[];
             final foodItems = _getCachedFoodItems(items);
-
-            final hasAnyVisibleItems = foodItems.isNotEmpty;
-
-            final visitorName =
-                VisitorAuth.currentVisitor?.name.split(' ').first ?? 'Visitor';
-            final heroProfileImage =
-                _profileImageProvider(VisitorAuth.currentVisitor);
-            final isDesktop = ResponsiveUtils.isDesktop(context);
             final isMobile = ResponsiveUtils.isMobile(context);
 
-            return Stack(
-              children: [
-                // Surface colour fills any gaps between slivers.
-                const Positioned.fill(
-                  child: ColoredBox(color: AppPalette.surface),
+            return CustomScrollView(
+              slivers: [
+                // ── Header with greeting and search (no chips) ──
+                SliverToBoxAdapter(
+                  child: Container(
+                    color: Colors.transparent,
+                    padding: const EdgeInsets.only(top: 16),
+                    child: _buildDiscoverHeader(isMobile),
+                  ),
                 ),
-                CustomScrollView(
-                  slivers: [
-                    // ── Recommended food businesses carousel ──
-                    SliverToBoxAdapter(
-                      child: Container(
-                        color: AppPalette.background,
-                        padding: const EdgeInsets.only(top: 16),
-                        child: _buildTopRatedFoodCarousel(
-                          _getCachedTopRatedFoodItems(items),
+
+                // ── Responsive bento grid homepage ──
+                SliverToBoxAdapter(
+                  child: Container(
+                    color: Colors.transparent,
+                    padding: _bentoHorizontalPadding(context),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1400),
+                        child: _buildBentoGrid(
+                          items: items,
+                          foodItems: foodItems,
+                          isMobile: isMobile,
                         ),
                       ),
                     ),
+                  ),
+                ),
 
-                    // ── Hero section (white background over surface) ──
-                    SliverToBoxAdapter(
-                      child: Container(
-                        color: AppPalette.background,
-                        padding: EdgeInsets.only(
-                          top: MediaQuery.of(context).padding.top + 12,
-                          left: 16,
-                          right: 16,
-                          bottom: 12,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (isMobile) ...[
-                              Row(
-                                children: [
-                                  ClipOval(
-                                    child: Container(
-                                      width: 60,
-                                      height: 60,
-                                      color:
-                                          Colors.white.withValues(alpha: 0.1),
-                                      child: Image.asset(
-                                          'assets/Brisconnect New.jpg',
-                                          fit: BoxFit.cover),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    AppLocalizations.of(context)!.appTitle,
-                                    style: TextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppPalette.charcoal,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  GestureDetector(
-                                    onTap: () =>
-                                        setState(() => _selectedIndex = 4),
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                            color: AppPalette.border, width: 2),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black
-                                                .withValues(alpha: 0.25),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                      child: CircleAvatar(
-                                        radius: 52,
-                                        backgroundColor: AppPalette.deepBlue,
-                                        backgroundImage: heroProfileImage,
-                                        child: heroProfileImage == null
-                                            ? const Icon(Icons.person_rounded,
-                                                color: Colors.white, size: 48)
-                                            : null,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 18),
-                            ],
-                            Text(
-                              '👋 Hi, $visitorName',
-                              style: TextStyle(
-                                fontSize: isDesktop ? 36 : 28,
-                                fontWeight: FontWeight.w800,
-                                color: AppPalette.charcoal,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              AppLocalizations.of(context)!.discoverTitle,
-                              style: TextStyle(
-                                fontSize: isDesktop ? 22 : 18,
-                                fontWeight: FontWeight.w600,
-                                color: AppPalette.mutedText,
-                              ),
-                            ),
-                            if (isMobile) ...[
-                              const SizedBox(height: 18),
-                              _buildSearchBar(),
-                            ],
-                          ],
-                        ),
+                // Bottom spacing
+                const SliverToBoxAdapter(child: SizedBox(height: 48)),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Builds the bento discover header: greeting and search only.
+  /// On desktop/tablet the [DesktopTopAppBar] already provides search and
+  /// profile, so we omit them here to avoid duplication. Quick category
+  /// chips were removed in favour of the bento category grid.
+  Widget _buildDiscoverHeader(bool isMobile) {
+    final visitorName =
+        VisitorAuth.currentVisitor?.name.split(' ').first ?? 'Visitor';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '👋 ${_greetingForHour(DateTime.now().hour)}, $visitorName',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: AppPalette.charcoal,
                       ),
                     ),
-
-                    // ── Content sheet ──
-                    SliverToBoxAdapter(
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          color: AppPalette.surface,
-                          borderRadius:
-                              BorderRadius.vertical(top: Radius.circular(28)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 22),
-
-                            // Active filter chips
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 20),
-                              child: _buildActiveFilterChips(),
-                            ),
-
-                            // Food items
-                            if (!hasAnyVisibleItems)
-                              Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                                child: _EmptyState(
-                                  title: AppLocalizations.of(context)!
-                                      .noFoodPlacesFound,
-                                  subtitle: AppLocalizations.of(context)!
-                                      .noFoodPlacesSubtitle,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // Food section header + grid
-                    if (foodItems.isNotEmpty) ...[
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isDesktop ? 32 : 20,
-                          ),
-                          child: _SectionHeader(
-                            title: AppLocalizations.of(context)!
-                                .localFoodBusinesses,
-                            subtitle:
-                                AppLocalizations.of(context)!.localFoodSubtitle,
-                            titleSize: isDesktop ? 24 : 20,
-                          ),
-                        ),
-                      ),
-                      _buildFoodSliverGrid(foodItems),
-                    ],
-
-                    // Businesses section
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isDesktop ? 32 : 20,
-                        ),
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 24),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const BusinessSearchScreen(),
-                                  ),
-                                ),
-                                icon: const Icon(Icons.storefront_rounded),
-                                label: Text(AppLocalizations.of(context)!
-                                    .exploreReviewFoodBusinesses),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppPalette.ochre,
-                                  foregroundColor: Colors.white,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 14),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                          ],
-                        ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _weatherTagline(),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppPalette.charcoal,
                       ),
                     ),
                   ],
                 ),
-              ], // Stack children
-            ); // Stack
-          },
+              ),
+              if (isMobile) ...[
+                const SizedBox(width: 12),
+                _buildDiscoverProfileAvatar(),
+              ],
+            ],
+          ),
+          if (isMobile) ...[
+            const SizedBox(height: 18),
+            DiscoverSearchBar(
+              controller: _searchController,
+              onSearchChanged: (_) {
+                // Existing search state is driven by _searchController; the
+                // StreamBuilder rebuilds via the debounced setState in the
+                // search bar's own controller callback.
+                if (mounted) setState(() {});
+              },
+              onFilterTap: _openFilterSheet,
+            ),
+            const SizedBox(height: 8),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Bento-grid discover homepage helpers
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Orchestrates the responsive bento layout.
+  ///
+  /// Desktop/tablet: a balanced two-column masonry-style grid. The left
+  /// column highlights the featured restaurant and trending spots, while the
+  /// right column surfaces nearby locations, cuisine categories, and
+  /// community picks.
+  ///
+  /// Mobile: a single-column stack ordered for food discovery.
+  Widget _buildBentoGrid({
+    required List<Map<String, dynamic>> items,
+    required List<Map<String, dynamic>> foodItems,
+    required bool isMobile,
+  }) {
+    final trending = _trendingThisWeekItems(items).take(6).toList();
+    final nearby = _sortedByDistance(foodItems).take(5).toList();
+    final communityPicks = _communityPicksItems(items).take(4).toList();
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildCategorySection(foodItems),
+          if (foodItems.isNotEmpty) _buildFeaturedCarousel(foodItems),
+          if (trending.isNotEmpty) _buildTrendingSection(trending),
+          if (nearby.isNotEmpty) _buildBentoNearbySection(nearby),
+          if (communityPicks.isNotEmpty)
+            _buildCommunityPicksSection(communityPicks),
+        ],
+      );
+    }
+
+    final isTablet = ResponsiveUtils.isTablet(context);
+    final columnSpacing = isTablet ? 20.0 : 28.0;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Left column: hero featured carousel + trending.
+        Expanded(
+          flex: isTablet ? 1 : 5,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (foodItems.isNotEmpty) _buildFeaturedCarousel(foodItems),
+              if (trending.isNotEmpty) _buildTrendingSection(trending),
+            ],
+          ),
+        ),
+        SizedBox(width: columnSpacing),
+        // Right column: nearby + categories + community picks.
+        Expanded(
+          flex: isTablet ? 1 : 4,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (nearby.isNotEmpty) _buildBentoNearbySection(nearby),
+              _buildCategorySection(foodItems),
+              if (communityPicks.isNotEmpty)
+                _buildCommunityPicksSection(communityPicks),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Auto-rotating featured business carousel.
+  Widget _buildFeaturedCarousel(List<Map<String, dynamic>> items) {
+    // Paid featured/promoted listings get carousel priority, then top-rated.
+    final featured = items.toList()
+      ..sort((a, b) {
+        final paidA =
+            (a['isFeatured'] == true || a['isPromoted'] == true) ? 1 : 0;
+        final paidB =
+            (b['isFeatured'] == true || b['isPromoted'] == true) ? 1 : 0;
+        if (paidA != paidB) return paidB.compareTo(paidA);
+        final ratingA = (a['rating'] as num?)?.toDouble() ?? 0.0;
+        final ratingB = (b['rating'] as num?)?.toDouble() ?? 0.0;
+        return ratingB.compareTo(ratingA);
+      });
+
+    final selectedCategory = _selectedQuickCategory?.label;
+    final borderColor = selectedCategory != null
+        ? _categoryColorFor(selectedCategory)
+        : AppPalette.border;
+
+    return _AutoRotatingCarousel(
+      items: featured,
+      autoRotateInterval: const Duration(seconds: 5),
+      inactivityResumeDelay: const Duration(seconds: 5),
+      borderColor: borderColor,
+      cardBuilder: (item) => _FeaturedRestaurantCard(item: item),
+      onCardTap: _openFoodDetails,
+    );
+  }
+
+  /// Vertical list of nearby food spots with distance labels.
+  Widget _buildBentoNearbySection(List<Map<String, dynamic>> items) {
+    return _BentoTile(
+      padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _BentoSectionHeader(
+            title: AppLocalizations.of(context)!.nearby,
+            subtitle: 'Closest to you right now',
+          ),
+          const SizedBox(height: 12),
+          ...items.map((item) => _NearbyRow(
+                item: item,
+                distance: _formatDistance(item),
+                onTap: () => _openFoodDetails(item),
+              )),
+        ],
+      ),
+    );
+  }
+
+  /// Vertical list of trending food businesses (no horizontal carousel).
+  Widget _buildTrendingSection(List<Map<String, dynamic>> items) {
+    return _BentoTile(
+      padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _BentoSectionHeader(
+            title: 'Trending now',
+            subtitle: 'Popular this week',
+          ),
+          const SizedBox(height: 12),
+          ...items.asMap().entries.map((entry) {
+            final index = entry.key;
+            final item = entry.value;
+            return _TrendingRow(
+              rank: index + 1,
+              item: item,
+              onTap: () => _openFoodDetails(item),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  /// Compact community-picks grid shown on one of the columns.
+  Widget _buildCommunityPicksSection(List<Map<String, dynamic>> items) {
+    return _BentoTile(
+      padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _BentoSectionHeader(
+            title: 'Community picks',
+            subtitle: 'Highest rated by foodies',
+          ),
+          const SizedBox(height: 12),
+          ...items.map((item) => _TrendingRow(
+                item: item,
+                onTap: () => _openFoodDetails(item),
+              )),
+        ],
+      ),
+    );
+  }
+
+  /// Bento grid of cuisine categories derived from actual items.
+  Widget _buildCategorySection(List<Map<String, dynamic>> items) {
+    final categoryCounts = <String, int>{};
+    for (final item in items) {
+      final categories = (item['categories'] as List<dynamic>?)
+              ?.map((e) => e.toString().trim())
+              .where((s) => s.isNotEmpty) ??
+          const [];
+      for (final cat in categories.take(1)) {
+        categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
+      }
+    }
+
+    final sortedCategories = categoryCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final displayCategories =
+        sortedCategories.take(6).map((e) => e.key).toList();
+
+    // Fallback to quick-categories if the data is sparse.
+    final categories = displayCategories.isNotEmpty
+        ? displayCategories
+        : _quickCategories.map((c) => c.label).toList();
+
+    final isMobile = ResponsiveUtils.isMobile(context);
+
+    return _BentoTile(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _BentoSectionHeader(
+            title: AppLocalizations.of(context)!.categories,
+            subtitle: 'Browse by cuisine',
+          ),
+          const SizedBox(height: 12),
+          if (isMobile)
+            SizedBox(
+              height: 38,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.zero,
+                itemCount: categories.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final label = categories[index];
+                  final categoryColor = _categoryColorFor(label);
+                  final isSelected =
+                      _selectedQuickCategory?.label.toLowerCase() ==
+                          label.toLowerCase();
+                  return _CuisinePill(
+                    label: label,
+                    color: categoryColor,
+                    isSelected: isSelected,
+                    onTap: () => _applyQuickCategoryFilterByLabel(label),
+                  );
+                },
+              ),
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final crossAxisCount = constraints.maxWidth > 420 ? 3 : 2;
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                    childAspectRatio: 2.6,
+                  ),
+                  itemCount: categories.length,
+                  itemBuilder: (context, index) {
+                    final label = categories[index];
+                    final categoryColor = _categoryColorFor(label);
+                    final isSelected =
+                        _selectedQuickCategory?.label.toLowerCase() ==
+                            label.toLowerCase();
+                    return _CategoryTile(
+                      label: label,
+                      color: categoryColor,
+                      isSelected: isSelected,
+                      onTap: () => _applyQuickCategoryFilterByLabel(label),
+                    );
+                  },
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Returns a stable, deterministic color for any category/cuisine label.
+  Color _categoryColorFor(String label) {
+    final palette = const <Color>[
+      Color(0xFFFF6B2B), // ochre
+      Color(0xFF2563EB), // deep blue
+      Color(0xFF22C55E), // green
+      Color(0xFFF59E0B), // gold
+      Color(0xFF9333EA), // purple
+      Color(0xFFEC4899), // pink
+      Color(0xFF14B8A6), // teal
+      Color(0xFFEF4444), // red
+      Color(0xFF6366F1), // indigo
+      Color(0xFF84CC16), // lime
+    ];
+    var hash = 0;
+    for (var i = 0; i < label.length; i++) {
+      hash = label.codeUnitAt(i) + ((hash << 5) - hash);
+    }
+    return palette[hash.abs() % palette.length];
+  }
+
+  /// Returns [items] sorted by distance from the user's default location.
+  List<Map<String, dynamic>> _sortedByDistance(
+      List<Map<String, dynamic>> items) {
+    final scored = items.map((item) {
+      final lat = (item['latitude'] as num?)?.toDouble();
+      final lng = (item['longitude'] as num?)?.toDouble();
+      double distanceKm = double.infinity;
+      if (lat != null && lng != null) {
+        distanceKm = LocationUtilities.calculateDistance(
+          lat1: _userLatitude,
+          lon1: _userLongitude,
+          lat2: lat,
+          lon2: lng,
+        );
+      }
+      return (item: item, distanceKm: distanceKm);
+    }).toList();
+
+    scored.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+    return scored.map((e) => e.item).toList(growable: false);
+  }
+
+  void _applyQuickCategoryFilterByLabel(String label) {
+    final category = _quickCategories.firstWhere(
+      (c) => c.label.toLowerCase() == label.toLowerCase(),
+      orElse: () => _QuickCategory(label: label, emoji: '🍽️'),
+    );
+    _applyQuickCategoryFilter(category);
+  }
+
+  /// Compact profile avatar for the discover header.
+  Widget _buildDiscoverProfileAvatar() {
+    final heroProfileImage = _profileImageProvider(VisitorAuth.currentVisitor);
+    return GestureDetector(
+      onTap: () => setState(() => _selectedIndex = 4),
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: AppPalette.border, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: CircleAvatar(
+          radius: 28,
+          backgroundColor: AppPalette.deepBlue,
+          backgroundImage: heroProfileImage,
+          child: heroProfileImage == null
+              ? const Icon(Icons.person_rounded, color: Colors.white, size: 28)
+              : null,
+        ),
+      ),
+    );
+  }
+
+  /// A section with a header and horizontal business card carousel.
+  Widget _buildDiscoverSection(
+    String title,
+    String subtitle,
+    List<Map<String, dynamic>> items,
+  ) {
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      color: Colors.transparent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
+            child: DiscoverSectionHeader(
+              title: title,
+              subtitle: subtitle,
+            ),
+          ),
+          _buildDiscoverBusinessCarousel(items),
+        ],
+      ),
+    );
+  }
+
+  /// Horizontal carousel of large food business cards.
+  Widget _buildDiscoverBusinessCarousel(List<Map<String, dynamic>> items) {
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= Breakpoints.desktop;
+        final cardWidth = _discoverCardWidth(context);
+
+        if (isWide) {
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Wrap(
+                  spacing: 20,
+                  runSpacing: 24,
+                  children: items.map((item) {
+                    return DiscoverBusinessCard(
+                      key: ValueKey(item['id']),
+                      item: item,
+                      width: cardWidth,
+                      onTap: () => _openFoodDetails(item),
+                      onShareTap: () => _shareDiscoverBusiness(item),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          );
+        }
+
+        return SizedBox(
+          height: cardWidth * 1.42,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 16),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return DiscoverBusinessCard(
+                key: ValueKey(item['id']),
+                item: item,
+                width: cardWidth,
+                onTap: () => _openFoodDetails(item),
+                onShareTap: () => _shareDiscoverBusiness(item),
+              );
+            },
+          ),
         );
       },
+    );
+  }
+
+  /// Responsive sliver grid/list for all food businesses.
+  Widget _buildDiscoverBusinessSliver(List<Map<String, dynamic>> items) {
+    return SliverLayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisExtent = constraints.crossAxisExtent;
+        final cardWidth = _discoverCardWidth(context);
+
+        if (crossAxisExtent >= Breakpoints.desktop) {
+          final crossAxisCount = ResponsiveUtils.gridColumnCount(
+            context,
+            itemMinWidth: cardWidth,
+            minColumns: 2,
+            maxColumns: 4,
+            spacing: 20,
+          );
+          return SliverPadding(
+            padding: _discoverHorizontalPadding(context),
+            sliver: SliverGrid(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                crossAxisSpacing: 20,
+                mainAxisSpacing: 24,
+                childAspectRatio: 0.72,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => DiscoverBusinessCard(
+                  key: ValueKey(items[index]['id']),
+                  item: items[index],
+                  width: cardWidth,
+                  onTap: () => _openFoodDetails(items[index]),
+                  onShareTap: () => _shareDiscoverBusiness(items[index]),
+                ),
+                childCount: items.length,
+              ),
+            ),
+          );
+        }
+
+        if (crossAxisExtent >= Breakpoints.mobile) {
+          return SliverPadding(
+            padding: _discoverHorizontalPadding(context),
+            sliver: SliverGrid(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 20,
+                childAspectRatio: 0.70,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => DiscoverBusinessCard(
+                  key: ValueKey(items[index]['id']),
+                  item: items[index],
+                  width: cardWidth,
+                  onTap: () => _openFoodDetails(items[index]),
+                  onShareTap: () => _shareDiscoverBusiness(items[index]),
+                ),
+                childCount: items.length,
+              ),
+            ),
+          );
+        }
+
+        return SliverPadding(
+          padding: _discoverHorizontalPadding(context),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: DiscoverBusinessCard(
+                  key: ValueKey(items[index]['id']),
+                  item: items[index],
+                  width: double.infinity,
+                  onTap: () => _openFoodDetails(items[index]),
+                  onShareTap: () => _shareDiscoverBusiness(items[index]),
+                ),
+              ),
+              childCount: items.length,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  double _discoverCardWidth(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width >= Breakpoints.desktop) return 320;
+    if (width >= Breakpoints.mobile) return 290;
+    return 280;
+  }
+
+  double _discoverBannerHeight(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width >= Breakpoints.desktop) return 190;
+    if (width >= Breakpoints.mobile) return 185;
+    return 180;
+  }
+
+  EdgeInsets _discoverHorizontalPadding(BuildContext context) {
+    return ResponsiveUtils.isDesktop(context)
+        ? const EdgeInsets.symmetric(horizontal: 32)
+        : const EdgeInsets.symmetric(horizontal: 20);
+  }
+
+  EdgeInsets _bentoHorizontalPadding(BuildContext context) {
+    if (ResponsiveUtils.isDesktop(context)) {
+      return const EdgeInsets.symmetric(horizontal: 32);
+    }
+    if (ResponsiveUtils.isTablet(context)) {
+      return const EdgeInsets.symmetric(horizontal: 24);
+    }
+    return const EdgeInsets.symmetric(horizontal: 16);
+  }
+
+  /// Quick category chips using the new reusable design but the existing
+  /// private [_QuickCategory] model so state and filters stay unchanged.
+  Widget _buildDiscoverQuickCategoryChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      child: Row(
+        children: _quickCategories.map((category) {
+          final isActive = _isQuickCategoryActive(category);
+          return Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: _CategoryChip(
+              label: category.label,
+              emoji: category.emoji,
+              isSelected: isActive,
+              onTap: () => _applyQuickCategoryFilter(category),
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 
@@ -2362,62 +3501,136 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   }
 
   Widget _buildSavedFoodBusinessesGrid(Set<String> savedBusinessIds) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('food_businesses')
-          .where(FieldPath.documentId, whereIn: savedBusinessIds.toList())
-          .snapshots(),
+    return StreamBuilder<List<DocumentSnapshot>>(
+      stream: _savedBusinessesStream(savedBusinessIds.toList()),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
           return const SizedBox(
             height: 120,
             child: Center(child: CircularProgressIndicator()),
           );
         }
 
-        final docs = snapshot.data!.docs;
+        final docs = snapshot.data ?? [];
         if (docs.isEmpty) {
           return const SizedBox.shrink();
         }
 
         final items = docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
+          final data = doc.data() as Map<String, dynamic>? ?? {};
           final cuisineTypes = data['cuisineTypes'];
-          final categories = cuisineTypes is List
+          final category = data['category']?.toString();
+          final categories = cuisineTypes is List && cuisineTypes.isNotEmpty
               ? cuisineTypes.map((v) => '$v').toList()
-              : <String>[];
+              : category != null && category.isNotEmpty
+                  ? [category]
+                  : <String>[];
           return <String, dynamic>{
             'id': doc.id,
             'section': 'food',
             'badge': 'FOOD',
-            'title': data['name'] ?? data['businessName'] ?? 'Untitled',
+            'title': data['businessName'] ?? data['name'] ?? 'Untitled',
             'description': data['description'] ?? '',
             'location': data['address'] ?? '',
-            'imageUrl': data['imageUrl'] ??
+            'imageUrl': data['coverImageUrl'] ??
+                data['imageUrl'] ??
                 data['logoUrl'] ??
-                data['coverImageUrl'] ??
                 '',
             'categories': categories,
             'category': categories.isNotEmpty ? categories.first : '',
             'rating': data['rating'] ?? data['averageRating'] ?? 0,
             'reviewCount': data['reviewCount'] ?? data['reviewsCount'] ?? 0,
             'price': data['priceRange'] ?? '',
-            'phone': data['phone'] ?? '',
+            'phone': data['phone'] ?? data['contactNumber'] ?? '',
             'website': data['website'] ?? '',
-            'openingHours': data['openingHours'] ?? '',
-            'email': data['email'] ?? '',
-            'facebookUrl': data['facebookUrl'] ?? data['facebook'] ?? '',
-            'instagramUrl': data['instagramUrl'] ?? data['instagram'] ?? '',
+            'openingHours': data['openingHours'] ??
+                (data['businessHours'] is String ? data['businessHours'] : ''),
+            'email': data['email'] ?? data['businessEmail'] ?? '',
+            'facebookUrl': data['facebookUrl'] ??
+                data['facebook'] ??
+                data['socialMedia']?['facebook'] ??
+                '',
+            'instagramUrl': data['instagramUrl'] ??
+                data['instagram'] ??
+                data['socialMedia']?['instagram'] ??
+                '',
             'onlineOrderUrl':
                 data['onlineOrderUrl'] ?? data['onlineOrderLink'] ?? '',
             'menu': data['menu'] ?? const <Map<String, dynamic>>[],
             'photoGallery': data['photoGallery'] ?? const <String>[],
+            'isGoogleListing': data['isGoogleListing'] ?? false,
           };
         }).toList();
 
         return _buildSavedCardGrid(items);
       },
     );
+  }
+
+  /// Streams saved business docs from the canonical [businesses] collection,
+  /// falling back to [food_businesses] when a canonical doc is missing or
+  /// effectively empty (legacy data was never migrated into it).
+  Stream<List<DocumentSnapshot>> _savedBusinessesStream(List<String> ids) {
+    final controller = StreamController<List<DocumentSnapshot>>.broadcast();
+    List<DocumentSnapshot>? canonicalDocs;
+    List<DocumentSnapshot>? legacyDocs;
+    var canonicalDone = false;
+    var legacyDone = false;
+
+    bool isEmptyBusinessDoc(DocumentSnapshot doc) {
+      if (!doc.exists) return true;
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      final hasName = (data['businessName'] as String? ?? data['name'] as String? ?? '').trim().isNotEmpty;
+      final hasAddress = (data['address'] as String? ?? '').trim().isNotEmpty;
+      return !hasName && !hasAddress;
+    }
+
+    void emit() {
+      if (!canonicalDone || !legacyDone || controller.isClosed) return;
+      final usableCanonical = canonicalDocs?.where((d) => !isEmptyBusinessDoc(d)).toList() ?? [];
+      final usableCanonicalIds = usableCanonical.map((d) => d.id).toSet();
+      final fallbackDocs = legacyDocs?.where((d) => !usableCanonicalIds.contains(d.id)).toList() ?? [];
+      controller.add([...usableCanonical, ...fallbackDocs]);
+    }
+
+    FirebaseFirestore.instance
+        .collection('businesses')
+        .where(FieldPath.documentId, whereIn: ids)
+        .snapshots()
+        .listen(
+          (snap) {
+            canonicalDocs = snap.docs;
+            canonicalDone = true;
+            emit();
+          },
+          onError: (e) {
+            debugPrint('[VisitorPortal] saved businesses canonical error: $e');
+            canonicalDocs = [];
+            canonicalDone = true;
+            emit();
+          },
+        );
+
+    FirebaseFirestore.instance
+        .collection('food_businesses')
+        .where(FieldPath.documentId, whereIn: ids)
+        .snapshots()
+        .listen(
+          (snap) {
+            legacyDocs = snap.docs;
+            legacyDone = true;
+            emit();
+          },
+          onError: (e) {
+            debugPrint('[VisitorPortal] saved businesses legacy error: $e');
+            legacyDocs = [];
+            legacyDone = true;
+            emit();
+          },
+        );
+
+    return controller.stream;
   }
 
   // ── Profile helpers ────────────────────────────────────────────────────
@@ -2434,6 +3647,450 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
           color: AppPalette.mutedText,
         ),
       ),
+    );
+  }
+
+  Widget _buildSettingsCard({required List<Widget> children}) {
+    return Card(
+      color: Colors.white,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: AppPalette.ochre.withValues(alpha: 0.3), width: 2),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.16),
+              blurRadius: 26,
+              offset: const Offset(0, 10),
+              spreadRadius: -2,
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: children,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsTile({
+    required Widget leading,
+    required String title,
+    String? subtitle,
+    VoidCallback? onTap,
+    bool showChevron = true,
+  }) {
+    return ListTile(
+      leading: leading,
+      title: Text(
+        title,
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+      subtitle: subtitle != null ? Text(subtitle) : null,
+      trailing: showChevron
+          ? const Icon(
+              Icons.chevron_right_rounded,
+              color: AppPalette.mutedText,
+            )
+          : null,
+      onTap: onTap,
+    );
+  }
+
+  Widget _buildEmojiIcon(String emoji, Color backgroundColor) {
+    return Container(
+      width: 40,
+      height: 40,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        emoji,
+        style: const TextStyle(fontSize: 22),
+      ),
+    );
+  }
+
+  void _showPrivacyPolicy() {
+    _showLegalSheet(
+      title: 'Privacy Policy',
+      icon: '📄',
+      content: '''
+Your privacy is important to us.
+
+BrisConnect+ collects limited information necessary to provide personalised recommendations, event listings, and community features. Location data is used only when you grant permission and is never sold to third parties.
+
+We use industry-standard security measures to protect your data. You can request deletion of your account and associated data at any time through Help & Support.
+
+This policy may be updated from time to time. Continued use of the app constitutes acceptance of the latest policy.
+''',
+    );
+  }
+
+  void _showTermsOfService() {
+    _showLegalSheet(
+      title: 'Terms of Service',
+      icon: '📜',
+      content: '''
+Welcome to BrisConnect+.
+
+By using this app, you agree to use the platform responsibly and respectfully. Users must not post harmful, misleading, or illegal content. Event submissions and business listings are reviewed before going live.
+
+BrisConnect+ reserves the right to remove content or suspend accounts that violate these terms. The app and its content are provided "as is" without warranties of any kind.
+
+These terms may be updated periodically. Continued use of the app means you accept the latest terms.
+''',
+    );
+  }
+
+  void _showLegalSheet({
+    required String title,
+    required String icon,
+    required String content,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.92,
+        minChildSize: 0.4,
+        builder: (_, controller) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: AppPalette.surface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 8),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppPalette.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: AppPalette.ochre.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(icon, style: const TextStyle(fontSize: 22)),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppPalette.charcoal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1, color: AppPalette.border),
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: controller,
+                    padding: const EdgeInsets.all(20),
+                    child: Text(
+                      content.trim(),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        height: 1.6,
+                        color: AppPalette.charcoal,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showLicences() {
+    showLicensePage(
+      context: context,
+      applicationName: 'BrisConnect+',
+      applicationVersion: '1.0.0',
+      applicationIcon: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Container(
+          width: 56,
+          height: 56,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppPalette.ochre.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Text('🌐', style: TextStyle(fontSize: 28)),
+        ),
+      ),
+    );
+  }
+
+  void _goToSignIn() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const AnimatedWelcomeScreen()),
+      (route) => false,
+    );
+  }
+
+  Widget _buildBrisConnectAvatar({required double radius}) {
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: Colors.white,
+      child: Padding(
+        padding: EdgeInsets.all(radius * 0.18),
+        child: Image.asset(
+          'assets/images/brisconnect_logo.png',
+          fit: BoxFit.contain,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileInfoCard({
+    required VisitorUser? visitor,
+    required String displayName,
+    required String displayEmail,
+    required String displayPhone,
+    required String displayLanguage,
+    required ImageProvider<Object>? profileImage,
+    required AppLocalizations l10n,
+  }) {
+    final isGuest = visitor == null;
+
+    return Card(
+      color: Colors.white,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: AppPalette.ochre.withValues(alpha: 0.3), width: 2),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.16),
+              blurRadius: 26,
+              offset: const Offset(0, 10),
+              spreadRadius: -2,
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: isGuest
+              ? _buildGuestInfoCard(l10n)
+              : _buildSignedInInfoCard(
+                  visitor: visitor,
+                  displayName: displayName,
+                  displayEmail: displayEmail,
+                  displayPhone: displayPhone,
+                  displayLanguage: displayLanguage,
+                  profileImage: profileImage,
+                  l10n: l10n,
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGuestInfoCard(AppLocalizations l10n) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _buildBrisConnectAvatar(radius: 28),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Guest Visitor',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppPalette.charcoal,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Using BrisConnect without signing in.',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppPalette.mutedText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Sign in to save businesses, submit reviews, and personalise recommendations.',
+          style: TextStyle(
+            fontSize: 13,
+            height: 1.5,
+            color: AppPalette.charcoal.withValues(alpha: 0.8),
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _goToSignIn,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppPalette.deepBlue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            child: const Text('Sign In'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSignedInInfoCard({
+    required VisitorUser visitor,
+    required String displayName,
+    required String displayEmail,
+    required String displayPhone,
+    required String displayLanguage,
+    required ImageProvider<Object>? profileImage,
+    required AppLocalizations l10n,
+  }) {
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: _uploadVisitorProfileImage,
+          child: Stack(
+            alignment: Alignment.bottomRight,
+            children: [
+              if (profileImage != null)
+                CircleAvatar(
+                  radius: 42,
+                  backgroundImage: profileImage,
+                )
+              else
+                _buildBrisConnectAvatar(radius: 42),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppPalette.ochre,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2.5),
+                ),
+                child: const Icon(
+                  Icons.camera_alt_rounded,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      displayName,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppPalette.charcoal,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: l10n.editProfile,
+                    onPressed: () => _showEditProfileSheet(
+                      displayName,
+                      displayEmail,
+                      displayPhone,
+                      displayLanguage,
+                    ),
+                    icon: const Icon(
+                      Icons.edit_rounded,
+                      color: AppPalette.deepBlue,
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                displayEmail,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppPalette.mutedText,
+                ),
+              ),
+              if (displayPhone.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  displayPhone,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppPalette.mutedText,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 2),
+              Text(
+                _formatLanguageLabel(l10n, displayLanguage),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppPalette.mutedText,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -2788,6 +4445,9 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                           DropdownMenuItem(
                               value: 'el',
                               child: Text(_formatLanguageLabel(l10n, 'el'))),
+                          DropdownMenuItem(
+                              value: 'pa',
+                              child: Text(_formatLanguageLabel(l10n, 'pa'))),
                         ],
                         onChanged: (value) {
                           if (value != null) {
@@ -2872,6 +4532,20 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     );
   }
 
+  void _showFeedbackForm() {
+    final visitor = VisitorAuth.currentVisitor;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FeedbackFormScreen(
+          reporterRole: 'visitor',
+          reporterName: visitor?.name ?? 'Guest Visitor',
+          reporterEmail: visitor?.email ?? '',
+        ),
+      ),
+    );
+  }
+
   Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -2928,340 +4602,198 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                 : 16.0;
 
         final l10n = AppLocalizations.of(context)!;
+        const maxContentWidth = 1080.0;
 
-        return ListView(
-          padding: EdgeInsets.fromLTRB(
-            horizontalPadding,
-            isProfileDesktop ? 32 : 20,
-            horizontalPadding,
-            36,
-          ),
-          children: [
-            _buildSectionLabel(l10n.profileInfo),
-            Card(
-              color: AppPalette.surface.withValues(alpha: 0.88),
-              elevation: 4,
-              shadowColor: AppPalette.cardShadow,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side:
-                    BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: maxContentWidth),
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                isProfileDesktop ? 32 : 20,
+                horizontalPadding,
+                36,
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
+              children: [
+                _buildSectionLabel(l10n.profileInfo),
+                _buildProfileInfoCard(
+                  visitor: visitor,
+                  displayName: displayName,
+                  displayEmail: displayEmail,
+                  displayPhone: displayPhone,
+                  displayLanguage: displayLanguage,
+                  profileImage: profileImage,
+                  l10n: l10n,
+                ),
+                const SizedBox(height: 24),
+                _buildSectionLabel('Account'),
+                _buildSettingsCard(
                   children: [
-                    GestureDetector(
-                      onTap:
-                          visitor != null ? _uploadVisitorProfileImage : null,
-                      child: Stack(
-                        alignment: Alignment.bottomRight,
-                        children: [
-                          CircleAvatar(
-                            radius: 42,
-                            backgroundColor: AppPalette.deepBlue,
-                            backgroundImage: profileImage,
-                            child: profileImage == null
-                                ? const Icon(
-                                    Icons.person_rounded,
-                                    color: Colors.white,
-                                    size: 42,
-                                  )
-                                : null,
-                          ),
-                          if (visitor != null)
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: AppPalette.ochre,
-                                shape: BoxShape.circle,
-                                border:
-                                    Border.all(color: Colors.white, width: 2.5),
-                              ),
-                              child: const Icon(
-                                Icons.camera_alt_rounded,
-                                color: Colors.white,
-                                size: 16,
-                              ),
-                            ),
-                        ],
+                    _buildSettingsTile(
+                      leading: _buildEmojiIcon('🌏', const Color(0xFFE0F2FE)),
+                      title: l10n.language,
+                      subtitle: _formatLanguageLabel(l10n, displayLanguage),
+                      onTap: () => _showEditProfileSheet(
+                        displayName,
+                        displayEmail,
+                        displayPhone,
+                        displayLanguage,
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  displayName,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppPalette.charcoal,
-                                  ),
-                                ),
-                              ),
-                              if (visitor == null)
-                                IconButton(
-                                  tooltip: l10n.signOut,
-                                  onPressed: _confirmLogout,
-                                  icon: Icon(
-                                    Icons.logout_rounded,
-                                    color: Colors.red.shade700,
-                                    size: 20,
-                                  ),
-                                )
-                              else
-                                IconButton(
-                                  tooltip: l10n.editProfile,
-                                  onPressed: () => _showEditProfileSheet(
-                                    displayName,
-                                    displayEmail,
-                                    displayPhone,
-                                    displayLanguage,
-                                  ),
-                                  icon: const Icon(
-                                    Icons.edit_rounded,
-                                    color: AppPalette.deepBlue,
-                                    size: 20,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            displayEmail,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppPalette.mutedText,
-                            ),
-                          ),
-                          if (displayPhone.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              displayPhone,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: AppPalette.mutedText,
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 2),
-                          Text(
-                            _formatLanguageLabel(l10n, displayLanguage),
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppPalette.mutedText,
-                            ),
-                          ),
-                        ],
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    _buildSettingsTile(
+                      leading: _buildEmojiIcon('📍', const Color(0xFFFEE2E2)),
+                      title: l10n.locationRadius,
+                      subtitle: l10n.setHowFarRecommendations,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const VisitorSettingsScreen(),
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    _buildSettingsTile(
+                      leading: _buildEmojiIcon('🎨', const Color(0xFFF3E8FF)),
+                      title: l10n.appearanceSettings,
+                      subtitle: l10n.themeTextSizeFeedback,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const AppearanceSettingsScreen.visitor(),
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildSectionLabel(l10n.preferences),
-            Card(
-              color: AppPalette.surface.withValues(alpha: 0.88),
-              elevation: 4,
-              shadowColor: AppPalette.cardShadow,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side:
-                    BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
-              ),
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(
-                      Icons.language_outlined,
-                      color: AppPalette.deepBlue,
+                const SizedBox(height: 24),
+                _buildSectionLabel('Support'),
+                _buildSettingsCard(
+                  children: [
+                    _buildSettingsTile(
+                      leading: _buildEmojiIcon('💬', const Color(0xFFD1FAE5)),
+                      title: 'Send App Feedback',
+                      subtitle:
+                          'Report bugs, misleading information, or improvement suggestions.',
+                      onTap: () => _showFeedbackForm(),
                     ),
-                    title: Text(
-                      l10n.language,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: Text(_formatLanguageLabel(l10n, displayLanguage)),
-                    trailing: const Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppPalette.mutedText,
-                    ),
-                    onTap: () => _showEditProfileSheet(
-                      displayName,
-                      displayEmail,
-                      displayPhone,
-                      displayLanguage,
-                    ),
-                  ),
-                  const Divider(height: 1, indent: 16, endIndent: 16),
-                  ListTile(
-                    leading: const Icon(
-                      Icons.pin_drop_outlined,
-                      color: AppPalette.deepBlue,
-                    ),
-                    title: Text(
-                      l10n.locationRadius,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: Text(l10n.setHowFarRecommendations),
-                    trailing: const Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppPalette.mutedText,
-                    ),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const VisitorSettingsScreen(),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    _buildSettingsTile(
+                      leading: _buildEmojiIcon('📥', const Color(0xFFDBEAFE)),
+                      title: l10n.myFeedback,
+                      subtitle: l10n.viewSubmittedFeedback,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MyFeedbackScreen(
+                            reporterEmail: displayEmail,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                  const Divider(height: 1, indent: 16, endIndent: 16),
-                  ListTile(
-                    leading: const Icon(
-                      Icons.palette_outlined,
-                      color: AppPalette.deepBlue,
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    _buildSettingsTile(
+                      leading: _buildEmojiIcon('❓', const Color(0xFFFEF3C7)),
+                      title: 'Help Centre',
+                      subtitle: 'FAQs, contact us & app info',
+                      onTap: () => _showHelpSupport(context),
                     ),
-                    title: Text(
-                      l10n.appearanceSettings,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    _buildSettingsTile(
+                      leading: _buildEmojiIcon('📄', const Color(0xFFE0E7FF)),
+                      title: 'Privacy Policy',
+                      subtitle: 'How we handle your data',
+                      onTap: _showPrivacyPolicy,
                     ),
-                    subtitle: Text(l10n.themeTextSizeFeedback),
-                    trailing: const Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppPalette.mutedText,
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    _buildSettingsTile(
+                      leading: _buildEmojiIcon('📜', const Color(0xFFFFF7ED)),
+                      title: 'Terms of Service',
+                      subtitle: 'Rules for using the app',
+                      onTap: _showTermsOfService,
                     ),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            const AppearanceSettingsScreen.visitor(),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                _buildSectionLabel('About'),
+                _buildSettingsCard(
+                  children: [
+                    _buildSettingsTile(
+                      leading: _buildEmojiIcon('🔖', const Color(0xFFF3F4F6)),
+                      title: 'Version',
+                      subtitle: '1.0.0',
+                      showChevron: false,
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    _buildSettingsTile(
+                      leading: _buildEmojiIcon('📚', const Color(0xFFF3F4F6)),
+                      title: 'Licences',
+                      subtitle: 'Open-source software notices',
+                      onTap: _showLicences,
+                    ),
+                  ],
+                ),
+                // Admin Portal Link (only for admin users)
+                if (AdminAuth.isAdminLoggedIn) ...[
+                  const SizedBox(height: 24),
+                  _buildSectionLabel('Admin'),
+                  _buildSettingsCard(
+                    children: [
+                      _buildSettingsTile(
+                        leading: _buildEmojiIcon('⚙️', const Color(0xFFE0E7FF)),
+                        title: 'Admin Portal',
+                        subtitle: 'Manage users, businesses & analytics',
+                        onTap: () {
+                          Navigator.of(context).pushNamedAndRemoveUntil(
+                            '/admin/dashboard',
+                            (route) => false,
+                          );
+                        },
                       ),
+                    ],
+                  ),
+                ],
+                if (visitor != null) ...[
+                  const SizedBox(height: 24),
+                  _buildSectionLabel(l10n.signOut),
+                  Card(
+                    color: AppPalette.surface,
+                    elevation: 8,
+                    shadowColor: Colors.black.withValues(alpha: 0.12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: AppPalette.border),
+                    ),
+                    child: ListTile(
+                      leading: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.logout_rounded,
+                          color: Colors.red.shade700,
+                          size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        l10n.signOut,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red.shade700,
+                        ),
+                      ),
+                      subtitle: Text(l10n.returnWelcome),
+                      onTap: _confirmLogout,
                     ),
                   ),
                 ],
-              ),
+              ],
             ),
-            const SizedBox(height: 24),
-            _buildSectionLabel(l10n.feedback),
-            Card(
-              color: AppPalette.surface.withValues(alpha: 0.88),
-              elevation: 4,
-              shadowColor: AppPalette.cardShadow,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side:
-                    BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
-              ),
-              child: ListTile(
-                leading: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: AppPalette.deepBlue.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.inbox_rounded,
-                    color: AppPalette.deepBlue,
-                    size: 20,
-                  ),
-                ),
-                title: Text(
-                  l10n.myFeedback,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: Text(
-                  l10n.viewSubmittedFeedback,
-                ),
-                trailing: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppPalette.mutedText,
-                ),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MyFeedbackScreen(
-                      reporterEmail: displayEmail,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildSectionLabel(l10n.helpAndSupport),
-            Card(
-              color: AppPalette.surface.withValues(alpha: 0.88),
-              elevation: 4,
-              shadowColor: AppPalette.cardShadow,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side:
-                    BorderSide(color: AppPalette.border.withValues(alpha: 0.5)),
-              ),
-              child: ListTile(
-                leading: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: AppPalette.ochre.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.help_outline_rounded,
-                      color: AppPalette.ochre, size: 20),
-                ),
-                title: Text(
-                  l10n.helpAndSupport,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: Text(l10n.faqsContactAppInfo),
-                trailing: const Icon(Icons.chevron_right_rounded, size: 20),
-                onTap: () => _showHelpSupport(context),
-              ),
-            ),
-            if (visitor != null) ...[
-              const SizedBox(height: 24),
-              _buildSectionLabel(l10n.signOut),
-              Card(
-                color: AppPalette.surface.withValues(alpha: 0.88),
-                elevation: 4,
-                shadowColor: AppPalette.cardShadow,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(
-                      color: AppPalette.border.withValues(alpha: 0.5)),
-                ),
-                child: ListTile(
-                  leading: Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.logout_rounded,
-                      color: Colors.red.shade700,
-                      size: 20,
-                    ),
-                  ),
-                  title: Text(
-                    l10n.signOut,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: Colors.red.shade700,
-                    ),
-                  ),
-                  subtitle: Text(l10n.returnWelcome),
-                  onTap: _confirmLogout,
-                ),
-              ),
-            ],
-          ],
+          ),
         );
       },
     );
@@ -3284,73 +4816,59 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   }
 
   Widget _kangarooBackground(String assetPath, Widget child) {
-    return Stack(
-      children: [
-        const Positioned.fill(
-          child: ColoredBox(color: AppPalette.background),
-        ),
-        Positioned.fill(
-          child: SafeArea(
-            // Add bottom padding equal to the bottom nav height so the last
-            // list items are not hidden behind the navigation bar.
-            bottom: false,
-            child: child,
-          ),
-        ),
-      ],
-    );
+    return SafeArea(child: child);
   }
 
-  Widget _buildWebCityBanner() {
-    if (!kIsWeb) return const SizedBox.shrink();
-    return SizedBox(
-      width: double.infinity,
-      height: 140,
-      child: Stack(
-        fit: StackFit.expand,
+  Widget _buildWeatherChip() {
+    if (_weatherLoading) {
+      return const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: Colors.white,
+        ),
+      );
+    }
+
+    if (_weatherError != null || _weather == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Image.asset(
-            'assets/Brisbane banner.webp',
-            fit: BoxFit.cover,
-          ),
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.25),
-                  Colors.black.withValues(alpha: 0.55),
-                ],
-              ),
+          Image.network(
+            _weather!.iconUrl,
+            width: 32,
+            height: 32,
+            errorBuilder: (_, __, ___) => const Icon(
+              Icons.wb_sunny_rounded,
+              color: Colors.white,
+              size: 20,
             ),
           ),
-          Positioned(
-            left: 16,
-            bottom: 16,
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.location_city_rounded,
-                  color: AppPalette.ochre,
-                  size: 22,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Brisbane City',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.95),
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.6,
-                    shadows: const [
-                      Shadow(
-                        color: Colors.black54,
-                        offset: Offset(0, 1),
-                        blurRadius: 4,
-                      ),
-                    ],
-                  ),
+          const SizedBox(width: 2),
+          Text(
+            '${_weather!.temperature.round()}°C',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              shadows: [
+                Shadow(
+                  color: Colors.black54,
+                  offset: Offset(0, 1),
+                  blurRadius: 4,
                 ),
               ],
             ),
@@ -3378,7 +4896,6 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                   preferredSize: const Size.fromHeight(76),
                   child: DesktopTopAppBar(
                     title: AppLocalizations.of(context)!.appTitle,
-                    subtitle: AppLocalizations.of(context)!.discoverSubtitle,
                     searchController: _searchController,
                     searchHint:
                         AppLocalizations.of(context)!.searchHintLocalFood,
@@ -3399,6 +4916,13 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                     userName: VisitorAuth.currentVisitor?.name ??
                         AppLocalizations.of(context)!.guestVisitor,
                     userEmail: VisitorAuth.currentVisitor?.email,
+                    notificationBell: VisitorNotificationBell(
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        '/visitor/notifications',
+                      ),
+                      iconColor: AppPalette.charcoal,
+                    ),
                   ),
                 )
               : isDiscover
@@ -3415,12 +4939,26 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
                       backgroundColor: AppPalette.background,
                       foregroundColor: AppPalette.charcoal,
                       elevation: 0,
+                      actions: [
+                        VisitorNotificationBell(
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            '/visitor/notifications',
+                          ),
+                          iconColor: AppPalette.charcoal,
+                        ),
+                      ],
                     ),
-          body: Column(
+          body: Stack(
+            fit: StackFit.expand,
             children: [
-              _buildWebCityBanner(),
-              Expanded(
-                child: isDesktop ? _buildDesktopBody() : _buildMobileBody(),
+              if (_selectedIndex != 2) const FoodRainBackground(),
+              Column(
+                children: [
+                  Expanded(
+                    child: isDesktop ? _buildDesktopBody() : _buildMobileBody(),
+                  ),
+                ],
               ),
             ],
           ),
@@ -3580,6 +5118,10 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
     ];
   }
 
+  Widget _buildDiscoverBody() {
+    return _buildDiscoverContent();
+  }
+
   Widget _buildBottomNav() {
     final l10n = AppLocalizations.of(context)!;
     return ValueListenableBuilder<bool>(
@@ -3694,6 +5236,240 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen> {
   }
 }
 
+/// Animated food-themed background pattern used behind visitor portal tabs.
+///
+/// Food icons gently drift downward in a continuous loop, filling whitespace
+/// without distracting from the page content.
+/// The Map tab is deliberately excluded because it shows its own map tiles.
+class FoodPatternBackground extends StatefulWidget {
+  const FoodPatternBackground({super.key});
+
+  static const foodEmojis = [
+    '🍕', '🍔', '🍟', '🌭', '🍿', '�', '🥚', '🧇', '🥞',
+    '🍞', '🥐', '🥨', '🥯', '🥖', '🧀', '🥗', '🥙', '🥪',
+    '🌮', '🌯', '🥫', '🍖', '🍗', '🥩', '🍠', '🥟', '🥠',
+    '🍱', '🍘', '🍙', '🍚', '🍛', '🍜', '🦪', '🍣', '🍤',
+    '🍦', '🍧', '🍨', '🍩', '🍪', '🎂', '🍰', '🧁', '🥧',
+    '🍫', '🍬', '🍭', '🍮', '🍯', '🍎', '🍏', '🍐', '🍊',
+  ];
+
+  @override
+  State<FoodPatternBackground> createState() => _FoodPatternBackgroundState();
+}
+
+class _FoodPatternBackgroundState extends State<FoodPatternBackground>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 15),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = 5;
+            final cellWidth = constraints.maxWidth / columns;
+            final cellHeight = cellWidth;
+            final visibleRows = (constraints.maxHeight / cellHeight).ceil();
+            final rows = visibleRows + 2;
+            final totalHeight = rows * cellHeight;
+
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                const ColoredBox(color: AppPalette.background),
+                OverflowBox(
+                  maxWidth: constraints.maxWidth,
+                  maxHeight: totalHeight,
+                  alignment: Alignment.topCenter,
+                  child: Transform.translate(
+                    offset: Offset(0, _controller.value * cellHeight),
+                    child: SizedBox(
+                      width: constraints.maxWidth,
+                      height: totalHeight,
+                      child: Column(
+                        children: [
+                          for (var row = 0; row < rows; row++)
+                            Row(
+                              children: [
+                                for (var col = 0; col < columns; col++)
+                                  _buildTile(
+                                    index: row * columns + col,
+                                    size: cellWidth - 8,
+                                  ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildTile({required int index, required double size}) {
+    final emoji = FoodPatternBackground.foodEmojis[index % FoodPatternBackground.foodEmojis.length];
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Center(
+        child: Text(
+          emoji,
+          style: TextStyle(fontSize: size * 0.7),
+        ),
+      ),
+    );
+  }
+}
+
+/// Food emojis falling like rain.
+/// Each emoji is an independent positioned Text widget that animates
+/// from the top to the bottom of the screen on its own timer, so there
+/// is no large scrolling container that could be clipped or hidden.
+class FoodRainBackground extends StatefulWidget {
+  const FoodRainBackground({super.key});
+
+  @override
+  State<FoodRainBackground> createState() => _FoodRainBackgroundState();
+}
+
+class _FoodRainBackgroundState extends State<FoodRainBackground> {
+  static const _emojiCount = 40;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final random = Random(42);
+        final drops = <Widget>[
+          const Positioned.fill(
+            child: ColoredBox(color: AppPalette.background),
+          ),
+        ];
+
+        for (var i = 0; i < _emojiCount; i++) {
+          final size = 72.0 + random.nextDouble() * 72.0;
+          final left = random.nextDouble() * (constraints.maxWidth - size);
+          final durationSeconds = 4.0 + random.nextDouble() * 6.0;
+          final delaySeconds = random.nextDouble() * 8.0;
+          final emojiIndex = random.nextInt(FoodPatternBackground.foodEmojis.length);
+
+          drops.add(
+            _FallingEmoji(
+              emoji: FoodPatternBackground.foodEmojis[emojiIndex],
+              size: size,
+              left: left,
+              viewportHeight: constraints.maxHeight,
+              durationSeconds: durationSeconds,
+              delaySeconds: delaySeconds,
+            ),
+          );
+        }
+
+        return Stack(
+          fit: StackFit.expand,
+          children: drops,
+        );
+      },
+    );
+  }
+}
+
+class _FallingEmoji extends StatefulWidget {
+  final String emoji;
+  final double size;
+  final double left;
+  final double viewportHeight;
+  final double durationSeconds;
+  final double delaySeconds;
+
+  const _FallingEmoji({
+    required this.emoji,
+    required this.size,
+    required this.left,
+    required this.viewportHeight,
+    required this.durationSeconds,
+    required this.delaySeconds,
+  });
+
+  @override
+  State<_FallingEmoji> createState() => _FallingEmojiState();
+}
+
+class _FallingEmojiState extends State<_FallingEmoji>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: (widget.durationSeconds * 1000).round()),
+    );
+
+    Future.delayed(Duration(milliseconds: (widget.delaySeconds * 1000).round()), () {
+      if (mounted) {
+        _controller.forward(from: 0).whenComplete(() {
+          if (mounted) {
+            _controller.repeat();
+          }
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final top = -widget.size + _controller.value * (widget.viewportHeight + widget.size * 2);
+        return Positioned(
+          left: widget.left,
+          top: top,
+          // Emoji glyphs render with fixed colors, so opacity is used to
+          // make them read as a subtle background instead of a loud overlay.
+          child: Opacity(
+            opacity: 0.14,
+            child: Text(
+              widget.emoji,
+              style: TextStyle(fontSize: widget.size),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _SectionHeader extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -3775,6 +5551,1037 @@ enum _VisitorFilterSection { events, historical, food, stadiums }
 
 enum _VisitorPriceFilter { free, paid }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Bento-grid homepage widgets
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _BentoTile extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  const _BentoTile({
+    required this.child,
+    this.padding = const EdgeInsets.all(18),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppPalette.ochre.withValues(alpha: 0.3),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.16),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
+            spreadRadius: -2,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: padding,
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _BentoSectionHeader extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+
+  const _BentoSectionHeader({
+    required this.title,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            color: AppPalette.charcoal,
+          ),
+        ),
+        if (subtitle != null && subtitle!.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            subtitle!,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AppPalette.mutedText,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Static featured-restaurant card used inside the auto-rotating carousel.
+class _FeaturedRestaurantCard extends StatelessWidget {
+  final Map<String, dynamic> item;
+
+  const _FeaturedRestaurantCard({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final title = (item['title'] as String? ?? 'Featured').trim();
+    final suburb = (item['suburb'] as String? ?? '').trim();
+    final location = (item['location'] as String? ?? '').trim();
+    final imageUrl = (item['imageUrl'] as String? ?? '').trim();
+    final categories = (item['categories'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .where((s) => s.isNotEmpty)
+            .toList(growable: false) ??
+        const <String>[];
+    final cuisine = categories.isNotEmpty ? categories.first : 'Food';
+    final rating = (item['rating'] as num?)?.toDouble() ?? 0.0;
+    final reviewCount = (item['reviewCount'] as num?)?.toInt() ?? 0;
+    final isVerified = (item['isVerified'] as bool?) ?? false;
+    final isFeatured = (item['isFeatured'] as bool?) ?? false;
+    final isPromoted = (item['isPromoted'] as bool?) ?? false;
+    final openStatus = _VisitorPortalHelper.getOpenStatus(item);
+
+    return GestureDetector(
+      onTap: () => _VisitorPortalHelper.openFoodDetails(context, item),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Stack(
+            children: [
+              AspectRatio(
+                aspectRatio: 16 / 10,
+                child: FallbackImage(
+                  imageUrl: imageUrl,
+                  category: 'food',
+                  fit: BoxFit.cover,
+                ),
+              ),
+              Positioned(
+                top: 14,
+                right: 14,
+                child: _FavoriteButton(item: item),
+              ),
+              if (openStatus != null)
+                Positioned(
+                  top: 14,
+                  left: 14,
+                  child: _OpenStatusBadge(status: openStatus),
+                ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 21,
+                          fontWeight: FontWeight.w800,
+                          color: AppPalette.charcoal,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (isFeatured || isPromoted) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppPalette.ochre.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.local_fire_department_rounded,
+                              color: AppPalette.ochre,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Featured',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppPalette.ochre,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (isVerified) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppPalette.deepBlue.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.verified_rounded,
+                              color: AppPalette.deepBlue,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Verified',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppPalette.deepBlue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.star_rounded,
+                        color: AppPalette.gold, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      rating.toStringAsFixed(1),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppPalette.charcoal,
+                      ),
+                    ),
+                    Text(
+                      ' · $reviewCount reviews · $cuisine',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppPalette.mutedText,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on_rounded,
+                        size: 14, color: AppPalette.mutedText),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        location.isNotEmpty ? location : suburb,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppPalette.mutedText,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FavoriteButton extends StatefulWidget {
+  final Map<String, dynamic> item;
+
+  const _FavoriteButton({required this.item});
+
+  @override
+  State<_FavoriteButton> createState() => _FavoriteButtonState();
+}
+
+class _FavoriteButtonState extends State<_FavoriteButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _burstController;
+  late final Animation<double> _heartPulse;
+  final List<_HeartParticle> _particles = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _burstController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..addListener(() {
+        if (mounted) setState(() {});
+      });
+    _heartPulse = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.45), weight: 25),
+      TweenSequenceItem(tween: Tween(begin: 1.45, end: 1.0), weight: 35),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.15), weight: 25),
+      TweenSequenceItem(tween: Tween(begin: 1.15, end: 1.0), weight: 15),
+    ]).animate(
+      CurvedAnimation(parent: _burstController, curve: Curves.easeOutCubic),
+    );
+  }
+
+  @override
+  void dispose() {
+    _burstController.dispose();
+    super.dispose();
+  }
+
+  void _triggerBurst() {
+    final random = Random();
+    _particles.clear();
+    const particleCount = 18;
+    for (var i = 0; i < particleCount; i++) {
+      _particles.add(
+        _HeartParticle(
+          index: i,
+          total: particleCount,
+          random: random,
+        ),
+      );
+    }
+    _burstController.forward(from: 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final id = (widget.item['id'] as String? ?? '').trim();
+    final isFavorite = VisitorAuth.isBusinessSaved(id);
+
+    return Material(
+      color: Colors.white.withValues(alpha: 0.95),
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          if (!isFavorite) _triggerBurst();
+          VisitorAuth.toggleSavedBusiness(id);
+        },
+        child: Container(
+          width: 42,
+          height: 42,
+          alignment: Alignment.center,
+          child: Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              Transform.scale(
+                scale: _heartPulse.value,
+                child: Icon(
+                  isFavorite
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                  color: AppPalette.ochre,
+                  size: 22,
+                ),
+              ),
+              ..._particles.map((particle) {
+                return AnimatedBuilder(
+                  animation: _burstController,
+                  builder: (_, __) {
+                    final t = _burstController.value;
+                    final easeOut = Curves.easeOut.transform(t);
+                    final opacity = t < 0.65 ? 1.0 : 1.0 - ((t - 0.65) / 0.35);
+                    final alpha = opacity.clamp(0, 1).toDouble();
+                    final scale = t < 0.25
+                        ? 0.5 + (t / 0.25) * 0.8
+                        : 1.3 - ((t - 0.25) / 0.75) * 0.6;
+                    return Positioned(
+                      left: 21 + particle.dx * easeOut * particle.distance,
+                      top: 21 + particle.dy * easeOut * particle.distance,
+                      child: Opacity(
+                        opacity: alpha,
+                        child: Transform.rotate(
+                          angle: particle.rotation * t,
+                          child: Transform.scale(
+                            scale: scale.clamp(0.4, 1.5),
+                            child: Icon(
+                              Icons.favorite_rounded,
+                              color: particle.color.withValues(alpha: alpha),
+                              size: particle.size,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeartParticle {
+  static const _colors = [
+    AppPalette.ochre,
+    Color(0xFFFF4D6D),
+    Color(0xFFFF758F),
+    Color(0xFFFF8FA3),
+    Color(0xFFFFB3C1),
+  ];
+
+  final double dx;
+  final double dy;
+  final double rotation;
+  final double size;
+  final double distance;
+  final Color color;
+
+  _HeartParticle({
+    required int index,
+    required int total,
+    required Random random,
+  })  : size = 10 + random.nextDouble() * 9,
+        distance = 38 + random.nextDouble() * 34,
+        rotation =
+            (random.nextBool() ? 1 : -1) * (0.4 + random.nextDouble() * 1.2),
+        color = _colors[index % _colors.length],
+        dx = cos(index * 2 * pi / total + (random.nextDouble() - 0.5) * 0.35),
+        dy = sin(index * 2 * pi / total + (random.nextDouble() - 0.5) * 0.35);
+}
+
+class _OpenStatusBadge extends StatelessWidget {
+  final ({bool isOpen, String label}) status;
+
+  const _OpenStatusBadge({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color:
+            status.isOpen ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+        borderRadius: BorderRadius.circular(99),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        status.label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _NearbyRow extends StatelessWidget {
+  final Map<String, dynamic> item;
+  final String? distance;
+  final VoidCallback onTap;
+
+  const _NearbyRow({
+    required this.item,
+    required this.distance,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final title = (item['title'] as String? ?? '').trim();
+    final suburb = (item['suburb'] as String? ?? '').trim();
+    final location = (item['location'] as String? ?? '').trim();
+    final isFeatured = (item['isFeatured'] as bool?) ?? false;
+    final isPromoted = (item['isPromoted'] as bool?) ?? false;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: 64,
+                  height: 64,
+                  child: FallbackImage(
+                    imageUrl: (item['imageUrl'] as String? ?? '').trim(),
+                    category: 'food',
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppPalette.charcoal,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isFeatured || isPromoted) ...[
+                          const SizedBox(width: 6),
+                          Icon(
+                            Icons.local_fire_department_rounded,
+                            color: AppPalette.ochre,
+                            size: 14,
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      suburb.isNotEmpty ? suburb : location,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppPalette.mutedText,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (distance != null)
+                Text(
+                  distance!,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppPalette.ochre,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TrendingRow extends StatelessWidget {
+  final Map<String, dynamic> item;
+  final VoidCallback onTap;
+  final int? rank;
+
+  const _TrendingRow({
+    required this.item,
+    required this.onTap,
+    this.rank,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final title = (item['title'] as String? ?? '').trim();
+    final suburb = (item['suburb'] as String? ?? '').trim();
+    final location = (item['location'] as String? ?? '').trim();
+    final rating = (item['rating'] as num?)?.toDouble() ?? 0.0;
+    final isFeatured = (item['isFeatured'] as bool?) ?? false;
+    final isPromoted = (item['isPromoted'] as bool?) ?? false;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+          child: Row(
+            children: [
+              if (rank != null) ...[
+                Container(
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppPalette.surface,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$rank',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: AppPalette.charcoal,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: 52,
+                  height: 52,
+                  child: FallbackImage(
+                    imageUrl: (item['imageUrl'] as String? ?? '').trim(),
+                    category: 'food',
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppPalette.charcoal,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isFeatured || isPromoted) ...[
+                          const SizedBox(width: 6),
+                          Icon(
+                            Icons.local_fire_department_rounded,
+                            color: AppPalette.ochre,
+                            size: 14,
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      location.isNotEmpty ? location : suburb,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppPalette.mutedText,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.only(left: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.star_rounded,
+                        color: AppPalette.gold, size: 14),
+                    const SizedBox(width: 3),
+                    Text(
+                      rating.toStringAsFixed(1),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppPalette.charcoal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CompactMetaRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _CompactMetaRow({
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 15, color: AppPalette.mutedText),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AppPalette.mutedText.withValues(alpha: 0.9),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CategoryTile extends StatelessWidget {
+  final String label;
+  final Color color;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _CategoryTile({
+    required this.label,
+    required this.color,
+    required this.onTap,
+    this.isSelected = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: isSelected ? color.withValues(alpha: 0.12) : AppPalette.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? color : Colors.transparent,
+              width: 1.5,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: isSelected ? color : AppPalette.charcoal,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact horizontally-scrollable cuisine pill for the bento category
+/// section on mobile.
+class _CuisinePill extends StatelessWidget {
+  final String label;
+  final Color color;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _CuisinePill({
+    required this.label,
+    required this.color,
+    required this.onTap,
+    this.isSelected = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: isSelected ? color.withValues(alpha: 0.12) : Colors.white,
+      borderRadius: BorderRadius.circular(99),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(99),
+        child: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(99),
+            border: Border.all(
+              color: isSelected ? color : AppPalette.border.withValues(alpha: 0.6),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: isSelected ? color : AppPalette.charcoal,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Auto-rotating horizontal carousel with manual swipe, arrow controls,
+/// page indicator dots, and pause-on-interaction behaviour.
+class _AutoRotatingCarousel extends StatefulWidget {
+  final List<Map<String, dynamic>> items;
+  final Widget Function(Map<String, dynamic>) cardBuilder;
+  final void Function(Map<String, dynamic>) onCardTap;
+  final Duration autoRotateInterval;
+  final Duration inactivityResumeDelay;
+  final Color borderColor;
+
+  const _AutoRotatingCarousel({
+    required this.items,
+    required this.cardBuilder,
+    required this.onCardTap,
+    this.autoRotateInterval = const Duration(seconds: 5),
+    this.inactivityResumeDelay = const Duration(seconds: 5),
+    this.borderColor = AppPalette.border,
+  });
+
+  @override
+  State<_AutoRotatingCarousel> createState() => _AutoRotatingCarouselState();
+}
+
+class _AutoRotatingCarouselState extends State<_AutoRotatingCarousel> {
+  late final PageController _pageController;
+  Timer? _autoRotateTimer;
+  Timer? _resumeTimer;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _startAutoRotate();
+  }
+
+  @override
+  void dispose() {
+    _autoRotateTimer?.cancel();
+    _resumeTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _startAutoRotate() {
+    _autoRotateTimer?.cancel();
+    _autoRotateTimer = Timer.periodic(widget.autoRotateInterval, (_) {
+      if (!mounted || widget.items.length <= 1) return;
+      final nextPage = (_currentPage + 1) % widget.items.length;
+      _pageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  void _pauseAutoRotate() {
+    _autoRotateTimer?.cancel();
+    _resumeTimer?.cancel();
+    _resumeTimer = Timer(widget.inactivityResumeDelay, () {
+      if (mounted) _startAutoRotate();
+    });
+  }
+
+  void _goToPage(int page) {
+    _pauseAutoRotate();
+    _pageController.animateToPage(
+      page,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.items.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: widget.borderColor,
+          width: 4,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.20),
+            blurRadius: 32,
+            offset: const Offset(0, 14),
+            spreadRadius: -2,
+          ),
+          BoxShadow(
+            color: widget.borderColor.withValues(alpha: 0.18),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isMobile = ResponsiveUtils.isMobile(context);
+                final aspectRatio = isMobile ? 16 / 15 : 16 / 13;
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    AspectRatio(
+                      aspectRatio: aspectRatio,
+                      child: PageView.builder(
+                        controller: _pageController,
+                        itemCount: widget.items.length,
+                        onPageChanged: (index) {
+                          setState(() => _currentPage = index);
+                        },
+                        itemBuilder: (context, index) {
+                          return GestureDetector(
+                            onTap: () => widget.onCardTap(widget.items[index]),
+                            onHorizontalDragStart: (_) => _pauseAutoRotate(),
+                            onHorizontalDragEnd: (_) => _pauseAutoRotate(),
+                            child: widget.cardBuilder(widget.items[index]),
+                          );
+                        },
+                      ),
+                    ),
+                    // Left arrow.
+                Positioned(
+                  left: 8,
+                  child: _CarouselArrow(
+                    icon: Icons.chevron_left_rounded,
+                    onTap: () => _goToPage(
+                      (_currentPage - 1 + widget.items.length) %
+                          widget.items.length,
+                    ),
+                  ),
+                ),
+                // Right arrow.
+                Positioned(
+                  right: 8,
+                  child: _CarouselArrow(
+                    icon: Icons.chevron_right_rounded,
+                    onTap: () => _goToPage(
+                      (_currentPage + 1) % widget.items.length,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        // Page indicator dots.
+            Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(widget.items.length, (index) {
+                  final isActive = index == _currentPage;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: isActive ? 18 : 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: isActive ? AppPalette.ochre : AppPalette.border,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CarouselArrow extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _CarouselArrow({
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.9),
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          width: 36,
+          height: 36,
+          alignment: Alignment.center,
+          child: Icon(icon, color: AppPalette.charcoal, size: 22),
+        ),
+      ),
+    );
+  }
+}
+
 class _CategoryChip extends StatelessWidget {
   final String label;
   final String emoji;
@@ -3833,6 +6640,13 @@ class _CategoryChip extends StatelessWidget {
   }
 }
 
+class _QuickCategory {
+  final String label;
+  final String emoji;
+
+  const _QuickCategory({required this.label, required this.emoji});
+}
+
 class _RecommendedFoodAllScreen extends StatelessWidget {
   const _RecommendedFoodAllScreen({
     required this.items,
@@ -3851,7 +6665,7 @@ class _RecommendedFoodAllScreen extends StatelessWidget {
         elevation: 0,
         iconTheme: const IconThemeData(color: AppPalette.charcoal),
         title: const Text(
-          'Recommended For You',
+          'Trending This Week',
           style: TextStyle(
             color: AppPalette.charcoal,
             fontWeight: FontWeight.w800,
@@ -3866,8 +6680,11 @@ class _RecommendedFoodAllScreen extends StatelessWidget {
           final imageUrl = (item['imageUrl'] as String? ?? '').trim();
           final title = (item['title'] as String? ?? 'Food').trim();
           final location = (item['location'] as String? ?? '').trim();
+          final suburb = (item['suburb'] as String? ?? '').trim();
           final rating = (item['rating'] as num?)?.toDouble() ?? 0.0;
           final reviewCount = (item['reviewCount'] as num?)?.toInt() ?? 0;
+          final isVerified = (item['isVerified'] as bool?) ?? false;
+          final createdAt = item['createdAt'] as DateTime?;
 
           return Card(
             color: AppPalette.surface,
@@ -3897,15 +6714,27 @@ class _RecommendedFoodAllScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: AppPalette.charcoal,
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppPalette.charcoal,
+                                  ),
+                                ),
+                              ),
+                              if (isVerified)
+                                const Padding(
+                                  padding: EdgeInsets.only(left: 6),
+                                  child: Icon(Icons.verified_rounded,
+                                      size: 18, color: Color(0xFF047857)),
+                                ),
+                            ],
                           ),
                           const SizedBox(height: 4),
                           Row(
@@ -3925,14 +6754,25 @@ class _RecommendedFoodAllScreen extends StatelessWidget {
                               ),
                             ],
                           ),
-                          if (location.isNotEmpty)
+                          if (suburb.isNotEmpty || location.isNotEmpty)
                             Text(
-                              location,
+                              suburb.isNotEmpty ? suburb : location,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: AppPalette.mutedText,
+                              ),
+                            ),
+                          if (createdAt != null)
+                            Text(
+                              _VisitorPortalScreenState._formatCompactTimeAgo(
+                                  createdAt),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color:
+                                    AppPalette.mutedText.withValues(alpha: 0.8),
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                         ],

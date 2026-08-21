@@ -55,14 +55,19 @@ class _SplashScreenState extends State<SplashScreen>
     await Future.delayed(const Duration(milliseconds: 2800));
     if (!mounted) return;
 
-    // Do not redirect away from deep-link routes such as /terms-of-service
-    // or /privacy-policy; Flutter's onGenerateRoute already loaded the
-    // correct screen behind the splash.
+    // Do not redirect away from deep-link routes such as /terms-of-service,
+    // /privacy-policy, or the business/visitor/admin portals. On the web the
+    // initial route can be reported as '/' even when the browser URL is a
+    // deep link (e.g. /local/portal), so we also check the actual browser path.
     final routeName = ModalRoute.of(context)?.settings.name;
-    if (routeName != null &&
-        routeName != '/' &&
-        routeName != '/index.html' &&
-        routeName.isNotEmpty) {
+    final browserPath = Uri.base.path;
+    if ((routeName != null &&
+            routeName != '/' &&
+            routeName != '/index.html' &&
+            routeName.isNotEmpty) ||
+        (browserPath != '/' &&
+            browserPath != '/index.html' &&
+            browserPath.isNotEmpty)) {
       return;
     }
 

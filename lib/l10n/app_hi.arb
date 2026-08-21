@@ -243,7 +243,7 @@
       }
     }
   },
-  "categoryLabel": "श्रेणी: {category}",
+  "categoryLabel": "Category: {category}",
   "@categoryLabel": {
     "placeholders": {
       "category": {
@@ -251,7 +251,7 @@
       }
     }
   },
-  "severityLabel": "गंभीरता: {severity}",
+  "severityLabel": "Severity: {severity}",
   "@severityLabel": {
     "placeholders": {
       "severity": {
@@ -288,7 +288,7 @@
   "businessNotifications": "व्यावसायिक सूचनाएं",
   "about": "के बारे में",
   "aboutDescription": "ब्रिसकनेक्ट+ एक स्मार्ट सिटी गाइड है जो आगंतुकों और स्थानीय लोगों को घटनाओं की खोज करने, आकर्षणों का पता लगाने और उनके ब्रिस्बेन अनुभवों को एक कनेक्टेड प्लेटफॉर्म पर कैद करने में मदद करता है।",
-  "versionLabel": "संस्करण {version}",
+  "versionLabel": "Version {version}",
   "@versionLabel": {
     "placeholders": {
       "version": {
@@ -319,5 +319,34 @@
   "statusPending": "लंबित",
   "statusInProgress": "प्रगति पर है",
   "statusResolved": "हल किया",
-  "statusWontFix": "ठीक नहीं होगा"
+  "statusWontFix": "ठीक नहीं होगा",
+  "@@locale": "hi",
+  "languagePunjabi": "पंजाबी",
+  "foodBusinessDetails": "व्यवसाय विवरण",
+  "aboutThisFoodExperience": "इस भोजन अनुभव के बारे में",
+  "contactAndLinks": "संपर्क और लिंक",
+  "gallery": "गैलरी",
+  "menu": "मेनू",
+  "menuFallback": "मेनू",
+  "website": "वेबसाइट",
+  "orderOnline": "ऑनलाइन ऑर्डर करें",
+  "viewOnMap": "मानचित्र पर देखें",
+  "foodDiscoveryGuide": "खाद्य खोज मार्गदर्शिका",
+  "foodDiscoveryGuideHelper": "इस भोजनालय और इसकी खासियतों के बारे में आपके फ़ूड डिस्कवरी गाइड द्वारा दी गई जानकारी सुनने के लिए प्ले पर टैप करें।",
+  "stop": "रुकना",
+  "unableToStartNarration": "फ़ूड डिस्कवरी गाइड का वर्णन अभी शुरू नहीं किया जा सकता है।",
+  "unableToCallNumber": "इस नंबर पर अभी कॉल नहीं हो पा रही है।",
+  "foodSpotCannotBeShared": "इस खाने की जगह के बारे में अभी जानकारी साझा नहीं की जा सकती।",
+  "foodDescriptionIntro": "Step into {title}, a {cuisine} destination in the heart of {location}.",
+  "foodDescriptionRating": "स्थानीय लोगों और पर्यटकों द्वारा समान रूप से पसंद किया जाने वाला यह स्थान {rating}-स्टार रेटिंग रखता है।",
+  "foodDescriptionPrice": "Expect a {price} experience that balances quality and value.",
+  "foodNarrationWelcome": "Welcome to {title}",
+  "foodNarrationBadge": "This is a {badge} stop worth adding to your Brisbane food trail",
+  "foodNarrationCuisine": "It is best known for {cuisine}",
+  "foodNarrationLocation": "You will find it in {location}, where the local dining scene comes alive",
+  "foodNarrationDateTime": "You can usually visit during {dateTime}",
+  "foodNarrationDescription": "Here's what the experience feels like. {description}",
+  "foodNarrationPriceFree": "There is no entry cost to explore this food spot",
+  "foodNarrationPrice": "Pricing is listed as {price}",
+  "foodNarrationCategories": "Expect a mix of {categories}"
 }

@@ -14,6 +14,7 @@ class FallbackImage extends StatelessWidget {
   final BoxFit fit;
   final BorderRadiusGeometry? borderRadius;
   final String? category;
+  final ColorFilter? colorFilter;
 
   const FallbackImage({
     super.key,
@@ -23,6 +24,7 @@ class FallbackImage extends StatelessWidget {
     this.fit = BoxFit.cover,
     this.borderRadius,
     this.category,
+    this.colorFilter,
   });
 
   @override
@@ -36,18 +38,57 @@ class FallbackImage extends StatelessWidget {
       return _wrap(_placeholder);
     }
 
-    return _wrap(
-      CachedNetworkImage(
-        imageUrl: url,
-        width: width,
-        height: height,
-        fit: fit,
-        fadeInDuration: Duration.zero,
-        fadeOutDuration: Duration.zero,
-        placeholder: (_, __) => _loadingBox,
-        errorWidget: (_, __, ___) => _placeholder,
-      ),
+    final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 1.0;
+    final cacheWidth =
+        width != null && width!.isFinite ? (width! * dpr).toInt() : null;
+    final cacheHeight =
+        height != null && height!.isFinite ? (height! * dpr).toInt() : null;
+
+    Widget image = CachedNetworkImage(
+      imageUrl: url,
+      width: width,
+      height: height,
+      fit: fit,
+      fadeInDuration: Duration.zero,
+      fadeOutDuration: Duration.zero,
+      memCacheWidth: cacheWidth,
+      memCacheHeight: cacheHeight,
+      maxWidthDiskCache: cacheWidth ?? 1200,
+      maxHeightDiskCache: cacheHeight ?? 1200,
+      placeholder: (_, __) => _loadingBox,
+      errorWidget: (_, __, ___) => _placeholder,
     );
+
+    final effectiveFilter = colorFilter ?? _defaultColorFilter;
+    if (effectiveFilter != null) {
+      image = ColorFiltered(
+        colorFilter: effectiveFilter,
+        child: image,
+      );
+    }
+
+    return _wrap(image);
+  }
+
+  /// Makes food/restaurant images look richer and more appetising by boosting
+  /// saturation and contrast slightly.
+  static const _vividFoodFilter = ColorFilter.matrix([
+    // Saturation 1.3 + brightness lift for stronger, more visible colours.
+    1.2331, -0.2145, -0.0216, 0, 0.06,
+    -0.0639, 1.0855, -0.0216, 0, 0.06,
+    -0.0639, -0.2145, 1.2784, 0, 0.06,
+    0, 0, 0, 1, 0,
+  ]);
+
+  ColorFilter? get _defaultColorFilter {
+    final c = (category ?? '').toLowerCase();
+    if (c.contains('food') ||
+        c.contains('restaurant') ||
+        c.contains('cafe') ||
+        c.contains('dining')) {
+      return _vividFoodFilter;
+    }
+    return null;
   }
 
   Widget _wrap(Widget child) {

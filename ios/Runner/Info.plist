@@ -45,6 +45,8 @@
 	<string>BrisConnect uses your live location to track you on the map and show nearby events and venues.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>BrisConnect needs photo library access to choose your profile photo.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>BrisConnect+ saves your generated story image to the photo library so you can post it.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

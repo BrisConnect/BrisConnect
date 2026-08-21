@@ -64,6 +64,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0D1B3F),
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: const Color(0xFF0D1B3F),
         title: const LogoAppBarTitle('Admin Login'),
       ),

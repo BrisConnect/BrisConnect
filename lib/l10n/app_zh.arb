@@ -243,7 +243,7 @@
       }
     }
   },
-  "categoryLabel": "类别： {category}",
+  "categoryLabel": "Category: {category}",
   "@categoryLabel": {
     "placeholders": {
       "category": {
@@ -251,7 +251,7 @@
       }
     }
   },
-  "severityLabel": "严重性：{severity}",
+  "severityLabel": "Severity: {severity}",
   "@severityLabel": {
     "placeholders": {
       "severity": {
@@ -288,7 +288,7 @@
   "businessNotifications": "业务通知",
   "about": "关于",
   "aboutDescription": "BrisConnect+ 是一款智能城市指南，可帮助游客和当地人在一个互联平台上发现活动、探索景点并捕捉他们的布里斯班体验。",
-  "versionLabel": "版本 {version}",
+  "versionLabel": "Version {version}",
   "@versionLabel": {
     "placeholders": {
       "version": {
@@ -339,91 +339,125 @@
   "unableToCallNumber": "目前无法拨打此号码。",
   "unableToSendEmail": "目前无法发送邮件。",
   "foodSpotCannotBeShared": "目前无法分享此美食地点。",
-  "foodDescriptionIntro": "走进{title}，这是位于{location}中心的一家{cuisine}餐厅。",
+  "foodDescriptionIntro": "Step into {title}, a {cuisine} destination in the heart of {location}.",
   "@foodDescriptionIntro": {
     "placeholders": {
-      "title": {"type": "String"},
-      "cuisine": {"type": "String"},
-      "location": {"type": "String"}
+      "title": {
+        "type": "String"
+      },
+      "cuisine": {
+        "type": "String"
+      },
+      "location": {
+        "type": "String"
+      }
     }
   },
   "foodDescriptionRating": "深受当地居民和游客喜爱，评分为{rating}星。",
   "@foodDescriptionRating": {
     "placeholders": {
-      "rating": {"type": "String"}
+      "rating": {
+        "type": "String"
+      }
     }
   },
-  "foodDescriptionCategories": "菜单主打{categories}，采用新鲜的本地食材精心烹制。",
+  "foodDescriptionCategories": "The menu celebrates {categories}, crafted with fresh, locally sourced ingredients.",
   "@foodDescriptionCategories": {
     "placeholders": {
-      "categories": {"type": "String"}
+      "categories": {
+        "type": "String"
+      }
     }
   },
-  "foodDescriptionPrice": "期待一次物有所值的{price}体验。",
+  "foodDescriptionPrice": "Expect a {price} experience that balances quality and value.",
   "@foodDescriptionPrice": {
     "placeholders": {
-      "price": {"type": "String"}
+      "price": {
+        "type": "String"
+      }
     }
   },
   "foodDescriptionOutro": "无论是悠闲的早午餐、商务午餐还是热闹的晚餐，{title}都能为您提供温馨的氛围和体现布里斯班餐饮风情的美味。",
   "@foodDescriptionOutro": {
     "placeholders": {
-      "title": {"type": "String"}
+      "title": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationWelcome": "欢迎来到{title}",
+  "foodNarrationWelcome": "Welcome to {title}",
   "@foodNarrationWelcome": {
     "placeholders": {
-      "title": {"type": "String"}
+      "title": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationBadge": "这是一个值得加入布里斯班美食之旅的{badge}站点",
+  "foodNarrationBadge": "This is a {badge} stop worth adding to your Brisbane food trail",
   "@foodNarrationBadge": {
     "placeholders": {
-      "badge": {"type": "String"}
+      "badge": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationCuisine": "它以{cuisine}最为出名",
+  "foodNarrationCuisine": "It is best known for {cuisine}",
   "@foodNarrationCuisine": {
     "placeholders": {
-      "cuisine": {"type": "String"}
+      "cuisine": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationLocation": "您可以在{location}找到它，那里的当地餐饮氛围十分活跃",
+  "foodNarrationLocation": "You will find it in {location}, where the local dining scene comes alive",
   "@foodNarrationLocation": {
     "placeholders": {
-      "location": {"type": "String"}
+      "location": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationDateTime": "您通常可以在{dateTime}期间光临",
+  "foodNarrationDateTime": "You can usually visit during {dateTime}",
   "@foodNarrationDateTime": {
     "placeholders": {
-      "dateTime": {"type": "String"}
+      "dateTime": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationDescription": "以下是此体验的感受。{description}",
+  "foodNarrationDescription": "Here's what the experience feels like. {description}",
   "@foodNarrationDescription": {
     "placeholders": {
-      "description": {"type": "String"}
+      "description": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationPriceFree": "探索这个美食地点无需入场费用",
-  "foodNarrationPrice": "价格标注为{price}",
+  "foodNarrationPriceFree": "There is no entry cost to explore this food spot",
+  "foodNarrationPrice": "Pricing is listed as {price}",
   "@foodNarrationPrice": {
     "placeholders": {
-      "price": {"type": "String"}
+      "price": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationRating": "游客目前给它评分为{rating}分（满分5分）",
+  "foodNarrationRating": "Visitors currently rate it {rating} out of 5",
   "@foodNarrationRating": {
     "placeholders": {
-      "rating": {"type": "String"}
+      "rating": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationCategories": "可以品尝到{categories}等多种风味",
+  "foodNarrationCategories": "Expect a mix of {categories}",
   "@foodNarrationCategories": {
     "placeholders": {
-      "categories": {"type": "String"}
+      "categories": {
+        "type": "String"
+      }
     }
-  }
+  },
+  "@@locale": "zh",
+  "languagePunjabi": "旁遮普语"
 }

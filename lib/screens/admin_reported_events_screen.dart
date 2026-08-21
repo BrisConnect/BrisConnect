@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:brisconnect/auth/admin_auth.dart';
 import 'package:brisconnect/auth/app_user_role.dart';
 import 'package:brisconnect/models/moderation_action.dart';
 import 'package:brisconnect/services/admin_moderation_service.dart';
 import 'package:brisconnect/services/admin_user_management_service.dart';
 import 'package:brisconnect/services/report_event_service.dart';
 import 'package:brisconnect/theme/app_palette.dart';
+import 'package:brisconnect/utils/admin_utils.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
 
@@ -29,7 +29,8 @@ class AdminReportedEventsScreen extends StatefulWidget {
 }
 
 class _AdminReportedEventsScreenState extends State<AdminReportedEventsScreen> {
-  String _selectedStatusFilter = 'pending'; // 'pending', 'reviewing', 'resolved', 'dismissed'
+  String _selectedStatusFilter =
+      'pending'; // 'pending', 'reviewing', 'resolved', 'dismissed'
   String _selectedReasonFilter = 'all';
   DateTime? _selectedDateFrom;
   DateTime? _selectedDateTo;
@@ -51,15 +52,18 @@ class _AdminReportedEventsScreenState extends State<AdminReportedEventsScreen> {
   }
 
   void _updateStream() {
-    _reportsStream = widget.reportService.watchReportsByStatus(_selectedStatusFilter);
+    _reportsStream =
+        widget.reportService.watchReportsByStatus(_selectedStatusFilter);
   }
 
   List<EventReport> _applyLocalFilters(List<EventReport> reports) {
     return reports.where((report) {
-      if (_selectedReasonFilter != 'all' && report.reason != _selectedReasonFilter) {
+      if (_selectedReasonFilter != 'all' &&
+          report.reason != _selectedReasonFilter) {
         return false;
       }
-      if (_selectedSeverityFilter != 'all' && report.severity != _selectedSeverityFilter) {
+      if (_selectedSeverityFilter != 'all' &&
+          report.severity != _selectedSeverityFilter) {
         return false;
       }
       final from = _selectedDateFrom;
@@ -67,7 +71,8 @@ class _AdminReportedEventsScreenState extends State<AdminReportedEventsScreen> {
       if (from != null && report.createdAt.isBefore(from)) {
         return false;
       }
-      if (to != null && report.createdAt.isAfter(to.add(const Duration(days: 1)))) {
+      if (to != null &&
+          report.createdAt.isAfter(to.add(const Duration(days: 1)))) {
         return false;
       }
       return true;
@@ -105,6 +110,7 @@ class _AdminReportedEventsScreenState extends State<AdminReportedEventsScreen> {
     final screen = Scaffold(
       backgroundColor: AppPalette.background,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const LogoAppBarTitle('Reported Events'),
       ),
       body: Column(
@@ -180,32 +186,40 @@ class _AdminReportedEventsScreenState extends State<AdminReportedEventsScreen> {
                       value: _selectedReasonFilter,
                       hint: const Text('Reason'),
                       items: [
-                        const DropdownMenuItem(value: 'all', child: Text('All reasons')),
+                        const DropdownMenuItem(
+                            value: 'all', child: Text('All reasons')),
                         ...ReportEventService.reportReasons.map(
                           (reason) => DropdownMenuItem(
                             value: reason,
-                            child: Text(ReportEventService.getReasonLabel(reason)),
+                            child:
+                                Text(ReportEventService.getReasonLabel(reason)),
                           ),
                         ),
                       ],
                       onChanged: (value) {
-                        if (value != null) setState(() => _selectedReasonFilter = value);
+                        if (value != null) {
+                          setState(() => _selectedReasonFilter = value);
+                        }
                       },
                     ),
                     DropdownButton<String>(
                       value: _selectedSeverityFilter,
                       hint: const Text('Severity'),
                       items: [
-                        const DropdownMenuItem(value: 'all', child: Text('All severities')),
+                        const DropdownMenuItem(
+                            value: 'all', child: Text('All severities')),
                         ...ReportEventService.reportSeverities.map(
                           (severity) => DropdownMenuItem(
                             value: severity,
-                            child: Text(ReportEventService.getSeverityLabel(severity)),
+                            child: Text(
+                                ReportEventService.getSeverityLabel(severity)),
                           ),
                         ),
                       ],
                       onChanged: (value) {
-                        if (value != null) setState(() => _selectedSeverityFilter = value);
+                        if (value != null) {
+                          setState(() => _selectedSeverityFilter = value);
+                        }
                       },
                     ),
                     ActionChip(
@@ -319,60 +333,36 @@ String _formatDate(DateTime date) {
   return '${date.month}/${date.day}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
 }
 
-class _ReportCardState extends State<ReportCard> {
-  bool _isUpdating = false;
-
+class _ReportCardState extends State<ReportCard>
+    with AdminScreenMixin<ReportCard> {
   Future<void> _moderate(ModerationDecision decision) async {
-    if (_isUpdating) return;
+    if (isLoading) return;
 
-    final adminEmail = AdminAuth.currentAdminEmail ??
+    final adminEmail = AdminUtils.currentAdminEmail ??
         widget.moderationService.currentAdminEmail;
     if (adminEmail == null || adminEmail.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Admin email not available.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      showAdminSnack('Admin email not available.', isError: true);
       return;
     }
 
-    final reason = await _showReasonDialog(decision);
+    final reason = await _showModerationReasonDialog(decision);
     if (reason == null || reason.trim().isEmpty) return;
 
-    setState(() => _isUpdating = true);
-    try {
-      await widget.moderationService.moderateEventReport(
-        reportId: widget.report.id,
-        decision: decision,
-        adminEmail: adminEmail,
-        reason: reason.trim(),
-      );
-      widget.onStatusChanged();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Report ${decision.label.toLowerCase()}')),
+    await runAdminAction(
+      () async {
+        await widget.moderationService.moderateEventReport(
+          reportId: widget.report.id,
+          decision: decision,
+          adminEmail: adminEmail,
+          reason: reason.trim(),
         );
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Action failed: $error'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isUpdating = false);
-    }
+        widget.onStatusChanged();
+      },
+      success: 'Report ${decision.label.toLowerCase()}',
+    );
   }
 
-  Future<String?> _showReasonDialog(ModerationDecision decision) async {
-    final controller = TextEditingController();
+  Future<String?> _showModerationReasonDialog(ModerationDecision decision) {
     final title = decision == ModerationDecision.dismiss
         ? 'Dismiss report'
         : '${decision.label} report';
@@ -380,107 +370,68 @@ class _ReportCardState extends State<ReportCard> {
         ? 'Reason for dismissing the report'
         : 'Reason for ${decision.label.toLowerCase()}';
 
-    if (!mounted) return null;
-
-    return showDialog<String>(
-      context: context,
+    return AdminUtils.showReasonDialog(
+      context,
+      title: title,
+      hintText: hint,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          maxLines: 3,
-          decoration: InputDecoration(
-            hintText: hint,
-            border: const OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Confirm'),
-          ),
-        ],
-      ),
     );
   }
 
   Future<void> _warnUser() async {
-    final adminEmail = AdminAuth.currentAdminEmail;
+    final adminEmail = AdminUtils.currentAdminEmail;
     if (adminEmail == null || adminEmail.isEmpty) {
-      _showSnack('Admin email not available.', isError: true);
+      showAdminSnack('Admin email not available.', isError: true);
       return;
     }
 
-    final reason = await _showReasonDialog(ModerationDecision.dismiss);
+    final reason =
+        await _showModerationReasonDialog(ModerationDecision.dismiss);
     if (reason == null || reason.trim().isEmpty) return;
 
-    setState(() => _isUpdating = true);
-    try {
-      // Warnings are recorded as audit entries with decision=flag.
-      await widget.moderationService.moderateEventReport(
-        reportId: widget.report.id,
-        decision: ModerationDecision.flag,
-        adminEmail: adminEmail,
-        reason: 'Warning issued: ${reason.trim()}',
-      );
-      widget.onStatusChanged();
-      if (mounted) _showSnack('Warning recorded for ${widget.report.visitorEmail}.');
-    } catch (e) {
-      if (mounted) _showSnack('Warning failed: $e', isError: true);
-    } finally {
-      if (mounted) setState(() => _isUpdating = false);
-    }
+    await runAdminAction(
+      () async {
+        await widget.moderationService.moderateEventReport(
+          reportId: widget.report.id,
+          decision: ModerationDecision.flag,
+          adminEmail: adminEmail,
+          reason: 'Warning issued: ${reason.trim()}',
+        );
+        widget.onStatusChanged();
+      },
+      success: 'Warning recorded for ${widget.report.visitorEmail}.',
+    );
   }
 
   Future<void> _suspendReporter() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Suspend reporter'),
-        content: Text(
-          'Deactivate the account for ${widget.report.visitorEmail}?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Suspend'),
-          ),
-        ],
-      ),
+    final adminEmail = AdminUtils.currentAdminEmail;
+    final confirmed = await AdminUtils.showConfirmDialog(
+      context,
+      title: 'Suspend reporter',
+      content: 'Deactivate the account for ${widget.report.visitorEmail}?',
+      confirmText: 'Suspend',
+      confirmColor: Colors.red,
     );
 
     if (confirmed != true || !mounted) return;
 
-    setState(() => _isUpdating = true);
-    try {
-      await widget.userManagementService.deactivateUser(
-        widget.report.visitorEmail,
-        'visitor',
-      );
-      if (mounted) _showSnack('${widget.report.visitorEmail} suspended.');
-    } catch (e) {
-      if (mounted) _showSnack('Suspend failed: $e', isError: true);
-    } finally {
-      if (mounted) setState(() => _isUpdating = false);
-    }
-  }
-
-  void _showSnack(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red.shade700 : null,
-      ),
+    await runAdminAction(
+      () async {
+        await widget.userManagementService.deactivateUser(
+          widget.report.visitorEmail,
+          'visitor',
+        );
+        if (adminEmail != null && adminEmail.isNotEmpty) {
+          await widget.moderationService.logUserSuspension(
+            userEmail: widget.report.visitorEmail,
+            adminEmail: adminEmail,
+            reason: 'Suspended after reviewing event report ${widget.report.id}',
+            relatedContentType: ModeratedContentType.event,
+            relatedContentId: widget.report.eventId,
+          );
+        }
+      },
+      success: '${widget.report.visitorEmail} suspended.',
     );
   }
 
@@ -518,7 +469,8 @@ class _ReportCardState extends State<ReportCard> {
                       const SizedBox(height: 4),
                       Text(
                         'Reported by: ${widget.report.visitorEmail}',
-                        style: const TextStyle(fontSize: 12, color: AppPalette.charcoal),
+                        style: const TextStyle(
+                            fontSize: 12, color: AppPalette.charcoal),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -532,8 +484,10 @@ class _ReportCardState extends State<ReportCard> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  backgroundColor: _getStatusColor(widget.report.status).withValues(alpha: 0.2),
-                  side: BorderSide(color: _getStatusColor(widget.report.status)),
+                  backgroundColor: _getStatusColor(widget.report.status)
+                      .withValues(alpha: 0.2),
+                  side:
+                      BorderSide(color: _getStatusColor(widget.report.status)),
                 ),
               ],
             ),
@@ -565,7 +519,8 @@ class _ReportCardState extends State<ReportCard> {
                 ),
                 child: Text(
                   widget.report.comments!,
-                  style: const TextStyle(fontSize: 13, color: AppPalette.charcoal),
+                  style:
+                      const TextStyle(fontSize: 13, color: AppPalette.charcoal),
                 ),
               ),
             ],
@@ -578,7 +533,8 @@ class _ReportCardState extends State<ReportCard> {
             if (widget.report.reviewedAt != null)
               Text(
                 'Reviewed: ${_formatDate(widget.report.reviewedAt!)}',
-                style: const TextStyle(fontSize: 11, color: AppPalette.charcoal),
+                style:
+                    const TextStyle(fontSize: 11, color: AppPalette.charcoal),
               ),
             const SizedBox(height: 12),
             // Action buttons
@@ -588,15 +544,19 @@ class _ReportCardState extends State<ReportCard> {
               children: [
                 if (widget.report.status == 'pending') ...[
                   TextButton(
-                    onPressed: _isUpdating ? null : () => _moderate(ModerationDecision.dismiss),
+                    onPressed: isLoading
+                        ? null
+                        : () => _moderate(ModerationDecision.dismiss),
                     child: const Text('Dismiss'),
                   ),
                   TextButton(
-                    onPressed: _isUpdating ? null : _warnUser,
+                    onPressed: isLoading ? null : _warnUser,
                     child: const Text('Warn'),
                   ),
                   ElevatedButton(
-                    onPressed: _isUpdating ? null : () => _moderate(ModerationDecision.delete),
+                    onPressed: isLoading
+                        ? null
+                        : () => _moderate(ModerationDecision.delete),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red.shade700,
                       foregroundColor: Colors.white,
@@ -605,11 +565,15 @@ class _ReportCardState extends State<ReportCard> {
                   ),
                 ] else if (widget.report.status == 'reviewing') ...[
                   TextButton(
-                    onPressed: _isUpdating ? null : () => _moderate(ModerationDecision.dismiss),
+                    onPressed: isLoading
+                        ? null
+                        : () => _moderate(ModerationDecision.dismiss),
                     child: const Text('Dismiss'),
                   ),
                   ElevatedButton(
-                    onPressed: _isUpdating ? null : () => _moderate(ModerationDecision.delete),
+                    onPressed: isLoading
+                        ? null
+                        : () => _moderate(ModerationDecision.delete),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red.shade700,
                       foregroundColor: Colors.white,
@@ -618,7 +582,7 @@ class _ReportCardState extends State<ReportCard> {
                   ),
                 ],
                 TextButton(
-                  onPressed: _isUpdating ? null : _suspendReporter,
+                  onPressed: isLoading ? null : _suspendReporter,
                   style: TextButton.styleFrom(foregroundColor: Colors.red),
                   child: const Text('Suspend Reporter'),
                 ),
@@ -657,5 +621,4 @@ class _ReportCardState extends State<ReportCard> {
         return Colors.blue.shade700;
     }
   }
-
 }

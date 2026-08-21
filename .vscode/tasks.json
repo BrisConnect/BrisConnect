@@ -1,0 +1,257 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build and Deploy Web",
+			"type": "shell",
+			"command": "flutter build web --release && firebase deploy --only hosting",
+			"group": "build"
+		},
+		{
+			"label": "Flutter Analyze",
+			"type": "shell",
+			"command": "flutter analyze lib/screens/visitor_activity_feed_screen.dart lib/widgets/activity_feed_card.dart lib/widgets/activity_feed_create_post_card.dart lib/widgets/activity_feed_filter_bar.dart",
+			"group": "build"
+		},
+		{
+			"label": "Build Web Release",
+			"type": "shell",
+			"command": "flutter build web --release",
+			"group": "build"
+		},
+		{
+			"label": "Flutter Analyze Home",
+			"type": "shell",
+			"command": "flutter analyze lib/screens/home_screen.dart lib/widgets/banner_widget.dart lib/widgets/business_card.dart lib/widgets/category_chip.dart",
+			"group": "build"
+		},
+		{
+			"label": "Build Web Release Home",
+			"type": "shell",
+			"command": "flutter build web --release",
+			"group": "build"
+		},
+		{
+			"label": "Flutter Analyze Dashboard",
+			"type": "shell",
+			"command": "flutter analyze lib/screens/business_dashboard_screen.dart lib/services/stripe_payment_service.dart lib/services/business_dashboard_service.dart lib/utils/checkout_window_export.dart",
+			"group": "build"
+		},
+		{
+			"label": "Flutter Analyze Dashboard",
+			"type": "shell",
+			"command": "flutter analyze lib/screens/business_dashboard_screen.dart lib/services/business_dashboard_service.dart",
+			"group": "build"
+		},
+		{
+			"label": "Build Web Release Dashboard",
+			"type": "shell",
+			"command": "flutter build web --release",
+			"group": "build"
+		},
+		{
+			"label": "Flutter Analyze Dashboard Files",
+			"type": "shell",
+			"command": "flutter analyze lib/screens/business_dashboard_screen.dart lib/services/business_dashboard_service.dart",
+			"group": "build"
+		},
+		{
+			"label": "Deploy Firestore Indexes",
+			"type": "shell",
+			"command": "firebase deploy --only firestore:indexes",
+			"group": "build"
+		},
+		{
+			"label": "Deploy Firestore Indexes Non-Interactive",
+			"type": "shell",
+			"command": "CI=true firebase deploy --only firestore:indexes",
+			"group": "build"
+		},
+		{
+			"label": "Deploy Firestore Indexes Non-Interactive Flag",
+			"type": "shell",
+			"command": "firebase deploy --only firestore:indexes --non-interactive",
+			"group": "build"
+		},
+		{
+			"label": "Deploy Firestore Indexes Retry",
+			"type": "shell",
+			"command": "firebase deploy --only firestore:indexes --non-interactive",
+			"group": "build"
+		},
+		{
+			"label": "Flutter Analyze Share Tracking",
+			"type": "shell",
+			"command": "flutter analyze lib/screens/story_preview_screen.dart lib/screens/vendor_feed_screen.dart lib/screens/food_detail_screen.dart",
+			"group": "build"
+		},
+		{
+			"label": "Flutter Analyze Admin Notifications",
+			"type": "shell",
+			"command": "flutter analyze lib/services/fcm_service.dart lib/services/admin_notification_service.dart lib/screens/admin_notifications_screen.dart lib/features/admin/dashboard/widgets/admin_header.dart lib/features/admin/dashboard/widgets/admin_notification_bell.dart lib/main.dart",
+			"group": "build"
+		},
+		{
+			"label": "Node Syntax Check Functions",
+			"type": "shell",
+			"command": "node --check functions/index.js && node --check functions/payments.js && node --check functions/admin_notifications.js",
+			"group": "build"
+		},
+		{
+			"label": "Deploy Admin Notification Functions",
+			"type": "shell",
+			"command": "firebase deploy --only functions",
+			"group": "build"
+		},
+		{
+			"label": "Flutter Analyze Visitor Notifications",
+			"type": "shell",
+			"command": "flutter analyze lib/auth/visitor_auth.dart lib/screens/notification_settings_screen.dart lib/screens/visitor_push_notifications_screen.dart lib/services/fcm_service.dart lib/services/visitor_notification_repository.dart lib/models/visitor_notification_record.dart lib/widgets/visitor_notification_bell.dart lib/widgets/desktop_top_app_bar.dart lib/screens/visitor_portal_screen.dart lib/main.dart",
+			"group": "build"
+		},
+		{
+			"label": "Flutter Analyze Owner Notifications",
+			"type": "shell",
+			"command": "flutter analyze lib/models/owner_notification_record.dart lib/services/owner_notification_repository.dart lib/widgets/owner_notification_bell.dart lib/screens/owner_notifications_screen.dart lib/screens/local_portal_screen.dart lib/main.dart lib/services/fcm_service.dart lib/services/admin_message_service.dart",
+			"group": "build"
+		},
+		{
+			"label": "Flutter Analyze Visitor Portal",
+			"type": "shell",
+			"command": "flutter analyze lib/screens/visitor_portal_screen.dart",
+			"group": "build"
+		},
+		{
+			"label": "Flutter Analyze Social Share Fixes",
+			"type": "shell",
+			"command": "flutter analyze lib/screens/visitor_portal_screen.dart lib/models/activity_feed_item.dart lib/services/activity_feed_service.dart lib/widgets/discover_business_card.dart",
+			"group": "build"
+		},
+		{
+			"label": "Flutter Analyze Activity Feed Fixes",
+			"type": "shell",
+			"command": "flutter analyze lib/models/activity_feed_item.dart lib/services/activity_feed_service.dart",
+			"group": "build"
+		},
+		{
+			"label": "Flutter Analyze QR and Deep Link Fixes",
+			"type": "shell",
+			"command": "flutter analyze lib/main.dart lib/screens/story_preview_screen.dart lib/models/activity_feed_item.dart lib/services/activity_feed_service.dart",
+			"group": "build"
+		},
+		{
+			"label": "Flutter Analyze QR and Deep Link Fixes",
+			"type": "shell",
+			"command": "flutter analyze lib/main.dart lib/screens/story_preview_screen.dart lib/models/activity_feed_item.dart lib/services/activity_feed_service.dart",
+			"group": "build"
+		},
+		{
+			"label": "Build Web Release QR Deep Link",
+			"type": "shell",
+			"command": "flutter build web --release",
+			"group": "build"
+		},
+		{
+			"label": "Deploy Hosting",
+			"type": "shell",
+			"command": "firebase deploy --only hosting",
+			"group": "build"
+		},
+		{
+			"label": "Deploy Functions",
+			"type": "shell",
+			"command": "firebase deploy --only functions",
+			"group": "build"
+		},
+		{
+			"label": "Analyze Language Change Fixes",
+			"type": "shell",
+			"command": "flutter analyze lib/screens/visitor_portal_screen.dart lib/screens/food_detail_screen.dart lib/screens/visitor_event_detail_screen.dart lib/widgets/audio_guide_widget.dart lib/services/app_display_settings_controller.dart lib/mixins/locale_listener_mixin.dart",
+			"group": "build"
+		},
+		{
+			"label": "Analyze New Language Files",
+			"type": "shell",
+			"command": "flutter analyze lib/mixins/locale_listener_mixin.dart lib/widgets/audio_guide_widget.dart lib/services/app_display_settings_controller.dart",
+			"group": "build"
+		},
+		{
+			"label": "Build Web Language Fix",
+			"type": "shell",
+			"command": "flutter build web --release",
+			"group": "build"
+		},
+		{
+			"label": "Build Web Language Fix Retry",
+			"type": "shell",
+			"command": "flutter build web --release 2>&1 | head -150",
+			"group": "build"
+		},
+		{
+			"label": "Deploy Hosting Language Fix",
+			"type": "shell",
+			"command": "firebase deploy --only hosting",
+			"group": "build"
+		},
+		{
+			"label": "Analyze Locale Fixes",
+			"type": "shell",
+			"command": "flutter analyze lib/main.dart lib/screens/food_business_detail_screen.dart lib/widgets/audio_guide_widget.dart",
+			"group": "build"
+		},
+		{
+			"label": "Build Web Locale Rebuild",
+			"type": "shell",
+			"command": "flutter build web --release 2>&1 | tail -50",
+			"group": "build"
+		},
+		{
+			"label": "Deploy Hosting Locale Rebuild",
+			"type": "shell",
+			"command": "firebase deploy --only hosting",
+			"group": "build"
+		},
+		{
+			"label": "Build Web Locale Final",
+			"type": "shell",
+			"command": "flutter build web --release --no-wasm-dry-run",
+			"group": "build"
+		},
+		{
+			"label": "Deploy Web Locale Final",
+			"type": "shell",
+			"command": "firebase deploy --only hosting",
+			"group": "build"
+		},
+		{
+			"label": "Deploy Functions Translation TTS",
+			"type": "shell",
+			"command": "firebase deploy --only functions --non-interactive",
+			"group": "build"
+		},
+		{
+			"label": "Build Web TranslationService",
+			"type": "shell",
+			"command": "flutter build web --release --no-wasm-dry-run 2>&1 | tail -20",
+			"group": "build"
+		},
+		{
+			"label": "Deploy Web TranslationService",
+			"type": "shell",
+			"command": "firebase deploy --only hosting",
+			"group": "build"
+		},
+		{
+			"label": "Deploy Functions With Translation API",
+			"type": "shell",
+			"command": "firebase deploy --only functions --non-interactive 2>&1 | tail -50",
+			"group": "build"
+		},
+		{
+			"label": "Flutter Analyze KPI Dashboard",
+			"type": "shell",
+			"command": "flutter analyze lib/features/admin/dashboard/admin_dashboard_page.dart lib/features/admin/dashboard/widgets/dashboard_kpi_card.dart lib/services/admin_dashboard_service.dart lib/screens/admin_dashboard_screen.dart",
+			"group": "build"
+		}
+	]
+}

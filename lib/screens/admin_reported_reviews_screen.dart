@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:brisconnect/auth/admin_auth.dart';
+import 'package:brisconnect/utils/admin_utils.dart';
 import 'package:brisconnect/auth/app_user_role.dart';
 import 'package:brisconnect/models/moderation_action.dart';
 import 'package:brisconnect/models/review.dart';
@@ -134,6 +134,7 @@ class _AdminReportedReviewsScreenState
     final screen = Scaffold(
       backgroundColor: AppPalette.background,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const LogoAppBarTitle('Reported Recommendations'),
       ),
       body: Column(
@@ -187,7 +188,8 @@ class _AdminReportedReviewsScreenState
                       value: _selectedReasonFilter,
                       hint: const Text('Reason'),
                       items: [
-                        const DropdownMenuItem(value: 'all', child: Text('All reasons')),
+                        const DropdownMenuItem(
+                            value: 'all', child: Text('All reasons')),
                         ..._reportReasons.map(
                           (reason) => DropdownMenuItem(
                             value: reason,
@@ -196,14 +198,17 @@ class _AdminReportedReviewsScreenState
                         ),
                       ],
                       onChanged: (value) {
-                        if (value != null) setState(() => _selectedReasonFilter = value);
+                        if (value != null) {
+                          setState(() => _selectedReasonFilter = value);
+                        }
                       },
                     ),
                     DropdownButton<String>(
                       value: _selectedSeverityFilter,
                       hint: const Text('Severity'),
                       items: [
-                        const DropdownMenuItem(value: 'all', child: Text('All severities')),
+                        const DropdownMenuItem(
+                            value: 'all', child: Text('All severities')),
                         ..._severities.map(
                           (severity) => DropdownMenuItem(
                             value: severity,
@@ -212,7 +217,9 @@ class _AdminReportedReviewsScreenState
                         ),
                       ],
                       onChanged: (value) {
-                        if (value != null) setState(() => _selectedSeverityFilter = value);
+                        if (value != null) {
+                          setState(() => _selectedSeverityFilter = value);
+                        }
                       },
                     ),
                     ActionChip(
@@ -251,7 +258,8 @@ class _AdminReportedReviewsScreenState
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
-                      child: Text('Error loading recommendations: ${snapshot.error}'),
+                      child: Text(
+                          'Error loading recommendations: ${snapshot.error}'),
                     ),
                   );
                 }
@@ -333,103 +341,9 @@ class _ReviewCard extends StatefulWidget {
   State<_ReviewCard> createState() => _ReviewCardState();
 }
 
-class _ReviewCardState extends State<_ReviewCard> {
-  bool _isLoading = false;
-
-  Future<void> _moderate(ModerationDecision decision) async {
-    final adminEmail = AdminAuth.currentAdminEmail ?? widget.moderationService.currentAdminEmail;
-    if (adminEmail == null || adminEmail.isEmpty) {
-      _showSnack('Admin email not available.', isError: true);
-      return;
-    }
-
-    final reason = await _showReasonDialog(decision);
-    if (reason == null || reason.trim().isEmpty) return;
-
-    setState(() => _isLoading = true);
-    try {
-      await widget.moderationService.moderateReview(
-        reviewId: widget.review.id,
-        decision: decision,
-        adminEmail: adminEmail,
-        reason: reason.trim(),
-      );
-      widget.onAction();
-      if (mounted) _showSnack('Recommendation ${decision.label.toLowerCase()}.');
-    } catch (e) {
-      if (mounted) _showSnack('Action failed: $e', isError: true);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _warnReporter() async {
-    final adminEmail = AdminAuth.currentAdminEmail ?? widget.moderationService.currentAdminEmail;
-    if (adminEmail == null || adminEmail.isEmpty) {
-      _showSnack('Admin email not available.', isError: true);
-      return;
-    }
-
-    final reason = await _showReasonDialog(ModerationDecision.flag);
-    if (reason == null || reason.trim().isEmpty) return;
-
-    setState(() => _isLoading = true);
-    try {
-      await widget.moderationService.moderateReview(
-        reviewId: widget.review.id,
-        decision: ModerationDecision.flag,
-        adminEmail: adminEmail,
-        reason: 'Warning issued: ${reason.trim()}',
-      );
-      widget.onAction();
-      if (mounted) _showSnack('Warning recorded.');
-    } catch (e) {
-      if (mounted) _showSnack('Warning failed: $e', isError: true);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _suspendReporter() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Suspend reporter'),
-        content: Text(
-          'Deactivate the account for ${widget.review.visitorId}?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Suspend'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _isLoading = true);
-    try {
-      await widget.userManagementService.deactivateUser(
-        widget.review.visitorId,
-        'visitor',
-      );
-      if (mounted) _showSnack('${widget.review.visitorId} suspended.');
-    } catch (e) {
-      if (mounted) _showSnack('Suspend failed: $e', isError: true);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<String?> _showReasonDialog(ModerationDecision decision) async {
-    final controller = TextEditingController();
+class _ReviewCardState extends State<_ReviewCard>
+    with AdminScreenMixin<_ReviewCard> {
+  Future<String?> _showReviewReasonDialog(ModerationDecision decision) async {
     final title = decision == ModerationDecision.dismiss
         ? 'Dismiss report'
         : decision == ModerationDecision.flag
@@ -441,41 +355,94 @@ class _ReviewCardState extends State<_ReviewCard> {
             ? 'Warning message to send the reporter'
             : 'Reason for ${decision.label.toLowerCase()}';
 
-    if (!mounted) return null;
-
-    return showDialog<String>(
-      context: context,
+    return AdminUtils.showReasonDialog(
+      context,
+      title: title,
+      hintText: hint,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Text(title, key: const ValueKey('moderation_reason_title')),
-        content: TextField(
-          controller: controller,
-          maxLines: 3,
-          decoration: InputDecoration(
-            hintText: hint,
-            border: const OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Confirm'),
-          ),
-        ],
-      ),
     );
   }
 
-  void _showSnack(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red.shade700 : null,
-      ),
+  Future<void> _moderate(ModerationDecision decision) async {
+    final adminEmail = AdminUtils.currentAdminEmail ??
+        widget.moderationService.currentAdminEmail;
+    if (adminEmail == null || adminEmail.isEmpty) {
+      showAdminSnack('Admin email not available.', isError: true);
+      return;
+    }
+
+    final reason = await _showReviewReasonDialog(decision);
+    if (reason == null || reason.trim().isEmpty) return;
+
+    await runAdminAction(
+      () async {
+        await widget.moderationService.moderateReview(
+          reviewId: widget.review.id,
+          decision: decision,
+          adminEmail: adminEmail,
+          reason: reason.trim(),
+        );
+        widget.onAction();
+      },
+      success: 'Recommendation ${decision.label.toLowerCase()}.',
+    );
+  }
+
+  Future<void> _warnReporter() async {
+    final adminEmail = AdminUtils.currentAdminEmail ??
+        widget.moderationService.currentAdminEmail;
+    if (adminEmail == null || adminEmail.isEmpty) {
+      showAdminSnack('Admin email not available.', isError: true);
+      return;
+    }
+
+    final reason = await _showReviewReasonDialog(ModerationDecision.flag);
+    if (reason == null || reason.trim().isEmpty) return;
+
+    await runAdminAction(
+      () async {
+        await widget.moderationService.moderateReview(
+          reviewId: widget.review.id,
+          decision: ModerationDecision.flag,
+          adminEmail: adminEmail,
+          reason: 'Warning issued: ${reason.trim()}',
+        );
+        widget.onAction();
+      },
+      success: 'Warning recorded.',
+    );
+  }
+
+  Future<void> _suspendReporter() async {
+    final adminEmail = AdminUtils.currentAdminEmail ??
+        widget.moderationService.currentAdminEmail;
+    final confirmed = await AdminUtils.showConfirmDialog(
+      context,
+      title: 'Suspend reporter',
+      content: 'Deactivate the account for ${widget.review.visitorId}?',
+      confirmText: 'Suspend',
+      confirmColor: Colors.red,
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    await runAdminAction(
+      () async {
+        await widget.userManagementService.deactivateUser(
+          widget.review.visitorId,
+          'visitor',
+        );
+        if (adminEmail != null && adminEmail.isNotEmpty) {
+          await widget.moderationService.logUserSuspension(
+            userEmail: widget.review.visitorId,
+            adminEmail: adminEmail,
+            reason: 'Suspended after reviewing recommendation ${widget.review.id}',
+            relatedContentType: ModeratedContentType.review,
+            relatedContentId: widget.review.id,
+          );
+        }
+      },
+      success: '${widget.review.visitorId} suspended.',
     );
   }
 
@@ -544,7 +511,8 @@ class _ReviewCardState extends State<_ReviewCard> {
               review.comment,
               style: const TextStyle(fontSize: 14),
             ),
-            if (review.reportReason != null && review.reportReason!.isNotEmpty) ...[
+            if (review.reportReason != null &&
+                review.reportReason!.isNotEmpty) ...[
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -554,7 +522,8 @@ class _ReviewCardState extends State<_ReviewCard> {
                 ),
                 child: Text(
                   'Report reason: ${review.reportReason}',
-                  style: const TextStyle(fontSize: 13, color: AppPalette.charcoal),
+                  style:
+                      const TextStyle(fontSize: 13, color: AppPalette.charcoal),
                 ),
               ),
             ],
@@ -564,7 +533,8 @@ class _ReviewCardState extends State<_ReviewCard> {
               children: [
                 Text(
                   'Submitted: ${_formatDateTime(review.createdAt)}',
-                  style: const TextStyle(fontSize: 11, color: AppPalette.charcoal),
+                  style:
+                      const TextStyle(fontSize: 11, color: AppPalette.charcoal),
                 ),
                 Text(
                   'Severity: ${_severityLabel(review.severity)}',
@@ -577,7 +547,7 @@ class _ReviewCardState extends State<_ReviewCard> {
               ],
             ),
             const SizedBox(height: 12),
-            if (!_isLoading)
+            if (!isLoading)
               Wrap(
                 spacing: 8,
                 alignment: WrapAlignment.end,

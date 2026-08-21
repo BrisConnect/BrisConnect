@@ -24,7 +24,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get signOut => 'Đăng xuất';
 
   @override
-  String get email => 'Email';
+  String get email => 'E-mail';
 
   @override
   String get password => 'Mật khẩu';
@@ -519,12 +519,12 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String categoryLabel(String category) {
-    return 'Danh mục: $category';
+    return 'Category: $category';
   }
 
   @override
   String severityLabel(String severity) {
-    return 'Mức độ nghiêm trọng: $severity';
+    return 'Severity: $severity';
   }
 
   @override
@@ -570,7 +570,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get languageGreek => 'tiếng Hy Lạp';
 
   @override
-  String get languagePunjabi => 'Punjabi';
+  String get languagePunjabi => 'tiếng Punjabi';
 
   @override
   String get discoverTitle => 'Khám phá ẩm thực địa phương';
@@ -601,7 +601,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String versionLabel(String version) {
-    return 'Phiên bản $version';
+    return 'Version $version';
   }
 
   @override
@@ -681,64 +681,64 @@ class AppLocalizationsVi extends AppLocalizations {
   String get statusWontFix => 'Sẽ không sửa chữa';
 
   @override
-  String get foodBusinessDetails => 'Business Details';
+  String get foodBusinessDetails => 'Thông tin doanh nghiệp';
 
   @override
-  String get aboutThisFoodExperience => 'About this Food Experience';
+  String get aboutThisFoodExperience => 'Giới thiệu về trải nghiệm ẩm thực này';
 
   @override
-  String get highlights => 'Highlights';
+  String get highlights => 'Điểm nổi bật';
 
   @override
-  String get contactAndLinks => 'Contact & Links';
+  String get contactAndLinks => 'Liên hệ &amp; Liên kết';
 
   @override
-  String get gallery => 'Gallery';
+  String get gallery => 'Phòng trưng bày';
 
   @override
-  String get openingHours => 'Opening Hours';
+  String get openingHours => 'Giờ mở cửa';
 
   @override
-  String get menu => 'Menu';
+  String get menu => 'Thực đơn';
 
   @override
-  String get menuFallback => 'Menu';
+  String get menuFallback => 'Thực đơn';
 
   @override
-  String get call => 'Call';
+  String get call => 'Gọi';
 
   @override
-  String get website => 'Website';
+  String get website => 'Trang web';
 
   @override
-  String get orderOnline => 'Order Online';
+  String get orderOnline => 'Đặt hàng trực tuyến';
 
   @override
-  String get viewOnMap => 'View on Map';
+  String get viewOnMap => 'Xem trên bản đồ';
 
   @override
-  String get foodDiscoveryGuide => 'Food Discovery Guide';
+  String get foodDiscoveryGuide => 'Hướng dẫn khám phá ẩm thực';
 
   @override
   String get foodDiscoveryGuideHelper =>
-      'Tap play to hear your Food Discovery Guide describe this food spot and its highlights.';
+      'Nhấn nút phát để nghe Hướng dẫn viên Khám phá Ẩm thực mô tả địa điểm ăn uống này và những điểm nổi bật của nó.';
 
   @override
-  String get stop => 'Stop';
+  String get stop => 'Dừng lại';
 
   @override
   String get unableToStartNarration =>
-      'Unable to start Food Discovery Guide narration right now.';
+      'Hiện tại chưa thể bắt đầu phần thuyết minh của Cẩm nang Khám phá Ẩm thực.';
 
   @override
-  String get unableToCallNumber => 'Unable to call this number right now.';
+  String get unableToCallNumber => 'Hiện tại không thể gọi số này được.';
 
   @override
-  String get unableToSendEmail => 'Unable to send email right now.';
+  String get unableToSendEmail => 'Hiện tại không thể gửi email.';
 
   @override
   String get foodSpotCannotBeShared =>
-      'This food spot cannot be shared right now.';
+      'Địa điểm ăn uống này hiện chưa thể chia sẻ.';
 
   @override
   String foodDescriptionIntro(String title, String cuisine, String location) {
@@ -747,7 +747,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String foodDescriptionRating(String rating) {
-    return 'Loved by locals and visitors alike, it holds a $rating-star rating.';
+    return 'Được cả người dân địa phương và du khách yêu thích, nơi này đạt được xếp hạng $rating sao.';
   }
 
   @override
@@ -762,7 +762,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String foodDescriptionOutro(String title) {
-    return 'Whether you are after a relaxed brunch, a business lunch, or a lively dinner, $title offers a welcoming atmosphere and flavours that capture Brisbane\'s dining scene.';
+    return 'Cho dù bạn muốn thưởng thức bữa sáng muộn thư giãn, bữa trưa công việc hay bữa tối sôi động, $title đều mang đến không gian ấm cúng và hương vị đặc trưng của ẩm thực Brisbane.';
   }
 
   @override

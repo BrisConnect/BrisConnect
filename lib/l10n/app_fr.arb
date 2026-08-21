@@ -168,7 +168,7 @@
   "foodExperienceFallback": "Expérience culinaire",
   "stadiumFallback": "Stade",
   "eventFallback": "Événement",
-  "attractionFallback": "Attraction",
+  "attractionFallback": "Attirance",
   "ratingReviewsCount": "{rating} · {count} avis",
   "@ratingReviewsCount": {
     "placeholders": {
@@ -243,7 +243,7 @@
       }
     }
   },
-  "categoryLabel": "Catégorie : {category}",
+  "categoryLabel": "Category: {category}",
   "@categoryLabel": {
     "placeholders": {
       "category": {
@@ -251,7 +251,7 @@
       }
     }
   },
-  "severityLabel": "Gravité : {severity}",
+  "severityLabel": "Severity: {severity}",
   "@severityLabel": {
     "placeholders": {
       "severity": {
@@ -339,91 +339,125 @@
   "unableToCallNumber": "Impossible d'appeler ce numéro pour le moment.",
   "unableToSendEmail": "Impossible d'envoyer un e-mail pour le moment.",
   "foodSpotCannotBeShared": "Ce lieu gastronomique ne peut pas être partagé pour le moment.",
-  "foodDescriptionIntro": "Entrez dans {title}, une destination {cuisine} au cœur de {location}.",
+  "foodDescriptionIntro": "Step into {title}, a {cuisine} destination in the heart of {location}.",
   "@foodDescriptionIntro": {
     "placeholders": {
-      "title": {"type": "String"},
-      "cuisine": {"type": "String"},
-      "location": {"type": "String"}
+      "title": {
+        "type": "String"
+      },
+      "cuisine": {
+        "type": "String"
+      },
+      "location": {
+        "type": "String"
+      }
     }
   },
   "foodDescriptionRating": "Apprécié des locaux comme des visiteurs, il détient une note de {rating} étoiles.",
   "@foodDescriptionRating": {
     "placeholders": {
-      "rating": {"type": "String"}
+      "rating": {
+        "type": "String"
+      }
     }
   },
-  "foodDescriptionCategories": "Le menu célèbre {categories}, préparés avec des ingrédients frais et locaux.",
+  "foodDescriptionCategories": "The menu celebrates {categories}, crafted with fresh, locally sourced ingredients.",
   "@foodDescriptionCategories": {
     "placeholders": {
-      "categories": {"type": "String"}
+      "categories": {
+        "type": "String"
+      }
     }
   },
-  "foodDescriptionPrice": "Attendez-vous à une expérience {price} qui allie qualité et valeur.",
+  "foodDescriptionPrice": "Expect a {price} experience that balances quality and value.",
   "@foodDescriptionPrice": {
     "placeholders": {
-      "price": {"type": "String"}
+      "price": {
+        "type": "String"
+      }
     }
   },
   "foodDescriptionOutro": "Que vous recherchiez un brunch décontracté, un déjeuner d'affaires ou un dîner animé, {title} offre une atmosphère chaleureuse et des saveurs qui reflètent la scène culinaire de Brisbane.",
   "@foodDescriptionOutro": {
     "placeholders": {
-      "title": {"type": "String"}
+      "title": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationWelcome": "Bienvenue à {title}",
+  "foodNarrationWelcome": "Welcome to {title}",
   "@foodNarrationWelcome": {
     "placeholders": {
-      "title": {"type": "String"}
+      "title": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationBadge": "C'est une étape {badge} à ajouter à votre parcours gastronomique de Brisbane",
+  "foodNarrationBadge": "This is a {badge} stop worth adding to your Brisbane food trail",
   "@foodNarrationBadge": {
     "placeholders": {
-      "badge": {"type": "String"}
+      "badge": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationCuisine": "Il est surtout connu pour sa cuisine {cuisine}",
+  "foodNarrationCuisine": "It is best known for {cuisine}",
   "@foodNarrationCuisine": {
     "placeholders": {
-      "cuisine": {"type": "String"}
+      "cuisine": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationLocation": "Vous le trouverez à {location}, où la scène gastronomique locale est en pleine effervescence",
+  "foodNarrationLocation": "You will find it in {location}, where the local dining scene comes alive",
   "@foodNarrationLocation": {
     "placeholders": {
-      "location": {"type": "String"}
+      "location": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationDateTime": "Vous pouvez généralement le visiter pendant {dateTime}",
+  "foodNarrationDateTime": "You can usually visit during {dateTime}",
   "@foodNarrationDateTime": {
     "placeholders": {
-      "dateTime": {"type": "String"}
+      "dateTime": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationDescription": "Voici ce que ressent cette expérience. {description}",
+  "foodNarrationDescription": "Here's what the experience feels like. {description}",
   "@foodNarrationDescription": {
     "placeholders": {
-      "description": {"type": "String"}
+      "description": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationPriceFree": "Il n'y a aucun coût d'entrée pour explorer ce lieu gastronomique",
-  "foodNarrationPrice": "Le prix est indiqué comme étant {price}",
+  "foodNarrationPriceFree": "There is no entry cost to explore this food spot",
+  "foodNarrationPrice": "Pricing is listed as {price}",
   "@foodNarrationPrice": {
     "placeholders": {
-      "price": {"type": "String"}
+      "price": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationRating": "Les visiteurs le notent actuellement {rating} sur 5",
+  "foodNarrationRating": "Visitors currently rate it {rating} out of 5",
   "@foodNarrationRating": {
     "placeholders": {
-      "rating": {"type": "String"}
+      "rating": {
+        "type": "String"
+      }
     }
   },
-  "foodNarrationCategories": "Attendez-vous à un mélange de {categories}",
+  "foodNarrationCategories": "Expect a mix of {categories}",
   "@foodNarrationCategories": {
     "placeholders": {
-      "categories": {"type": "String"}
+      "categories": {
+        "type": "String"
+      }
     }
-  }
+  },
+  "@@locale": "fr",
+  "languagePunjabi": "Punjabi"
 }

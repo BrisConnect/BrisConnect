@@ -1,9 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_localizations/flutter_localizations.dart';
+// ignore: depend_on_referenced_packages
+import 'package:flutter_web_plugins/url_strategy.dart' show usePathUrlStrategy;
 import 'l10n/app_localizations.dart';
 import 'dart:ui';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:brisconnect/screens/home_screen.dart';
 import 'package:brisconnect/theme/app_palette.dart';
@@ -11,22 +18,78 @@ import 'package:brisconnect/screens/splash_screen.dart';
 import 'package:brisconnect/screens/visitor_portal_screen.dart';
 import 'package:brisconnect/screens/local_portal_screen.dart';
 import 'package:brisconnect/screens/admin_business_management_screen.dart';
+import 'package:brisconnect/screens/admin_community_feed_screen.dart';
 import 'package:brisconnect/screens/admin_dashboard_screen.dart';
+import 'package:brisconnect/screens/admin_google_listings_screen.dart';
+import 'package:brisconnect/screens/admin_notifications_screen.dart';
+import 'package:brisconnect/screens/admin_promotion_management_screen.dart';
+import 'package:brisconnect/screens/admin_reported_events_screen.dart';
+import 'package:brisconnect/screens/admin_reported_reviews_screen.dart';
+import 'package:brisconnect/screens/admin_reports_hub_screen.dart';
+import 'package:brisconnect/screens/admin_subscription_management_screen.dart';
+import 'package:brisconnect/screens/admin_user_management_screen.dart';
 import 'package:brisconnect/screens/business_profile_form_screen.dart';
+import 'package:brisconnect/screens/visitor_push_notifications_screen.dart';
+import 'package:brisconnect/screens/owner_notifications_screen.dart';
 import 'package:brisconnect/screens/business_profile_view_screen.dart';
+import 'package:brisconnect/screens/menu_management_screen.dart';
 import 'package:brisconnect/screens/notification_health_screen.dart';
 import 'package:brisconnect/screens/privacy_policy_screen.dart';
 import 'package:brisconnect/screens/promotion_detail_screen.dart';
 import 'package:brisconnect/screens/terms_of_service_screen.dart';
+import 'package:brisconnect/screens/welcome_screen_new.dart';
+import 'package:brisconnect/screens/food_detail_screen.dart';
+import 'package:brisconnect/screens/visitor_event_detail_screen.dart';
 import 'package:brisconnect/models/business.dart';
+import 'package:brisconnect/models/food_business.dart';
+import 'package:brisconnect/services/food_business_service.dart';
 import 'package:brisconnect/services/fcm_service.dart';
+import 'package:brisconnect/services/app_display_settings_controller.dart';
+import 'package:brisconnect/services/role_access_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Use path-based URLs on the web so deep links such as
+  // /local/portal?checkout=success work after external redirects
+  // (e.g. returning from Stripe Checkout). Firebase Hosting rewrites
+  // all paths to index.html, so this is safe to enable.
+  if (kIsWeb) {
+    usePathUrlStrategy();
+  }
+
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    // Restore the signed-in user's session before initializing FCM so tokens
+    // are written to the correct collection (visitor_users vs local_users).
+    //
+    // This prevents RoleGuard from incorrectly redirecting to the welcome
+    // screen while Firebase Auth is still restoring after a page refresh or
+    // an external redirect (e.g. returning from Stripe Checkout).
+    //
+    // Wait up to 10 seconds: on some browsers the cached auth token is only
+    // restored after IndexedDB opens, which can be delayed after a cross-site
+    // redirect.
+    fb_auth.User? restoredUser;
+    try {
+      restoredUser = await fb_auth.FirebaseAuth.instance
+          .authStateChanges()
+          .where((u) => u != null)
+          .first
+          .timeout(const Duration(seconds: 10));
+    } on TimeoutException {
+      // No cached user; app will continue to welcome/login flow.
+    }
+    // Attempt to restore the in-memory role, but do NOT sign out if it fails.
+    // RoleGuard will retry and, if necessary, redirect to the correct login
+    // screen rather than silently logging the user out.
+    await RoleAccessService.restoreAndResolveSession(restoredUser);
+
+    // Initialize FCM after the role is known so tokens land in the right
+    // Firestore collection used by the visitor/local Cloud Functions.
     await FcmService.instance.initialize();
   } catch (e) {
     debugPrint('Firebase init error: $e');
@@ -49,6 +112,26 @@ class BrisConnectAppState extends State<BrisConnectApp> {
 
   void setLocale(Locale locale) {
     setState(() => _locale = locale);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen to locale changes so the entire app rebuilds when language preference changes
+    localeChangeNotifier.addListener(_onLocaleChanged);
+  }
+
+  void _onLocaleChanged() {
+    if (!mounted) return;
+    setState(() {
+      // Trigger rebuild of MaterialApp and all descendants
+    });
+  }
+
+  @override
+  void dispose() {
+    localeChangeNotifier.removeListener(_onLocaleChanged);
+    super.dispose();
   }
 
   @override
@@ -96,9 +179,16 @@ class BrisConnectAppState extends State<BrisConnectApp> {
           bodySmall: TextStyle(color: AppPalette.mutedText),
         ),
       ),
-      initialRoute: '/',
+      // On the web, read the actual browser path so deep links such as
+      // /local/portal survive a page refresh. On mobile we always start at
+      // the splash screen.
+      initialRoute: kIsWeb ? Uri.base.path : '/',
       onGenerateRoute: (settings) {
-        switch (settings.name) {
+        // Strip query parameters so deep-link returns from Stripe
+        // (e.g. /local/portal?checkout=cancel) match the route definitions.
+        final routePath = Uri.parse(settings.name ?? '/').path;
+
+        switch (routePath) {
           case '/':
           case '/index.html':
             return MaterialPageRoute(
@@ -107,12 +197,36 @@ class BrisConnectAppState extends State<BrisConnectApp> {
             );
           case '/visitor/portal':
             return MaterialPageRoute(
-              builder: (_) => const VisitorPortalScreen(),
+              builder: (_) => VisitorPortalScreen(
+                key: VisitorPortalScreen.globalKey,
+              ),
+              settings: settings,
+            );
+          case '/visitor/notifications':
+            return MaterialPageRoute(
+              builder: (_) => const VisitorPushNotificationsScreen(),
+              settings: settings,
+            );
+          case '/local/notifications':
+            return MaterialPageRoute(
+              builder: (_) => const OwnerNotificationsScreen(),
               settings: settings,
             );
           case '/local/portal':
+            final query = Uri.parse(settings.name ?? '/').queryParameters;
+            final checkout = query['checkout'];
+            final sessionId = query['session_id'];
+            final portal = query['portal'];
+            final args = settings.arguments;
+            final initialTabIndex =
+                args is Map ? (args['initialTabIndex'] as int? ?? 0) : 0;
             return MaterialPageRoute(
-              builder: (_) => const LocalPortalScreen(),
+              builder: (_) => LocalPortalScreen(
+                checkoutStatus: checkout,
+                checkoutSessionId: sessionId,
+                portalStatus: portal,
+                initialTabIndex: initialTabIndex,
+              ),
               settings: settings,
             );
           case '/admin/dashboard':
@@ -120,9 +234,54 @@ class BrisConnectAppState extends State<BrisConnectApp> {
               builder: (_) => AdminDashboardScreen(),
               settings: settings,
             );
+          case '/admin/google-listings':
+            return MaterialPageRoute(
+              builder: (_) => const AdminGoogleListingsScreen(),
+              settings: settings,
+            );
           case '/admin/businesses':
             return MaterialPageRoute(
               builder: (_) => AdminBusinessManagementScreen(),
+              settings: settings,
+            );
+          case '/admin/notifications':
+            return MaterialPageRoute(
+              builder: (_) => const AdminNotificationsScreen(),
+              settings: settings,
+            );
+          case '/admin/reports':
+            return MaterialPageRoute(
+              builder: (_) => const AdminReportsHubScreen(),
+              settings: settings,
+            );
+          case '/admin/reported-events':
+            return MaterialPageRoute(
+              builder: (_) => AdminReportedEventsScreen(),
+              settings: settings,
+            );
+          case '/admin/reported-reviews':
+            return MaterialPageRoute(
+              builder: (_) => AdminReportedReviewsScreen(),
+              settings: settings,
+            );
+          case '/admin/subscriptions':
+            return MaterialPageRoute(
+              builder: (_) => AdminSubscriptionManagementScreen(),
+              settings: settings,
+            );
+          case '/admin/promotions':
+            return MaterialPageRoute(
+              builder: (_) => AdminPromotionManagementScreen(),
+              settings: settings,
+            );
+          case '/admin/users':
+            return MaterialPageRoute(
+              builder: (_) => AdminUserManagementScreen(),
+              settings: settings,
+            );
+          case '/admin/community':
+            return MaterialPageRoute(
+              builder: (_) => const AdminCommunityFeedScreen(),
               settings: settings,
             );
           case '/business/create':
@@ -157,6 +316,20 @@ class BrisConnectAppState extends State<BrisConnectApp> {
               ),
               settings: settings,
             );
+          case '/business/menu':
+            final business = settings.arguments as Business?;
+            if (business == null) {
+              return MaterialPageRoute(
+                builder: (_) => const Scaffold(
+                  body: Center(child: Text('No business provided')),
+                ),
+                settings: settings,
+              );
+            }
+            return MaterialPageRoute(
+              builder: (_) => MenuManagementScreen(business: business),
+              settings: settings,
+            );
           case '/promotion/detail':
             final promotionId = settings.arguments as String? ?? '';
             return MaterialPageRoute(
@@ -178,7 +351,43 @@ class BrisConnectAppState extends State<BrisConnectApp> {
               builder: (_) => const TermsOfServiceScreen(),
               settings: settings,
             );
+          case '/welcome':
+            return MaterialPageRoute(
+              builder: (_) => const AnimatedWelcomeScreen(),
+              settings: settings,
+            );
           default:
+            // Support deep links such as /food/<id> and /event/<id> that are
+            // shared via QR codes and social apps. Try to resolve the entity
+            // and open the correct detail screen; otherwise fall through to
+            // the 404 page.
+            if (routePath.startsWith('/business/')) {
+              final id = routePath.substring('/business/'.length).trim();
+              if (id.isNotEmpty) {
+                return MaterialPageRoute(
+                  builder: (_) => BusinessProfileViewScreen(businessId: id),
+                  settings: settings,
+                );
+              }
+            }
+            if (routePath.startsWith('/food/')) {
+              final id = routePath.substring('/food/'.length).trim();
+              if (id.isNotEmpty) {
+                return MaterialPageRoute(
+                  builder: (_) => _FoodDetailLoader(businessId: id),
+                  settings: settings,
+                );
+              }
+            }
+            if (routePath.startsWith('/event/')) {
+              final id = routePath.substring('/event/'.length).trim();
+              if (id.isNotEmpty) {
+                return MaterialPageRoute(
+                  builder: (_) => _EventDetailLoader(eventId: id),
+                  settings: settings,
+                );
+              }
+            }
             return MaterialPageRoute(
               builder: (_) => const Scaffold(
                 body: Center(child: Text('Page not found')),
@@ -188,6 +397,100 @@ class BrisConnectAppState extends State<BrisConnectApp> {
         }
       },
     );
+  }
+}
+
+/// Loads a food/business profile by ID and opens the appropriate detail screen.
+class _FoodDetailLoader extends StatelessWidget {
+  final String businessId;
+
+  const _FoodDetailLoader({required this.businessId});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<FoodBusiness?>(
+      future: FoodBusinessService().getBusinessById(businessId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final food = snapshot.data;
+        if (food == null) {
+          return const Scaffold(
+            body: Center(child: Text('Food spot not found')),
+          );
+        }
+        return FoodDetailScreen(
+          id: food.id,
+          title: food.name,
+          description: food.description,
+          location: food.address,
+          cuisine: food.cuisineTypes?.isNotEmpty == true
+              ? food.cuisineTypes!.first
+              : 'Food',
+          imageUrl: food.imageUrl ?? '',
+          categories: food.cuisineTypes ?? const [],
+          rating: food.averageRating,
+          badge: 'Food',
+          dateTime: '',
+          price: '',
+          mapQuery: food.address,
+          webLink: food.website ?? '',
+          phone: food.phone ?? '',
+          email: food.email ?? '',
+          openingHours: food.operatingHours ?? '',
+          facebookUrl: food.facebookUrl ?? '',
+          instagramUrl: food.instagramUrl ?? '',
+          onlineOrderUrl: food.onlineOrderUrl ?? '',
+          aiAudio: '',
+          isGoogleListing: food.isGoogleListing,
+        );
+      },
+    );
+  }
+}
+
+/// Loads an event by ID and opens the event detail screen.
+class _EventDetailLoader extends StatelessWidget {
+  final String eventId;
+
+  const _EventDetailLoader({required this.eventId});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: _fetchEvent(eventId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final event = snapshot.data;
+        if (event == null) {
+          return const Scaffold(
+            body: Center(child: Text('Event not found')),
+          );
+        }
+        return VisitorEventDetailScreen(event: event);
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>?> _fetchEvent(String id) async {
+    final collections = ['events', 'business_events'];
+    for (final collection in collections) {
+      final doc = await FirebaseFirestore.instance
+          .collection(collection)
+          .doc(id)
+          .get();
+      if (doc.exists) {
+        return {'id': doc.id, ...doc.data()!};
+      }
+    }
+    return null;
   }
 }
 
@@ -401,7 +704,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF007BFF).withValues(alpha: 0.3),
+                            color:
+                                const Color(0xFF007BFF).withValues(alpha: 0.3),
                             blurRadius: 20,
                             spreadRadius: 5,
                           ),
@@ -468,10 +772,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: const Color(0xFF11162B).withValues(alpha: 0.8),
+                              color: const Color(0xFF11162B)
+                                  .withValues(alpha: 0.8),
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(
-                                color: const Color(0xFF007BFF).withValues(alpha: 0.2),
+                                color: const Color(0xFF007BFF)
+                                    .withValues(alpha: 0.2),
                                 width: 1.5,
                               ),
                               boxShadow: [

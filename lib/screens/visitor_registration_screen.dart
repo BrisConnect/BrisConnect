@@ -6,7 +6,8 @@ class VisitorRegistrationScreen extends StatefulWidget {
   const VisitorRegistrationScreen({super.key});
 
   @override
-  State<VisitorRegistrationScreen> createState() => _VisitorRegistrationScreenState();
+  State<VisitorRegistrationScreen> createState() =>
+      _VisitorRegistrationScreenState();
 }
 
 class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
@@ -149,7 +150,8 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
               Text(label,
                   style: const TextStyle(fontSize: 11, color: Colors.black87)),
               Text(value,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w600)),
             ],
           ),
         ],
@@ -181,9 +183,11 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('New Visitor',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
                       Text('Fill in the details below to register',
-                          style: TextStyle(fontSize: 12, color: Colors.black54)),
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.black54)),
                     ],
                   ),
                 ],
@@ -199,8 +203,9 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
               controller: _nameController,
               decoration: _inputDecoration('Full Name', Icons.person),
               textCapitalization: TextCapitalization.words,
-              validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Please enter your full name' : null,
+              validator: (v) => v == null || v.trim().isEmpty
+                  ? 'Please enter your full name'
+                  : null,
             ),
             const SizedBox(height: 14),
 
@@ -209,8 +214,9 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
               controller: _phoneController,
               decoration: _inputDecoration('Phone Number', Icons.phone),
               keyboardType: TextInputType.phone,
-              validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Please enter your phone number' : null,
+              validator: (v) => v == null || v.trim().isEmpty
+                  ? 'Please enter your phone number'
+                  : null,
             ),
             const SizedBox(height: 24),
 
@@ -244,7 +250,8 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
                         width: 1.5,
                       ),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     child: Row(
                       children: [
                         Icon(
@@ -276,7 +283,8 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
               child: ElevatedButton.icon(
                 onPressed: _submitForm,
                 icon: const Icon(Icons.how_to_reg),
-                label: const Text('Register Visit', style: TextStyle(fontSize: 16)),
+                label: const Text('Register Visit',
+                    style: TextStyle(fontSize: 16)),
               ),
             ),
             const SizedBox(height: 12),
@@ -310,4 +318,3 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
     );
   }
 }
-

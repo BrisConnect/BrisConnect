@@ -4,6 +4,10 @@ import 'package:brisconnect/services/fcm_service.dart';
 
 enum AppThemePreference { system, light, dark }
 
+/// Notifies listeners when the app's locale changes.
+/// Used by widgets to rebuild when the user changes their language preference.
+final localeChangeNotifier = ValueNotifier<Locale?>(null);
+
 class AppDisplaySettings {
   const AppDisplaySettings({
     required this.locationAccessEnabled,
@@ -106,12 +110,16 @@ class AppDisplaySettingsController {
   }
 
   /// Updates the app's active locale from anywhere in the app.
+  /// Notifies all listeners so widgets can rebuild with the new locale.
   static void setAppLocale(String language) {
     final trimmed = language.trim();
     if (trimmed.isEmpty) return;
+    final locale = Locale(trimmed);
     final context = navigatorKey.currentContext;
     if (context != null) {
-      BrisConnectApp.of(context)?.setLocale(Locale(trimmed));
+      BrisConnectApp.of(context)?.setLocale(locale);
     }
+    // Notify listeners so widgets can detect locale changes and rebuild.
+    localeChangeNotifier.value = locale;
   }
 }

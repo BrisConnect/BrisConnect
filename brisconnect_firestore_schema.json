@@ -1,0 +1,3459 @@
+{
+  "projectId": "brisconnect-68b78",
+  "generatedAt": "2026-08-17T15:11:44.169Z",
+  "extractionMethod": {
+    "mode": "read-only",
+    "maxDocumentsPerCollection": 100,
+    "maxSubcollectionDepth": 5,
+    "actualValuesExported": false
+  },
+  "summary": {
+    "rootCollectionCount": 30,
+    "discoveredSchemaPathCount": 35,
+    "possibleReferenceFieldCount": 36,
+    "subcollectionRelationshipCount": 5
+  },
+  "limitations": [
+    "Cloud Firestore is schema-flexible and does not enforce a relational schema.",
+    "Field definitions are inferred from documents sampled from each collection.",
+    "A maximum of 100 documents per discovered collection path are sampled.",
+    "Fields that exist only in documents outside the sample may not appear.",
+    "Empty collections cannot expose their document field structures.",
+    "A field named businessId, ownerId, visitorId, eventId, or similar is treated only as a possible relationship.",
+    "Possible relationships must be validated using Firestore security rules, indexes, Flutter/Dart code, or Cloud Functions.",
+    "No actual Firestore field values are exported by this script."
+  ],
+  "rootCollections": [
+    "Users",
+    "admin_notifications",
+    "admins",
+    "ai_generated_posts",
+    "app_feedback",
+    "business_subscriptions",
+    "business_verification_log",
+    "businesses",
+    "config",
+    "counters",
+    "crowd_reports",
+    "discover_items",
+    "email_audit",
+    "food_businesses",
+    "local_users",
+    "login_codes",
+    "mail",
+    "notification_health_checks",
+    "post_comments",
+    "post_engagements",
+    "promotion_plans",
+    "promotions",
+    "reviews",
+    "seed_metadata",
+    "sms_queue",
+    "social_shares",
+    "subscription_plans",
+    "user_notifications",
+    "visitor_photos",
+    "visitor_users"
+  ],
+  "schemas": {
+    "Users": {
+      "path": "Users",
+      "documentsSampled": 1,
+      "fields": {
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 1
+        },
+        "email": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 1
+        },
+        "name": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 1
+        },
+        "role": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 1
+        }
+      },
+      "subcollections": []
+    },
+    "admin_notifications": {
+      "path": "admin_notifications",
+      "documentsSampled": 17,
+      "fields": {
+        "actionRoute": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 17
+        },
+        "adminEmail": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 17
+        },
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 17
+        },
+        "data": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 17
+        },
+        "message": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 17
+        },
+        "read": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 17
+        },
+        "relatedItemId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 17
+        },
+        "relatedItemType": {
+          "types": [
+            "null",
+            "string"
+          ],
+          "occurrences": 17
+        },
+        "title": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 17
+        },
+        "type": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 17
+        }
+      },
+      "subcollections": []
+    },
+    "admins": {
+      "path": "admins",
+      "documentsSampled": 1,
+      "fields": {
+        "active": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 1
+        },
+        "email": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 1
+        },
+        "lastLoginAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 1
+        },
+        "profileImageStoragePath": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 1
+        },
+        "profileImageUrl": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 1
+        },
+        "role": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 1
+        },
+        "updatedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 1
+        },
+        "username": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 1
+        }
+      },
+      "subcollections": []
+    },
+    "ai_generated_posts": {
+      "path": "ai_generated_posts",
+      "documentsSampled": 12,
+      "fields": {
+        "businessId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 12
+        },
+        "businessName": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 9
+        },
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 12
+        },
+        "description": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 12
+        },
+        "discount": {
+          "types": [
+            "null",
+            "string"
+          ],
+          "occurrences": 12
+        },
+        "eventDate": {
+          "types": [
+            "null",
+            "timestamp"
+          ],
+          "occurrences": 12
+        },
+        "generatedContent": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 12
+        },
+        "imageUrl": {
+          "types": [
+            "null",
+            "string"
+          ],
+          "occurrences": 6
+        },
+        "location": {
+          "types": [
+            "null",
+            "string"
+          ],
+          "occurrences": 12
+        },
+        "ownerId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 12
+        },
+        "postType": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 12
+        },
+        "price": {
+          "types": [
+            "null",
+            "string"
+          ],
+          "occurrences": 12
+        },
+        "status": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 12
+        },
+        "title": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 12
+        },
+        "updatedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 12
+        }
+      },
+      "subcollections": []
+    },
+    "app_feedback": {
+      "path": "app_feedback",
+      "documentsSampled": 4,
+      "fields": {
+        "adminReply": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 3
+        },
+        "adminReplyAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 3
+        },
+        "appVersion": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "category": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "consideredForFix": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 4
+        },
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 4
+        },
+        "details": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "imageStoragePath": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "imageUrl": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "maintenanceWindowDays": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 4
+        },
+        "referenceId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "replyReadByReporter": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 3
+        },
+        "reporterEmail": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "reporterName": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "reporterRole": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "resolutionDueAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 4
+        },
+        "screenContext": {
+          "types": [
+            "null",
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "severity": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "status": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "subject": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "updatedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 4
+        }
+      },
+      "subcollections": []
+    },
+    "business_subscriptions": {
+      "path": "business_subscriptions",
+      "documentsSampled": 2,
+      "fields": {
+        "businessId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 1
+        },
+        "cancelAtPeriodEnd": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 2
+        },
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 2
+        },
+        "currentPeriodEnd": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 2
+        },
+        "currentPeriodStart": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 2
+        },
+        "email": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "ownerId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "planId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "planName": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "status": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "stripeCustomerId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "stripeSubscriptionId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "updatedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 2
+        }
+      },
+      "subcollections": []
+    },
+    "business_verification_log": {
+      "path": "business_verification_log",
+      "documentsSampled": 5,
+      "fields": {
+        "action": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 5
+        },
+        "adminEmail": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 5
+        },
+        "businessId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 5
+        },
+        "notes": {
+          "types": [
+            "null"
+          ],
+          "occurrences": 5
+        },
+        "verifiedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 5
+        }
+      },
+      "subcollections": []
+    },
+    "businesses": {
+      "path": "businesses",
+      "documentsSampled": 24,
+      "fields": {
+        "address": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 10
+        },
+        "audioGuideNarration": {
+          "types": [
+            "null"
+          ],
+          "occurrences": 2
+        },
+        "audioGuideUrl": {
+          "types": [
+            "null"
+          ],
+          "occurrences": 2
+        },
+        "averageRating": {
+          "types": [
+            "integer",
+            "number"
+          ],
+          "occurrences": 10
+        },
+        "businessHours": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 4
+        },
+        "businessName": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "buzzRating": {
+          "types": [
+            "integer",
+            "number"
+          ],
+          "occurrences": 4
+        },
+        "buzzScore": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 7
+        },
+        "category": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "contactNumber": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "coverImageUrl": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 4
+        },
+        "cuisineTypes": {
+          "types": [
+            "array<string>"
+          ],
+          "occurrences": 6
+        },
+        "deletedAt": {
+          "types": [
+            "null"
+          ],
+          "occurrences": 10
+        },
+        "deletedBy": {
+          "types": [
+            "null"
+          ],
+          "occurrences": 3
+        },
+        "description": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 10
+        },
+        "duplicateOf": {
+          "types": [
+            "null"
+          ],
+          "occurrences": 3
+        },
+        "imageUrl": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 6
+        },
+        "isActive": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 10
+        },
+        "isPremium": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 1
+        },
+        "isTrending": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 7
+        },
+        "isVerified": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 6
+        },
+        "lastSavedUpdateNotifiedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 1
+        },
+        "lastUpdateNotifiedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 2
+        },
+        "lat": {
+          "types": [
+            "null",
+            "number"
+          ],
+          "occurrences": 4
+        },
+        "latitude": {
+          "types": [
+            "number"
+          ],
+          "occurrences": 6
+        },
+        "lng": {
+          "types": [
+            "null",
+            "number"
+          ],
+          "occurrences": 4
+        },
+        "logoUrl": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "longitude": {
+          "types": [
+            "number"
+          ],
+          "occurrences": 6
+        },
+        "menuItems": {
+          "types": [
+            "array<string>",
+            "null"
+          ],
+          "occurrences": 4
+        },
+        "menuItemsModel": {
+          "types": [
+            "array<map>",
+            "null"
+          ],
+          "occurrences": 2
+        },
+        "name": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 6
+        },
+        "ownerId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "phone": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 6
+        },
+        "photos": {
+          "types": [
+            "array<string>",
+            "null"
+          ],
+          "occurrences": 4
+        },
+        "premiumPlanId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 1
+        },
+        "premiumPlanName": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 1
+        },
+        "premiumStartedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 1
+        },
+        "premiumSubscriptionId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 1
+        },
+        "priceRange": {
+          "types": [
+            "null"
+          ],
+          "occurrences": 2
+        },
+        "rating": {
+          "types": [
+            "integer",
+            "number"
+          ],
+          "occurrences": 7
+        },
+        "reviewCount": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 11
+        },
+        "saveHistory": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 14
+        },
+        "savedCount": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 14
+        },
+        "socialMedia": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 4
+        },
+        "updatedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 24
+        },
+        "verifiedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 5
+        },
+        "verifiedBy": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 5
+        },
+        "viewCount": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 10
+        },
+        "viewHistory": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 4
+        },
+        "viewHistory.03-08-2026": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 3
+        },
+        "viewHistory.04-08-2026": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 3
+        },
+        "viewHistory.15-08-2026": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 2
+        },
+        "viewHistory.16-08-2026": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 2
+        },
+        "viewHistory.29-07-2026": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 1
+        },
+        "viewHistory.30-07-2026": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 1
+        },
+        "viewHistory.31-07-2026": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 1
+        },
+        "website": {
+          "types": [
+            "null",
+            "string"
+          ],
+          "occurrences": 10
+        }
+      },
+      "subcollections": [
+        "reviews"
+      ]
+    },
+    "businesses/{documentId}/reviews": {
+      "path": "businesses/{documentId}/reviews",
+      "documentsSampled": 22,
+      "fields": {
+        "businessId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 22
+        },
+        "buzzRating": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 17
+        },
+        "comment": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 22
+        },
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 22
+        },
+        "helpfulCount": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 22
+        },
+        "rating": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 22
+        },
+        "userId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 22
+        },
+        "userName": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 22
+        }
+      },
+      "subcollections": []
+    },
+    "config": {
+      "path": "config",
+      "documentsSampled": 1,
+      "fields": {
+        "items": {
+          "types": [
+            "array<string>"
+          ],
+          "occurrences": 1
+        },
+        "updatedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 1
+        }
+      },
+      "subcollections": []
+    },
+    "counters": {
+      "path": "counters",
+      "documentsSampled": 1,
+      "fields": {
+        "count": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 1
+        }
+      },
+      "subcollections": []
+    },
+    "crowd_reports": {
+      "path": "crowd_reports",
+      "documentsSampled": 11,
+      "fields": {
+        "businessId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 7
+        },
+        "eventId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 11
+        },
+        "level": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 11
+        },
+        "timestamp": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 11
+        },
+        "userId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 11
+        },
+        "weight": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 11
+        }
+      },
+      "subcollections": []
+    },
+    "discover_items": {
+      "path": "discover_items",
+      "documentsSampled": 48,
+      "fields": {
+        "approvalStatus": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 48
+        },
+        "badge": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 48
+        },
+        "categories": {
+          "types": [
+            "array<string>"
+          ],
+          "occurrences": 48
+        },
+        "cuisine": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 48
+        },
+        "dateTime": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 48
+        },
+        "description": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 48
+        },
+        "id": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 48
+        },
+        "imageUrl": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 48
+        },
+        "importedFrom": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 48
+        },
+        "latitude": {
+          "types": [
+            "number"
+          ],
+          "occurrences": 48
+        },
+        "location": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 48
+        },
+        "longitude": {
+          "types": [
+            "number"
+          ],
+          "occurrences": 48
+        },
+        "mapQuery": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 48
+        },
+        "price": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 48
+        },
+        "rating": {
+          "types": [
+            "integer",
+            "number"
+          ],
+          "occurrences": 48
+        },
+        "section": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 48
+        },
+        "source": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 48
+        },
+        "sourceProvider": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 48
+        },
+        "suburb": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 48
+        },
+        "title": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 48
+        },
+        "updatedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 48
+        },
+        "webLink": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 48
+        }
+      },
+      "subcollections": []
+    },
+    "email_audit": {
+      "path": "email_audit",
+      "documentsSampled": 100,
+      "fields": {
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 100
+        },
+        "delivered": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 94
+        },
+        "error": {
+          "types": [
+            "null"
+          ],
+          "occurrences": 6
+        },
+        "meta": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 100
+        },
+        "provider": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 100
+        },
+        "providerResponse": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 100
+        },
+        "status": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 100
+        },
+        "subject": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 100
+        },
+        "to": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 100
+        }
+      },
+      "subcollections": []
+    },
+    "food_businesses": {
+      "path": "food_businesses",
+      "documentsSampled": 100,
+      "fields": {
+        "address": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 100
+        },
+        "coordinates": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 100
+        },
+        "coverImageUrl": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 100
+        },
+        "createdAt": {
+          "types": [
+            "string",
+            "timestamp"
+          ],
+          "occurrences": 100
+        },
+        "cuisineTypes": {
+          "types": [
+            "array<string>"
+          ],
+          "occurrences": 100
+        },
+        "description": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 100
+        },
+        "googlePlaceId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 100
+        },
+        "id": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 11
+        },
+        "imageUrl": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 100
+        },
+        "latitude": {
+          "types": [
+            "number"
+          ],
+          "occurrences": 100
+        },
+        "logoUrl": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 100
+        },
+        "longitude": {
+          "types": [
+            "number"
+          ],
+          "occurrences": 100
+        },
+        "menu": {
+          "types": [
+            "array<map>"
+          ],
+          "occurrences": 100
+        },
+        "name": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 100
+        },
+        "openNow": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 79
+        },
+        "openingHours": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 94
+        },
+        "phone": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 100
+        },
+        "photoGallery": {
+          "types": [
+            "array<string>"
+          ],
+          "occurrences": 100
+        },
+        "priceRange": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 100
+        },
+        "rating": {
+          "types": [
+            "integer",
+            "number"
+          ],
+          "occurrences": 100
+        },
+        "reviewCount": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 100
+        },
+        "source": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 79
+        },
+        "website": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 100
+        }
+      },
+      "subcollections": []
+    },
+    "local_users": {
+      "path": "local_users",
+      "documentsSampled": 4,
+      "fields": {
+        "accountType": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "active": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 2
+        },
+        "approvalStatus": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "approvedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 3
+        },
+        "authFallback": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 2
+        },
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 4
+        },
+        "email": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "emailNotificationsEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 2
+        },
+        "eventRemindersEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 2
+        },
+        "eventUpdatesEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 2
+        },
+        "interestCategories": {
+          "types": [
+            "array"
+          ],
+          "occurrences": 2
+        },
+        "interestedEventIds": {
+          "types": [
+            "array"
+          ],
+          "occurrences": 2
+        },
+        "locationAccessEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 2
+        },
+        "locationRadiusKm": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 2
+        },
+        "name": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "nearbyEventsEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 2
+        },
+        "notificationsEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 4
+        },
+        "notifyBusinessUpdates": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 1
+        },
+        "notifyNewReview": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 1
+        },
+        "notifyOfferExpiry": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 1
+        },
+        "notifyTrendingPromotion": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 1
+        },
+        "passwordHash": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "passwordUpdatedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 2
+        },
+        "phone": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "profileCompleted": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 3
+        },
+        "profileImageBase64": {
+          "types": [
+            "null"
+          ],
+          "occurrences": 2
+        },
+        "profileImageStoragePath": {
+          "types": [
+            "null"
+          ],
+          "occurrences": 2
+        },
+        "profileImageUrl": {
+          "types": [
+            "null"
+          ],
+          "occurrences": 2
+        },
+        "recommendedEventsEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 2
+        },
+        "reminderTiming": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "role": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "suburb": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "textScaleFactor": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 2
+        },
+        "themePreference": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "updatedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 2
+        },
+        "useCurrentLocation": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 2
+        },
+        "username": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "welcomeSms": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 2
+        }
+      },
+      "subcollections": [
+        "fcmTokens",
+        "notifications"
+      ]
+    },
+    "local_users/{documentId}/fcmTokens": {
+      "path": "local_users/{documentId}/fcmTokens",
+      "documentsSampled": 10,
+      "fields": {
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 10
+        },
+        "lastSeenAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 10
+        },
+        "platform": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 10
+        },
+        "token": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 10
+        }
+      },
+      "subcollections": []
+    },
+    "local_users/{documentId}/notifications": {
+      "path": "local_users/{documentId}/notifications",
+      "documentsSampled": 17,
+      "fields": {
+        "actionRoute": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 13
+        },
+        "body": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 17
+        },
+        "businessId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 13
+        },
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 17
+        },
+        "data": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 17
+        },
+        "failedCount": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 17
+        },
+        "id": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 17
+        },
+        "isRead": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 17
+        },
+        "message": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 13
+        },
+        "ownerId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 17
+        },
+        "read": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 17
+        },
+        "readAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 17
+        },
+        "relatedItemId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 13
+        },
+        "relatedItemType": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 13
+        },
+        "sentCount": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 17
+        },
+        "title": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 17
+        },
+        "type": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 17
+        },
+        "userId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 13
+        }
+      },
+      "subcollections": []
+    },
+    "login_codes": {
+      "path": "login_codes",
+      "documentsSampled": 4,
+      "fields": {
+        "attempts": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 4
+        },
+        "codeHash": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 4
+        },
+        "email": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "expiresAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 4
+        },
+        "sentAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 4
+        },
+        "userType": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        }
+      },
+      "subcollections": []
+    },
+    "mail": {
+      "path": "mail",
+      "documentsSampled": 100,
+      "fields": {
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 100
+        },
+        "delivery": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 96
+        },
+        "from": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 33
+        },
+        "message": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 100
+        },
+        "meta": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 100
+        },
+        "provider": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 16
+        },
+        "providerResponse": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 16
+        },
+        "sentAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 16
+        },
+        "status": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 16
+        },
+        "to": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 100
+        }
+      },
+      "subcollections": []
+    },
+    "notification_health_checks": {
+      "path": "notification_health_checks",
+      "documentsSampled": 100,
+      "fields": {
+        "checkedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 100
+        },
+        "fcmReachable": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 100
+        },
+        "firestoreReachable": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 100
+        },
+        "latencyMs": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 100
+        },
+        "status": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 100
+        }
+      },
+      "subcollections": []
+    },
+    "post_comments": {
+      "path": "post_comments",
+      "documentsSampled": 6,
+      "fields": {
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 6
+        },
+        "mediaType": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 1
+        },
+        "mediaUrl": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 1
+        },
+        "postId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 6
+        },
+        "postType": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 6
+        },
+        "text": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 6
+        },
+        "visitorId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 6
+        },
+        "visitorName": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 6
+        }
+      },
+      "subcollections": []
+    },
+    "post_engagements": {
+      "path": "post_engagements",
+      "documentsSampled": 24,
+      "fields": {
+        "action": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 24
+        },
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 24
+        },
+        "postId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 24
+        },
+        "postType": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 24
+        },
+        "visitorId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 24
+        }
+      },
+      "subcollections": []
+    },
+    "promotion_plans": {
+      "path": "promotion_plans",
+      "documentsSampled": 2,
+      "fields": {
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 2
+        },
+        "description": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "durationDays": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 2
+        },
+        "features": {
+          "types": [
+            "array<string>"
+          ],
+          "occurrences": 1
+        },
+        "isActive": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 2
+        },
+        "name": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "priceCents": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 2
+        },
+        "stripePriceId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "type": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "updatedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 2
+        }
+      },
+      "subcollections": []
+    },
+    "promotions": {
+      "path": "promotions",
+      "documentsSampled": 3,
+      "fields": {
+        "activatedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 2
+        },
+        "businessId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 3
+        },
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 3
+        },
+        "description": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 3
+        },
+        "endAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 3
+        },
+        "expiredAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 2
+        },
+        "ownerId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 3
+        },
+        "scheduledAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 3
+        },
+        "status": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 3
+        },
+        "title": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 3
+        }
+      },
+      "subcollections": []
+    },
+    "reviews": {
+      "path": "reviews",
+      "documentsSampled": 26,
+      "fields": {
+        "businessId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 26
+        },
+        "buzzRating": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 21
+        },
+        "comment": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 26
+        },
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 26
+        },
+        "deletedAt": {
+          "types": [
+            "null"
+          ],
+          "occurrences": 23
+        },
+        "deletedBy": {
+          "types": [
+            "null"
+          ],
+          "occurrences": 23
+        },
+        "helpfulBy": {
+          "types": [
+            "array",
+            "array<string>"
+          ],
+          "occurrences": 4
+        },
+        "helpfulCount": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 26
+        },
+        "isFlagged": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 26
+        },
+        "isReported": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 26
+        },
+        "rating": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 26
+        },
+        "reply": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "replyAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 2
+        },
+        "replyBy": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "reportReason": {
+          "types": [
+            "null"
+          ],
+          "occurrences": 23
+        },
+        "reportedBy": {
+          "types": [
+            "null"
+          ],
+          "occurrences": 23
+        },
+        "severity": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 18
+        },
+        "updatedAt": {
+          "types": [
+            "null",
+            "timestamp"
+          ],
+          "occurrences": 26
+        },
+        "visible": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 26
+        },
+        "visitorId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 26
+        },
+        "visitorName": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 26
+        }
+      },
+      "subcollections": []
+    },
+    "seed_metadata": {
+      "path": "seed_metadata",
+      "documentsSampled": 11,
+      "fields": {
+        "attractionCount": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 9
+        },
+        "attractionsPinned": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 1
+        },
+        "backfilledAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 1
+        },
+        "center": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 1
+        },
+        "discoverItemCount": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 7
+        },
+        "eventCount": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 10
+        },
+        "eventsPinned": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 1
+        },
+        "historicalCount": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 1
+        },
+        "lastSyncedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 2
+        },
+        "radiusMeters": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 1
+        },
+        "seededAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 7
+        },
+        "sourceProvider": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "syncedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 1
+        },
+        "version": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 9
+        },
+        "writeCount": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 2
+        }
+      },
+      "subcollections": []
+    },
+    "sms_queue": {
+      "path": "sms_queue",
+      "documentsSampled": 70,
+      "fields": {
+        "attempts": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 1
+        },
+        "claimedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 1
+        },
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 70
+        },
+        "error": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 8
+        },
+        "failedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 6
+        },
+        "from": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 49
+        },
+        "message": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 70
+        },
+        "meta": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 70
+        },
+        "processedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 68
+        },
+        "provider": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 1
+        },
+        "providerResponse": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 1
+        },
+        "sentAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 1
+        },
+        "sid": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 60
+        },
+        "status": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 69
+        },
+        "to": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 70
+        },
+        "updatedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 7
+        },
+        "workerId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 1
+        }
+      },
+      "subcollections": []
+    },
+    "social_shares": {
+      "path": "social_shares",
+      "documentsSampled": 67,
+      "fields": {
+        "businessId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 67
+        },
+        "businessName": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 5
+        },
+        "contentId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 67
+        },
+        "contentType": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 67
+        },
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 67
+        },
+        "description": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 67
+        },
+        "imageUrl": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 41
+        },
+        "platform": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 67
+        },
+        "shareKind": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 67
+        },
+        "shareUrl": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 67
+        },
+        "title": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 67
+        },
+        "visitorId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 67
+        },
+        "visitorName": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 52
+        }
+      },
+      "subcollections": []
+    },
+    "subscription_plans": {
+      "path": "subscription_plans",
+      "documentsSampled": 2,
+      "fields": {
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 2
+        },
+        "description": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "features": {
+          "types": [
+            "array<string>"
+          ],
+          "occurrences": 2
+        },
+        "interval": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "isActive": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 2
+        },
+        "name": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 2
+        },
+        "priceCents": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 2
+        },
+        "stripePriceId": {
+          "types": [
+            "null"
+          ],
+          "occurrences": 2
+        },
+        "updatedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 2
+        }
+      },
+      "subcollections": []
+    },
+    "user_notifications": {
+      "path": "user_notifications",
+      "documentsSampled": 17,
+      "fields": {
+        "actionRoute": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 13
+        },
+        "body": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 17
+        },
+        "businessId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 13
+        },
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 17
+        },
+        "data": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 17
+        },
+        "failedCount": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 17
+        },
+        "id": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 17
+        },
+        "isRead": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 13
+        },
+        "message": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 13
+        },
+        "ownerId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 17
+        },
+        "read": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 17
+        },
+        "relatedItemId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 13
+        },
+        "relatedItemType": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 13
+        },
+        "sentCount": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 17
+        },
+        "source": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 17
+        },
+        "title": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 17
+        },
+        "type": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 17
+        },
+        "userId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 13
+        }
+      },
+      "subcollections": []
+    },
+    "visitor_photos": {
+      "path": "visitor_photos",
+      "documentsSampled": 3,
+      "fields": {
+        "businessId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 3
+        },
+        "caption": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 3
+        },
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 3
+        },
+        "fileSize": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 3
+        },
+        "imageUrl": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 3
+        },
+        "mimeType": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 3
+        },
+        "status": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 3
+        },
+        "storagePath": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 3
+        },
+        "updatedAt": {
+          "types": [
+            "null"
+          ],
+          "occurrences": 3
+        },
+        "visitorId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 3
+        },
+        "visitorName": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 3
+        }
+      },
+      "subcollections": []
+    },
+    "visitor_users": {
+      "path": "visitor_users",
+      "documentsSampled": 7,
+      "fields": {
+        "accountType": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 3
+        },
+        "active": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 3
+        },
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 7
+        },
+        "deactivatedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 1
+        },
+        "email": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 7
+        },
+        "emailNotificationsEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 7
+        },
+        "eventRemindersEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 4
+        },
+        "eventUpdatesEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 4
+        },
+        "interestCategories": {
+          "types": [
+            "array"
+          ],
+          "occurrences": 4
+        },
+        "interestPriorities": {
+          "types": [
+            "array"
+          ],
+          "occurrences": 4
+        },
+        "interestedEventIds": {
+          "types": [
+            "array"
+          ],
+          "occurrences": 4
+        },
+        "language": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "locationAccessEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 4
+        },
+        "locationRadiusKm": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 3
+        },
+        "name": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "nearbyEventsEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 4
+        },
+        "nearbyPromotionsEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 1
+        },
+        "newBusinessDiscoveryEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 1
+        },
+        "notificationsEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 7
+        },
+        "passwordHash": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "passwordUpdatedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 4
+        },
+        "personalisedRecommendationsEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 1
+        },
+        "phone": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "profileImageBase64": {
+          "types": [
+            "null"
+          ],
+          "occurrences": 4
+        },
+        "profileImageStoragePath": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "profileImageUrl": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "promotionExpiryRemindersEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 1
+        },
+        "recommendedEventsEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 4
+        },
+        "reminderTiming": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "role": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 7
+        },
+        "savedAttractionIds": {
+          "types": [
+            "array"
+          ],
+          "occurrences": 4
+        },
+        "savedBusinessIds": {
+          "types": [
+            "array",
+            "array<string>"
+          ],
+          "occurrences": 5
+        },
+        "savedBusinessUpdatesEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 1
+        },
+        "textScaleFactor": {
+          "types": [
+            "integer"
+          ],
+          "occurrences": 4
+        },
+        "themePreference": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 4
+        },
+        "trendingBusinessesEnabled": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 1
+        },
+        "updatedAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 3
+        },
+        "useCurrentLocation": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 3
+        },
+        "username": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 7
+        },
+        "welcomeSms": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 2
+        }
+      },
+      "subcollections": [
+        "fcmTokens",
+        "notifications"
+      ]
+    },
+    "visitor_users/{documentId}/notifications": {
+      "path": "visitor_users/{documentId}/notifications",
+      "documentsSampled": 8,
+      "fields": {
+        "actionRoute": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 8
+        },
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 8
+        },
+        "data": {
+          "types": [
+            "map"
+          ],
+          "occurrences": 8
+        },
+        "id": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 8
+        },
+        "isRead": {
+          "types": [
+            "boolean"
+          ],
+          "occurrences": 8
+        },
+        "message": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 8
+        },
+        "relatedItemId": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 8
+        },
+        "relatedItemType": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 8
+        },
+        "title": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 8
+        },
+        "type": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 8
+        },
+        "userEmail": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 8
+        }
+      },
+      "subcollections": []
+    },
+    "visitor_users/{documentId}/fcmTokens": {
+      "path": "visitor_users/{documentId}/fcmTokens",
+      "documentsSampled": 5,
+      "fields": {
+        "createdAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 5
+        },
+        "lastSeenAt": {
+          "types": [
+            "timestamp"
+          ],
+          "occurrences": 5
+        },
+        "platform": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 5
+        },
+        "token": {
+          "types": [
+            "string"
+          ],
+          "occurrences": 5
+        }
+      },
+      "subcollections": []
+    }
+  },
+  "possibleRelationshipFields": [
+    {
+      "collectionPath": "Users",
+      "field": "email",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "admins",
+      "field": "email",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "ai_generated_posts",
+      "field": "businessId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "ai_generated_posts",
+      "field": "ownerId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "app_feedback",
+      "field": "reporterEmail",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "business_subscriptions",
+      "field": "businessId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "business_subscriptions",
+      "field": "email",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "business_subscriptions",
+      "field": "ownerId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "business_verification_log",
+      "field": "businessId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "businesses",
+      "field": "ownerId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "businesses/{documentId}/reviews",
+      "field": "businessId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "businesses/{documentId}/reviews",
+      "field": "userId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "crowd_reports",
+      "field": "businessId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "crowd_reports",
+      "field": "eventId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "crowd_reports",
+      "field": "userId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "local_users",
+      "field": "email",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "local_users/{documentId}/notifications",
+      "field": "businessId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "local_users/{documentId}/notifications",
+      "field": "ownerId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "local_users/{documentId}/notifications",
+      "field": "userId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "login_codes",
+      "field": "email",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "post_comments",
+      "field": "postId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "post_comments",
+      "field": "visitorId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "post_engagements",
+      "field": "postId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "post_engagements",
+      "field": "visitorId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "promotions",
+      "field": "businessId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "promotions",
+      "field": "ownerId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "reviews",
+      "field": "businessId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "reviews",
+      "field": "visitorId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "social_shares",
+      "field": "businessId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "social_shares",
+      "field": "visitorId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "user_notifications",
+      "field": "businessId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "user_notifications",
+      "field": "ownerId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "user_notifications",
+      "field": "userId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "visitor_photos",
+      "field": "businessId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "visitor_photos",
+      "field": "visitorId",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    },
+    {
+      "collectionPath": "visitor_users",
+      "field": "email",
+      "detectedAs": "possible_reference",
+      "note": "Foreign-key-like field detected. Validate relationship using Firestore rules, indexes, or application source code."
+    }
+  ],
+  "subcollectionRelationships": [
+    {
+      "parentCollectionPath": "businesses",
+      "subcollection": "reviews",
+      "relationship": "one_to_many",
+      "evidence": "Firestore subcollection path"
+    },
+    {
+      "parentCollectionPath": "local_users",
+      "subcollection": "fcmTokens",
+      "relationship": "one_to_many",
+      "evidence": "Firestore subcollection path"
+    },
+    {
+      "parentCollectionPath": "local_users",
+      "subcollection": "notifications",
+      "relationship": "one_to_many",
+      "evidence": "Firestore subcollection path"
+    },
+    {
+      "parentCollectionPath": "visitor_users",
+      "subcollection": "fcmTokens",
+      "relationship": "one_to_many",
+      "evidence": "Firestore subcollection path"
+    },
+    {
+      "parentCollectionPath": "visitor_users",
+      "subcollection": "notifications",
+      "relationship": "one_to_many",
+      "evidence": "Firestore subcollection path"
+    }
+  ]
+}

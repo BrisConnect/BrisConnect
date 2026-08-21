@@ -71,3 +71,9 @@ website/
 # IDE/swap files
 *.swp
 *~
+.env
+.env.*
+functions/.env*
+.firebase/
+.deploy-cache/
+database/venv/

@@ -1,4 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart';
+
+import 'package:brisconnect/config/app_config.dart';
 
 enum AdminMessageType {
   reportNotice,
@@ -86,10 +90,17 @@ class AdminMessage {
 }
 
 class AdminMessageService {
-  AdminMessageService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  AdminMessageService({
+    FirebaseFirestore? firestore,
+    FirebaseFunctions? functions,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _functions = functions;
 
   final FirebaseFirestore _firestore;
+  final FirebaseFunctions? _functions;
+
+  FirebaseFunctions get _functionsInstance =>
+      _functions ?? FirebaseFunctions.instanceFor(region: AppConfig.firebaseFunctionsRegion);
 
   /// Send an admin message to a local user.
   Future<void> sendMessage({
@@ -113,7 +124,8 @@ class AdminMessageService {
     }
 
     final ts = DateTime.now().millisecondsSinceEpoch;
-    await _firestore.collection('admin_messages').doc('msg-$normalized-$ts').set({
+    final docId = 'msg-$normalized-$ts';
+    await _firestore.collection('admin_messages').doc(docId).set({
       'to': normalized,
       'subject': subject.trim(),
       'message': message.trim(),
@@ -124,6 +136,19 @@ class AdminMessageService {
       'sentBy': sentBy.trim(),
       'createdAt': FieldValue.serverTimestamp(),
     });
+
+    try {
+      await _functionsInstance.httpsCallable('notifyOwnerAdminMessage').call({
+        'toEmail': normalized,
+        'subject': subject.trim(),
+        'message': message.trim(),
+        'type': type.firestoreValue,
+        'messageId': docId,
+        'sentBy': sentBy.trim(),
+      });
+    } catch (e) {
+      debugPrint('[AdminMessageService] notifyOwnerAdminMessage failed: $e');
+    }
   }
 
   /// Stream of admin messages for a local user, newest first.

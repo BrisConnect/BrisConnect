@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:brisconnect/auth/local_auth.dart';
-import 'package:brisconnect/auth/visitor_auth.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/logo_app_bar_title.dart';
 
 class LocationSettingsScreen extends StatefulWidget {
-  const LocationSettingsScreen.visitor({super.key}) : isLocal = false;
-
-  const LocationSettingsScreen.local({super.key}) : isLocal = true;
-
-  final bool isLocal;
+  const LocationSettingsScreen({super.key});
 
   @override
   State<LocationSettingsScreen> createState() => _LocationSettingsScreenState();
@@ -20,21 +15,13 @@ class _LocationSettingsScreenState extends State<LocationSettingsScreen> {
   late int _locationRadiusKm;
   bool _isSaving = false;
 
-  bool get _isLoggedIn {
-    return widget.isLocal
-        ? LocalAuth.currentLocal != null
-        : VisitorAuth.currentVisitor != null;
-  }
+  bool get _isLoggedIn => LocalAuth.currentLocal != null;
 
   @override
   void initState() {
     super.initState();
-    _useCurrentLocation = widget.isLocal
-        ? LocalAuth.currentLocal?.useCurrentLocation ?? true
-        : VisitorAuth.currentVisitor?.useCurrentLocation ?? true;
-    _locationRadiusKm = widget.isLocal
-        ? LocalAuth.currentLocal?.locationRadiusKm ?? 20
-        : VisitorAuth.currentVisitor?.locationRadiusKm ?? 20;
+    _useCurrentLocation = LocalAuth.currentLocal?.useCurrentLocation ?? true;
+    _locationRadiusKm = LocalAuth.currentLocal?.locationRadiusKm ?? 20;
   }
 
   Future<void> _persistSettings({
@@ -44,15 +31,10 @@ class _LocationSettingsScreenState extends State<LocationSettingsScreen> {
     if (_isSaving) return;
     setState(() => _isSaving = true);
 
-    final success = widget.isLocal
-        ? await LocalAuth.setLocationSettings(
-            useCurrentLocation: useCurrentLocation,
-            locationRadiusKm: locationRadiusKm,
-          )
-        : await VisitorAuth.setLocationSettings(
-            useCurrentLocation: useCurrentLocation,
-            locationRadiusKm: locationRadiusKm,
-          );
+    final success = await LocalAuth.setLocationSettings(
+      useCurrentLocation: useCurrentLocation,
+      locationRadiusKm: locationRadiusKm,
+    );
 
     if (!mounted) return;
 

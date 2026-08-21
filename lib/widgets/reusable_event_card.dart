@@ -23,6 +23,13 @@ class ReusableEventCard extends StatelessWidget {
   final List<String>? categories;
   final String? cuisine;
   final double? rating;
+  final String? distance;
+  final bool? isOpenNow;
+  final String? openStatusText;
+  final String? waitTime;
+  final String? suburb;
+  final bool isVerified;
+  final DateTime? createdAt;
   final bool isFavorite;
   final VoidCallback? onShareTap;
   final VoidCallback? onWebTap;
@@ -53,6 +60,13 @@ class ReusableEventCard extends StatelessWidget {
     this.categories,
     this.cuisine,
     this.rating,
+    this.distance,
+    this.isOpenNow,
+    this.openStatusText,
+    this.waitTime,
+    this.suburb,
+    this.isVerified = false,
+    this.createdAt,
     this.isFavorite = false,
     this.onShareTap,
     this.onWebTap,
@@ -76,7 +90,7 @@ class ReusableEventCard extends StatelessWidget {
             child: Container(
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: cardColor ?? AppPalette.surface,
+                color: AppPalette.surface,
                 borderRadius: BorderRadius.circular(22),
                 border: border ??
                     Border.all(
@@ -85,9 +99,10 @@ class ReusableEventCard extends StatelessWidget {
                     ),
                 boxShadow: const [
                   BoxShadow(
-                    color: AppPalette.cardShadow,
-                    blurRadius: 18,
-                    offset: Offset(0, 9),
+                    color: Color(0x26000000),
+                    blurRadius: 22,
+                    offset: Offset(0, 10),
+                    spreadRadius: -2,
                   ),
                 ],
               ),
@@ -130,127 +145,121 @@ class ReusableEventCard extends StatelessWidget {
                         ),
                     ],
                   ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-                      child: SingleChildScrollView(
-                        physics: const NeverScrollableScrollPhysics(),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              title,
-                              style: const TextStyle(
-                                fontSize: 19,
-                                fontWeight: FontWeight.w800,
-                                color: AppPalette.charcoal,
-                                height: 1.2,
-                              ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w800,
+                            color: AppPalette.charcoal,
+                            height: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _BusinessHeaderRow(
+                          suburb: suburb,
+                          isVerified: isVerified,
+                          createdAt: createdAt,
+                        ),
+                        if (description != null &&
+                            description!.trim().isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            description!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppPalette.mutedText,
+                              fontSize: 13,
+                              height: 1.35,
+                              fontWeight: FontWeight.w500,
                             ),
-                            if (description != null &&
-                                description!.trim().isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                description!,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: AppPalette.mutedText,
-                                  fontSize: 13,
-                                  height: 1.35,
-                                  fontWeight: FontWeight.w500,
+                          ),
+                        ],
+                        const SizedBox(height: 10),
+                        _MetadataRow(
+                          rating: rating,
+                          price: price,
+                          distance: distance,
+                          isOpenNow: isOpenNow,
+                          openStatusText: openStatusText,
+                          waitTime: waitTime,
+                        ),
+                        const SizedBox(height: 10),
+                        _DetailRow(
+                            icon: Icons.calendar_today_rounded, text: dateTime),
+                        const SizedBox(height: 6),
+                        _DetailRow(icon: Icons.place_rounded, text: location),
+                        if (venue != null &&
+                            venue!.trim().isNotEmpty &&
+                            venue != location) ...[
+                          const SizedBox(height: 6),
+                          _DetailRow(
+                              icon: Icons.location_city_rounded, text: venue!),
+                        ],
+                        if (cuisine != null && cuisine!.trim().isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          _DetailRow(
+                              icon: Icons.restaurant_rounded, text: cuisine!),
+                        ],
+                        if (source != null && source!.trim().isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(Icons.verified_rounded,
+                                  size: 14,
+                                  color: AppPalette.deepBlue
+                                      .withValues(alpha: 0.6)),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Source: $source',
+                                  style: TextStyle(
+                                    color: AppPalette.deepBlue
+                                        .withValues(alpha: 0.6),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ],
-                            const SizedBox(height: 10),
-                            _DetailRow(
-                                icon: Icons.calendar_today_rounded,
-                                text: dateTime),
-                            const SizedBox(height: 6),
-                            _DetailRow(
-                                icon: Icons.place_rounded, text: location),
-                            if (venue != null &&
-                                venue!.trim().isNotEmpty &&
-                                venue != location) ...[
-                              const SizedBox(height: 6),
-                              _DetailRow(
-                                  icon: Icons.location_city_rounded,
-                                  text: venue!),
-                            ],
-                            const SizedBox(height: 6),
-                            _DetailRow(icon: Icons.sell_rounded, text: price),
-                            if (cuisine != null &&
-                                cuisine!.trim().isNotEmpty) ...[
-                              const SizedBox(height: 6),
-                              _DetailRow(
-                                  icon: Icons.restaurant_rounded,
-                                  text: cuisine!),
-                            ],
-                            if (rating != null && rating! > 0) ...[
-                              const SizedBox(height: 6),
-                              _DetailRow(
-                                icon: Icons.star_rounded,
-                                text: '${rating!.toStringAsFixed(1)} rating',
-                              ),
-                            ],
-                            if (source != null &&
-                                source!.trim().isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Icon(Icons.verified_rounded,
-                                      size: 14,
+                          ),
+                        ],
+                        if (categories != null && categories!.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: categories!
+                                .take(4)
+                                .map(
+                                  (cat) => Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
                                       color: AppPalette.deepBlue
-                                          .withValues(alpha: 0.6)),
-                                  const SizedBox(width: 6),
-                                  Expanded(
+                                          .withValues(alpha: 0.08),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                     child: Text(
-                                      'Source: $source',
-                                      style: TextStyle(
-                                        color: AppPalette.deepBlue
-                                            .withValues(alpha: 0.6),
+                                      cat,
+                                      style: const TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,
+                                        color: AppPalette.deepBlue,
                                       ),
                                     ),
                                   ),
-                                ],
-                              ),
-                            ],
-                            if (categories != null &&
-                                categories!.isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 4,
-                                children: categories!
-                                    .take(4)
-                                    .map(
-                                      (cat) => Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color: AppPalette.deepBlue
-                                              .withValues(alpha: 0.08),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          cat,
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppPalette.deepBlue,
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
+                                )
+                                .toList(),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                   // Quick contact / action chips on the business card itself.
@@ -418,6 +427,216 @@ class _DetailRow extends StatelessWidget {
   }
 }
 
+class _BusinessHeaderRow extends StatelessWidget {
+  final String? suburb;
+  final bool isVerified;
+  final DateTime? createdAt;
+
+  const _BusinessHeaderRow({
+    this.suburb,
+    this.isVerified = false,
+    this.createdAt,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <Widget>[];
+
+    if (isVerified) {
+      items.add(
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: const Color(0xFF10B981).withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.verified_rounded, size: 12, color: Color(0xFF047857)),
+              SizedBox(width: 3),
+              Text(
+                'Verified',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF047857),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final suburbText = suburb?.trim() ?? '';
+    if (suburbText.isNotEmpty) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 8));
+      items.add(
+        Flexible(
+          child: Text(
+            suburbText,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppPalette.mutedText,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (createdAt != null) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 8));
+      items.add(
+        Text(
+          _formatTimeAgo(createdAt!),
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: AppPalette.mutedText,
+          ),
+        ),
+      );
+    }
+
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: items,
+    );
+  }
+}
+
+String _formatTimeAgo(DateTime date) {
+  final diff = DateTime.now().difference(date);
+  if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
+  if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+  if (diff.inHours < 24) return '${diff.inHours}h ago';
+  return '${diff.inDays}d ago';
+}
+
+class _MetadataRow extends StatelessWidget {
+  final double? rating;
+  final String? price;
+  final String? distance;
+  final bool? isOpenNow;
+  final String? openStatusText;
+  final String? waitTime;
+
+  const _MetadataRow({
+    this.rating,
+    this.price,
+    this.distance,
+    this.isOpenNow,
+    this.openStatusText,
+    this.waitTime,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final chips = <Widget>[];
+
+    if (rating != null && rating! > 0) {
+      chips.add(_MetadataChip(
+        icon: Icons.star_rounded,
+        text: rating!.toStringAsFixed(1),
+        iconColor: const Color(0xFFF59E0B),
+      ));
+    }
+
+    final priceText = price?.trim() ?? '';
+    if (priceText.isNotEmpty) {
+      chips.add(_MetadataChip(
+        icon: Icons.attach_money_rounded,
+        text: priceText,
+      ));
+    }
+
+    if (distance != null && distance!.isNotEmpty) {
+      chips.add(_MetadataChip(
+        icon: Icons.place_rounded,
+        text: distance!,
+      ));
+    }
+
+    if (openStatusText != null && openStatusText!.isNotEmpty) {
+      final isOpen = isOpenNow ?? false;
+      chips.add(_MetadataChip(
+        icon: isOpen
+            ? Icons.access_time_filled_rounded
+            : Icons.access_time_rounded,
+        text: openStatusText!,
+        iconColor: isOpen ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+        textColor: isOpen ? const Color(0xFF047857) : const Color(0xFFB91C1C),
+      ));
+    }
+
+    final waitText = waitTime?.trim() ?? '';
+    if (waitText.isNotEmpty) {
+      chips.add(_MetadataChip(
+        icon: Icons.hourglass_top_rounded,
+        text: waitText,
+      ));
+    }
+
+    if (chips.isEmpty) return const SizedBox.shrink();
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: chips,
+    );
+  }
+}
+
+class _MetadataChip extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color? iconColor;
+  final Color? textColor;
+
+  const _MetadataChip({
+    required this.icon,
+    required this.text,
+    this.iconColor,
+    this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppPalette.deepBlue.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: iconColor ?? AppPalette.deepBlue,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: textColor ?? AppPalette.deepBlue,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ContactChip extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -447,15 +666,15 @@ class _ContactChip extends StatelessWidget {
   }
 }
 
-Future<void> _launchUrl(BuildContext context, Uri uri, String fallbackMessage) async {
+Future<void> _launchUrl(
+    BuildContext context, Uri uri, String fallbackMessage) async {
   try {
     // Add a scheme to web links if the stored value is missing one.
     var resolved = uri;
     final urlString = uri.toString();
     if (uri.scheme.isEmpty &&
         (urlString.startsWith('www.') ||
-            urlString.contains('.') &&
-                !urlString.contains(' '))) {
+            urlString.contains('.') && !urlString.contains(' '))) {
       resolved = Uri.parse('https://$urlString');
     }
     if (await canLaunchUrl(resolved)) {

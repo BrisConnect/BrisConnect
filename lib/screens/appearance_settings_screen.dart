@@ -187,7 +187,6 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
               ),
             ),
           ),
-
           const SizedBox(height: 24),
           _SectionLabel(l10n.textSize),
           const SizedBox(height: 8),
@@ -214,7 +213,8 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
                         ),
                       ),
                       Text(
-                        l10n.textScalePercent('${(_textScaleFactor * 100).round()}'),
+                        l10n.textScalePercent(
+                            '${(_textScaleFactor * 100).round()}'),
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           color: AppPalette.deepBlue,
@@ -235,7 +235,8 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
                     min: 0.9,
                     max: 1.3,
                     divisions: 8,
-                    label: l10n.textScalePercent('${(_textScaleFactor * 100).round()}'),
+                    label: l10n.textScalePercent(
+                        '${(_textScaleFactor * 100).round()}'),
                     activeColor: AppPalette.deepBlue,
                     onChanged: _isSaving
                         ? null
@@ -269,7 +270,6 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
               ),
             ),
           ),
-
           const SizedBox(height: 24),
           _SectionLabel(l10n.support),
           const SizedBox(height: 8),
@@ -294,16 +294,13 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
               ),
               trailing: const Icon(Icons.chevron_right_rounded),
               onTap: () {
-                final name = _reporterName;
-                final email = _reporterEmail;
-                if (name == null || email == null) return;
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => FeedbackFormScreen(
                       reporterRole: widget.isLocal ? 'local' : 'visitor',
-                      reporterName: name,
-                      reporterEmail: email,
+                      reporterName: _reporterName ?? 'Guest Visitor',
+                      reporterEmail: _reporterEmail ?? '',
                     ),
                   ),
                 );

@@ -60,7 +60,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get appearanceSettings => 'Aparência';
 
   @override
-  String get feedback => 'Feedback';
+  String get feedback => 'Opinião';
 
   @override
   String get myFeedback => 'Meu feedback';
@@ -519,12 +519,12 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String categoryLabel(String category) {
-    return 'Categoria: $category';
+    return 'Category: $category';
   }
 
   @override
   String severityLabel(String severity) {
-    return 'Gravidade: $severity';
+    return 'Severity: $severity';
   }
 
   @override
@@ -546,7 +546,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get languageArabic => 'Árabe';
 
   @override
-  String get languageHindi => 'Hindi';
+  String get languageHindi => 'hindi';
 
   @override
   String get languageItalian => 'Italiano';
@@ -601,7 +601,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String versionLabel(String version) {
-    return 'Versão $version';
+    return 'Version $version';
   }
 
   @override
@@ -682,22 +682,22 @@ class AppLocalizationsPt extends AppLocalizations {
   String get statusWontFix => 'Não vou consertar';
 
   @override
-  String get foodBusinessDetails => 'Business Details';
+  String get foodBusinessDetails => 'Detalhes da empresa';
 
   @override
-  String get aboutThisFoodExperience => 'About this Food Experience';
+  String get aboutThisFoodExperience => 'Sobre esta experiência gastronômica';
 
   @override
-  String get highlights => 'Highlights';
+  String get highlights => 'Destaques';
 
   @override
-  String get contactAndLinks => 'Contact & Links';
+  String get contactAndLinks => 'Contato e links';
 
   @override
-  String get gallery => 'Gallery';
+  String get gallery => 'Galeria';
 
   @override
-  String get openingHours => 'Opening Hours';
+  String get openingHours => 'Horário de funcionamento';
 
   @override
   String get menu => 'Menu';
@@ -706,40 +706,42 @@ class AppLocalizationsPt extends AppLocalizations {
   String get menuFallback => 'Menu';
 
   @override
-  String get call => 'Call';
+  String get call => 'Chamar';
 
   @override
-  String get website => 'Website';
+  String get website => 'Site';
 
   @override
-  String get orderOnline => 'Order Online';
+  String get orderOnline => 'Faça seu pedido online.';
 
   @override
-  String get viewOnMap => 'View on Map';
+  String get viewOnMap => 'Ver no mapa';
 
   @override
-  String get foodDiscoveryGuide => 'Food Discovery Guide';
+  String get foodDiscoveryGuide => 'Guia de Descoberta de Alimentos';
 
   @override
   String get foodDiscoveryGuideHelper =>
-      'Tap play to hear your Food Discovery Guide describe this food spot and its highlights.';
+      'Toque em reproduzir para ouvir o seu Guia de Descoberta Gastronômica descrever este local e seus destaques.';
 
   @override
-  String get stop => 'Stop';
+  String get stop => 'Parar';
 
   @override
   String get unableToStartNarration =>
-      'Unable to start Food Discovery Guide narration right now.';
+      'Não foi possível iniciar a narração do Guia de Descoberta de Alimentos neste momento.';
 
   @override
-  String get unableToCallNumber => 'Unable to call this number right now.';
+  String get unableToCallNumber =>
+      'Não consigo ligar para este número neste momento.';
 
   @override
-  String get unableToSendEmail => 'Unable to send email right now.';
+  String get unableToSendEmail =>
+      'Não foi possível enviar e-mail neste momento.';
 
   @override
   String get foodSpotCannotBeShared =>
-      'This food spot cannot be shared right now.';
+      'Este local para comer não pode ser compartilhado no momento.';
 
   @override
   String foodDescriptionIntro(String title, String cuisine, String location) {
@@ -748,7 +750,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String foodDescriptionRating(String rating) {
-    return 'Loved by locals and visitors alike, it holds a $rating-star rating.';
+    return 'Amado por moradores locais e visitantes, possui uma classificação de $rating estrelas.';
   }
 
   @override
@@ -763,7 +765,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String foodDescriptionOutro(String title) {
-    return 'Whether you are after a relaxed brunch, a business lunch, or a lively dinner, $title offers a welcoming atmosphere and flavours that capture Brisbane\'s dining scene.';
+    return 'Seja para um brunch descontraído, um almoço de negócios ou um jantar animado, o $title oferece um ambiente acolhedor e sabores que capturam a essência da cena gastronômica de Brisbane.';
   }
 
   @override

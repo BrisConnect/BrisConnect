@@ -39,7 +39,7 @@
   "error": "Error",
   "success": "Success",
   "profileUpdated": "Profile updated successfully.",
-  "profileUpdateFailed": "Could not update profile. Please try again.",
+  "profileUpdateFailed": "Please sign up to create profile.",
   "guestVisitor": "Guest Visitor",
   "localUser": "Local",
   "filterEventsTitle": "Filter Events",

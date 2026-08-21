@@ -1,11 +1,15 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:brisconnect/auth/visitor_auth.dart';
+import 'package:brisconnect/l10n/app_localizations.dart';
+import 'package:brisconnect/mixins/locale_listener_mixin.dart';
 import 'package:brisconnect/models/food_business.dart';
 import 'package:brisconnect/services/business_dashboard_service.dart';
 import 'package:brisconnect/services/food_business_service.dart';
 import 'package:brisconnect/widgets/crowd_report_widget.dart';
 import 'package:brisconnect/widgets/business_reviews_widget.dart';
+import 'package:brisconnect/widgets/fallback_image.dart';
 import 'package:brisconnect/widgets/visitor_photo_gallery_widget.dart';
 
 class FoodBusinessDetailScreen extends StatefulWidget {
@@ -21,22 +25,40 @@ class FoodBusinessDetailScreen extends StatefulWidget {
       _FoodBusinessDetailScreenState();
 }
 
-class _FoodBusinessDetailScreenState extends State<FoodBusinessDetailScreen> {
+class _FoodBusinessDetailScreenState extends State<FoodBusinessDetailScreen>
+    with LocaleListenerMixin<FoodBusinessDetailScreen> {
   final _businessService = FoodBusinessService();
   final _dashboardService = BusinessDashboardService();
+  bool _viewTracked = false;
 
   @override
   void initState() {
     super.initState();
-    _trackView();
+    setupLocaleListener();
+    _trackViewOnLoad();
   }
 
-  Future<void> _trackView() async {
+  Future<void> _trackViewOnLoad() async {
+    if (_viewTracked) return;
+    _viewTracked = true;
     try {
-      final visitorId = FirebaseAuth.instance.currentUser?.uid;
+      final business = await _businessService.getBusinessById(widget.businessId);
+      if (business != null && mounted) {
+        await _trackView(business);
+      }
+    } catch (_) {
+      // Silently fail so analytics never block the UI.
+    }
+  }
+
+  Future<void> _trackView(FoodBusiness business) async {
+    try {
+      final visitorId = FirebaseAuth.instance.currentUser?.uid ??
+          VisitorAuth.currentVisitor?.email;
       await _dashboardService.recordProfileView(
         widget.businessId,
         visitorId: visitorId,
+        ownerId: business.ownerId ?? business.email,
       );
     } catch (_) {
       // Silently fail so analytics never block the user.
@@ -49,15 +71,17 @@ class _FoodBusinessDetailScreenState extends State<FoodBusinessDetailScreen> {
       future: _businessService.getBusinessById(widget.businessId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
+          final l10n = AppLocalizations.of(context)!;
           return Scaffold(
-            appBar: AppBar(title: const Text('Business Details')),
+            appBar: AppBar(title: Text(l10n.foodBusinessDetails)),
             body: const Center(child: CircularProgressIndicator()),
           );
         }
 
         if (snapshot.hasError || snapshot.data == null) {
+          final l10n = AppLocalizations.of(context)!;
           return Scaffold(
-            appBar: AppBar(title: const Text('Business Details')),
+            appBar: AppBar(title: Text(l10n.foodBusinessDetails)),
             body: Center(
               child: Text('Error loading business: ${snapshot.error}'),
             ),
@@ -75,21 +99,40 @@ class _FoodBusinessDetailScreenState extends State<FoodBusinessDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Google Listing Badge
+                if (business.isGoogleListing)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    color: const Color(0xFF4285F4).withValues(alpha: 0.1),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.info_outline,
+                          color: Color(0xFF4285F4),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Google Listing • Reviews and reports disabled for external listings',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue.shade700,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 // Hero Image
                 if (business.imageUrl != null)
-                  Image.network(
-                    business.imageUrl!,
+                  FallbackImage(
+                    imageUrl: business.imageUrl,
                     height: 250,
                     width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        height: 250,
-                        width: double.infinity,
-                        color: Colors.grey[300],
-                        child: const Icon(Icons.restaurant, size: 80),
-                      );
-                    },
+                    category: 'food',
                   )
                 else
                   Container(
@@ -278,18 +321,44 @@ class _FoodBusinessDetailScreenState extends State<FoodBusinessDetailScreen> {
                 VisitorPhotoGalleryWidget(businessId: widget.businessId),
                 const SizedBox(height: 16),
                 const Divider(),
-                // Crowd Report Widget
-                if ((widget.businessId as String? ?? '').isNotEmpty) ...[
+                // Crowd Report Widget - only for BrisConnect businesses
+                if ((widget.businessId as String? ?? '').isNotEmpty &&
+                    !business.isGoogleListing) ...[
                   CrowdReportWidget(eventId: widget.businessId),
                   const SizedBox(height: 22),
                   const Divider(),
                 ],
-                // Reviews Section
-                BusinessReviewsWidget(
-                  businessId: widget.businessId,
-                  currentAverageRating: business.averageRating,
-                  currentReviewCount: business.reviewCount,
-                ),
+                // Reviews Section - only for BrisConnect businesses
+                if (!business.isGoogleListing)
+                  BusinessReviewsWidget(
+                    businessId: widget.businessId,
+                    currentAverageRating: business.averageRating,
+                    currentReviewCount: business.reviewCount,
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4285F4).withValues(alpha: 0.05),
+                        border: Border.all(
+                          color: const Color(0xFF4285F4).withValues(alpha: 0.3),
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Reviews are only available for BrisConnect-owned businesses. '
+                        'This is a Google Listing imported from Google Places.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.blue.shade700,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 32),
               ],
             ),

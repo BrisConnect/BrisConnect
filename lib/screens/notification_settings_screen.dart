@@ -23,6 +23,12 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   late bool _nearbyEventsEnabled;
   late bool _recommendedEventsEnabled;
   late bool _emailNotificationsEnabled;
+  late bool _nearbyPromotionsEnabled;
+  late bool _savedBusinessUpdatesEnabled;
+  late bool _trendingBusinessesEnabled;
+  late bool _promotionExpiryRemindersEnabled;
+  late bool _newBusinessDiscoveryEnabled;
+  late bool _personalisedRecommendationsEnabled;
   bool _isSaving = false;
 
   bool get _isLoggedIn => widget.isLocal
@@ -53,6 +59,25 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     _emailNotificationsEnabled = widget.isLocal
         ? true
         : VisitorAuth.isEmailNotificationsEnabled();
+    _nearbyPromotionsEnabled = widget.isLocal
+        ? true
+        : (VisitorAuth.currentVisitor?.nearbyPromotionsEnabled ?? true);
+    _savedBusinessUpdatesEnabled = widget.isLocal
+        ? true
+        : (VisitorAuth.currentVisitor?.savedBusinessUpdatesEnabled ?? true);
+    _trendingBusinessesEnabled = widget.isLocal
+        ? true
+        : (VisitorAuth.currentVisitor?.trendingBusinessesEnabled ?? true);
+    _promotionExpiryRemindersEnabled = widget.isLocal
+        ? true
+        : (VisitorAuth.currentVisitor?.promotionExpiryRemindersEnabled ?? true);
+    _newBusinessDiscoveryEnabled = widget.isLocal
+        ? true
+        : (VisitorAuth.currentVisitor?.newBusinessDiscoveryEnabled ?? true);
+    _personalisedRecommendationsEnabled = widget.isLocal
+        ? true
+        : (VisitorAuth.currentVisitor?.personalisedRecommendationsEnabled ??
+            true);
   }
 
   Future<void> _persist({
@@ -63,6 +88,12 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     bool? nearbyEventsEnabled,
     bool? recommendedEventsEnabled,
     bool? emailNotificationsEnabled,
+    bool? nearbyPromotionsEnabled,
+    bool? savedBusinessUpdatesEnabled,
+    bool? trendingBusinessesEnabled,
+    bool? promotionExpiryRemindersEnabled,
+    bool? newBusinessDiscoveryEnabled,
+    bool? personalisedRecommendationsEnabled,
   }) async {
     if (_isSaving) return;
     setState(() => _isSaving = true);
@@ -84,6 +115,14 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
             nearbyEventsEnabled: nearbyEventsEnabled,
             recommendedEventsEnabled: recommendedEventsEnabled,
             emailNotificationsEnabled: emailNotificationsEnabled,
+            nearbyPromotionsEnabled: nearbyPromotionsEnabled,
+            savedBusinessUpdatesEnabled: savedBusinessUpdatesEnabled,
+            trendingBusinessesEnabled: trendingBusinessesEnabled,
+            promotionExpiryRemindersEnabled:
+                promotionExpiryRemindersEnabled,
+            newBusinessDiscoveryEnabled: newBusinessDiscoveryEnabled,
+            personalisedRecommendationsEnabled:
+                personalisedRecommendationsEnabled,
           );
 
     if (!mounted) return;
@@ -100,6 +139,20 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
             recommendedEventsEnabled ?? _recommendedEventsEnabled;
         _emailNotificationsEnabled =
             emailNotificationsEnabled ?? _emailNotificationsEnabled;
+        _nearbyPromotionsEnabled =
+            nearbyPromotionsEnabled ?? _nearbyPromotionsEnabled;
+        _savedBusinessUpdatesEnabled = savedBusinessUpdatesEnabled ??
+            _savedBusinessUpdatesEnabled;
+        _trendingBusinessesEnabled =
+            trendingBusinessesEnabled ?? _trendingBusinessesEnabled;
+        _promotionExpiryRemindersEnabled =
+            promotionExpiryRemindersEnabled ??
+                _promotionExpiryRemindersEnabled;
+        _newBusinessDiscoveryEnabled = newBusinessDiscoveryEnabled ??
+            _newBusinessDiscoveryEnabled;
+        _personalisedRecommendationsEnabled =
+            personalisedRecommendationsEnabled ??
+                _personalisedRecommendationsEnabled;
       }
       _isSaving = false;
     });
@@ -140,7 +193,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
               padding: const EdgeInsets.all(16),
               children: [
                 const Text(
-                  'Control your event updates in one place',
+                  'Control your alerts in one place',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -209,6 +262,54 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                     onChanged: (value) =>
                         _persist(emailNotificationsEnabled: value),
                   ),
+                if (!widget.isLocal) ...[
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Business & promotion alerts',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppPalette.mutedText,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildSwitchTile(
+                    title: 'Nearby Promotions',
+                    value: _nearbyPromotionsEnabled,
+                    onChanged: (value) =>
+                        _persist(nearbyPromotionsEnabled: value),
+                  ),
+                  _buildSwitchTile(
+                    title: 'Saved Business Updates',
+                    value: _savedBusinessUpdatesEnabled,
+                    onChanged: (value) =>
+                        _persist(savedBusinessUpdatesEnabled: value),
+                  ),
+                  _buildSwitchTile(
+                    title: 'Trending Businesses',
+                    value: _trendingBusinessesEnabled,
+                    onChanged: (value) =>
+                        _persist(trendingBusinessesEnabled: value),
+                  ),
+                  _buildSwitchTile(
+                    title: 'Promotion Expiry Reminders',
+                    value: _promotionExpiryRemindersEnabled,
+                    onChanged: (value) =>
+                        _persist(promotionExpiryRemindersEnabled: value),
+                  ),
+                  _buildSwitchTile(
+                    title: 'New Business Discovery',
+                    value: _newBusinessDiscoveryEnabled,
+                    onChanged: (value) =>
+                        _persist(newBusinessDiscoveryEnabled: value),
+                  ),
+                  _buildSwitchTile(
+                    title: 'Personalised Recommendations',
+                    value: _personalisedRecommendationsEnabled,
+                    onChanged: (value) =>
+                        _persist(personalisedRecommendationsEnabled: value),
+                  ),
+                ],
               ],
             ),
     );

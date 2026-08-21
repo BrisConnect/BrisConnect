@@ -1,18 +1,21 @@
 import 'package:brisconnect/auth/app_user_role.dart';
+import 'package:brisconnect/features/admin/dashboard/admin_neon_theme.dart';
 import 'package:brisconnect/services/app_feedback_service.dart';
-import 'package:brisconnect/theme/app_palette.dart';
 import 'package:brisconnect/widgets/role_guard.dart';
 import 'package:flutter/material.dart';
+import 'package:brisconnect/features/admin/dashboard/widgets/admin_sidebar.dart';
 
 class AdminFeedbackReviewScreen extends StatefulWidget {
   AdminFeedbackReviewScreen({
     super.key,
     AppFeedbackService? feedbackService,
     this.enforceRoleGuard = true,
+    this.isEmbedded = false,
   }) : feedbackService = feedbackService ?? AppFeedbackService();
 
   final AppFeedbackService feedbackService;
   final bool enforceRoleGuard;
+  final bool isEmbedded;
 
   @override
   State<AdminFeedbackReviewScreen> createState() =>
@@ -33,185 +36,268 @@ class _AdminFeedbackReviewScreenState extends State<AdminFeedbackReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final isDesktop = width > 1024;
+    
+    // Build the body content (without Scaffold wrapper for embedded case)
+    final bodyContent = Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Status',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: AdminNeonTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: AppFeedbackService.feedbackStatuses.map(
+                  (status) {
+                    final isSelected = _selectedStatus == status;
+                    return FilterChip(
+                      label: Text(
+                        _label(status),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color:
+                              isSelected ? Colors.white : AdminNeonTheme.textPrimary,
+                        ),
+                      ),
+                      selected: isSelected,
+                      onSelected: (_) {
+                        setState(() => _selectedStatus = status);
+                      },
+                      selectedColor: AdminNeonTheme.neonOrange,
+                      backgroundColor: AdminNeonTheme.glassSurface,
+                      checkmarkColor: Colors.white,
+                      side: BorderSide(
+                        color: isSelected
+                            ? AdminNeonTheme.neonOrange
+                            : AdminNeonTheme.glassBorder,
+                      ),
+                    );
+                  },
+                ).toList(),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Severity',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: AdminNeonTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _severityOptions.map(
+                  (severity) {
+                    final isSelected = _selectedSeverity == severity;
+                    return FilterChip(
+                      label: Text(
+                        _severityLabel(severity),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color:
+                              isSelected ? Colors.white : AdminNeonTheme.textPrimary,
+                        ),
+                      ),
+                      selected: isSelected,
+                      onSelected: (_) {
+                        setState(() => _selectedSeverity = severity);
+                      },
+                      selectedColor: AdminNeonTheme.neonOrange,
+                      backgroundColor: AdminNeonTheme.glassSurface,
+                      checkmarkColor: Colors.white,
+                      side: BorderSide(
+                        color: isSelected
+                            ? AdminNeonTheme.neonOrange
+                            : AdminNeonTheme.glassBorder,
+                      ),
+                    );
+                  },
+                ).toList(),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: StreamBuilder<List<AppFeedbackItem>>(
+            stream:
+                widget.feedbackService.watchFeedbackByStatus(_selectedStatus),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(color: AdminNeonTheme.neonOrange),
+                );
+              }
+
+              if (snapshot.hasError) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'Could not load feedback right now: ${snapshot.error}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: AdminNeonTheme.textPrimary),
+                    ),
+                  ),
+                );
+              }
+
+              final items = snapshot.data ?? const <AppFeedbackItem>[];
+              final filteredItems = items
+                  .where(
+                    (item) => _selectedSeverity == 'all'
+                        ? true
+                        : item.severity.toLowerCase() == _selectedSeverity,
+                  )
+                  .toList();
+
+              if (filteredItems.isEmpty) {
+                final severity = _selectedSeverity == 'all'
+                    ? ''
+                    : ' ${_severityLabel(_selectedSeverity).toLowerCase()}';
+                return Center(
+                  child: Text(
+                    'No$severity feedback with status "${_label(_selectedStatus)}".',
+                    style: const TextStyle(color: AdminNeonTheme.textSecondary),
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                itemCount: filteredItems.length,
+                itemBuilder: (context, index) {
+                  return _FeedbackCard(
+                    item: filteredItems[index],
+                    onStatusChange: (nextStatus) async {
+                      await widget.feedbackService.updateFeedbackStatus(
+                        feedbackId: filteredItems[index].id,
+                        status: nextStatus,
+                        consideredForFix: nextStatus != 'wont_fix',
+                      );
+                    },
+                    onReply: (reply) async {
+                      await widget.feedbackService.replyToFeedback(
+                        feedbackId: filteredItems[index].id,
+                        reply: reply,
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+    
+    // When embedded, wrap in Container with proper layout constraints
+    if (widget.isEmbedded) {
+      final guarded = widget.enforceRoleGuard
+          ? RoleGuard(
+              allowedRoles: const {AppUserRole.admin},
+              deniedMessage: 'Access denied. Admin privileges are required.',
+              child: bodyContent,
+            )
+          : bodyContent;
+      return guarded;
+    }
+    
+    // When standalone, wrap in Scaffold with AppBar
     final content = Scaffold(
-      backgroundColor: const Color(0xFFEBF4FF),
+      backgroundColor: AdminNeonTheme.bgDeepNavy,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFEBF4FF),
-        foregroundColor: const Color(0xFF1E3A8A),
+        automaticallyImplyLeading: false,
+        backgroundColor: AdminNeonTheme.headerBg,
+        foregroundColor: AdminNeonTheme.textPrimary,
         elevation: 0,
         title: const Text(
           'App Feedback',
           style: TextStyle(
             fontWeight: FontWeight.w800,
-            color: Color(0xFF1E3A8A),
+            color: AdminNeonTheme.textPrimary,
           ),
         ),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Status',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: AppPalette.charcoal,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: AppFeedbackService.feedbackStatuses.map(
-                    (status) {
-                      final isSelected = _selectedStatus == status;
-                      return FilterChip(
-                        label: Text(
-                          _label(status),
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color:
-                                isSelected ? Colors.white : AppPalette.charcoal,
-                          ),
-                        ),
-                        selected: isSelected,
-                        onSelected: (_) {
-                          setState(() => _selectedStatus = status);
-                        },
-                        selectedColor: AppPalette.ochre,
-                        backgroundColor: AppPalette.surface,
-                        checkmarkColor: Colors.white,
-                        side: BorderSide(
-                          color: isSelected
-                              ? AppPalette.ochre
-                              : AppPalette.border.withValues(alpha: 0.6),
-                        ),
-                      );
-                    },
-                  ).toList(),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Severity',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: AppPalette.charcoal,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _severityOptions.map(
-                    (severity) {
-                      final isSelected = _selectedSeverity == severity;
-                      return FilterChip(
-                        label: Text(
-                          _severityLabel(severity),
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color:
-                                isSelected ? Colors.white : AppPalette.charcoal,
-                          ),
-                        ),
-                        selected: isSelected,
-                        onSelected: (_) {
-                          setState(() => _selectedSeverity = severity);
-                        },
-                        selectedColor: AppPalette.ochre,
-                        backgroundColor: AppPalette.surface,
-                        checkmarkColor: Colors.white,
-                        side: BorderSide(
-                          color: isSelected
-                              ? AppPalette.ochre
-                              : AppPalette.border.withValues(alpha: 0.6),
-                        ),
-                      );
-                    },
-                  ).toList(),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: StreamBuilder<List<AppFeedbackItem>>(
-              stream:
-                  widget.feedbackService.watchFeedbackByStatus(_selectedStatus),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'Could not load feedback right now: ${snapshot.error}',
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  );
-                }
-
-                final items = snapshot.data ?? const <AppFeedbackItem>[];
-                final filteredItems = items
-                    .where(
-                      (item) => _selectedSeverity == 'all'
-                          ? true
-                          : item.severity.toLowerCase() == _selectedSeverity,
-                    )
-                    .toList();
-
-                if (filteredItems.isEmpty) {
-                  final severity = _selectedSeverity == 'all'
-                      ? ''
-                      : ' ${_severityLabel(_selectedSeverity).toLowerCase()}';
-                  return Center(
-                    child: Text(
-                      'No$severity feedback with status "${_label(_selectedStatus)}".',
-                      style: const TextStyle(color: AppPalette.mutedText),
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  itemCount: filteredItems.length,
-                  itemBuilder: (context, index) {
-                    return _FeedbackCard(
-                      item: filteredItems[index],
-                      onStatusChange: (nextStatus) async {
-                        await widget.feedbackService.updateFeedbackStatus(
-                          feedbackId: filteredItems[index].id,
-                          status: nextStatus,
-                          consideredForFix: nextStatus != 'wont_fix',
-                        );
-                      },
-                      onReply: (reply) async {
-                        await widget.feedbackService.replyToFeedback(
-                          feedbackId: filteredItems[index].id,
-                          reply: reply,
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
+      body: bodyContent,
     );
-    if (!widget.enforceRoleGuard) return content;
-    return RoleGuard(
-      allowedRoles: const {AppUserRole.admin},
-      deniedMessage: 'Access denied. Admin privileges are required.',
-      child: content,
+    
+    final guarded = widget.enforceRoleGuard
+        ? RoleGuard(
+            allowedRoles: const {AppUserRole.admin},
+            deniedMessage: 'Access denied. Admin privileges are required.',
+            child: content,
+          )
+        : content;
+    
+    if (!isDesktop) return guarded;
+    
+    return Row(
+      children: [
+        AdminSidebar(
+          selectedIndex: 4, // Feedback
+          onDestinationSelected: (index) {
+            _handleNavigation(context, index);
+          },
+        ),
+        Expanded(child: guarded),
+      ],
     );
+  }
+
+  void _handleNavigation(BuildContext context, int index) {
+    // index: 0=Home, 1=Users, 2=Businesses, 3=Reports, 4=Feedback, 5=Broadcast, 6=Settings
+    switch (index) {
+      case 0: // Home
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/admin/dashboard',
+          (route) => false,
+        );
+        break;
+      case 1: // Users
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/admin/users',
+          (route) => false,
+        );
+        break;
+      case 2: // Businesses
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/admin/businesses',
+          (route) => false,
+        );
+        break;
+      case 3: // Reports
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/admin/reports',
+          (route) => false,
+        );
+        break;
+      case 4: // Feedback - already here
+        break;
+      case 5: // Broadcast Email
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/admin/broadcast',
+          (route) => false,
+        );
+        break;
+      case 6: // Settings
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/admin/settings',
+          (route) => false,
+        );
+        break;
+    }
   }
 
   String _label(String status) {
@@ -265,6 +351,7 @@ class _FeedbackCard extends StatefulWidget {
 class _FeedbackCardState extends State<_FeedbackCard> {
   bool _isUpdating = false;
   bool _showReplyField = false;
+  bool _hovered = false;
   final _replyController = TextEditingController();
 
   @override
@@ -337,15 +424,19 @@ class _FeedbackCardState extends State<_FeedbackCard> {
     final dueStatus = _dueStatus(item.resolutionDueAt);
     final dueColor = _dueStatusColor(dueStatus);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      color: AppPalette.surface,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: AppPalette.border),
-      ),
-      child: Padding(
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: AdminNeonTheme.glassCard(
+          accent: AdminNeonTheme.neonBlue,
+          radius: 14,
+          borderOpacity: _hovered ? 0.7 : 0.35,
+          borderWidth: _hovered ? 1.6 : 1.1,
+        ),
+        child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -356,7 +447,7 @@ class _FeedbackCardState extends State<_FeedbackCard> {
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
-                  color: AppPalette.deepBlue,
+                  color: AdminNeonTheme.neonBlue,
                 ),
               ),
               const SizedBox(height: 4),
@@ -369,7 +460,7 @@ class _FeedbackCardState extends State<_FeedbackCard> {
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
-                      color: AppPalette.charcoal,
+                      color: AdminNeonTheme.textPrimary,
                     ),
                   ),
                 ),
@@ -379,12 +470,12 @@ class _FeedbackCardState extends State<_FeedbackCard> {
             const SizedBox(height: 6),
             Text(
               '${item.reporterRole.toUpperCase()} • ${item.reporterEmail}',
-              style: const TextStyle(color: AppPalette.mutedText, fontSize: 12),
+              style: const TextStyle(color: AdminNeonTheme.textMuted, fontSize: 12),
             ),
             const SizedBox(height: 10),
             Text(
               item.details,
-              style: const TextStyle(color: AppPalette.charcoal, height: 1.4),
+              style: const TextStyle(color: AdminNeonTheme.textSecondary, height: 1.4),
             ),
             if ((item.imageUrl ?? '').isNotEmpty) ...[
               const SizedBox(height: 10),
@@ -427,16 +518,25 @@ class _FeedbackCardState extends State<_FeedbackCard> {
                 OutlinedButton(
                   onPressed:
                       _isUpdating ? null : () => _updateStatus('in_progress'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AdminNeonTheme.neonBlue,
+                    side: const BorderSide(color: AdminNeonTheme.neonBlue),
+                  ),
                   child: const Text('Mark In Progress'),
                 ),
                 OutlinedButton(
                   onPressed:
                       _isUpdating ? null : () => _updateStatus('resolved'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF22C55E),
+                    side: const BorderSide(color: Color(0xFF22C55E)),
+                  ),
                   child: const Text('Mark Resolved'),
                 ),
                 TextButton(
                   onPressed:
                       _isUpdating ? null : () => _updateStatus('wont_fix'),
+                  style: TextButton.styleFrom(foregroundColor: AdminNeonTheme.neonOrange),
                   child: const Text('Mark Won\'t Fix'),
                 ),
               ],
@@ -447,10 +547,10 @@ class _FeedbackCardState extends State<_FeedbackCard> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppPalette.deepBlue.withValues(alpha: 0.06),
+                  color: AdminNeonTheme.neonBlue.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                      color: AppPalette.deepBlue.withValues(alpha: 0.2)),
+                      color: AdminNeonTheme.neonBlue.withValues(alpha: 0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -462,7 +562,7 @@ class _FeedbackCardState extends State<_FeedbackCard> {
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 12,
-                            color: AppPalette.deepBlue,
+                            color: AdminNeonTheme.neonBlue,
                           ),
                         ),
                         const Spacer(),
@@ -470,7 +570,7 @@ class _FeedbackCardState extends State<_FeedbackCard> {
                           Text(
                             _formatDateTime(item.adminReplyAt!),
                             style: const TextStyle(
-                              color: AppPalette.mutedText,
+                              color: AdminNeonTheme.textMuted,
                               fontSize: 11,
                             ),
                           ),
@@ -480,7 +580,7 @@ class _FeedbackCardState extends State<_FeedbackCard> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.orange.shade700,
+                              color: AdminNeonTheme.neonOrange,
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: const Text(
@@ -499,7 +599,7 @@ class _FeedbackCardState extends State<_FeedbackCard> {
                     Text(
                       item.adminReply!,
                       style: const TextStyle(
-                          color: AppPalette.charcoal, height: 1.4),
+                          color: AdminNeonTheme.textPrimary, height: 1.4),
                     ),
                   ],
                 ),
@@ -510,10 +610,23 @@ class _FeedbackCardState extends State<_FeedbackCard> {
               TextField(
                 controller: _replyController,
                 maxLines: 3,
+                style: const TextStyle(color: AdminNeonTheme.textPrimary),
                 decoration: InputDecoration(
                   hintText: 'Write a reply to the user...',
+                  hintStyle: const TextStyle(color: AdminNeonTheme.textMuted),
+                  filled: true,
+                  fillColor: AdminNeonTheme.glassSurfaceAlt,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AdminNeonTheme.glassBorder),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AdminNeonTheme.glassBorder),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AdminNeonTheme.neonBlue),
                   ),
                 ),
               ),
@@ -525,12 +638,13 @@ class _FeedbackCardState extends State<_FeedbackCard> {
                     icon: const Icon(Icons.send_rounded, size: 18),
                     label: const Text('Send Reply'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppPalette.deepBlue,
+                      backgroundColor: AdminNeonTheme.neonBlue,
                     ),
                   ),
                   const SizedBox(width: 8),
                   TextButton(
                     onPressed: () => setState(() => _showReplyField = false),
+                    style: TextButton.styleFrom(foregroundColor: AdminNeonTheme.textSecondary),
                     child: const Text('Cancel'),
                   ),
                 ],
@@ -541,12 +655,17 @@ class _FeedbackCardState extends State<_FeedbackCard> {
                   _replyController.text = item.adminReply ?? '';
                   setState(() => _showReplyField = true);
                 },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AdminNeonTheme.neonOrange,
+                  side: const BorderSide(color: AdminNeonTheme.neonOrange),
+                ),
                 icon: const Icon(Icons.reply_rounded, size: 18),
                 label: Text(
                   (item.adminReply ?? '').isNotEmpty ? 'Edit Reply' : 'Reply',
                 ),
               ),
           ],
+        ),
         ),
       ),
     );
@@ -611,13 +730,13 @@ class _FeedbackCardState extends State<_FeedbackCard> {
   Color _dueStatusColor(String dueStatus) {
     switch (dueStatus) {
       case 'Overdue':
-        return Colors.red.shade700;
+        return AdminNeonTheme.neonRed;
       case 'Due Soon':
-        return Colors.orange.shade700;
+        return AdminNeonTheme.neonOrange;
       case 'On Track':
-        return Colors.green.shade700;
+        return const Color(0xFF22C55E);
       default:
-        return AppPalette.mutedText;
+        return AdminNeonTheme.textMuted;
     }
   }
 
@@ -663,15 +782,15 @@ class _StatusBadge extends StatelessWidget {
   Color _statusColor(String value) {
     switch (value) {
       case 'pending_triage':
-        return Colors.orange.shade700;
+        return AdminNeonTheme.neonOrange;
       case 'in_progress':
-        return AppPalette.deepBlue;
+        return AdminNeonTheme.neonBlue;
       case 'resolved':
-        return Colors.green.shade700;
+        return const Color(0xFF22C55E);
       case 'wont_fix':
-        return AppPalette.ochre;
+        return AdminNeonTheme.neonRed;
       default:
-        return AppPalette.charcoal;
+        return AdminNeonTheme.textPrimary;
     }
   }
 }
@@ -679,8 +798,8 @@ class _StatusBadge extends StatelessWidget {
 class _MetaChip extends StatelessWidget {
   const _MetaChip({
     required this.label,
-    this.color = AppPalette.background,
-    this.textColor = AppPalette.charcoal,
+    this.color = AdminNeonTheme.glassSurfaceAlt,
+    this.textColor = AdminNeonTheme.textSecondary,
   });
 
   final String label;
@@ -694,6 +813,7 @@ class _MetaChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AdminNeonTheme.glassBorder),
       ),
       child: Text(
         label,

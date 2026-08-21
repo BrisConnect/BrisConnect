@@ -24,7 +24,10 @@ class SocialShareTrackingService {
   /// [businessId] is the canonical business that owns the content. For
   /// [ShareContentType.business] this is the same as [contentId]; for events
   /// and promotions it is the related business id.
-  Future<void> recordShare({
+  ///
+  /// Returns `true` if the write succeeded, `false` otherwise. Callers can
+  /// use the result to warn the user when a share could not be tracked.
+  Future<bool> recordShare({
     required String businessId,
     String? businessName,
     required String contentId,
@@ -59,8 +62,10 @@ class SocialShareTrackingService {
 
     try {
       await _firestore.collection(_collection).add(event.toFirestore());
+      return true;
     } catch (e) {
       debugPrint('[SocialShareTrackingService] failed to record share: $e');
+      return false;
     }
   }
 

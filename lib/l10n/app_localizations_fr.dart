@@ -399,7 +399,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get eventFallback => 'Événement';
 
   @override
-  String get attractionFallback => 'Attraction';
+  String get attractionFallback => 'Attirance';
 
   @override
   String ratingReviewsCount(String rating, String count) {
@@ -530,12 +530,12 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String categoryLabel(String category) {
-    return 'Catégorie : $category';
+    return 'Category: $category';
   }
 
   @override
   String severityLabel(String severity) {
-    return 'Gravité : $severity';
+    return 'Severity: $severity';
   }
 
   @override
@@ -758,7 +758,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String foodDescriptionIntro(String title, String cuisine, String location) {
-    return 'Entrez dans $title, une destination $cuisine au cœur de $location.';
+    return 'Step into $title, a $cuisine destination in the heart of $location.';
   }
 
   @override
@@ -768,12 +768,12 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String foodDescriptionCategories(String categories) {
-    return 'Le menu célèbre $categories, préparés avec des ingrédients frais et locaux.';
+    return 'The menu celebrates $categories, crafted with fresh, locally sourced ingredients.';
   }
 
   @override
   String foodDescriptionPrice(String price) {
-    return 'Attendez-vous à une expérience $price qui allie qualité et valeur.';
+    return 'Expect a $price experience that balances quality and value.';
   }
 
   @override
@@ -783,50 +783,50 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String foodNarrationWelcome(String title) {
-    return 'Bienvenue à $title';
+    return 'Welcome to $title';
   }
 
   @override
   String foodNarrationBadge(String badge) {
-    return 'C\'est une étape $badge à ajouter à votre parcours gastronomique de Brisbane';
+    return 'This is a $badge stop worth adding to your Brisbane food trail';
   }
 
   @override
   String foodNarrationCuisine(String cuisine) {
-    return 'Il est surtout connu pour sa cuisine $cuisine';
+    return 'It is best known for $cuisine';
   }
 
   @override
   String foodNarrationLocation(String location) {
-    return 'Vous le trouverez à $location, où la scène gastronomique locale est en pleine effervescence';
+    return 'You will find it in $location, where the local dining scene comes alive';
   }
 
   @override
   String foodNarrationDateTime(String dateTime) {
-    return 'Vous pouvez généralement le visiter pendant $dateTime';
+    return 'You can usually visit during $dateTime';
   }
 
   @override
   String foodNarrationDescription(String description) {
-    return 'Voici ce que ressent cette expérience. $description';
+    return 'Here\'s what the experience feels like. $description';
   }
 
   @override
   String get foodNarrationPriceFree =>
-      'Il n\'y a aucun coût d\'entrée pour explorer ce lieu gastronomique';
+      'There is no entry cost to explore this food spot';
 
   @override
   String foodNarrationPrice(String price) {
-    return 'Le prix est indiqué comme étant $price';
+    return 'Pricing is listed as $price';
   }
 
   @override
   String foodNarrationRating(String rating) {
-    return 'Les visiteurs le notent actuellement $rating sur 5';
+    return 'Visitors currently rate it $rating out of 5';
   }
 
   @override
   String foodNarrationCategories(String categories) {
-    return 'Attendez-vous à un mélange de $categories';
+    return 'Expect a mix of $categories';
   }
 }

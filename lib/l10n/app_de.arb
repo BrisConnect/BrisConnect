@@ -20,7 +20,7 @@
   "myFeedback": "Mein Feedback",
   "helpAndSupport": "Hilfe & Support",
   "discover": "Entdecken",
-  "community": "Community",
+  "community": "Gemeinschaft",
   "map": "Karte",
   "saved": "Gespeichert",
   "profile": "Profil",
@@ -243,7 +243,7 @@
       }
     }
   },
-  "categoryLabel": "Kategorie: {category}",
+  "categoryLabel": "Category: {category}",
   "@categoryLabel": {
     "placeholders": {
       "category": {
@@ -251,7 +251,7 @@
       }
     }
   },
-  "severityLabel": "Schweregrad: {severity}",
+  "severityLabel": "Severity: {severity}",
   "@severityLabel": {
     "placeholders": {
       "severity": {
@@ -319,5 +319,25 @@
   "statusPending": "Ausstehend",
   "statusInProgress": "Im Gange",
   "statusResolved": "Gelöst",
-  "statusWontFix": "Wird nicht repariert"
+  "statusWontFix": "Wird nicht repariert",
+  "@@locale": "de",
+  "highlights": "Highlights",
+  "openingHours": "Öffnungszeiten",
+  "menu": "Speisekarte",
+  "menuFallback": "Speisekarte",
+  "viewOnMap": "Auf Karte anzeigen",
+  "foodDiscoveryGuide": "Leitfaden zur kulinarischen Entdeckung",
+  "stop": "Stoppen",
+  "unableToSendEmail": "Ich kann momentan keine E-Mails senden.",
+  "foodSpotCannotBeShared": "Dieser Gastronomie-Tipp kann momentan nicht geteilt werden.",
+  "foodDescriptionIntro": "Step into {title}, a {cuisine} destination in the heart of {location}.",
+  "foodDescriptionRating": "Es ist bei Einheimischen und Besuchern gleichermaßen beliebt und hat eine {rating}-Sterne-Bewertung.",
+  "foodNarrationWelcome": "Welcome to {title}",
+  "foodNarrationBadge": "This is a {badge} stop worth adding to your Brisbane food trail",
+  "foodNarrationCuisine": "It is best known for {cuisine}",
+  "foodNarrationLocation": "You will find it in {location}, where the local dining scene comes alive",
+  "foodNarrationDateTime": "You can usually visit during {dateTime}",
+  "foodNarrationDescription": "Here's what the experience feels like. {description}",
+  "foodNarrationRating": "Visitors currently rate it {rating} out of 5",
+  "foodNarrationCategories": "Expect a mix of {categories}"
 }

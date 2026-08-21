@@ -42,13 +42,28 @@ class _BusinessSearchScreenState extends State<BusinessSearchScreen> {
 
   Future<void> _loadAllBusinesses() async {
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('food_businesses')
-          .orderBy('rating', descending: true)
+      final canonicalSnap = await FirebaseFirestore.instance
+          .collection('businesses')
           .get();
-      final businesses = snapshot.docs
-          .map((doc) => Business.fromFoodBusinessDoc(doc))
-          .toList();
+      final legacySnap = await FirebaseFirestore.instance
+          .collection('food_businesses')
+          .get();
+
+      final map = <String, Business>{};
+      for (final doc in canonicalSnap.docs) {
+        final data = doc.data();
+        if (data['deletedAt'] != null) continue;
+        if (data['isActive'] == false) continue;
+        map[doc.id] = Business.fromFirestore(doc);
+      }
+      for (final doc in legacySnap.docs) {
+        if (map.containsKey(doc.id)) continue;
+        map[doc.id] = Business.fromFoodBusinessDoc(doc);
+      }
+
+      final businesses = map.values.toList();
+      businesses.sort((a, b) => (b.rating ?? 0).compareTo(a.rating ?? 0));
+
       setState(() {
         _allBusinesses = businesses;
         _searchResults = businesses;
