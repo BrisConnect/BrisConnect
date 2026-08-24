@@ -85,8 +85,11 @@ class _VisitorActivityFeedScreenState extends State<VisitorActivityFeedScreen> {
   }
 
   Widget _buildFeedSliver() {
+    final stream = _selectedType == ActivityFeedType.all
+        ? _service.activityFeedStream(limit: 100)
+        : _service.activityFeedStreamByType(_selectedType);
     return StreamBuilder<List<ActivityFeedItem>>(
-      stream: _service.activityFeedStreamByType(_selectedType),
+      stream: stream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SliverFillRemaining(

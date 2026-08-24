@@ -166,25 +166,26 @@ class _FoodBusinessDetailScreenState extends State<FoodBusinessDetailScreen>
                               .toList(),
                         ),
                       const SizedBox(height: 12),
-                      // Rating Summary
-                      Row(
-                        children: [
-                          const Icon(Icons.star, color: Colors.amber),
-                          const SizedBox(width: 8),
-                          Text(
-                            business.averageRating?.toStringAsFixed(1) ?? 'N/A',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                      // Rating Summary — hidden for Google Listings
+                      if (!business.isGoogleListing)
+                        Row(
+                          children: [
+                            const Icon(Icons.star, color: Colors.amber),
+                            const SizedBox(width: 8),
+                            Text(
+                              business.averageRating?.toStringAsFixed(1) ?? 'N/A',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '(${business.reviewCount ?? 0} reviews)',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ],
-                      ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '(${business.reviewCount ?? 0} reviews)',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ],
+                        ),
                     ],
                   ),
                 ),
@@ -334,6 +335,7 @@ class _FoodBusinessDetailScreenState extends State<FoodBusinessDetailScreen>
                     businessId: widget.businessId,
                     currentAverageRating: business.averageRating,
                     currentReviewCount: business.reviewCount,
+                    isGoogleListing: business.isGoogleListing,
                   )
                 else
                   Padding(

@@ -181,6 +181,7 @@ class ActivityFeedItem {
 
     // Removed/deactivated businesses should not appear in the feed.
     if (data['isActive'] == false || data['deletedAt'] != null) return null;
+    if (!_isFoodBusiness(data)) return null;
 
     final createdAt = _parseDateTime(data['createdAt']);
     if (createdAt == null) return null;
@@ -222,6 +223,8 @@ class ActivityFeedItem {
   static ActivityFeedItem? fromFoodBusinessDoc(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>?;
     if (data == null) return null;
+    if (data['isActive'] == false || data['deletedAt'] != null) return null;
+    if (!_isFoodBusiness(data)) return null;
 
     final createdAt = _parseDateTime(data['createdAt']);
     if (createdAt == null) return null;
@@ -249,6 +252,63 @@ class ActivityFeedItem {
           data['logoUrl']?.toString() ??
           data['coverImageUrl']?.toString(),
     );
+  }
+
+  static bool _isFoodBusiness(Map<String, dynamic> data) {
+    final text = [
+      data['businessName'],
+      data['name'],
+      data['category'],
+      if (data['cuisineTypes'] is List)
+        (data['cuisineTypes'] as List).join(' '),
+    ].whereType<Object>().join(' ').toLowerCase();
+
+    const nonFoodTerms = [
+      'hotel',
+      'apartment',
+      'accommodation',
+      'suite',
+      'gallery',
+      'museum',
+      'aquatic',
+      'laserforce',
+      'bowling',
+      'arcade',
+      'woolworth',
+      'target',
+      'observatory',
+      'apartments',
+    ];
+    if (nonFoodTerms.any(text.contains)) return false;
+
+    const foodTerms = [
+      'restaurant',
+      'cafe',
+      'bar',
+      'food',
+      'bakery',
+      'pizza',
+      'burger',
+      'bbq',
+      'coffee',
+      'dining',
+      'steak',
+      'seafood',
+      'italian',
+      'indian',
+      'asian',
+      'thai',
+      'japanese',
+      'chinese',
+      'mexican',
+      'korean',
+      'mediterranean',
+      'brunch',
+      'catering',
+      'noodle',
+      'sushi',
+    ];
+    return foodTerms.any(text.contains);
   }
 
   /// Parses a Firestore [Timestamp], an ISO-8601 string, or a [DateTime].

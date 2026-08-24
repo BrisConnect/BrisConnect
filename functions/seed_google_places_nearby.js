@@ -122,6 +122,24 @@ function determinePriceRange(priceLevel) {
   return '$$'; // Default
 }
 
+function isFoodPlace(place) {
+  const foodTypes = new Set([
+    'bakery', 'bar', 'cafe', 'food', 'meal_delivery', 'meal_takeaway',
+    'restaurant',
+  ]);
+  return (place.types || []).some((type) => foodTypes.has(type));
+}
+
+function googlePhotoUrl(place) {
+  const photoReference = place.photos?.[0]?.photo_reference;
+  if (!photoReference) return '';
+  const url = new URL('https://maps.googleapis.com/maps/api/place/photo');
+  url.searchParams.set('photoreference', photoReference);
+  url.searchParams.set('maxwidth', '800');
+  url.searchParams.set('key', API_KEY);
+  return url.toString();
+}
+
 // Normalize place data for Firestore
 function normalizePlaceData(place) {
   const name = place.name || 'Unknown';
@@ -129,6 +147,7 @@ function normalizePlaceData(place) {
   const lng = place.geometry?.location?.lng;
 
   if (!lat || !lng) return null;
+  if (!isFoodPlace(place)) return null;
 
   const address = place.vicinity || '';
   const rating = place.rating || 4.0;
@@ -147,7 +166,7 @@ function normalizePlaceData(place) {
     phone: place.formatted_phone_number || '',
     website: place.website || '',
     cuisineTypes,
-    imageUrl: 'https://images.unsplash.com/photo-1504674900967-965ba998e5e2?w=400&h=300&fit=crop',
+    imageUrl: googlePhotoUrl(place),
     coordinates: { latitude: lat, longitude: lng },
     rating: Math.min(4.9, Math.max(3.5, rating)),
     reviewCount,

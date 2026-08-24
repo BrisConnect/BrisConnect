@@ -13,10 +13,8 @@ void main() {
 
     setUp(() {
       service = _MockActivityFeedService();
-      when(() => service.activityFeedStreamByType(
-            ActivityFeedType.all,
-            limit: any(named: 'limit'),
-          )).thenAnswer(
+      when(() => service.activityFeedStream(limit: any(named: 'limit')))
+          .thenAnswer(
         (_) => Stream.value([
           _fakeItem(id: '1', type: ActivityFeedType.review, title: 'Review 1'),
           _fakeItem(id: '2', type: ActivityFeedType.event, title: 'Event 1'),
@@ -96,10 +94,8 @@ void main() {
         type: ActivityFeedType.review,
         title: 'Review 1',
       );
-      when(() => service.activityFeedStreamByType(
-            ActivityFeedType.all,
-            limit: any(named: 'limit'),
-          )).thenAnswer((_) => Stream.value([item]));
+      when(() => service.activityFeedStream(limit: any(named: 'limit')))
+          .thenAnswer((_) => Stream.value([item]));
       when(() => service.pinItem(item)).thenAnswer((_) async {});
 
       await tester.pumpWidget(
@@ -124,10 +120,8 @@ void main() {
         type: ActivityFeedType.review,
         title: 'Review 1',
       );
-      when(() => service.activityFeedStreamByType(
-            ActivityFeedType.all,
-            limit: any(named: 'limit'),
-          )).thenAnswer((_) => Stream.value([item]));
+      when(() => service.activityFeedStream(limit: any(named: 'limit')))
+          .thenAnswer((_) => Stream.value([item]));
       when(() => service.highlightItem(item)).thenAnswer((_) async {});
 
       await tester.pumpWidget(
@@ -153,10 +147,8 @@ void main() {
         type: ActivityFeedType.review,
         title: 'Spam review',
       );
-      when(() => service.activityFeedStreamByType(
-            ActivityFeedType.all,
-            limit: any(named: 'limit'),
-          )).thenAnswer((_) => Stream.value([item]));
+      when(() => service.activityFeedStream(limit: any(named: 'limit')))
+          .thenAnswer((_) => Stream.value([item]));
       when(() => service.removeItem(item)).thenAnswer((_) async {});
 
       await tester.pumpWidget(
@@ -181,10 +173,8 @@ void main() {
     });
 
     testWidgets('shows empty state when feed is empty', (tester) async {
-      when(() => service.activityFeedStreamByType(
-            ActivityFeedType.all,
-            limit: any(named: 'limit'),
-          )).thenAnswer((_) => Stream.value([]));
+      when(() => service.activityFeedStream(limit: any(named: 'limit')))
+          .thenAnswer((_) => Stream.value([]));
 
       await tester.pumpWidget(
         MaterialApp(
@@ -196,7 +186,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('No activity'), findsOneWidget);
+      expect(find.text('No content found'), findsOneWidget);
     });
   });
 }

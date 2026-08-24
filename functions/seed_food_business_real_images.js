@@ -161,6 +161,7 @@ async function fetchPhotoUrl(photoReference, maxWidth = 800) {
 async function processDocument(doc) {
   const data = doc.data();
   const name = data.name || data.businessName || 'unknown';
+  const collection = doc.ref.parent.id;
 
   // Skip if already has a real (non-placeholder, non-unsplash) image URL.
   const existing = (data.imageUrl || '').trim();
@@ -197,16 +198,17 @@ async function processDocument(doc) {
     .replace(/[^a-z0-9]/g, '_')
     .replace(/_+/g, '_')
     .slice(0, 60);
-  const destination = `food_businesses/${doc.id}_${safeName}.jpg`;
+  const destination = `${collection}/${doc.id}_${safeName}.jpg`;
 
   const downloadUrl = await uploadImage(buffer, destination, contentType);
 
-  await doc.ref.update({
+  const updates = {
     imageUrl: downloadUrl,
-    logoUrl: data.logoUrl ? downloadUrl : undefined,
-    coverImageUrl: data.coverImageUrl ? downloadUrl : undefined,
     googlePlaceId: place.place_id,
-  });
+  };
+  if (data.logoUrl) updates.logoUrl = downloadUrl;
+  if (data.coverImageUrl) updates.coverImageUrl = downloadUrl;
+  await doc.ref.update(updates);
 
   return { success: true, name, url: downloadUrl };
 }
@@ -217,14 +219,19 @@ async function processDocument(doc) {
 
 async function main() {
   try {
-    const snapshot = await db.collection('food_businesses').get();
-    console.log(`Found ${snapshot.size} food business documents\n`);
+    const snapshots = await Promise.all(
+      ['businesses', 'food_businesses'].map((collection) =>
+        db.collection(collection).get(),
+      ),
+    );
+    const documents = snapshots.flatMap((snapshot) => snapshot.docs);
+    console.log(`Found ${documents.length} business documents\n`);
 
     let updated = 0;
     let skipped = 0;
     let failed = 0;
 
-    for (const doc of snapshot.docs) {
+    for (const doc of documents) {
       try {
         const result = await processDocument(doc);
         if (result.success) {

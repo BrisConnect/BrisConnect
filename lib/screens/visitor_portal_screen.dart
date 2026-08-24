@@ -10,6 +10,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/gestures.dart';
 import '../l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -1349,6 +1350,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen>
           photoGallery:
               _parsePhotoGallery(item['photoGallery'], item['imageUrl']),
           isGoogleListing: item['isGoogleListing'] ?? false,
+          sourceProvider: item['sourceProvider'] as String?,
         ),
       ),
     );
@@ -2316,11 +2318,15 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen>
           final data = doc.data();
           if (data['deletedAt'] != null) continue;
           if (data['isActive'] == false) continue;
+          if (!_isFoodListing(data)) continue;
           merged[doc.id] = _mapBusinessDocToDiscoverItem(doc);
         }
 
         for (final doc in legacySnap.docs) {
           if (merged.containsKey(doc.id)) continue;
+          final data = doc.data();
+          if (data['deletedAt'] != null || data['isActive'] == false) continue;
+          if (!_isFoodListing(data)) continue;
           merged[doc.id] = _mapFoodBusinessDocToDiscoverItem(doc);
         }
 
@@ -2342,6 +2348,62 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen>
         return items;
       },
     );
+  }
+
+  bool _isFoodListing(Map<String, dynamic> data) {
+    final name = '${data['businessName'] ?? ''} ${data['name'] ?? ''}'
+        .toLowerCase();
+    final category = '${data['category'] ?? ''}'.toLowerCase();
+    final cuisines = data['cuisineTypes'] is List
+        ? (data['cuisineTypes'] as List).join(' ').toLowerCase()
+        : '';
+    final text = '$name $category $cuisines';
+    const nonFoodTerms = [
+      'hotel',
+      'apartment',
+      'accommodation',
+      'suites',
+      'gallery',
+      'museum',
+      'aquatic',
+      'laserforce',
+      'bowling',
+      'arcade',
+      'woolworth',
+      'target',
+      'observatory',
+      'apartments',
+    ];
+    if (nonFoodTerms.any(text.contains)) return false;
+
+    const foodTerms = [
+      'restaurant',
+      'cafe',
+      'bar',
+      'food',
+      'bakery',
+      'pizza',
+      'burger',
+      'bbq',
+      'coffee',
+      'dining',
+      'steak',
+      'seafood',
+      'italian',
+      'indian',
+      'asian',
+      'thai',
+      'japanese',
+      'chinese',
+      'mexican',
+      'korean',
+      'mediterranean',
+      'brunch',
+      'catering',
+      'noodle',
+      'sushi',
+    ];
+    return foodTerms.any(text.contains);
   }
 
   Stream<R> _combineLatest2<T1, T2, R>(
@@ -2410,7 +2472,7 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen>
       'description': data['description'] ?? '',
       'location': data['address'] ?? '',
       'imageUrl':
-          data['coverImageUrl'] ?? data['logoUrl'] ?? data['imageUrl'] ?? '',
+          data['imageUrl'] ?? data['coverImageUrl'] ?? data['logoUrl'] ?? '',
       'categories': categories,
       'category': categories.isNotEmpty ? categories.first : '',
       'rating': data['rating'] ?? data['averageRating'] ?? 0,
@@ -2841,7 +2903,14 @@ class _VisitorPortalScreenState extends State<VisitorPortalScreen>
   /// Auto-rotating featured business carousel.
   Widget _buildFeaturedCarousel(List<Map<String, dynamic>> items) {
     // Paid featured/promoted listings get carousel priority, then top-rated.
-    final featured = items.toList()
+    final featured = items
+        .where((item) {
+          final imageUrl = (item['imageUrl'] as String? ?? '').trim();
+          return item['isGoogleListing'] == true &&
+              imageUrl.isNotEmpty &&
+              !imageUrl.toLowerCase().contains('unsplash.com');
+        })
+        .toList()
       ..sort((a, b) {
         final paidA =
             (a['isFeatured'] == true || a['isPromoted'] == true) ? 1 : 0;
@@ -5633,6 +5702,79 @@ class _BentoSectionHeader extends StatelessWidget {
   }
 }
 
+class _FeaturedPhoto extends StatefulWidget {
+  final String url;
+  final double width;
+  final double height;
+
+  const _FeaturedPhoto({
+    required this.url,
+    required this.width,
+    required this.height,
+  });
+
+  @override
+  State<_FeaturedPhoto> createState() => _FeaturedPhotoState();
+}
+
+class _FeaturedPhotoState extends State<_FeaturedPhoto> {
+  late Future<Uint8List> _photo;
+
+  @override
+  void initState() {
+    super.initState();
+    _photo = _loadPhoto();
+  }
+
+  @override
+  void didUpdateWidget(covariant _FeaturedPhoto oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url) _photo = _loadPhoto();
+  }
+
+  Future<Uint8List> _loadPhoto() async {
+    final response = await http.get(Uri.parse(widget.url));
+    if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
+      throw Exception('Featured photo request failed');
+    }
+    return response.bodyBytes;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List>(
+      future: _photo,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Container(
+            color: AppPalette.surfaceAlt,
+            alignment: Alignment.center,
+            child: const Icon(
+              Icons.restaurant_rounded,
+              color: AppPalette.mutedText,
+              size: 40,
+            ),
+          );
+        }
+        if (!snapshot.hasData) {
+          return Container(
+            color: AppPalette.surfaceAlt,
+            alignment: Alignment.center,
+            child: const CircularProgressIndicator(strokeWidth: 2),
+          );
+        }
+        return Image.memory(
+          snapshot.data!,
+          width: widget.width,
+          height: widget.height,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+        );
+      },
+    );
+  }
+}
+
 /// Static featured-restaurant card used inside the auto-rotating carousel.
 class _FeaturedRestaurantCard extends StatelessWidget {
   final Map<String, dynamic> item;
@@ -5642,7 +5784,6 @@ class _FeaturedRestaurantCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = (item['title'] as String? ?? 'Featured').trim();
-    final suburb = (item['suburb'] as String? ?? '').trim();
     final location = (item['location'] as String? ?? '').trim();
     final imageUrl = (item['imageUrl'] as String? ?? '').trim();
     final categories = (item['categories'] as List<dynamic>?)
@@ -5653,169 +5794,85 @@ class _FeaturedRestaurantCard extends StatelessWidget {
     final cuisine = categories.isNotEmpty ? categories.first : 'Food';
     final rating = (item['rating'] as num?)?.toDouble() ?? 0.0;
     final reviewCount = (item['reviewCount'] as num?)?.toInt() ?? 0;
-    final isVerified = (item['isVerified'] as bool?) ?? false;
-    final isFeatured = (item['isFeatured'] as bool?) ?? false;
-    final isPromoted = (item['isPromoted'] as bool?) ?? false;
-    final openStatus = _VisitorPortalHelper.getOpenStatus(item);
 
-    return GestureDetector(
-      onTap: () => _VisitorPortalHelper.openFoodDetails(context, item),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Stack(
-            children: [
-              AspectRatio(
-                aspectRatio: 16 / 10,
-                child: FallbackImage(
-                  imageUrl: imageUrl,
-                  category: 'food',
-                  fit: BoxFit.cover,
-                ),
-              ),
-              Positioned(
-                top: 14,
-                right: 14,
-                child: _FavoriteButton(item: item),
-              ),
-              if (openStatus != null)
-                Positioned(
-                  top: 14,
-                  left: 14,
-                  child: _OpenStatusBadge(status: openStatus),
-                ),
-            ],
+    // Tap is handled by the outer _AutoRotatingCarousel GestureDetector.
+    // Do NOT add another GestureDetector here — it would absorb the tap
+    // and prevent onCardTap from firing.
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.network(
+          imageUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            color: AppPalette.surfaceAlt,
+            alignment: Alignment.center,
+            child: const Icon(Icons.restaurant_rounded,
+                color: AppPalette.mutedText, size: 40),
           ),
-          Padding(
+        ),
+        Positioned(
+          top: 14,
+          right: 14,
+          child: _FavoriteButton(item: item),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Container(
             padding: const EdgeInsets.all(18),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.transparent, Color(0xE6000000)],
+              ),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 21,
-                          fontWeight: FontWeight.w800,
-                          color: AppPalette.charcoal,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (isFeatured || isPromoted) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppPalette.ochre.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.local_fire_department_rounded,
-                              color: AppPalette.ochre,
-                              size: 14,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Featured',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: AppPalette.ochre,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    if (isVerified) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppPalette.deepBlue.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.verified_rounded,
-                              color: AppPalette.deepBlue,
-                              size: 14,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Verified',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: AppPalette.deepBlue,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 21,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     const Icon(Icons.star_rounded,
                         color: AppPalette.gold, size: 16),
                     const SizedBox(width: 4),
-                    Text(
-                      rating.toStringAsFixed(1),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: AppPalette.charcoal,
-                      ),
-                    ),
-                    Text(
-                      ' · $reviewCount reviews · $cuisine',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppPalette.mutedText,
-                      ),
-                    ),
+                    Text(rating.toStringAsFixed(1),
+                        style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white)),
+                    Text(' · $reviewCount reviews · $cuisine',
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white70)),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on_rounded,
-                        size: 14, color: AppPalette.mutedText),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        location.isNotEmpty ? location : suburb,
-                        style: const TextStyle(
+                if (location.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(location,
+                      style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: AppPalette.mutedText,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
+                          color: Colors.white70),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                ],
               ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -6393,7 +6450,6 @@ class _AutoRotatingCarousel extends StatefulWidget {
 }
 
 class _AutoRotatingCarouselState extends State<_AutoRotatingCarousel> {
-  late final PageController _pageController;
   Timer? _autoRotateTimer;
   Timer? _resumeTimer;
   int _currentPage = 0;
@@ -6401,7 +6457,6 @@ class _AutoRotatingCarouselState extends State<_AutoRotatingCarousel> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
     _startAutoRotate();
   }
 
@@ -6409,7 +6464,6 @@ class _AutoRotatingCarouselState extends State<_AutoRotatingCarousel> {
   void dispose() {
     _autoRotateTimer?.cancel();
     _resumeTimer?.cancel();
-    _pageController.dispose();
     super.dispose();
   }
 
@@ -6418,11 +6472,7 @@ class _AutoRotatingCarouselState extends State<_AutoRotatingCarousel> {
     _autoRotateTimer = Timer.periodic(widget.autoRotateInterval, (_) {
       if (!mounted || widget.items.length <= 1) return;
       final nextPage = (_currentPage + 1) % widget.items.length;
-      _pageController.animateToPage(
-        nextPage,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
+      setState(() => _currentPage = nextPage);
     });
   }
 
@@ -6436,11 +6486,7 @@ class _AutoRotatingCarouselState extends State<_AutoRotatingCarousel> {
 
   void _goToPage(int page) {
     _pauseAutoRotate();
-    _pageController.animateToPage(
-      page,
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeInOut,
-    );
+    setState(() => _currentPage = page);
   }
 
   @override
@@ -6485,20 +6531,13 @@ class _AutoRotatingCarouselState extends State<_AutoRotatingCarousel> {
                   children: [
                     AspectRatio(
                       aspectRatio: aspectRatio,
-                      child: PageView.builder(
-                        controller: _pageController,
-                        itemCount: widget.items.length,
-                        onPageChanged: (index) {
-                          setState(() => _currentPage = index);
-                        },
-                        itemBuilder: (context, index) {
-                          return GestureDetector(
-                            onTap: () => widget.onCardTap(widget.items[index]),
-                            onHorizontalDragStart: (_) => _pauseAutoRotate(),
-                            onHorizontalDragEnd: (_) => _pauseAutoRotate(),
-                            child: widget.cardBuilder(widget.items[index]),
-                          );
-                        },
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () =>
+                            widget.onCardTap(widget.items[_currentPage]),
+                        onPanStart: (_) => _pauseAutoRotate(),
+                        onPanEnd: (_) => _pauseAutoRotate(),
+                        child: widget.cardBuilder(widget.items[_currentPage]),
                       ),
                     ),
                     // Left arrow.

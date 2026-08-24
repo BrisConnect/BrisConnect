@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:brisconnect/theme/app_palette.dart';
 
 /// A network image that never shows a broken image.
@@ -31,12 +32,12 @@ class FallbackImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final url = (imageUrl ?? '').trim();
 
-    // The app previously seeded many Unsplash URLs that now return 404.
-    // Rather than attempt the network request and log a console error, show
-    // the placeholder immediately for empty or known-broken fallbacks.
-    if (url.isEmpty || _isKnownBrokenFallback(url)) {
+    // Empty or known-invalid values can skip the network request. Other URLs
+    // still get the error placeholder if the remote image cannot be loaded.
+    if (url.isEmpty) {
       return _wrap(_placeholder);
     }
+    final effectiveUrl = url;
 
     final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 1.0;
     final cacheWidth =
@@ -44,20 +45,28 @@ class FallbackImage extends StatelessWidget {
     final cacheHeight =
         height != null && height!.isFinite ? (height! * dpr).toInt() : null;
 
-    Widget image = CachedNetworkImage(
-      imageUrl: url,
-      width: width,
-      height: height,
-      fit: fit,
-      fadeInDuration: Duration.zero,
-      fadeOutDuration: Duration.zero,
-      memCacheWidth: cacheWidth,
-      memCacheHeight: cacheHeight,
-      maxWidthDiskCache: cacheWidth ?? 1200,
-      maxHeightDiskCache: cacheHeight ?? 1200,
-      placeholder: (_, __) => _loadingBox,
-      errorWidget: (_, __, ___) => _placeholder,
-    );
+    Widget image = kIsWeb
+        ? Image.network(
+            effectiveUrl,
+            width: width,
+            height: height,
+            fit: fit,
+            errorBuilder: (_, __, ___) => _placeholder,
+          )
+        : CachedNetworkImage(
+            imageUrl: effectiveUrl,
+            width: width,
+            height: height,
+            fit: fit,
+            fadeInDuration: Duration.zero,
+            fadeOutDuration: Duration.zero,
+            memCacheWidth: cacheWidth,
+            memCacheHeight: cacheHeight,
+            maxWidthDiskCache: cacheWidth ?? 1200,
+            maxHeightDiskCache: cacheHeight ?? 1200,
+            placeholder: (_, __) => _loadingBox,
+            errorWidget: (_, __, ___) => _placeholder,
+          );
 
     final effectiveFilter = colorFilter ?? _defaultColorFilter;
     if (effectiveFilter != null) {
@@ -99,14 +108,6 @@ class FallbackImage extends StatelessWidget {
       );
     }
     return child;
-  }
-
-  static bool _isKnownBrokenFallback(String url) {
-    // Old Unsplash placeholder domains/IDs seeded into Firestore that now 404.
-    if (url.contains('images.unsplash.com')) return true;
-    final lower = url.toLowerCase();
-    if (lower == 'null' || lower == 'none' || lower == 'n/a') return true;
-    return false;
   }
 
   Widget get _loadingBox => Container(

@@ -7,12 +7,14 @@ class BusinessReviewsWidget extends StatefulWidget {
   final String businessId;
   final double? currentAverageRating;
   final int? currentReviewCount;
+  final bool isGoogleListing;
 
   const BusinessReviewsWidget({
     super.key,
     required this.businessId,
     this.currentAverageRating,
     this.currentReviewCount,
+    this.isGoogleListing = false,
   });
 
   @override
@@ -124,77 +126,79 @@ class _BusinessReviewsWidgetState extends State<BusinessReviewsWidget> {
         ),
         const Divider(),
 
-        // Review Submission Form
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Write a Review',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              // Rating Slider
-              Row(
-                children: [
-                  const Text('Rating: '),
-                  Expanded(
-                    child: Slider(
-                      value: _selectedRating,
-                      onChanged: (value) => setState(() => _selectedRating = value),
-                      min: 1,
-                      max: 5,
-                      divisions: 4,
-                      label: _selectedRating.toStringAsFixed(1),
+        // Review Submission Form — hidden for Google Listings
+        if (!widget.isGoogleListing) ...[
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Write a Review',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
+                // Rating Slider
+                Row(
+                  children: [
+                    const Text('Rating: '),
+                    Expanded(
+                      child: Slider(
+                        value: _selectedRating,
+                        onChanged: (value) => setState(() => _selectedRating = value),
+                        min: 1,
+                        max: 5,
+                        divisions: 4,
+                        label: _selectedRating.toStringAsFixed(1),
+                      ),
+                    ),
+                    Text(_selectedRating.toStringAsFixed(1)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Buzz Rating Slider — hidden for Google Listings
+                Row(
+                  children: [
+                    const Text('Buzz: '),
+                    Expanded(
+                      child: Slider(
+                        value: _selectedBuzzRating,
+                        onChanged: (value) =>
+                            setState(() => _selectedBuzzRating = value),
+                        min: 0,
+                        max: 5,
+                        divisions: 5,
+                        label: _selectedBuzzRating.toStringAsFixed(1),
+                      ),
+                    ),
+                    Text(_selectedBuzzRating.toStringAsFixed(1)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Comment TextField
+                TextField(
+                  controller: _ratingController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    hintText: 'Share your experience...',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  Text(_selectedRating.toStringAsFixed(1)),
-                ],
-              ),
-              const SizedBox(height: 12),
-              // Buzz Rating Slider
-              Row(
-                children: [
-                  const Text('Buzz: '),
-                  Expanded(
-                    child: Slider(
-                      value: _selectedBuzzRating,
-                      onChanged: (value) =>
-                          setState(() => _selectedBuzzRating = value),
-                      min: 0,
-                      max: 5,
-                      divisions: 5,
-                      label: _selectedBuzzRating.toStringAsFixed(1),
-                    ),
-                  ),
-                  Text(_selectedBuzzRating.toStringAsFixed(1)),
-                ],
-              ),
-              const SizedBox(height: 12),
-              // Comment TextField
-              TextField(
-                controller: _ratingController,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: 'Share your experience...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _submitReview,
+                    child: const Text('Submit Review'),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _submitReview,
-                  child: const Text('Submit Review'),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        const Divider(),
+          const Divider(),
+        ],
 
         // Reviews List
         Padding(

@@ -100,10 +100,12 @@ void main() {
       final ref = fakeFirestore.collection('businesses').doc(id);
       await ref.set({
         'businessName': name,
+        'category': 'Restaurant',
         'description': 'A tasty spot',
         'address': 'Brisbane',
         'createdAt': Timestamp.fromDate(createdAt),
         'isActive': isActive,
+        'deletedAt': null,
         'isPinned': isPinned,
         'pinnedAt': pinnedAt != null ? Timestamp.fromDate(pinnedAt) : null,
         'isHighlighted': isHighlighted,

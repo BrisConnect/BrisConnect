@@ -446,6 +446,7 @@ class _FoodDetailLoader extends StatelessWidget {
           onlineOrderUrl: food.onlineOrderUrl ?? '',
           aiAudio: '',
           isGoogleListing: food.isGoogleListing,
+          sourceProvider: food.sourceProvider,
         );
       },
     );

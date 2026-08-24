@@ -462,7 +462,7 @@ class _HomeScreenState extends State<HomeScreen> {
       imageUrl: data['coverImageUrl'] ??
           data['logoUrl'] ??
           data['imageUrl'] ??
-          'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800',
+          '',
       name: data['businessName'] ?? data['name'] ?? 'Unknown Restaurant',
       rating: ((data['rating'] ?? data['averageRating']) ?? 4.0).toDouble(),
       cuisine: cuisine,

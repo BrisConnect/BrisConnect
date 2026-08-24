@@ -1,7 +1,7 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'package:brisconnect/theme/app_palette.dart';
+import 'package:brisconnect/widgets/fallback_image.dart';
 
 /// A large, visually prominent business card designed to be the hero of the
 /// home feed.
@@ -77,32 +77,12 @@ class BusinessCard extends StatelessWidget {
                       width: double.infinity,
                       child: LayoutBuilder(
                         builder: (context, constraints) {
-                          final dpr = MediaQuery.devicePixelRatioOf(context);
-                          final cacheWidth =
-                              (constraints.maxWidth * dpr).toInt();
-                          final cacheHeight =
-                              (constraints.maxHeight * dpr).toInt();
-                          return CachedNetworkImage(
+                          return FallbackImage(
                             imageUrl: imageUrl,
+                            width: constraints.maxWidth,
+                            height: constraints.maxHeight,
                             fit: BoxFit.cover,
-                            fadeInDuration: Duration.zero,
-                            fadeOutDuration: Duration.zero,
-                            memCacheWidth: cacheWidth,
-                            memCacheHeight: cacheHeight,
-                            maxWidthDiskCache: cacheWidth,
-                            maxHeightDiskCache: cacheHeight,
-                            placeholder: (_, __) => Container(
-                              color: AppPalette.surfaceAlt,
-                            ),
-                            errorWidget: (_, __, ___) => Container(
-                              color: AppPalette.surfaceAlt,
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                Icons.restaurant_rounded,
-                                color: AppPalette.mutedText,
-                                size: 40,
-                              ),
-                            ),
+                            category: cuisine,
                           );
                         },
                       ),

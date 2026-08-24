@@ -343,17 +343,10 @@ class _AdminCommunityFeedScreenState extends State<AdminCommunityFeedScreen> {
     }
   }
 
-  /// Aggregates reviews, photos, and business posts for the "All" view.
+  /// Returns every supported activity type for the "All" view.
   Stream<List<ActivityFeedItem>> _buildAllContentStream() {
     return _service.activityFeedStream(limit: 100).map(
-          (items) => _sortByPriorityThenDate(
-            items
-                .where((item) =>
-                    item.type == ActivityFeedType.review ||
-                    item.type == ActivityFeedType.photo ||
-                    item.type == ActivityFeedType.business)
-                .toList(),
-          ),
+          (items) => _sortByPriorityThenDate(items),
         );
   }
 
@@ -376,7 +369,6 @@ class _AdminCommunityFeedScreenState extends State<AdminCommunityFeedScreen> {
           item.isHighlighted) {
         matchesStatus = true;
       }
-
       return matchesStatus;
     }).toList();
   }

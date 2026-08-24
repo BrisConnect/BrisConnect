@@ -42,6 +42,7 @@ class FoodDetailScreen extends StatefulWidget {
     this.menu = const [],
     this.photoGallery = const [],
     this.isGoogleListing = false,
+    this.sourceProvider,
   });
 
   final String id;
@@ -68,6 +69,7 @@ class FoodDetailScreen extends StatefulWidget {
   final List<Map<String, dynamic>> menu;
   final List<String> photoGallery;
   final bool isGoogleListing;
+  final String? sourceProvider;
 
   @override
   State<FoodDetailScreen> createState() => _FoodDetailScreenState();
@@ -124,6 +126,8 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
   ContentShareService? get shareService => widget.shareService;
   List<Map<String, dynamic>> get menu => widget.menu;
   List<String> get photoGallery => widget.photoGallery;
+  bool get isExternalGoogleListing =>
+      widget.isGoogleListing || widget.sourceProvider == 'google_places';
 
   String _buildRichDescription(AppLocalizations l10n) {
     if (description.trim().length > 80 &&
@@ -297,7 +301,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
               _buildGallerySection(l10n),
               const SizedBox(height: 24),
             ],
-            if (menu.isNotEmpty) ...[
+            if (menu.isNotEmpty && !isExternalGoogleListing) ...[
               _buildMenuSection(l10n),
               const SizedBox(height: 24),
             ],
@@ -306,7 +310,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
               const SizedBox(height: 24),
             ],
             // Google Listing Badge
-            if (widget.isGoogleListing)
+            if (isExternalGoogleListing)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -334,12 +338,12 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
                 ),
               ),
             // Crowd Report - only for BrisConnect businesses
-            if (!widget.isGoogleListing) ...[
+            if (!isExternalGoogleListing) ...[
               _buildCrowdReportSection(),
               const SizedBox(height: 24),
             ],
             // Reviews - only for BrisConnect businesses
-            if (!widget.isGoogleListing)
+            if (!isExternalGoogleListing)
               _buildReviewsSection(),
           ];
 
@@ -494,7 +498,8 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
                       iconColor: AppPalette.ochre,
                       text: price!.trim(),
                     ),
-                  if (rating != null && rating! > 0)
+                  // Star rating hidden for Google Listings
+                  if (rating != null && rating! > 0 && !isExternalGoogleListing)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -689,6 +694,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
     return BusinessReviewsWidget(
       businessId: id,
       currentAverageRating: rating,
+      isGoogleListing: isExternalGoogleListing,
     );
   }
 }

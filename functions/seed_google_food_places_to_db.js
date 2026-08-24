@@ -143,6 +143,24 @@ function determinePriceRange(name) {
   return '$$';
 }
 
+function isFoodPlace(place) {
+  const foodTypes = new Set([
+    'bakery', 'bar', 'cafe', 'food', 'meal_delivery', 'meal_takeaway',
+    'restaurant',
+  ]);
+  return (place.types || []).some((type) => foodTypes.has(type));
+}
+
+function googlePhotoUrl(place) {
+  const photoReference = place.photos?.[0]?.photo_reference;
+  if (!photoReference) return '';
+  const url = new URL('https://maps.googleapis.com/maps/api/place/photo');
+  url.searchParams.set('photoreference', photoReference);
+  url.searchParams.set('maxwidth', '800');
+  url.searchParams.set('key', API_KEY);
+  return url.toString();
+}
+
 // Check if place is within Brisbane CBD area
 function isInBrisbaneCBD(lat, lng) {
   const R = 6371; // Earth's radius in km
@@ -165,6 +183,7 @@ function normalizePlaceData(place, index) {
 
   // Skip if no coordinates
   if (!lat || !lng) return null;
+  if (!isFoodPlace(place)) return null;
 
   // Skip if outside Brisbane CBD area
   if (!isInBrisbaneCBD(lat, lng)) return null;
@@ -189,7 +208,7 @@ function normalizePlaceData(place, index) {
     phone: place.formatted_phone_number || '',
     website: place.website || '',
     cuisineTypes,
-    imageUrl: 'https://images.unsplash.com/photo-1504674900967-965ba998e5e2?w=400&h=300&fit=crop', // Fallback image
+    imageUrl: googlePhotoUrl(place),
     coordinates: { latitude: lat, longitude: lng },
     rating: normalizedRating,
     reviewCount,
